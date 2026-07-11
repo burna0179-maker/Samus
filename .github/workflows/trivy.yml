@@ -48,7 +48,7 @@ jobs:
           exit-code: "0"
 
       - name: Upload filesystem SARIF
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: trivy-fs.sarif
@@ -72,7 +72,7 @@ jobs:
           exit-code: "0"
 
       - name: Upload config SARIF
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: trivy-config.sarif
