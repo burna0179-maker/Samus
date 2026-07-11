@@ -12,7 +12,7 @@ python-dotenv
 # S15 supply-chain pin: structlog exact-pinned so a silent major drift can't
 # change the log-record shape that the security audit trail depends on.
 # Pinned to the version installed + tested in the Samus venv.
-structlog==25.5.0
+structlog==26.1.0
 tenacity
 neo4j
 PyYAML
