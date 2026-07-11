@@ -2,7 +2,7 @@
 # Re-generate the lock with: pip-compile --output-file=requirements.lock requirements.txt
 fastapi
 uvicorn[standard]
-pydantic>=2
+pydantic>=2.13.4
 pydantic-settings>=2
 httpx
 boto3
