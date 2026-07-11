@@ -43,11 +43,9 @@ jobs:
         with:
           results_file: results.sarif
           results_format: sarif
-          # publish_results requires a public repo. Repo is currently
-          # PRIVATE — the badge cannot resolve and the publish step would
-          # error on the scorecard.dev API call. Flip back to true when
-          # the repo transitions to public.
-          publish_results: false
+          # Publishes the aggregated Scorecard grade to scorecard.dev so the
+          # README badge resolves. Requires a public repo (this one is).
+          publish_results: true
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
