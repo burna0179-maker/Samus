@@ -1,0 +1,21 @@
+# Override file arming the Samus cognition stack on the gateway.
+# 2026-06-24: operator-directed ACTIVE cadence + Phase G revenue-promotion path.
+#   - SAMUS_COGNITIVE_LOOP_ENABLED         : master switch
+#   - SAMUS_COGNITIVE_ACT_PROPOSALS_ENABLED: ACT writes proposals to state/cognition/proposals.jsonl
+#   - SAMUS_COGNITION_CADENCE_ENABLED      : autonomous tick (default True in code; explicit here)
+#   - SAMUS_COGNITION_CADENCE_INTERVAL_SECONDS / _JITTER_SECONDS: base 60s + 10s jitter
+#   - SAMUS_COGNITION_PROPOSAL_PROMOTION_ENABLED: Phase G kill-switch (default True in code; explicit here)
+# Delete this file (or set the relevant vars to "false") to disarm.
+services:
+  samus-gateway:
+    environment:
+      SAMUS_COGNITIVE_LOOP_ENABLED: "true"
+      SAMUS_COGNITIVE_ACT_PROPOSALS_ENABLED: "true"
+      SAMUS_COGNITION_CADENCE_ENABLED: "true"
+      SAMUS_COGNITION_CADENCE_INTERVAL_SECONDS: "60"
+      SAMUS_COGNITION_CADENCE_JITTER_SECONDS: "10"
+      SAMUS_COGNITION_PROPOSAL_PROMOTION_ENABLED: "true"
+      # Broker reserve read-timeout 1.5s -> 3.0s: Anita's broker does a KG write
+      # per reserve and occasionally exceeds the tight default under load, failing
+      # the cognition tick closed (broker_unreachable). 3s gives headroom.
+      SAMUS_BROKER_RESERVE_TIMEOUT_SEC: "3.0"

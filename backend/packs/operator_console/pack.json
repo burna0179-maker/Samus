@@ -1,0 +1,24 @@
+{
+  "pack_id": "operator_console",
+  "version": "1.0.0",
+  "description": "Operator-facing console for Samus -- Jinja2 shell + vanilla ES-module UI patterned (in shape only) on Sapphire v2.4.0, re-implemented from scratch. Surfaces workcell health, CRM pipeline, proposal status, peer agents, and a chat-style operator pane backed by a deterministic local_echo backend.",
+  "requires_standard": ["chat", "persona"],
+  "requires_packs": [],
+  "provides_routes": [
+    "/console",
+    "/console/static/{path}",
+    "/api/console/state",
+    "/api/console/personas",
+    "/api/console/personas/{persona_id}",
+    "/api/console/presets",
+    "/api/console/presets/{preset_id}",
+    "/api/console/pieces",
+    "/api/console/chats",
+    "/api/console/chats/{chat_id}",
+    "/api/console/chats/{chat_id}/messages",
+    "/api/console/chats/{chat_id}/assemble",
+    "/api/console/chats/{chat_id}/respond"
+  ],
+  "provides_pods": ["operator_console", "operator_console_history"],
+  "module_path": "backend.packs.operator_console"
+}

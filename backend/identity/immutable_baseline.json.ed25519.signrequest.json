@@ -1,0 +1,12 @@
+{
+  "what": "operator-Ed25519 signature over Samus baseline",
+  "artifact_path": "D:\\Hustleforge\\Samus\\backend\\identity\\immutable_baseline.json",
+  "payload": {
+    "purpose": "samus_immutable_baseline",
+    "baseline_sha256": "143e0017851a9740fca20aeff8e6849d1f1fadcb1dc8b298ec3c7f3570c5e020"
+  },
+  "signed_at_ts": 1783557563.8181899,
+  "key_id": "operator_root",
+  "signing_bytes_hex": "7b226b65795f6964223a226f70657261746f725f726f6f74222c227061796c6f6164223a7b22626173656c696e655f736861323536223a2231343365303031373835316139373430666361323061656666386536383439643166316661646362316463386232393865633363376633353730633565303230222c22707572706f7365223a2273616d75735f696d6d757461626c655f626173656c696e65227d2c227369676e65645f61745f7473223a313738333535373536332e383138313839397d",
+  "instructions": "On the operator break-glass box, sign signing_bytes_hex with the operator root Ed25519 key, then re-run with --yes --signature-hex <sig> --signed-at 1783557563.8181899."
+}

@@ -1,0 +1,89 @@
+# Samus dependencies — installed into each workcell's container image.
+# Re-generate the lock with: pip-compile --output-file=requirements.lock requirements.txt
+fastapi
+uvicorn[standard]
+pydantic>=2
+pydantic-settings>=2
+httpx
+boto3
+botocore
+prometheus-client
+python-dotenv
+# S15 supply-chain pin: structlog exact-pinned so a silent major drift can't
+# change the log-record shape that the security audit trail depends on.
+# Pinned to the version installed + tested in the Samus venv.
+structlog==25.5.0
+tenacity
+neo4j
+PyYAML
+# S15 supply-chain pin: cryptography exact-pinned — a silent major drift could
+# change Ed25519/HKDF/HMAC behaviour on the audit-ledger + inter-agent envelope
+# signing paths. Pinned to the version installed + tested in the Samus venv
+# (48.0.0); intentionally NOT downgraded to Major's 45.0.7 — Samus's stack
+# tests against 48.x, and pinning to a tested-older crypto would be a
+# regression, not a hardening.
+cryptography==48.0.0
+# HTML parser for SEO audit enrichment (backend.seo.audit). Previously an
+# optional dep with a regex fallback; promoted to required when the
+# enrichment surface added structural extractors (alt-text coverage, link
+# graph) that the regex path cannot meaningfully cover.
+beautifulsoup4
+# IANA tz database. Required for zoneinfo on Windows (which doesn't ship one)
+# and on slim Linux base images where /usr/share/zoneinfo isn't installed.
+# Used by backend.common.us_timezones for per-prospect TCPA-hours gating.
+tzdata
+# Embedded ngrok tunnel for the voice workcell (Vapi webhook ingress). The
+# voice workcell opens its own tunnel at startup and auto-PATCHes the Vapi
+# assistant's serverUrl with the freshly-issued URL, so a fresh stack-up
+# requires no operator paste.
+ngrok
+# YouTube transcript fetcher for the intake youtube_ingest pipeline. Pure
+# Python wrapper around YouTube's auto-caption endpoint -- no API key needed.
+# Returns the captions verbatim when available; raises TranscriptsDisabled /
+# NoTranscriptFound on videos where the channel disabled captions (those get
+# logged as 'no_transcript' and written as KB stubs for operator review).
+youtube-transcript-api
+
+# operator_console pack (Jinja2 SPA shell). S15 supply-chain pin: exact-pinned
+# so an autoescape / sandbox-escape regression can't slip in via a floating
+# range on the operator-facing template surface. 3.1.6 satisfies the prior
+# >=3.1.4 floor and matches the version other agents pin to.
+jinja2==3.1.6
+# DNS resolver for the SEO passive security audit (backend.seo.security_audit).
+# Used to inspect SPF / DMARC / DKIM / CAA records for the customer-facing
+# "Security & Trust Posture" report section. Also opportunistically used by
+# backend.signal_filter for best-effort MX lookups. The security audit
+# degrades to a single "DNS unavailable" finding if this import fails, but it
+# is a required dependency so the email-authentication checks actually run.
+dnspython
+# Firestore client for the pluggable append-ledger backend (W-1). Exercised
+# only when SAMUS_LEDGER_BACKEND=firestore (the GCP Cloud Run posture) — the
+# Stripe webhook idempotency log + the upsell nurture queue persist to
+# Firestore collections there, since Cloud Run's container filesystem is
+# ephemeral + per-instance. The default SAMUS_LEDGER_BACKEND=jsonl (local /
+# HustleForge-VM) never needs it; backend/common/firestore_ledger.py imports
+# it lazily so a jsonl deployment runs without the package installed.
+google-cloud-firestore
+# ChromaDB vector layer (backend/memory/vector_store.py, Phase-3 S8). OPTIONAL
+# / lazy: the module never imports chromadb at top-level and the layer is
+# default-OFF (SAMUS_VECTOR_STORE_ENABLED). It is listed here so that arming the
+# vector store installs a known-good backend; a deployment that leaves the flag
+# OFF runs fine without the package (the import is guarded and fails closed).
+chromadb
+# HTTP/2 transport for httpx (the `httpx[http2]` extra). Outbound third-party
+# site crawls — the prospecting crawler + the SEO audit fetchers — negotiate
+# HTTP/2 like a real browser, which clears some protocol-fingerprinting WAFs
+# that 4xx a plain HTTP/1.1 request. Detected opportunistically in
+# backend/common/safe_fetch.py (HTTP2_AVAILABLE); absent the package the
+# fetchers transparently fall back to HTTP/1.1, so this is a soft dependency.
+h2
+# Social reel engine (backend/social/video/). OPTIONAL / lazy, like chromadb:
+# both packages are imported INSIDE the functions that need them and the whole
+# capability is default-OFF (SAMUS_SOCIAL_REEL_ENABLED). Listed here so arming
+# reels installs known-good backends; a deployment that leaves the flag OFF runs
+# fine without them (the imports are guarded and fail closed).
+#   - edge-tts: free Microsoft neural-voice TTS for the voiceover (no API key).
+#   - moviepy>=2: video composition (pulls Pillow; needs the ffmpeg binary at
+#     RUNTIME only — installing the wheel does not install ffmpeg).
+edge-tts
+moviepy>=2

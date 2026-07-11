@@ -1,0 +1,33 @@
+# actions.yaml — time-critical action calendar.
+#
+# Operator-curated. Each entry is one outstanding action the operator
+# committed to take, with a deadline. The finance workcell aggregates
+# these into "due today / due this week / overdue" buckets and surfaces
+# the count in /snapshot. Mark `status: done` when complete; the entry
+# stays in the file as a record but stops counting toward the buckets.
+#
+# Copy to actions.yaml (gitignored) and populate from your debt-remediation
+# schedule.
+#
+# Schema reference: backend/finance/models.py :: ActionItem
+
+actions:
+  - id: A001
+    debt_id: DBT-EXAMPLE-001       # optional — null for non-debt actions
+    when: TODAY                    # TODAY | THIS_WEEK | <ISO date>
+    due_date: 2026-05-15
+    action: "Pay or call court — final notice window expires today."
+    where: "court website OR 530-000-0000"
+    status: open                   # open | done | deferred
+    completed_date: null
+    completed_note: ""
+
+  - id: A002
+    debt_id: null
+    when: THIS_WEEK
+    due_date: 2026-05-20
+    action: "Call HUD-approved housing counselor for free foreclosure advocacy."
+    where: "1-800-569-4287"
+    status: open
+    completed_date: null
+    completed_note: ""

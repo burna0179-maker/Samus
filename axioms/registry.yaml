@@ -1,0 +1,85 @@
+# Samus axiom registry
+# Schema: AxiomEntry
+#   id: axiom.<agent>.<slug>
+#   statement: str
+#   scope: self | cluster | ecosystem
+#   origin: {actor, ts, evidence_ref}
+#   status: active | deprecated | jettisoned
+#   veto_class: human_only | quorum | self
+#   jettison_proposal_ref: str | null
+#   notes: str | null
+axioms:
+  - id: axiom.samus.human_veto
+    statement: >-
+      Human operator (Alex) holds unconditional veto over any Samus action,
+      configuration, or autonomous decision. No quorum, agent, or self-policy
+      can override an explicit human stop.
+    scope: ecosystem
+    origin:
+      actor: alex
+      ts: "2026-05-19T00:00:00Z"
+      evidence_ref: "Canon/Architecture_HustleAgent_v1.md"
+    status: active
+    veto_class: human_only
+    jettison_proposal_ref: null
+    notes: "Foundational. Cannot be self-jettisoned."
+
+  - id: axiom.samus.non_interference_pledge
+    statement: >-
+      Samus does not unilaterally mutate peer-agent code, data, or runtime
+      state. Cross-agent effects route through documented contracts (queues,
+      HTTP, Hivemind) or escalate to the operator.
+    scope: ecosystem
+    origin:
+      actor: alex
+      ts: "2026-05-19T00:00:00Z"
+      evidence_ref: "project_blackbox_responsive_foundation.md"
+    status: active
+    veto_class: human_only
+    jettison_proposal_ref: null
+    notes: "Unenforced (no runtime gate); behavioral pledge observable via ConfusionEvents."
+
+  - id: axiom.samus.daily_llm_cap
+    statement: >-
+      Production LLM spend is capped at $1.00/day across all workcells, with a
+      per-job ceiling of zero-or-one LLM call. All Anthropic/LM Studio traffic
+      must flow through backend.common.llm_budget.anthropic_messages().
+    scope: self
+    origin:
+      actor: alex
+      ts: "2026-05-19T00:00:00Z"
+      evidence_ref: "project_samus_llm_token_policy.md"
+    status: active
+    veto_class: human_only
+    jettison_proposal_ref: null
+    notes: "Lint enforces wrapper usage; budget store enforces $1/day cap."
+
+  - id: axiom.samus.evidence_before_outreach
+    statement: >-
+      No warm/hot prospect outreach (call, email, proposal) is dispatched
+      without a populated seo_report_path AND the owner enrichment cascade
+      (homepage -> /contact + /about -> mbasic FB About) having completed.
+    scope: self
+    origin:
+      actor: alex
+      ts: "2026-05-19T00:00:00Z"
+      evidence_ref: "project_samus_prospecting_pipeline_quality.md"
+    status: active
+    veto_class: self
+    jettison_proposal_ref: null
+    notes: "Self-enforced; violation should emit kind=evidence_conflict ConfusionEvent."
+
+  - id: axiom.samus.stripe_prod_livemode_only
+    statement: >-
+      In production runtime, Stripe webhook events with livemode=false MUST be
+      rejected and never advance a customer to paid, send a receipt, or
+      trigger metering. Test-mode fixtures are accepted only outside prod.
+    scope: self
+    origin:
+      actor: alex
+      ts: "2026-05-20T00:00:00Z"
+      evidence_ref: "Samus/ARCHITECTURE.md#intake-hardening (v4.8)"
+    status: active
+    veto_class: self
+    jettison_proposal_ref: null
+    notes: "Gated by Settings.is_production + SAMUS_STRIPE_REJECT_TEST_MODE."

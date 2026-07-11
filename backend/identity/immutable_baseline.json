@@ -1,0 +1,16 @@
+{
+  "hashes": {
+    "backend/common/audit_ledger.py": "6ff47d3440c2fa7b7b265eaa2202e8e2dfe1195210a2078991c04e47ffd52efe",
+    "backend/common/capabilities.py": "fbe590b80f4d627acae501d4ae33c2cab051558f788b1751b53c74e801990fd4",
+    "backend/common/middleware.py": "91a9eaece740484a6224aa98f6d76c819d7de3b291fe89249c3af4ad2661404f",
+    "backend/common/queue_signing.py": "bd81f7e806f81c3f4b0b251a89f5e1ad4cd3f95363d66ce517e7177fb3b4abbf",
+    "backend/common/security.py": "e38161285860e100564759c8b1350c887654a32ad2f7c63977a7251c451200cb",
+    "backend/identity/autonomy_layer.py": "ecb873b044e180aef249c14990bc341972e113a7cadb2488573b863915a043f9",
+    "backend/identity/baseline_signature.py": "36b205a6cab7762cb467cf50c30c9815a2199782c8d028c6d5f9916a126c745f",
+    "backend/identity/charter.json": "ce6c904273b6d1b5eec3b06e47862d77b296e0c23c01d361bd25fdfbc32a28e1",
+    "backend/identity/charter.py": "509a30978ac8bfc769458a2241c0b2fec9d8fb96f0fbec34eb8f72de11ea63ae",
+    "backend/identity/charter_signature.py": "866d67cc6d197e5bbb086f2ecdfc979b9ab21729ff5d2eb3adf2755755575135",
+    "backend/identity/immutable_manifest.py": "646364c82023336e462b01069074c2c1eba27f7082cd4df0c6715bc92a1d741e",
+    "backend/identity/shared_bootstrap.py": "e6e22c0e24ff7079de5b1f515fdc3821d9060d0d2897b7f0a0c95305af8de373"
+  }
+}

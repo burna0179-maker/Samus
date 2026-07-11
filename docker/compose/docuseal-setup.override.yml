@@ -1,0 +1,20 @@
+# TEMPORARY — first-run DocuSeal admin / template / API-token setup ONLY.
+#
+# The base samus-docuseal service is internal-only by design (no host port).
+# This override publishes the UI on http://localhost:3000 just long enough to
+# create the admin account, build the service-agreement template, and copy the
+# API token. Bring up with BOTH files:
+#
+#   cd D:\Hustleforge\Samus\docker\compose
+#   $env:NGROK_AUTHTOKEN = "unused-docuseal-only"   # satisfies compose; ngrok not started
+#   docker compose -f docker-compose.samus.yml -f docuseal-setup.override.yml `
+#       up -d samus-docuseal-db samus-docuseal
+#
+# After setup, stop and re-up WITHOUT this override so DocuSeal is internal-only:
+#   docker compose -f docker-compose.samus.yml up -d samus-docuseal-db samus-docuseal
+#
+# Bound to 127.0.0.1 so the UI is never exposed beyond this host during setup.
+services:
+  samus-docuseal:
+    ports:
+      - "127.0.0.1:3000:3000"

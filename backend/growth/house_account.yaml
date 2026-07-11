@@ -1,0 +1,107 @@
+# Hustleforge — Client Zero Brand Brain
+# ======================================
+# The ONE canonical store of the marketing inputs the audit found scattered
+# across the codebase (catalog descriptions, product-pack READMEs, social
+# calendar, proposals). Every content / SEO / social / website surface that
+# operates on the house account pulls its "right inputs" from here.
+#
+# Loaded by backend/growth/house_account.py::load_brand_profile() into a typed
+# BrandProfile. Edit here, then the weekly house_growth_tick uses it. Keep the
+# offer_ladder in sync with backend/catalog/registry.py (the live Stripe SKUs).
+#
+# NOT a place for secrets, EIN, or credentials — brand/marketing facts only.
+
+account_id: hustleforge
+display_name: HustleForge
+domain: https://www.hustleforge.tech
+wordpress_site: hustleforge.tech
+revenue_goal_monthly_usd: 50000
+
+positioning: >
+  Local-first, operator-configurable AI operations for small and local
+  businesses. HustleForge is the "AI Ops Partner": it builds, runs, and
+  continuously improves the workflows a small business depends on — with
+  upfront, transparent pricing and no long-term lock-in. The wedge is a
+  fast, concrete first win (a workflow rescued, a site fixed, an SEO audit)
+  that ascends into a managed monthly operations engine.
+
+origin_story: >
+  HustleForge is a solo-operator company that runs its own business on the
+  same AI operations stack it sells. Everything offered to a client is first
+  proven in-house on HustleForge itself (Client Zero) — so every capability
+  ships battle-tested, and every improvement to our own web and media presence
+  becomes a live, dated case study.
+
+icp: >
+  Owner-operators of small and local service businesses (trades, clinics,
+  agencies, local retail, professional services) who either have no web
+  presence / a broken or outdated site, or run on fragmented manual workflows
+  (spreadsheets, copy-paste, missed follow-ups). They value time saved and
+  transparent pricing over enterprise polish, and want a partner who executes,
+  not another tool to learn.
+
+brand_voice: >
+  Blunt, transparent, operator-grade. Cause-and-effect language; verbs paired
+  with nouns. No hype, no fluff, no metaphors beyond industry-standard ones.
+  Show the work and the price. Confidence without exaggeration; proof over
+  adjectives. Founder-led and build-in-public in tone.
+
+content_pillars:
+  - Workflow automation for small business (rescue stories, before/after)
+  - AI operations — the "AI Ops Partner" model (what a managed ops engine does)
+  - Local SEO and web presence (audits, fixes, ranking wins)
+  - Transparent, upfront pricing (anti-agency, no-surprises positioning)
+  - Build-in-public / Client Zero (dogfooding our own stack, real metrics)
+  - Practical AI for operators (receptionist, follow-up, lead qualification)
+
+target_keywords:
+  - AI ops partner
+  - small business workflow automation
+  - business automation consultant
+  - local SEO audit
+  - business website build for small business
+  - AI digital receptionist
+  - workflow automation rescue
+  - small business operations system
+  - Zapier / Make / n8n automation help
+  - lead qualification workflow
+
+channels:
+  - website          # https://www.hustleforge.tech
+  - wordpress_blog   # hustleforge.tech (common/wordpress_client.py)
+  - instagram        # social/adapters.py (INSTAGRAM_BUSINESS_ACCOUNT_ID)
+  - facebook
+  - tiktok           # backend/tiktok
+  - email            # SendGrid (morning brief + outreach)
+
+# Value ladder — mirrors the live Stripe SKUs in backend/catalog/registry.py.
+# role: tripwire (low-friction first win) | core (one-time build) | ascension (MRR).
+offer_ladder:
+  - name: SEO Audit
+    price_usd: 149
+    recurring: false
+    role: tripwire
+  - name: 48-Hour Workflow Rescue
+    price_usd: 500
+    recurring: false
+    role: tripwire
+  - name: Workflow System Buildout
+    price_usd: 2500
+    recurring: false
+    role: core
+  - name: AI Ops Partner — Build
+    price_usd: 3500
+    recurring: false
+    role: core
+  - name: AI Ops Partner
+    price_usd: 2000
+    recurring: true
+    role: ascension
+  - name: AI Ops Partner — Premium
+    price_usd: 5000
+    recurring: true
+    role: ascension
+  - name: SEO Optimization
+    price_usd: 300
+    recurring: true
+    role: ascension

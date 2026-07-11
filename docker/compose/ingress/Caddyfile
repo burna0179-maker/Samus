@@ -1,0 +1,71 @@
+# samus-ingress — single public-webhook front door (2026-07-03).
+#
+# WHY THIS EXISTS: the ngrok free plan pools multiple tunnels onto the one
+# account domain. With finance and voice as separate tunnels, BOTH claimed
+# millard-unruffable-reginia.ngrok-free.dev and ngrok load-balanced between
+# them — so a Stripe webhook could land on samus-voice (404) and a Vapi
+# end-of-call report on samus-finance (401 hmac_headers_missing), each a
+# silent coin-flip drop. One tunnel -> this proxy -> deterministic path
+# routing fixes delivery AND removes the rotating voice URL entirely
+# (Sync-VoiceWebhook.ps1 re-pointing is no longer needed; Morgan's
+# server.url stays pinned to the stable domain).
+#
+# SECURITY: this proxy does NO authentication on purpose — it forwards to
+# services that each enforce their own signature verification (Stripe
+# webhook signature in finance, X-Vapi-Signature in voice). Only the two
+# webhook paths are routed; everything else is a hard 404, so the public
+# surface is narrower than either tunnel was before.
+
+{
+	admin off
+	auto_https off
+}
+
+:80 {
+	@stripe path /stripe_webhook /stripe_webhook/*
+	handle @stripe {
+		reverse_proxy samus-finance:8080
+	}
+
+	@vapi path /vapi/webhook /vapi/webhook/*
+	handle @vapi {
+		reverse_proxy samus-voice:8080
+	}
+
+	# CAN-SPAM one-click opt-out (public BY DESIGN; rate-limited + HMAC-exempt
+	# in the outreach workcell). Added 2026-07-03 — the footer URL had pointed
+	# at a route no service served, so every prior opt-out link 404'd.
+	@unsub path /unsubscribe /unsubscribe/*
+	handle @unsub {
+		reverse_proxy samus-outreach:8080
+	}
+
+	handle /health {
+		header Content-Type application/json
+		respond `{"status":"ok","service":"ingress"}` 200
+	}
+
+	# DocuSeal contract signing — public by design (customers sign via link).
+	# Admin/API paths are blocked; the signing UI + its assets pass through.
+	@docuseal_blocked path /admin* /api* /settings* /templates* /users* /account*
+	handle @docuseal_blocked {
+		respond 404
+	}
+
+	# /disk/* and /blobs/* are Rails ActiveStorage — the document page images
+	# the signer's browser fetches. /preview* is the social meta image. Without
+	# these the signing form renders with broken images. X-Forwarded-Proto https
+	# is REQUIRED: ngrok terminates TLS and hands Caddy http, so Caddy would
+	# otherwise tell DocuSeal the scheme is http and DocuSeal would emit http://
+	# blob URLs — blocked as mixed content on the https signing page.
+	@docuseal path /s/* /submit_form* /packs/* /assets/* /disk/* /blobs/* /preview* /favicon* /apple-icon* /d/* /e/* /cable
+	handle @docuseal {
+		reverse_proxy samus-docuseal:3000 {
+			header_up X-Forwarded-Proto https
+		}
+	}
+
+	handle {
+		respond 404
+	}
+}

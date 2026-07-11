@@ -1,0 +1,101 @@
+# debts.yaml — structured creditor debt portfolio.
+#
+# This file is the operator's canonical record of all structured debts.
+# Distinct from liabilities.yaml (P2P loans owed to friends/family) — this
+# file tracks creditors who can take legal action: mortgage servicers,
+# courts, utilities, credit cards, attorneys, municipal lien-holders.
+#
+# Copy this template to `debts.yaml` (same directory) and populate. The
+# real file is gitignored — see .gitignore. Schema here mirrors a single
+# fully-worked example using fictional data.
+#
+# Schema reference: backend/finance/models.py :: Debt
+#
+# Tier definitions:
+#   1 = legal exposure        (foreclosure, court order, warrant risk)
+#   2 = essential utilities   (shutoff or municipal-lien risk)
+#   3 = unsecured credit      (credit cards, attorney bills, medical, etc.)
+
+debts:
+  - id: DBT-EXAMPLE-001
+    creditor: "Example Mortgage Servicer LLC"
+    type: mortgage   # mortgage | court | utility | credit_card | professional_services | sewer | other
+    status: "Past due 90+ days"
+    tier: 1
+    balance_usd: 12345.67
+    balance_unknown: false
+    balance_note: "Reinstatement quote as of 2026-04-16; grows daily"
+    account_number: "XXXXXXX0000"
+    account_holders: ["Example Borrower"]
+    secured_asset: "Property address goes here"
+    interest_rate_pct: 6.5
+    contact:
+      customer_service_phone: "1-800-000-0000"
+      collections_phone: "1-800-000-0000"
+      mail_general: "Servicer, Attn: Customer Service, P.O. Box ..., City, ST 00000"
+      mail_qwr: "Servicer, Attn: Office of the Customer, P.O. Box ..."
+      web: "https://example-servicer.com"
+      regulator: "California Department of Financial Protection and Innovation (DFPI)"
+    resolution_paths:
+      - label: "Loss mitigation: forbearance + modification"
+        recommended: true
+        cost_term: "Negotiated based on hardship documentation"
+        notes: |
+          Call collections, formally request a loss-mit packet, submit with
+          hardship evidence (CalFresh approval, low-income documentation).
+      - label: "Full reinstatement"
+        recommended: false
+        cost_term: "Approximate balance, grows daily"
+        notes: "Wire/certified funds only; request written quote good through funding date."
+    key_dates:
+      - event: "Statement / quote as-of date"
+        date: 2026-04-16
+        detail: ""
+      - event: "Late fee assessment"
+        date: 2026-05-16
+        detail: "$89.37"
+    consequences:
+      - "Lien recorded against property"
+      - "Wage garnishment"
+      - "Trustee sale (CA non-judicial: NOD -> 3-month cure -> NOS 21 days -> sale)"
+    strategic_notes: |
+      Long-form notes about the strategic posture for this debt. Multi-line
+      strings work via the `|` YAML block scalar. Reference other DBT-IDs by
+      bare string ("DBT-002") when items are linked.
+    supporting_documents:
+      - "Annual Escrow Account Disclosure (date)"
+      - "Supplemental Tax letter (date)"
+
+  # Entries with unknown amounts use balance_unknown=true; the optional
+  # balance_note can describe what's known and how to verify.
+  - id: DBT-EXAMPLE-002
+    creditor: "Example Credit Union"
+    type: credit_card
+    status: "Closed; in collections"
+    tier: 3
+    balance_usd: null
+    balance_unknown: true
+    balance_note: "Closure at $307 in 9/2025 + 8 months of accruing interest; verify."
+    account_number: "Card ending 0000"
+    account_holders: ["Example Borrower"]
+    secured_asset: null
+    interest_rate_pct: null
+    contact:
+      customer_service_phone: null
+      collections_phone: "1-800-000-0000"
+      mail_general: "CU, P.O. Box ..., City, ST 00000"
+      mail_qwr: null
+      web: "https://example-cu.org"
+      regulator: null
+    resolution_paths:
+      - label: "Request current full balance statement"
+        recommended: true
+        cost_term: "Free"
+        notes: "Need the number before negotiating settlement or repayment."
+    key_dates:
+      - event: "Account closed"
+        date: 2025-09-05
+        detail: "$307.38 past due at closure"
+    consequences: []
+    strategic_notes: ""
+    supporting_documents: []

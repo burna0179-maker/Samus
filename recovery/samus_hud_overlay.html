@@ -1,0 +1,151 @@
+<!doctype html>
+<!--
+  Samus HUD Overlay — OBS browser-source compatible
+  Source: ChatGPT recovery chat 33
+
+  Canonical relationship:
+    [EXPANDS §6 application] operator-facing comms overlay
+    Reads samus_status.json (see offline_voice_hud_stack.md for contract)
+
+  Variant B banner selected: "LET'S WRAP // SAMUS → CHAT"
+-->
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Samus Comms HUD</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600&family=Rajdhani:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --hud: rgba(130, 255, 220, 0.9);
+      --hud2: rgba(130, 255, 220, 0.25);
+      --panel: rgba(0, 10, 12, 0.55);
+      --panel2: rgba(0, 10, 12, 0.30);
+    }
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: transparent; overflow: hidden; }
+    .fx::before {
+      content: ""; position: fixed; inset: 0; pointer-events: none;
+      background: repeating-linear-gradient(to bottom, rgba(255,255,255,0.02) 0px,
+                  rgba(255,255,255,0.02) 1px, rgba(0,0,0,0) 3px, rgba(0,0,0,0) 6px);
+      mix-blend-mode: screen; opacity: 0.18;
+    }
+    .hud { position: fixed; inset: 0; font-family: Rajdhani, sans-serif; color: var(--hud); }
+    .banner {
+      position: absolute; top: 24px; left: 24px;
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 14px;
+      background: linear-gradient(90deg, var(--panel), var(--panel2));
+      border: 1px solid var(--hud2); border-radius: 10px;
+      backdrop-filter: blur(4px);
+      box-shadow: 0 0 18px rgba(130,255,220,0.10);
+    }
+    .badge { width: 10px; height: 10px; border-radius: 99px; background: var(--hud);
+             box-shadow: 0 0 12px rgba(130,255,220,0.7); }
+    .title { font-family: Orbitron, sans-serif; font-weight: 600; letter-spacing: 0.14em;
+             font-size: 16px; text-transform: uppercase; }
+    .subtitle { font-size: 12px; opacity: 0.85; margin-top: 2px; letter-spacing: 0.08em; }
+    .comms { position: absolute; left: 24px; bottom: 24px; width: 320px; padding: 12px 14px;
+             background: linear-gradient(90deg, var(--panel), var(--panel2));
+             border: 1px solid var(--hud2); border-radius: 10px; backdrop-filter: blur(4px); }
+    .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 6px 0; }
+    .label { font-family: Orbitron, sans-serif; font-size: 11px; letter-spacing: 0.16em;
+             opacity: 0.9; text-transform: uppercase; }
+    .meter { flex: 1; height: 8px; background: rgba(130,255,220,0.10);
+             border: 1px solid rgba(130,255,220,0.20); border-radius: 99px; overflow: hidden; margin-left: 10px; }
+    .fill { height: 100%; width: 20%; background: rgba(130,255,220,0.9);
+            box-shadow: 0 0 18px rgba(130,255,220,0.25); border-radius: 99px;
+            transition: width 120ms linear; }
+    .tx { display: flex; align-items: center; gap: 8px; font-family: Orbitron, sans-serif;
+          font-size: 11px; letter-spacing: 0.16em; }
+    .pill { padding: 4px 8px; border: 1px solid rgba(130,255,220,0.25); border-radius: 99px;
+            background: rgba(0,10,12,0.35); opacity: 0.9; }
+    .pill.live { border-color: rgba(130,255,220,0.6); box-shadow: 0 0 16px rgba(130,255,220,0.18); }
+    .chat { position: absolute; right: 24px; bottom: 24px; width: 420px; max-height: 420px;
+            display: flex; flex-direction: column; gap: 10px; }
+    .chatHeader { padding: 10px 12px; background: linear-gradient(90deg, var(--panel), var(--panel2));
+                  border: 1px solid var(--hud2); border-radius: 10px;
+                  font-family: Orbitron, sans-serif; font-size: 12px; letter-spacing: 0.18em;
+                  text-transform: uppercase; display: flex; align-items: center; justify-content: space-between; }
+    .chatList { padding: 12px; background: linear-gradient(90deg, rgba(0,10,12,0.55), rgba(0,10,12,0.25));
+                border: 1px solid var(--hud2); border-radius: 10px; backdrop-filter: blur(4px);
+                display: flex; flex-direction: column; gap: 10px; }
+    .msg { display: flex; gap: 10px; align-items: flex-start;
+           border-left: 2px solid rgba(130,255,220,0.35); padding-left: 10px; }
+    .name { font-weight: 600; min-width: 80px; max-width: 120px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .text { opacity: 0.92; line-height: 1.15; word-break: break-word; }
+    .corner { position: absolute; width: 34px; height: 34px;
+              border: 1px solid rgba(130,255,220,0.35); opacity: 0.85; }
+    .tl { top: 18px; left: 18px; border-right: none; border-bottom: none; border-radius: 10px 0 0 0; }
+    .br { bottom: 18px; right: 18px; border-left: none; border-top: none; border-radius: 0 0 10px 0; }
+  </style>
+</head>
+<body class="fx">
+  <div class="hud">
+    <div class="corner tl"></div>
+    <div class="corner br"></div>
+
+    <div class="banner">
+      <div class="badge" id="statusDot"></div>
+      <div>
+        <div class="title" id="bannerText">LET'S WRAP // SAMUS &rarr; CHAT</div>
+        <div class="subtitle" id="bannerSub">COMMS ONLINE &bull; CHANNEL OPEN</div>
+      </div>
+    </div>
+
+    <div class="comms">
+      <div class="row">
+        <div class="label">MIC LEVEL</div>
+        <div class="meter"><div class="fill" id="micFill"></div></div>
+      </div>
+      <div class="row">
+        <div class="tx">
+          <span class="pill" id="rxPill">RX</span>
+          <span class="pill" id="txPill">TX</span>
+        </div>
+        <div class="label" id="linkState">LINK: STABLE</div>
+      </div>
+    </div>
+
+    <div class="chat">
+      <div class="chatHeader"><span>CHAT COMMS</span><span id="viewerCount">LIVE</span></div>
+      <div class="chatList" id="chatList"></div>
+    </div>
+  </div>
+
+  <script>
+    const chatList = document.getElementById("chatList");
+    function addMsg({name, text}) {
+      const el = document.createElement("div");
+      el.className = "msg";
+      el.innerHTML = `<div class="name">${escapeHtml(name)}</div><div class="text">${escapeHtml(text)}</div>`;
+      chatList.appendChild(el);
+      while (chatList.children.length > 8) chatList.removeChild(chatList.firstChild);
+    }
+    function escapeHtml(s) {
+      return (s ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+    // Status poll from samus_status.json (Python bridge writes this).
+    // Polls every 500ms. Replace with WebSocket for lower latency if needed.
+    setInterval(async () => {
+      try {
+        const r = await fetch("samus_status.json?_=" + Date.now());
+        const d = await r.json();
+        if (d.state) document.getElementById("bannerSub").textContent = d.state;
+        if (d.reply && d.reply !== window.__lastReply) {
+          addMsg({name: "Samus", text: d.reply});
+          window.__lastReply = d.reply;
+        }
+        if (d.user_text && d.user_text !== window.__lastUser) {
+          addMsg({name: "Operator", text: d.user_text});
+          window.__lastUser = d.user_text;
+        }
+        document.getElementById("micFill").style.width = ((d.mic_level || 0) * 100).toFixed(0) + "%";
+        document.getElementById("txPill").classList.toggle("live", !!d.tx_active);
+        document.getElementById("rxPill").classList.toggle("live", !!d.rx_active);
+        if (d.link_state) document.getElementById("linkState").textContent = "LINK: " + d.link_state;
+      } catch (e) { /* file not yet written; ignore */ }
+    }, 500);
+  </script>
+</body>
+</html>

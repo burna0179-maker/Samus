@@ -1,0 +1,59 @@
+name: CodeQL
+
+# Static analysis for security defects and code-quality regressions across
+# the Python codebase. Findings surface in the repo's Security tab and
+# block PRs when severity clears the alert threshold.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly re-scan even without commits — CodeQL's advisory feeds update
+    # independently of the repo, so a scheduled run catches newly-published
+    # CVEs against unchanged code.
+    - cron: "27 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [python]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          # security-and-quality is broader than the default security-extended
+          # pack: it includes maintainability and correctness queries that
+          # catch defects a pure security scan misses (unused vars that mask
+          # real logic, unreachable branches around auth checks, etc.).
+          queries: security-and-quality
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"

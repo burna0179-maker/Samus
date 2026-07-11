@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "samus"
+version = "0.1.0"
+description = "HustleForge Samus agent — queue-backed AI sales engine."
+requires-python = ">=3.11"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Alex Hartman", email = "hartman530@gmail.com" }]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["backend*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.mypy]
+python_version = "3.11"
+namespace_packages = true
+explicit_package_bases = true
+# Third-party stubs are patchy across boto3, neo4j, prometheus_client. Missing
+# imports would swamp the signal — this keeps the report focused on real
+# type conflicts inside our own code.
+ignore_missing_imports = true
+follow_imports = "silent"
+# Loose baseline: report actual type errors, don't demand annotations on
+# every function. Flip disallow_untyped_defs to true when backend/common/
+# reaches full annotation coverage.
+disallow_untyped_defs = false
+warn_unused_ignores = false
+warn_redundant_casts = true
+
+[tool.coverage.run]
+source = ["backend/common"]
+branch = true
+omit = [
+    "*/tests/*",
+    "*/__init__.py",
+]
+
+[tool.coverage.report]
+exclude_also = [
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "@overload",
+]
+show_missing = true
+skip_covered = false

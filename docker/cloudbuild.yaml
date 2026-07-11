@@ -1,0 +1,938 @@
+# =============================================================================
+# DEPRECATED -- KEPT FOR REFERENCE ONLY. DO NOT SUBMIT.
+#
+# Cloud Build is no longer the deploy path for Samus. Cloud Build runtime VMs
+# in project `${GCP_PROJECT}` (created after Apr 2024) cannot push to Artifact
+# Registry even with the correct IAM bindings -- the build VM's OAuth scope is
+# locked down and `docker push` returns 403. This dead-ended the whole flow.
+#
+# The CURRENT deploy path is a LOCAL `docker build` + `docker push` from the
+# operator host, then `gcloud run deploy`. See `Samus/docker/DEPLOY.md`:
+#   - section 4  -- the local build + push + deploy runbook
+#   - section 6  -- why Cloud Build was abandoned
+# The local-deploy helper is `Deploy-SamusLocal.ps1` (under D:\tools\hustleforge-git\).
+#
+# This file is retained as a correct, current REFERENCE of the build/deploy
+# topology -- the exact `docker build` and `gcloud run deploy` invocations the
+# local path performs are equivalent to the steps below. Image tags, project
+# id, region, AR repo, secret bindings, and the full 21-workcell enumeration
+# are all kept accurate so this stays a faithful map of the deploy. It is just
+# never submitted to `gcloud builds submit`.
+#
+# Project: ${GCP_PROJECT}   Region: us-west1   AR repo: samus
+# =============================================================================
+#
+# Build context is the Hustleforge repo root (parent of Samus/). The historical
+# (now-broken) submit was:
+#
+#   gcloud builds submit --config=Samus/docker/cloudbuild.yaml \
+#       --substitutions=_REGION=us-west1 --project=${GCP_PROJECT} .
+#
+# Reference topology:
+#   step 0       build + push samus-base (tagged $SHORT_SHA and :latest)
+#   step 1..21   build + push each workcell against the SHA-pinned base
+#   scan steps   Trivy HIGH/CRITICAL gate on base + gateway + feedback
+#   deploy steps deploy each workcell to Cloud Run as samus-<workcell>-2026
+#
+# Cloud Run forwards public port 8080 to the container's 8080 (matches the
+# Dockerfile EXPOSE). Ingress is internal except feedback / finance / voice,
+# which are ingress=all because they receive third-party webhook callbacks.
+
+substitutions:
+  _REGION: us-west1
+  _PROJECT: ${GCP_PROJECT}
+  _AR_REPO: samus
+  _SERVICE_ACCOUNT: ${SAMUS_RUNTIME_SA}@${GCP_PROJECT}.iam.gserviceaccount.com
+  # AWS region uses the hyphenated convention (us-west-1) -- distinct from the
+  # GCP _REGION substitution (us-west1). Every workcell ships boto3, so every
+  # Cloud Run service needs an AWS region resolvable from env. Set on every
+  # deploy step under --set-env-vars; the matching IAM keys are bound via
+  # --set-secrets from Secret Manager (aws-access-key-id, aws-secret-access-key).
+  _AWS_REGION: us-west-1
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8
+  dynamic_substitutions: true
+
+images:
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-base:${SHORT_SHA}"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-base:latest"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-gateway:${SHORT_SHA}"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-gateway:latest"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-prospecting:${SHORT_SHA}"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-prospecting:latest"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-leadgen:${SHORT_SHA}"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-leadgen:latest"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-scaffold:${SHORT_SHA}"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-scaffold:latest"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-fulfillment:${SHORT_SHA}"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-fulfillment:latest"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-memory:${SHORT_SHA}"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-memory:latest"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-feedback:${SHORT_SHA}"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-feedback:latest"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-outreach:${SHORT_SHA}"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-outreach:latest"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-optimizer:${SHORT_SHA}"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-optimizer:latest"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-proposal:${SHORT_SHA}"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-proposal:latest"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-seo:${SHORT_SHA}"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-seo:latest"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-finance:${SHORT_SHA}"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-finance:latest"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-voice:${SHORT_SHA}"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-voice:latest"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-intake:${SHORT_SHA}"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-intake:latest"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-crm:${SHORT_SHA}"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-crm:latest"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-strategy:${SHORT_SHA}"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-strategy:latest"
+  # --- 5 new workcells (signal_filter, path_optimizer, template_recovery,
+  #     portfolio_controller, entropy). HTTP-only, internal ingress, port 8080.
+  #     Dockerfiles are added by the integration that introduces them; the tags
+  #     are listed here so this reference enumerates the full 21-workcell stack.
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-signal-filter:${SHORT_SHA}"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-signal-filter:latest"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-path-optimizer:${SHORT_SHA}"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-path-optimizer:latest"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-template-recovery:${SHORT_SHA}"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-template-recovery:latest"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-portfolio-controller:${SHORT_SHA}"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-portfolio-controller:latest"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-entropy:${SHORT_SHA}"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-entropy:latest"
+
+steps:
+  # ---------------------------------------------------------------- base
+  - id: build-base
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - Samus/docker/base/Dockerfile
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-base:${SHORT_SHA}"
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-base:latest"
+      - .
+
+  - id: push-base
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["build-base"]
+    args:
+      - push
+      - --all-tags
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-base"
+
+  # Trivy CVE gate on the freshly built base image. Pinned to 0.55.0. Scans the
+  # local tag, fails on HIGH/CRITICAL with an available fix, emits table to
+  # stdout + SARIF to /workspace for archival. /workspace doubles as the Trivy
+  # DB cache so the gateway/feedback scans reuse the downloaded vuln database.
+  - id: scan-base
+    name: aquasec/trivy:0.55.0
+    waitFor: ["build-base"]
+    args:
+      - image
+      - --severity=HIGH,CRITICAL
+      - --ignore-unfixed
+      - --exit-code=1
+      - --no-progress
+      - --cache-dir=/workspace/.trivy-cache
+      - --format=sarif
+      - --output=/workspace/trivy-base.sarif
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-base:${SHORT_SHA}"
+
+  - id: scan-base-table
+    name: aquasec/trivy:0.55.0
+    waitFor: ["scan-base"]
+    args:
+      - image
+      - --severity=HIGH,CRITICAL
+      - --ignore-unfixed
+      - --exit-code=0
+      - --no-progress
+      - --cache-dir=/workspace/.trivy-cache
+      - --format=table
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-base:${SHORT_SHA}"
+
+  # ----------------------------------------------------------- workcells
+  - id: build-gateway
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["push-base", "scan-base"]
+    args:
+      - build
+      - --build-arg
+      - "BASE_IMAGE=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-base:${SHORT_SHA}"
+      - -f
+      - Samus/docker/workcells/gateway/Dockerfile
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-gateway:${SHORT_SHA}"
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-gateway:latest"
+      - .
+
+  - id: build-prospecting
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["push-base", "scan-base"]
+    args:
+      - build
+      - --build-arg
+      - "BASE_IMAGE=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-base:${SHORT_SHA}"
+      - -f
+      - Samus/docker/workcells/prospecting/Dockerfile
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-prospecting:${SHORT_SHA}"
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-prospecting:latest"
+      - .
+
+  - id: build-leadgen
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["push-base", "scan-base"]
+    args:
+      - build
+      - --build-arg
+      - "BASE_IMAGE=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-base:${SHORT_SHA}"
+      - -f
+      - Samus/docker/workcells/leadgen/Dockerfile
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-leadgen:${SHORT_SHA}"
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-leadgen:latest"
+      - .
+
+  - id: build-scaffold
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["push-base", "scan-base"]
+    args:
+      - build
+      - --build-arg
+      - "BASE_IMAGE=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-base:${SHORT_SHA}"
+      - -f
+      - Samus/docker/workcells/scaffold/Dockerfile
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-scaffold:${SHORT_SHA}"
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-scaffold:latest"
+      - .
+
+  - id: build-fulfillment
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["push-base", "scan-base"]
+    args:
+      - build
+      - --build-arg
+      - "BASE_IMAGE=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-base:${SHORT_SHA}"
+      - -f
+      - Samus/docker/workcells/fulfillment/Dockerfile
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-fulfillment:${SHORT_SHA}"
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-fulfillment:latest"
+      - .
+
+  - id: build-memory
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["push-base", "scan-base"]
+    args:
+      - build
+      - --build-arg
+      - "BASE_IMAGE=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-base:${SHORT_SHA}"
+      - -f
+      - Samus/docker/workcells/memory/Dockerfile
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-memory:${SHORT_SHA}"
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-memory:latest"
+      - .
+
+  # The feedback workcell builds from the `ses/` Dockerfile directory (the
+  # workcell handles AWS SES bounce/complaint events via SNS). Cloud Run
+  # service name is samus-feedback-2026.
+  - id: build-feedback
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["push-base", "scan-base"]
+    args:
+      - build
+      - --build-arg
+      - "BASE_IMAGE=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-base:${SHORT_SHA}"
+      - -f
+      - Samus/docker/workcells/ses/Dockerfile
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-feedback:${SHORT_SHA}"
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-feedback:latest"
+      - .
+
+  - id: build-outreach
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["push-base", "scan-base"]
+    args:
+      - build
+      - --build-arg
+      - "BASE_IMAGE=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-base:${SHORT_SHA}"
+      - -f
+      - Samus/docker/workcells/outreach/Dockerfile
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-outreach:${SHORT_SHA}"
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-outreach:latest"
+      - .
+
+  - id: build-optimizer
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["push-base", "scan-base"]
+    args:
+      - build
+      - --build-arg
+      - "BASE_IMAGE=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-base:${SHORT_SHA}"
+      - -f
+      - Samus/docker/workcells/optimizer/Dockerfile
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-optimizer:${SHORT_SHA}"
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-optimizer:latest"
+      - .
+
+  - id: build-proposal
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["push-base", "scan-base"]
+    args:
+      - build
+      - --build-arg
+      - "BASE_IMAGE=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-base:${SHORT_SHA}"
+      - -f
+      - Samus/docker/workcells/proposal/Dockerfile
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-proposal:${SHORT_SHA}"
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-proposal:latest"
+      - .
+
+  - id: build-seo
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["push-base", "scan-base"]
+    args:
+      - build
+      - --build-arg
+      - "BASE_IMAGE=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-base:${SHORT_SHA}"
+      - -f
+      - Samus/docker/workcells/seo/Dockerfile
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-seo:${SHORT_SHA}"
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-seo:latest"
+      - .
+
+  - id: build-finance
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["push-base", "scan-base"]
+    args:
+      - build
+      - --build-arg
+      - "BASE_IMAGE=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-base:${SHORT_SHA}"
+      - -f
+      - Samus/docker/workcells/finance/Dockerfile
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-finance:${SHORT_SHA}"
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-finance:latest"
+      - .
+
+  - id: build-voice
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["push-base", "scan-base"]
+    args:
+      - build
+      - --build-arg
+      - "BASE_IMAGE=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-base:${SHORT_SHA}"
+      - -f
+      - Samus/docker/workcells/voice/Dockerfile
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-voice:${SHORT_SHA}"
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-voice:latest"
+      - .
+
+  - id: build-intake
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["push-base", "scan-base"]
+    args:
+      - build
+      - --build-arg
+      - "BASE_IMAGE=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-base:${SHORT_SHA}"
+      - -f
+      - Samus/docker/workcells/intake/Dockerfile
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-intake:${SHORT_SHA}"
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-intake:latest"
+      - .
+
+  - id: build-crm
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["push-base", "scan-base"]
+    args:
+      - build
+      - --build-arg
+      - "BASE_IMAGE=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-base:${SHORT_SHA}"
+      - -f
+      - Samus/docker/workcells/crm/Dockerfile
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-crm:${SHORT_SHA}"
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-crm:latest"
+      - .
+
+  - id: build-strategy
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["push-base", "scan-base"]
+    args:
+      - build
+      - --build-arg
+      - "BASE_IMAGE=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-base:${SHORT_SHA}"
+      - -f
+      - Samus/docker/workcells/strategy/Dockerfile
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-strategy:${SHORT_SHA}"
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-strategy:latest"
+      - .
+
+  # ----------------------------- 5 new workcells (added during integration)
+  # signal_filter / path_optimizer / template_recovery / portfolio_controller
+  # / entropy are HTTP-only, internal-network-only, container port 8080, no
+  # host port. Their Dockerfiles land under Samus/docker/workcells/<name>/
+  # with the integration that introduces them; the build + deploy steps are
+  # enumerated here so this reference covers the full 21-workcell stack.
+  - id: build-signal-filter
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["push-base", "scan-base"]
+    args:
+      - build
+      - --build-arg
+      - "BASE_IMAGE=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-base:${SHORT_SHA}"
+      - -f
+      - Samus/docker/workcells/signal_filter/Dockerfile
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-signal-filter:${SHORT_SHA}"
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-signal-filter:latest"
+      - .
+
+  - id: build-path-optimizer
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["push-base", "scan-base"]
+    args:
+      - build
+      - --build-arg
+      - "BASE_IMAGE=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-base:${SHORT_SHA}"
+      - -f
+      - Samus/docker/workcells/path_optimizer/Dockerfile
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-path-optimizer:${SHORT_SHA}"
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-path-optimizer:latest"
+      - .
+
+  - id: build-template-recovery
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["push-base", "scan-base"]
+    args:
+      - build
+      - --build-arg
+      - "BASE_IMAGE=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-base:${SHORT_SHA}"
+      - -f
+      - Samus/docker/workcells/template_recovery/Dockerfile
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-template-recovery:${SHORT_SHA}"
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-template-recovery:latest"
+      - .
+
+  - id: build-portfolio-controller
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["push-base", "scan-base"]
+    args:
+      - build
+      - --build-arg
+      - "BASE_IMAGE=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-base:${SHORT_SHA}"
+      - -f
+      - Samus/docker/workcells/portfolio_controller/Dockerfile
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-portfolio-controller:${SHORT_SHA}"
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-portfolio-controller:latest"
+      - .
+
+  - id: build-entropy
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["push-base", "scan-base"]
+    args:
+      - build
+      - --build-arg
+      - "BASE_IMAGE=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-base:${SHORT_SHA}"
+      - -f
+      - Samus/docker/workcells/entropy/Dockerfile
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-entropy:${SHORT_SHA}"
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-entropy:latest"
+      - .
+
+  # ----------------------------------------------- workcell CVE gates
+  # Gateway is the canonical entry point; feedback is ingress=all (public SNS
+  # callback). Both get the same HIGH/CRITICAL gate as the base. Other
+  # workcells stay behind internal ingress and inherit the base scan only.
+  - id: scan-gateway
+    name: aquasec/trivy:0.55.0
+    waitFor: ["build-gateway", "scan-base"]
+    args:
+      - image
+      - --severity=HIGH,CRITICAL
+      - --ignore-unfixed
+      - --exit-code=1
+      - --no-progress
+      - --cache-dir=/workspace/.trivy-cache
+      - --format=sarif
+      - --output=/workspace/trivy-gateway.sarif
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-gateway:${SHORT_SHA}"
+
+  - id: scan-gateway-table
+    name: aquasec/trivy:0.55.0
+    waitFor: ["scan-gateway"]
+    args:
+      - image
+      - --severity=HIGH,CRITICAL
+      - --ignore-unfixed
+      - --exit-code=0
+      - --no-progress
+      - --cache-dir=/workspace/.trivy-cache
+      - --format=table
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-gateway:${SHORT_SHA}"
+
+  - id: scan-feedback
+    name: aquasec/trivy:0.55.0
+    waitFor: ["build-feedback", "scan-base"]
+    args:
+      - image
+      - --severity=HIGH,CRITICAL
+      - --ignore-unfixed
+      - --exit-code=1
+      - --no-progress
+      - --cache-dir=/workspace/.trivy-cache
+      - --format=sarif
+      - --output=/workspace/trivy-feedback.sarif
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-feedback:${SHORT_SHA}"
+
+  - id: scan-feedback-table
+    name: aquasec/trivy:0.55.0
+    waitFor: ["scan-feedback"]
+    args:
+      - image
+      - --severity=HIGH,CRITICAL
+      - --ignore-unfixed
+      - --exit-code=0
+      - --no-progress
+      - --cache-dir=/workspace/.trivy-cache
+      - --format=table
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-feedback:${SHORT_SHA}"
+
+  # ---------------------------------------------------- Cloud Run deploys
+  # Gateway lives at the canonical samus-2026 service (no -gateway suffix).
+  - id: deploy-gateway
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    waitFor: ["build-gateway", "scan-gateway"]
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - samus-2026
+      - "--image=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-gateway:${SHORT_SHA}"
+      - "--region=${_REGION}"
+      - "--platform=managed"
+      - "--port=8080"
+      - "--service-account=${_SERVICE_ACCOUNT}"
+      - "--ingress=internal"
+      - "--no-allow-unauthenticated"
+      - "--min-instances=1"
+      - "--max-instances=1"
+      - "--set-env-vars=SAMUS_SERVICE=gateway,AWS_REGION=${_AWS_REGION},AWS_DEFAULT_REGION=${_AWS_REGION}"
+      - "--set-secrets=SAMUS_SHARED_HMAC_KEY=shared-hmac-key:latest,AWS_ACCESS_KEY_ID=aws-access-key-id:latest,AWS_SECRET_ACCESS_KEY=aws-secret-access-key:latest"
+
+  - id: deploy-prospecting
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    waitFor: ["build-prospecting"]
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - samus-prospecting-2026
+      - "--image=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-prospecting:${SHORT_SHA}"
+      - "--region=${_REGION}"
+      - "--platform=managed"
+      - "--port=8080"
+      - "--service-account=${_SERVICE_ACCOUNT}"
+      - "--ingress=internal"
+      - "--no-allow-unauthenticated"
+      - "--set-env-vars=SAMUS_SERVICE=prospecting,AWS_REGION=${_AWS_REGION},AWS_DEFAULT_REGION=${_AWS_REGION}"
+      - "--set-secrets=SAMUS_SHARED_HMAC_KEY=shared-hmac-key:latest,GOOGLE_PLACES_API_KEY=places-api-key:latest,OPENAI_API_KEY=openai-api-key:latest,AWS_ACCESS_KEY_ID=aws-access-key-id:latest,AWS_SECRET_ACCESS_KEY=aws-secret-access-key:latest"
+
+  - id: deploy-leadgen
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    waitFor: ["build-leadgen"]
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - samus-leadgen-2026
+      - "--image=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-leadgen:${SHORT_SHA}"
+      - "--region=${_REGION}"
+      - "--platform=managed"
+      - "--port=8080"
+      - "--service-account=${_SERVICE_ACCOUNT}"
+      - "--ingress=internal"
+      - "--no-allow-unauthenticated"
+      - "--set-env-vars=SAMUS_SERVICE=leadgen,AWS_REGION=${_AWS_REGION},AWS_DEFAULT_REGION=${_AWS_REGION}"
+      - "--set-secrets=SAMUS_SHARED_HMAC_KEY=shared-hmac-key:latest,AWS_ACCESS_KEY_ID=aws-access-key-id:latest,AWS_SECRET_ACCESS_KEY=aws-secret-access-key:latest"
+
+  - id: deploy-scaffold
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    waitFor: ["build-scaffold"]
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - samus-scaffold-2026
+      - "--image=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-scaffold:${SHORT_SHA}"
+      - "--region=${_REGION}"
+      - "--platform=managed"
+      - "--port=8080"
+      - "--service-account=${_SERVICE_ACCOUNT}"
+      - "--ingress=internal"
+      - "--no-allow-unauthenticated"
+      - "--set-env-vars=SAMUS_SERVICE=scaffold,AWS_REGION=${_AWS_REGION},AWS_DEFAULT_REGION=${_AWS_REGION}"
+      - "--set-secrets=SAMUS_SHARED_HMAC_KEY=shared-hmac-key:latest,AWS_ACCESS_KEY_ID=aws-access-key-id:latest,AWS_SECRET_ACCESS_KEY=aws-secret-access-key:latest"
+
+  - id: deploy-fulfillment
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    waitFor: ["build-fulfillment"]
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - samus-fulfillment-2026
+      - "--image=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-fulfillment:${SHORT_SHA}"
+      - "--region=${_REGION}"
+      - "--platform=managed"
+      - "--port=8080"
+      - "--service-account=${_SERVICE_ACCOUNT}"
+      - "--ingress=internal"
+      - "--no-allow-unauthenticated"
+      - "--set-env-vars=SAMUS_SERVICE=fulfillment,AWS_REGION=${_AWS_REGION},AWS_DEFAULT_REGION=${_AWS_REGION}"
+      - "--set-secrets=SAMUS_SHARED_HMAC_KEY=shared-hmac-key:latest,AWS_ACCESS_KEY_ID=aws-access-key-id:latest,AWS_SECRET_ACCESS_KEY=aws-secret-access-key:latest"
+
+  - id: deploy-memory
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    waitFor: ["build-memory"]
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - samus-memory-2026
+      - "--image=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-memory:${SHORT_SHA}"
+      - "--region=${_REGION}"
+      - "--platform=managed"
+      - "--port=8080"
+      - "--service-account=${_SERVICE_ACCOUNT}"
+      - "--ingress=internal"
+      - "--no-allow-unauthenticated"
+      - "--set-env-vars=SAMUS_SERVICE=memory,AWS_REGION=${_AWS_REGION},AWS_DEFAULT_REGION=${_AWS_REGION}"
+      - "--set-secrets=SAMUS_SHARED_HMAC_KEY=shared-hmac-key:latest,OPENAI_API_KEY=openai-api-key:latest,NEO4J_PASSWORD=hivemind-password:latest,AWS_ACCESS_KEY_ID=aws-access-key-id:latest,AWS_SECRET_ACCESS_KEY=aws-secret-access-key:latest"
+
+  # Feedback is ingress=all because AWS SNS POSTs SES bounce/complaint events
+  # to it. Auth is verified inside the workcell (SNS signature check);
+  # --no-allow-unauthenticated still blocks bypass of Cloud Run's identity layer.
+  - id: deploy-feedback
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    waitFor: ["build-feedback", "scan-feedback"]
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - samus-feedback-2026
+      - "--image=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-feedback:${SHORT_SHA}"
+      - "--region=${_REGION}"
+      - "--platform=managed"
+      - "--port=8080"
+      - "--service-account=${_SERVICE_ACCOUNT}"
+      - "--ingress=all"
+      - "--no-allow-unauthenticated"
+      - "--set-env-vars=SAMUS_SERVICE=feedback,AWS_REGION=${_AWS_REGION},AWS_DEFAULT_REGION=${_AWS_REGION}"
+      - "--set-secrets=SAMUS_SHARED_HMAC_KEY=shared-hmac-key:latest,AWS_ACCESS_KEY_ID=aws-access-key-id:latest,AWS_SECRET_ACCESS_KEY=aws-secret-access-key:latest"
+
+  - id: deploy-outreach
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    waitFor: ["build-outreach"]
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - samus-outreach-2026
+      - "--image=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-outreach:${SHORT_SHA}"
+      - "--region=${_REGION}"
+      - "--platform=managed"
+      - "--port=8080"
+      - "--service-account=${_SERVICE_ACCOUNT}"
+      - "--ingress=internal"
+      - "--no-allow-unauthenticated"
+      - "--set-env-vars=SAMUS_SERVICE=outreach,AWS_REGION=${_AWS_REGION},AWS_DEFAULT_REGION=${_AWS_REGION}"
+      - "--set-secrets=SAMUS_SHARED_HMAC_KEY=shared-hmac-key:latest,AWS_ACCESS_KEY_ID=aws-access-key-id:latest,AWS_SECRET_ACCESS_KEY=aws-secret-access-key:latest"
+
+  - id: deploy-optimizer
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    waitFor: ["build-optimizer"]
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - samus-optimizer-2026
+      - "--image=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-optimizer:${SHORT_SHA}"
+      - "--region=${_REGION}"
+      - "--platform=managed"
+      - "--port=8080"
+      - "--service-account=${_SERVICE_ACCOUNT}"
+      - "--ingress=internal"
+      - "--no-allow-unauthenticated"
+      - "--set-env-vars=SAMUS_SERVICE=optimizer,AWS_REGION=${_AWS_REGION},AWS_DEFAULT_REGION=${_AWS_REGION}"
+      - "--set-secrets=SAMUS_SHARED_HMAC_KEY=shared-hmac-key:latest,AWS_ACCESS_KEY_ID=aws-access-key-id:latest,AWS_SECRET_ACCESS_KEY=aws-secret-access-key:latest"
+
+  - id: deploy-proposal
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    waitFor: ["build-proposal"]
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - samus-proposal-2026
+      - "--image=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-proposal:${SHORT_SHA}"
+      - "--region=${_REGION}"
+      - "--platform=managed"
+      - "--port=8080"
+      - "--service-account=${_SERVICE_ACCOUNT}"
+      - "--ingress=internal"
+      - "--no-allow-unauthenticated"
+      - "--set-env-vars=SAMUS_SERVICE=proposal,AWS_REGION=${_AWS_REGION},AWS_DEFAULT_REGION=${_AWS_REGION}"
+      - "--set-secrets=SAMUS_SHARED_HMAC_KEY=shared-hmac-key:latest,AWS_ACCESS_KEY_ID=aws-access-key-id:latest,AWS_SECRET_ACCESS_KEY=aws-secret-access-key:latest"
+
+  - id: deploy-seo
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    waitFor: ["build-seo"]
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - samus-seo-2026
+      - "--image=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-seo:${SHORT_SHA}"
+      - "--region=${_REGION}"
+      - "--platform=managed"
+      - "--port=8080"
+      - "--service-account=${_SERVICE_ACCOUNT}"
+      - "--ingress=internal"
+      - "--no-allow-unauthenticated"
+      - "--set-env-vars=SAMUS_SERVICE=seo,AWS_REGION=${_AWS_REGION},AWS_DEFAULT_REGION=${_AWS_REGION}"
+      - "--set-secrets=SAMUS_SHARED_HMAC_KEY=shared-hmac-key:latest,OPENAI_API_KEY=openai-api-key:latest,AWS_ACCESS_KEY_ID=aws-access-key-id:latest,AWS_SECRET_ACCESS_KEY=aws-secret-access-key:latest"
+
+  # Finance is ingress=all because Stripe POSTs webhook events to it. Auth is
+  # NOT --allow-unauthenticated -- Stripe signature verification (HMAC-SHA256
+  # in webhook.py) is the auth check on /stripe_webhook. Read endpoints are
+  # operator-internal; the gateway proxies to them via internal DNS.
+  - id: deploy-finance
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    waitFor: ["build-finance"]
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - samus-finance-2026
+      - "--image=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-finance:${SHORT_SHA}"
+      - "--region=${_REGION}"
+      - "--platform=managed"
+      - "--port=8080"
+      - "--service-account=${_SERVICE_ACCOUNT}"
+      - "--ingress=all"
+      - "--no-allow-unauthenticated"
+      - "--set-env-vars=SAMUS_SERVICE=finance,AWS_REGION=${_AWS_REGION},AWS_DEFAULT_REGION=${_AWS_REGION},EMAIL_BACKEND=sendgrid"
+      - "--set-secrets=SAMUS_SHARED_HMAC_KEY=shared-hmac-key:latest,STRIPE_API_KEY=stripe-api-key:latest,STRIPE_WEBHOOK_SECRET=stripe-webhook-secret:latest,SENDGRID_API_KEY=sendgrid-api-key:latest,SENDGRID_FROM_EMAIL=sendgrid-from-email:latest,AWS_ACCESS_KEY_ID=aws-access-key-id:latest,AWS_SECRET_ACCESS_KEY=aws-secret-access-key:latest"
+
+  # Voice is ingress=all because Vapi POSTs end-of-call webhook events to it.
+  # Like finance, auth is handled inside the workcell (HMAC-SHA256 against
+  # VAPI_WEBHOOK_SECRET in signature.py); --no-allow-unauthenticated still
+  # blocks unauthenticated bypass of Cloud Run's identity layer.
+  - id: deploy-voice
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    waitFor: ["build-voice"]
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - samus-voice-2026
+      - "--image=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-voice:${SHORT_SHA}"
+      - "--region=${_REGION}"
+      - "--platform=managed"
+      - "--port=8080"
+      - "--service-account=${_SERVICE_ACCOUNT}"
+      - "--ingress=all"
+      - "--no-allow-unauthenticated"
+      - "--set-env-vars=SAMUS_SERVICE=voice,AWS_REGION=${_AWS_REGION},AWS_DEFAULT_REGION=${_AWS_REGION}"
+      - "--set-secrets=SAMUS_SHARED_HMAC_KEY=shared-hmac-key:latest,VAPI_API_KEY=vapi-api-key:latest,VAPI_WEBHOOK_SECRET=vapi-webhook-secret:latest,AWS_ACCESS_KEY_ID=aws-access-key-id:latest,AWS_SECRET_ACCESS_KEY=aws-secret-access-key:latest"
+
+  - id: deploy-intake
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    waitFor: ["build-intake"]
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - samus-intake-2026
+      - "--image=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-intake:${SHORT_SHA}"
+      - "--region=${_REGION}"
+      - "--platform=managed"
+      - "--port=8080"
+      - "--service-account=${_SERVICE_ACCOUNT}"
+      - "--ingress=internal"
+      - "--no-allow-unauthenticated"
+      - "--set-env-vars=SAMUS_SERVICE=intake,AWS_REGION=${_AWS_REGION},AWS_DEFAULT_REGION=${_AWS_REGION}"
+      - "--set-secrets=SAMUS_SHARED_HMAC_KEY=shared-hmac-key:latest,AWS_ACCESS_KEY_ID=aws-access-key-id:latest,AWS_SECRET_ACCESS_KEY=aws-secret-access-key:latest"
+
+  - id: deploy-crm
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    waitFor: ["build-crm"]
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - samus-crm-2026
+      - "--image=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-crm:${SHORT_SHA}"
+      - "--region=${_REGION}"
+      - "--platform=managed"
+      - "--port=8080"
+      - "--service-account=${_SERVICE_ACCOUNT}"
+      - "--ingress=internal"
+      - "--no-allow-unauthenticated"
+      - "--set-env-vars=SAMUS_SERVICE=crm,AWS_REGION=${_AWS_REGION},AWS_DEFAULT_REGION=${_AWS_REGION}"
+      - "--set-secrets=SAMUS_SHARED_HMAC_KEY=shared-hmac-key:latest,AWS_ACCESS_KEY_ID=aws-access-key-id:latest,AWS_SECRET_ACCESS_KEY=aws-secret-access-key:latest"
+
+  - id: deploy-strategy
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    waitFor: ["build-strategy"]
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - samus-strategy-2026
+      - "--image=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-strategy:${SHORT_SHA}"
+      - "--region=${_REGION}"
+      - "--platform=managed"
+      - "--port=8080"
+      - "--service-account=${_SERVICE_ACCOUNT}"
+      - "--ingress=internal"
+      - "--no-allow-unauthenticated"
+      - "--set-env-vars=SAMUS_SERVICE=strategy,AWS_REGION=${_AWS_REGION},AWS_DEFAULT_REGION=${_AWS_REGION}"
+      - "--set-secrets=SAMUS_SHARED_HMAC_KEY=shared-hmac-key:latest,AWS_ACCESS_KEY_ID=aws-access-key-id:latest,AWS_SECRET_ACCESS_KEY=aws-secret-access-key:latest"
+
+  # ----------------------------- 5 new workcells -- Cloud Run deploys
+  # All HTTP-only, internal ingress, port 8080. They carry the shared HMAC key
+  # and AWS credentials like every other workcell.
+  - id: deploy-signal-filter
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    waitFor: ["build-signal-filter"]
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - samus-signal-filter-2026
+      - "--image=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-signal-filter:${SHORT_SHA}"
+      - "--region=${_REGION}"
+      - "--platform=managed"
+      - "--port=8080"
+      - "--service-account=${_SERVICE_ACCOUNT}"
+      - "--ingress=internal"
+      - "--no-allow-unauthenticated"
+      - "--set-env-vars=SAMUS_SERVICE=signal_filter,AWS_REGION=${_AWS_REGION},AWS_DEFAULT_REGION=${_AWS_REGION}"
+      - "--set-secrets=SAMUS_SHARED_HMAC_KEY=shared-hmac-key:latest,AWS_ACCESS_KEY_ID=aws-access-key-id:latest,AWS_SECRET_ACCESS_KEY=aws-secret-access-key:latest"
+
+  - id: deploy-path-optimizer
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    waitFor: ["build-path-optimizer"]
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - samus-path-optimizer-2026
+      - "--image=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-path-optimizer:${SHORT_SHA}"
+      - "--region=${_REGION}"
+      - "--platform=managed"
+      - "--port=8080"
+      - "--service-account=${_SERVICE_ACCOUNT}"
+      - "--ingress=internal"
+      - "--no-allow-unauthenticated"
+      - "--set-env-vars=SAMUS_SERVICE=path_optimizer,AWS_REGION=${_AWS_REGION},AWS_DEFAULT_REGION=${_AWS_REGION}"
+      - "--set-secrets=SAMUS_SHARED_HMAC_KEY=shared-hmac-key:latest,AWS_ACCESS_KEY_ID=aws-access-key-id:latest,AWS_SECRET_ACCESS_KEY=aws-secret-access-key:latest"
+
+  - id: deploy-template-recovery
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    waitFor: ["build-template-recovery"]
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - samus-template-recovery-2026
+      - "--image=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-template-recovery:${SHORT_SHA}"
+      - "--region=${_REGION}"
+      - "--platform=managed"
+      - "--port=8080"
+      - "--service-account=${_SERVICE_ACCOUNT}"
+      - "--ingress=internal"
+      - "--no-allow-unauthenticated"
+      - "--set-env-vars=SAMUS_SERVICE=template_recovery,AWS_REGION=${_AWS_REGION},AWS_DEFAULT_REGION=${_AWS_REGION}"
+      - "--set-secrets=SAMUS_SHARED_HMAC_KEY=shared-hmac-key:latest,AWS_ACCESS_KEY_ID=aws-access-key-id:latest,AWS_SECRET_ACCESS_KEY=aws-secret-access-key:latest"
+
+  - id: deploy-portfolio-controller
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    waitFor: ["build-portfolio-controller"]
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - samus-portfolio-controller-2026
+      - "--image=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-portfolio-controller:${SHORT_SHA}"
+      - "--region=${_REGION}"
+      - "--platform=managed"
+      - "--port=8080"
+      - "--service-account=${_SERVICE_ACCOUNT}"
+      - "--ingress=internal"
+      - "--no-allow-unauthenticated"
+      - "--set-env-vars=SAMUS_SERVICE=portfolio_controller,AWS_REGION=${_AWS_REGION},AWS_DEFAULT_REGION=${_AWS_REGION}"
+      - "--set-secrets=SAMUS_SHARED_HMAC_KEY=shared-hmac-key:latest,AWS_ACCESS_KEY_ID=aws-access-key-id:latest,AWS_SECRET_ACCESS_KEY=aws-secret-access-key:latest"
+
+  - id: deploy-entropy
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    waitFor: ["build-entropy"]
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - samus-entropy-2026
+      - "--image=${_REGION}-docker.pkg.dev/${_PROJECT}/${_AR_REPO}/samus-entropy:${SHORT_SHA}"
+      - "--region=${_REGION}"
+      - "--platform=managed"
+      - "--port=8080"
+      - "--service-account=${_SERVICE_ACCOUNT}"
+      - "--ingress=internal"
+      - "--no-allow-unauthenticated"
+      - "--set-env-vars=SAMUS_SERVICE=entropy,AWS_REGION=${_AWS_REGION},AWS_DEFAULT_REGION=${_AWS_REGION}"
+      - "--set-secrets=SAMUS_SHARED_HMAC_KEY=shared-hmac-key:latest,AWS_ACCESS_KEY_ID=aws-access-key-id:latest,AWS_SECRET_ACCESS_KEY=aws-secret-access-key:latest"

@@ -1,0 +1,47 @@
+# Samus flat standalone repo — hardened ignores (polyrepo flatten Phase C)
+# Operator data + cloud secrets live ON DISK, never in git.
+
+# Operator data root (host artifacts, container deliverables, cf builds)
+.data/
+
+# Environment / secrets
+.env
+.env.*
+*.env
+secrets/
+**/secrets/
+*.dpapi
+*.key
+*.p12
+*.pem
+credentials*
+*credential*
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+
+# Operator finance portfolio (PII) — debts/liabilities/payment schedules etc.
+# NEVER committed. The *.yaml.example templates stay tracked; add legit docs with -f.
+backend/finance/*.yaml
+backend/finance/*.md
+
+# Runtime data / logs / state / Cloudflare wrangler cache (git-tree cleanup 2026-06-07)
+data/
+logs/
+state/
+.wrangler/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+
+# scratch / debug
+tmp/

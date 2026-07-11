@@ -1,0 +1,62 @@
+name: OpenSSF Scorecard
+
+# Automated grade across 18+ supply-chain security practices: branch
+# protection, dependency pinning, code-review requirement, workflow token
+# permissions, signed releases, dangerous-workflow patterns, dependency-
+# update tooling. Score publishes to scorecard.dev; findings land in the
+# Security tab as SARIF.
+
+on:
+  branch_protection_rule:
+  schedule:
+    # Weekly cadence matches the OpenSSF recommendation. Scorecard signals
+    # don't change day-to-day but drift when branch protection, workflow
+    # permissions, or dependency policy get touched — a weekly grade catches
+    # regression without CI noise.
+    - cron: "27 4 * * 1"
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: read-all
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      # Required to upload SARIF results to the Security tab.
+      security-events: write
+      # Required to publish the aggregated score to scorecard.dev so the
+      # README badge resolves.
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Run Scorecard analysis
+        uses: ossf/scorecard-action@v2.4.0
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          # publish_results requires a public repo. Repo is currently
+          # PRIVATE — the badge cannot resolve and the publish step would
+          # error on the scorecard.dev API call. Flip back to true when
+          # the repo transitions to public.
+          publish_results: false
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SARIF file
+          path: results.sarif
+          retention-days: 5
+
+      - name: Upload to Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif

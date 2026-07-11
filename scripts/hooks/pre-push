@@ -1,0 +1,71 @@
+#!/bin/sh
+# Samus pre-push hook — refuse to push a change that drifts the immutable
+# baseline from its operator signature, BEFORE it reaches CI.
+#
+# Same check as scripts/ci_immutable_gate_guard.py (pure stdlib). Path-aware:
+# it only BLOCKS when the commits being pushed touch manifested-file territory
+# (backend/common, backend/identity — where the 12 sealed files + the sidecar
+# live). If those aren't in the push, any pre-existing baseline drift is not
+# yours to fix here, so the hook WARNS and lets the push through.
+#
+# Install once per clone:  git config core.hooksPath scripts/hooks
+#   (or run scripts/install-git-hooks.ps1). Applies to every worktree.
+# Escape hatch:  HF_SKIP_BASELINE_GUARD=1 git push ...
+set -eu
+
+[ "${HF_SKIP_BASELINE_GUARD:-}" = "1" ] && exit 0
+
+repo_root=$(git rev-parse --show-toplevel)
+guard="$repo_root/scripts/ci_immutable_gate_guard.py"
+# Branch predates the guard? Nothing to enforce.
+[ -f "$guard" ] || exit 0
+
+# Resolve a python interpreter (venv first, then whatever's on PATH).
+py=""
+for cand in "$repo_root/.venv/Scripts/python.exe" python py python3; do
+  if command -v "$cand" >/dev/null 2>&1; then py="$cand"; break; fi
+done
+if [ -z "$py" ]; then
+  echo "pre-push: no python interpreter found — skipping baseline guard." >&2
+  exit 0
+fi
+
+# Does this push touch the dirs that hold the 12 manifested files + the sidecar?
+# Default to ENFORCE (touches=1) when the range can't be resolved — fail safe.
+zero=0000000000000000000000000000000000000000
+watch='^backend/common/|^backend/identity/'
+touches=0
+any_range=0
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "$zero" ] && continue            # branch deletion — skip
+  any_range=1
+  if [ "$remote_sha" = "$zero" ]; then              # new branch on the remote
+    base=$(git merge-base "$local_sha" origin/samus 2>/dev/null || true)
+    if [ -n "${base:-}" ]; then range="$base..$local_sha"; else touches=1; continue; fi
+  else
+    range="$remote_sha..$local_sha"
+  fi
+  if git diff --name-only "$range" 2>/dev/null | grep -qE "$watch"; then
+    touches=1; break
+  fi
+done
+# No refs on stdin (nothing to push) — let git handle it.
+[ "$any_range" = "0" ] && exit 0
+
+if "$py" "$guard"; then
+  exit 0
+fi
+
+# Guard failed.
+if [ "$touches" = "1" ]; then
+  echo "" >&2
+  echo "pre-push BLOCKED — this push changes manifested files while the immutable" >&2
+  echo "baseline is not consistently signed (guard output above)." >&2
+  echo "Reseed/re-sign per the remediation, or bypass: HF_SKIP_BASELINE_GUARD=1 git push" >&2
+  exit 1
+fi
+echo "" >&2
+echo "pre-push WARNING — baseline drift exists on this tree, but this push does not" >&2
+echo "touch manifested files, so it is allowed. Someone still needs to re-sign the" >&2
+echo "baseline (guard output above)." >&2
+exit 0

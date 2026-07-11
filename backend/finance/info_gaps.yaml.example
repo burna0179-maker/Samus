@@ -1,0 +1,28 @@
+# info_gaps.yaml — verification items needed to close the picture.
+#
+# Each entry is a single piece of missing or stale information that
+# blocks proper decisioning. Once resolved, set status: resolved and
+# add a brief resolution_note.
+#
+# Copy to info_gaps.yaml (gitignored) and populate.
+#
+# Schema reference: backend/finance/models.py :: InfoGap
+
+gaps:
+  - id: G001
+    priority: critical              # critical | high | medium | low
+    related_debt_id: DBT-EXAMPLE-001
+    gap: "Status of <specific item that needs verification>."
+    how_to_close: "Single concrete step to resolve (free call, online lookup, etc.)."
+    status: open                    # open | resolved
+    resolved_date: null
+    resolution_note: ""
+
+  - id: G002
+    priority: high
+    related_debt_id: null
+    gap: "Pull free credit report — confirm what's actually being reported."
+    how_to_close: "https://www.annualcreditreport.com — one free pull per bureau per year."
+    status: open
+    resolved_date: null
+    resolution_note: ""

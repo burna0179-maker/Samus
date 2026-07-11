@@ -1,0 +1,37 @@
+groups:
+  - name: samus
+    rules:
+      - alert: GatewayDown
+        expr: up{job="samus-gateway"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "Samus gateway is unreachable"
+
+      - alert: P95LatencySpike
+        expr: histogram_quantile(0.95, rate(queue_dispatch_duration_seconds_bucket[5m])) > 2
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "p95 dispatch latency > 2s"
+
+      - alert: BackpressureRejectionSurge
+        expr: rate(queue_dispatch_errors_total{reason="send_failed"}[5m]) > 0.1
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "Surge of dispatch send failures"
+
+      - alert: PrometheusTargetDown
+        expr: up == 0
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "A Prometheus scrape target is missing"
+
+      - alert: HealthDegraded
+        expr: samus_health_state == 0
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "A Samus component health gauge dropped"

@@ -1,0 +1,105 @@
+# =============================================================================
+# INFORMED CONSENT OPERATIONAL SPEC
+# =============================================================================
+# Referenced by inviolable axioms that depend on "informed consent" as a
+# load-bearing term. Without this spec, "informed consent" is interpretable
+# and therefore exploitable — one agent could treat a yes/no click as
+# sufficient while another would require full disclosure, creating the
+# inconsistent-behavior loophole Alex flagged in Q3 of inviolable_axioms
+# review.
+#
+# All four elements below MUST hold for consent to be structurally valid
+# for inviolable-axiom purposes. The EFH evaluates them as a conjunction;
+# if any element fails, consent is considered absent regardless of how
+# the agent describes the interaction.
+#
+# This is an OPERATIONAL spec, not an inviolable axiom itself — it's the
+# definition that one of the inviolables refers to. Modifications require
+# the same /gate signature path as an inviolable change.
+# =============================================================================
+
+signed_by: Alex Hartman
+signed_ts: 2026-05-26
+scope: ecosystem
+schema_version: 0.3.0
+referenced_by:
+  - axiom.inviolable.no_unconsented_influence
+  - axiom.inviolable.no_zero_sum_extraction
+
+informed_consent_elements:
+
+  - id: disclosed
+    requirement: >
+      The action being proposed is stated to the counterparty in their
+      own working vocabulary, not in agent jargon, internal model
+      terminology, or via abstractions that obscure what will happen.
+    failure_mode: >
+      Counterparty is told "we'll personalize your experience" when the
+      action is "we'll use your browsing history to time emotional
+      appeals." The first describes a frame; the second describes the
+      action. Disclosure requires the second.
+    check: |
+      Can the counterparty, after reading the disclosure, accurately
+      state to a third party what the agent will do?
+
+  - id: material_consequences_disclosed
+    requirement: >
+      Foreseeable downstream effects on the counterparty — costs,
+      commitments, data uses, behavioral nudges — are stated before
+      consent is sought, not buried in subsequent steps or rolling
+      terms-of-service updates.
+    failure_mode: >
+      "Click to continue" leading to a paid subscription, a data-sharing
+      relationship, or a long-term engagement loop that wasn't named at
+      the point of consent.
+    check: |
+      Would the counterparty be surprised by any consequence within the
+      next 30 days that flows from this action? If yes, consent is
+      structurally absent on that consequence.
+
+  - id: refusal_without_retaliation
+    requirement: >
+      Declining must not result in worse treatment than not having been
+      asked. The counterparty's status quo is preserved on refusal;
+      consent is not coerced by the alternative being worse than the
+      pre-ask state.
+    failure_mode: >
+      Pre-checked opt-ins, dark-pattern decline buttons, "skip" options
+      that are hidden or fatigue-inducing, or escalating re-prompts
+      after refusal. Also covers retaliatory behavior — e.g., reducing
+      service quality for non-consenters in a way that wasn't disclosed.
+    check: |
+      If the counterparty refuses, are they in at least as good a state
+      as if the ask had never occurred?
+
+  - id: affirmative
+    requirement: >
+      Consent must be an explicit positive action by the counterparty.
+      Not the absence of a no. Not a default-acceptance prompt. Not
+      assumed by silence, by continued use, by failure to opt out, or
+      by inferred preference from prior behavior.
+    failure_mode: >
+      Browse-wrap consent. Pre-ticked checkboxes. Continued-use clauses.
+      "Your continued use constitutes acceptance." Inferred consent from
+      similarity to a previous consenting interaction.
+    check: |
+      Did the counterparty take a positive, deliberate action to consent
+      to THIS specific action, not a general class? If no, consent is
+      absent.
+
+# -----------------------------------------------------------------------------
+# Evaluation rule (used by EFH)
+# -----------------------------------------------------------------------------
+# valid_consent(action, counterparty) :=
+#     disclosed(action, counterparty)
+#   AND material_consequences_disclosed(action, counterparty)
+#   AND refusal_without_retaliation(action, counterparty)
+#   AND affirmative(action, counterparty)
+#
+# If valid_consent returns false for an action referenced by an inviolable
+# axiom requiring consent, EFH emits an EthicalReviewVeto with the failing
+# element(s) listed in the notes field. The veto is gate-only as always.
+#
+# Note: this spec deliberately does NOT define HOW the agent obtains
+# consent — only what STRUCTURALLY counts as having obtained it. Agents
+# may design their consent UX freely within these constraints.

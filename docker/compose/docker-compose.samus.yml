@@ -1,0 +1,1914 @@
+# Samus local Compose stack — gateway + 5 workcells + Neo4j.
+#
+# Build context for every workcell is the Hustleforge repo root (parent of
+# Samus/) so the Dockerfiles can COPY both `Samus/...` and `docker/...`.
+# Run from that root:
+#
+#   docker compose -f Samus/docker/compose/docker-compose.samus.yml --env-file Samus/docker/compose/.env up -d
+#
+# Two networks:
+#   - samus-edge: gateway is reachable from the host here.
+#   - samus-internal: every service talks workcell-to-workcell here.
+
+name: samus
+
+x-samus-common: &samus-common
+  restart: unless-stopped
+  read_only: true
+  # Read-only rootfs requires a writable /tmp for uvicorn / FastAPI temp files.
+  # Short-form tmpfs entries are size-unbounded; container default cap is fine.
+  tmpfs:
+    - /tmp
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  # pids cap is set per-service under deploy.resources.limits.pids (Compose v5
+  # forbids top-level pids_limit when a deploy block exists on the same service).
+  init: false  # tini is PID 1 inside the image already
+  environment: &samus-common-env
+    PYTHONUNBUFFERED: "1"
+    SAMUS_PORT: "8080"
+    # LM Studio (OpenAI-compatible) on the host. Containers reach the host
+    # via host.docker.internal; the default in llm_client.py targets 127.0.0.1
+    # which is only correct on the host itself.
+    # NOTE: base form (…/v1), NOT the full …/v1/chat/completions. local_llm.chat
+    # appends /chat/completions itself; the old full-URL default double-appended
+    # to …/chat/completions/chat/completions, which LM Studio answers 200 + EMPTY
+    # choices — silently taking the whole offline reasoning stack dark (6/30).
+    # local_llm now also normalises either form defensively.
+    SAMUS_LM_STUDIO_URL: ${SAMUS_LM_STUDIO_URL:-http://host.docker.internal:1234/v1}
+    # Free-local routing (2026-07-08): comma-separated workcells that ALWAYS
+    # run on free LM Studio (unmetered — exempt from the paid $-cap + per-
+    # workcell token quota), regardless of the global OPENAI_API_KEY switch.
+    # Fixes cognition exhausting its 200k paid quota on work that runs free.
+    SAMUS_LLM_FREE_WORKCELLS: ${SAMUS_LLM_FREE_WORKCELLS:-}
+    # OpenAI = BACKUP backend for backend.common.local_llm. Local LM Studio is
+    # primary (free, tried first); OpenAI is the fallback so the offline
+    # reasoning stack (session monitor / strategy reasoner / callsheet updater /
+    # pattern aggregator) degrades to a paid call instead of going dark when
+    # local is empty/down. Hydrated from DPAPI OpenAiApiKey by Start-SamusStack.
+    # Empty -> local-only (no fallback). SAMUS_LLM_PRIMARY flips the order.
+    OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    SAMUS_LLM_PRIMARY: ${SAMUS_LLM_PRIMARY:-local}
+    # DocuSeal contract signing (backend.contracts). Secrets are DPAPI-sealed at
+    # the Samus scope and exported by Start-SamusStack.ps1. Default OFF -> the
+    # campaign contract step + /docuseal/webhook stay dormant until
+    # DOCUSEAL_ENABLED=true and the template id + token are set.
+    DOCUSEAL_ENABLED: ${DOCUSEAL_ENABLED:-false}
+    DOCUSEAL_API_BASE: ${DOCUSEAL_API_BASE:-http://samus-docuseal:3000/api}
+    DOCUSEAL_API_TOKEN: ${DOCUSEAL_API_TOKEN:-}
+    DOCUSEAL_PUBLIC_BASE: ${DOCUSEAL_PUBLIC_BASE:-}
+    DOCUSEAL_SERVICE_AGREEMENT_TEMPLATE_ID: ${DOCUSEAL_SERVICE_AGREEMENT_TEMPLATE_ID:-}
+    DOCUSEAL_WEBHOOK_SECRET: ${DOCUSEAL_WEBHOOK_SECRET:-}
+    # Canonical ecosystem LM Studio vars (operator_console pod.py reads these)
+    SN_LM_STUDIO_BASE_URL: ${SN_LM_STUDIO_BASE_URL:-http://host.docker.internal:1234/v1}
+    SN_LM_STUDIO_MODEL: ${SN_LM_STUDIO_MODEL:-local}
+    SAMUS_SHARED_HMAC_KEY: ${SAMUS_SHARED_HMAC_KEY:?SAMUS_SHARED_HMAC_KEY required}
+    # Agora v2: Anita's peer key (so Samus can VERIFY Anita's HMAC AgentEnvelope
+    # at POST /agora/contribute) + the contribute flag. Values come from the
+    # compose .env (gitignored); empty -> the endpoint stays dormant/fail-closed.
+    SS_HMAC_KEY_ANITA: ${SS_HMAC_KEY_ANITA:-}
+    SS_HMAC_KEY_SAMUS: ${SS_HMAC_KEY_SAMUS:-}
+    SN_AGORA_CONTRIBUTE_ENABLED: ${SN_AGORA_CONTRIBUTE_ENABLED:-}
+    # Per-service HMAC keys (R-1 security remediation). Optional + additive:
+    # a workcell whose key is unset falls back to SAMUS_SHARED_HMAC_KEY in
+    # code, so the stack behaves identically whether 0 or all 21 are set.
+    # Start-SamusStack.ps1 fills these from DPAPI (HmacKey_<service>); bulk-
+    # seed with D:\tools\hustleforge-git\Seed-SamusHmacKeys.ps1.
+    SAMUS_HMAC_KEY_CRM: ${SAMUS_HMAC_KEY_CRM:-}
+    SAMUS_HMAC_KEY_ENTROPY: ${SAMUS_HMAC_KEY_ENTROPY:-}
+    SAMUS_HMAC_KEY_FEEDBACK: ${SAMUS_HMAC_KEY_FEEDBACK:-}
+    SAMUS_HMAC_KEY_FINANCE: ${SAMUS_HMAC_KEY_FINANCE:-}
+    SAMUS_HMAC_KEY_FULFILLMENT: ${SAMUS_HMAC_KEY_FULFILLMENT:-}
+    SAMUS_HMAC_KEY_GATEWAY: ${SAMUS_HMAC_KEY_GATEWAY:-}
+    SAMUS_HMAC_KEY_INTAKE: ${SAMUS_HMAC_KEY_INTAKE:-}
+    SAMUS_HMAC_KEY_LEADGEN: ${SAMUS_HMAC_KEY_LEADGEN:-}
+    SAMUS_HMAC_KEY_MEMORY: ${SAMUS_HMAC_KEY_MEMORY:-}
+    SAMUS_HMAC_KEY_OPTIMIZER: ${SAMUS_HMAC_KEY_OPTIMIZER:-}
+    SAMUS_HMAC_KEY_OUTREACH: ${SAMUS_HMAC_KEY_OUTREACH:-}
+    SAMUS_HMAC_KEY_PATH_OPTIMIZER: ${SAMUS_HMAC_KEY_PATH_OPTIMIZER:-}
+    SAMUS_HMAC_KEY_PORTFOLIO_CONTROLLER: ${SAMUS_HMAC_KEY_PORTFOLIO_CONTROLLER:-}
+    SAMUS_HMAC_KEY_PROPOSAL: ${SAMUS_HMAC_KEY_PROPOSAL:-}
+    SAMUS_HMAC_KEY_PROSPECTING: ${SAMUS_HMAC_KEY_PROSPECTING:-}
+    SAMUS_HMAC_KEY_SCAFFOLD: ${SAMUS_HMAC_KEY_SCAFFOLD:-}
+    SAMUS_HMAC_KEY_SEO: ${SAMUS_HMAC_KEY_SEO:-}
+    SAMUS_HMAC_KEY_SIGNAL_FILTER: ${SAMUS_HMAC_KEY_SIGNAL_FILTER:-}
+    SAMUS_HMAC_KEY_STRATEGY: ${SAMUS_HMAC_KEY_STRATEGY:-}
+    SAMUS_HMAC_KEY_TEMPLATE_RECOVERY: ${SAMUS_HMAC_KEY_TEMPLATE_RECOVERY:-}
+    SAMUS_HMAC_KEY_VOICE: ${SAMUS_HMAC_KEY_VOICE:-}
+    # Authorization enforcement mode for the per-service-key authz model:
+    #   off | audit (log would-be denials, block nothing) | enforce (return
+    #   403 on denial). ARMED to 'enforce' by default (HOTL Tranche 1 operator
+    #   decision 2026-07-05); CALLER_GRANTS audited against all signed callers.
+    SAMUS_AUTHZ_MODE: ${SAMUS_AUTHZ_MODE:-enforce}
+    # File-integrity gate (red/blue drill 2026-06-30): off | audit (log drift) |
+    # enforce (block tampered protected files). Must be referenced HERE, not just
+    # in .env, to reach the container (env-anchor-vs-env-file rule).
+    # ARMED to 'enforce' by default (HOTL Tranche 1). NOTE: the baseline's
+    # operator Ed25519 signing ceremony is still pending (see
+    # backend/identity/immutable_baseline.json.ed25519.signrequest.json) —
+    # under env=production enforce fails closed until the ceremony completes;
+    # dev/compose boots proceed with signature posture reported.
+    SAMUS_IMMUTABLE_GATE_MODE: ${SAMUS_IMMUTABLE_GATE_MODE:-enforce}
+    # Real-time operator alerting channel (notify_operator + morning_send). Empty
+    # = alerting no-ops; paste a Discord webhook into .env to arm it.
+    SAMUS_BRIEF_DISCORD_WEBHOOK: ${SAMUS_BRIEF_DISCORD_WEBHOOK:-}
+    AWS_REGION: ${AWS_REGION:-us-west-1}
+    # boto3 specifically reads AWS_DEFAULT_REGION; AWS_REGION is read by other
+    # AWS SDKs but not by botocore's default region resolver. Set both so any
+    # client (boto3 or its sibling libs) finds the region without an explicit
+    # region_name kwarg.
+    AWS_DEFAULT_REGION: ${AWS_REGION:-us-west-1}
+    AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:?AWS_ACCESS_KEY_ID required}
+    AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:?AWS_SECRET_ACCESS_KEY required}
+    # Host-managed Neo4j (Hustleforge DBMS) reachable via Docker Desktop's
+    # host.docker.internal alias. Operator runs the DBMS outside the compose;
+    # the `samus` database is the per-agent partition.
+    NEO4J_URI: ${NEO4J_URI:-bolt://host.docker.internal:7687}
+    NEO4J_USER: ${NEO4J_USER:-neo4j}
+    NEO4J_PASSWORD: ${NEO4J_PASSWORD:-}
+    NEO4J_DATABASE: ${NEO4J_DATABASE:-samus}
+    NEO4J_REQUIRED: ${NEO4J_REQUIRED:-false}
+    # Artifact storage root. backend/common/storage.py defaults to the host
+    # E:\Hustleforge\Samus\data\artifacts path which doesn't exist inside the
+    # container; we redirect to the mounted samus-data volume so seo audits,
+    # proposals, and other generated files persist across recreates.
+    SAMUS_ARTIFACT_ROOT: /opt/samus/data/artifacts
+    # State root for runtime-writable Codex Validation Layer state
+    # (auto-drafted ADR stubs, resolved drafts, dedup ledger). Image is
+    # read-only at /opt/samus/docs/codex/_drafts/, so the drafter routes
+    # to ${SAMUS_STATE_ROOT}/codex_drafts/ + codex_resolved/ instead.
+    SAMUS_STATE_ROOT: /opt/samus/data
+    # Audit ledger root. backend/common/audit_ledger.py has the same
+    # E:\Hustleforge\Samus\data host default as storage.py — invalid inside the
+    # container, so the read-only mkdir fails (Errno 30) and tamper-evident
+    # audit records are silently dropped (found 2026-07-06: gateway +
+    # cash-engine-worker). Redirect to the mounted samus-data volume exactly
+    # like SAMUS_ARTIFACT_ROOT / SAMUS_STATE_ROOT above; ledger then lands at
+    # ${SAMUS_DATA_ROOT}/evidence/audit/ledger-YYYYMMDD.jsonl.
+    SAMUS_DATA_ROOT: /opt/samus/data
+    # Cross-agent Quorum Hub (MCP / JSON-RPC 2.0 on host:8090). Defaults are
+    # dormant — publishing only fires when SAMUS_QUORUM_PUBLISH_ENABLED is
+    # explicitly set to "1" (mirrors SAMUS_AUTHZ_MODE / SAMUS_DISCIPLINE_MODE
+    # rollout posture). When dormant, the publisher short-circuits in-process
+    # and never touches the network.
+    SAMUS_QUORUM_PUBLISH_ENABLED: ${SAMUS_QUORUM_PUBLISH_ENABLED:-0}
+    SAMUS_QUORUM_HUB_URL: ${SAMUS_QUORUM_HUB_URL:-http://host.docker.internal:8090}
+    SAMUS_QUORUM_HUB_HMAC_KEY: ${SAMUS_QUORUM_HUB_HMAC_KEY:-}
+    # PDC composite observer (informational; never gates). Flip to 1 to run
+    # the composite after each EFH-pass in commercial_wrap.
+    SAMUS_PDC_OBSERVE_ENABLED: ${SAMUS_PDC_OBSERVE_ENABLED:-0}
+    # Runtime environment gate (backend.common.settings.is_production()).
+    # 'development' (default) bypasses several fail-closed guards (Stripe
+    # test-mode rejection, immutable gate, footerless-send refusal). Set to
+    # 'production' for live customer-facing deploys. .env carries the
+    # production value; the :-development fallback keeps dev shells safe.
+    SAMUS_ENV: ${SAMUS_ENV:-development}
+    # L1 resource broker (server on the Anita VM :8420) — DISABLED for Samus.
+    # It gated contention for the shared local LM-Studio GPU ("route every
+    # Anthropic call through Anita's broker"), but Samus now runs on OpenAI
+    # (its own cloud account) and no longer touches that GPU. The broker was
+    # fail-closed, so a down Anita VM aborted every Samus LLM call — a hard
+    # dependency that kept a whole second agent alive for nothing. Samus's own
+    # local budget/CODB cap still runs (llm_client gate, before the broker), so
+    # cost control is unaffected. Flip back to "true" to re-couple. reserve()/
+    # release() become no-ops when false (broker_client.py).
+    SAMUS_BROKER_ENABLED: ${SAMUS_BROKER_ENABLED:-false}
+    # CODB investment reasoner — Samus reasons over finances + CODB and surfaces
+    # ranked, recommend-only reinvestment guidance (EOD section + guidance
+    # ledger + Stripe deal-closed stimulus). ARMED 2026-07-02 by operator
+    # directive ("agent needs to reason over finances and decide what CODB to
+    # scale"). It cannot spend — records land as PROPOSED for operator approval.
+    SAMUS_CODB_REASONER_ENABLED: ${SAMUS_CODB_REASONER_ENABLED:-true}
+    # Email send (SendGrid Mail Send v3) shared by every workcell that can
+    # dispatch outbound mail: finance (payment receipts), outreach (cold
+    # outreach + retainer pitches), cash-engine-worker (cash_engine live-send
+    # branch, which imports backend.outreach.service.send_message in-process
+    # — see stages.py L412). Start-SamusStack.ps1 sources these from DPAPI
+    # (SendgridApiKey / SendgridFromEmail / SendgridReplyTo). Default backend
+    # is "sendgrid"; SENDGRID_FROM_NAME defaults to "HustleForge".
+    EMAIL_BACKEND: ${EMAIL_BACKEND:-sendgrid}
+    SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+    SENDGRID_FROM_EMAIL: ${SENDGRID_FROM_EMAIL:-}
+    SENDGRID_FROM_NAME: ${SENDGRID_FROM_NAME:-HustleForge}
+    SENDGRID_REPLY_TO: ${SENDGRID_REPLY_TO:-}
+    # Gemini API key for the flyer-hero generator (scaffold/flyer_render.py).
+    # When unset, flyer rendering degrades to an SVG fallback hero.
+    GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    # --- SMMS port flags (ComplianceGuard / Heat / Karma / Reply / Attribution).
+    # Default-OFF in code; production values set in .env. ComplianceGuard runs
+    # 'audit' first (logs would-blocks + injects List-Unsubscribe headers, blocks
+    # nothing) — flip to 'enforce' once the audit log confirms no legitimate send
+    # would break (and the unsubscribe URL is on a stable domain). Heat arms the
+    # throttle but stays signal-less until SENDGRID_WEBHOOK_VERIFICATION_KEY is set
+    # + the SendGrid "Signed Event Webhook" points at the public /api/sendgrid/events.
+    # Karma fail-opens to an innocent baseline (no-op for a well-behaved Samus).
+    # Attribution stays off until a multi-variant catalog exists. DDB_* tables
+    # fall back to a JSON store on the data volume when unset.
+    SAMUS_COMPLIANCE_GUARD_MODE: ${SAMUS_COMPLIANCE_GUARD_MODE:-off}
+    SAMUS_COMPLIANCE_FROM_DOMAINS: ${SAMUS_COMPLIANCE_FROM_DOMAINS:-}
+    SAMUS_HEAT_FIELD_ENABLED: ${SAMUS_HEAT_FIELD_ENABLED:-false}
+    SENDGRID_WEBHOOK_VERIFICATION_KEY: ${SENDGRID_WEBHOOK_VERIFICATION_KEY:-}
+    DDB_HEAT_STATE_TABLE: ${DDB_HEAT_STATE_TABLE:-samus_heat_state}
+    SAMUS_KARMA_GATE_ENABLED: ${SAMUS_KARMA_GATE_ENABLED:-false}
+    DDB_KARMA_TABLE: ${DDB_KARMA_TABLE:-samus_karma}
+    SAMUS_REPLY_HANDLING_ENABLED: ${SAMUS_REPLY_HANDLING_ENABLED:-false}
+    SAMUS_ATTRIBUTION_ENABLED: ${SAMUS_ATTRIBUTION_ENABLED:-true}
+    # Semantic axiom layer for the EthicalFailureHandler (fail-open).
+    SAMUS_EFH_SEMANTIC: ${SAMUS_EFH_SEMANTIC:-true}
+    DDB_ATTRIBUTION_TABLE: ${DDB_ATTRIBUTION_TABLE:-samus_attribution_variants}
+    # ProtocolLayer feature flags (backend/governance/protocol_layer.py).
+    # ISV = Major-issued capability voucher; dual_channel = audit-mirror to
+    # Optimus. In production, BOTH require cryptographic material that must
+    # be fleet-coordinated (SAMUS_MAJOR_PUBLIC_KEY_PATH + SAMUS_SIGNING_KEY_PATH).
+    # Until that material is wired, leave them OFF so production boot stays
+    # quiet — the cash path doesn't use these.
+    SAMUS_ISV_CONSUMER_ENABLED: ${SAMUS_ISV_CONSUMER_ENABLED:-false}
+    SAMUS_DUAL_CHANNEL_ENABLED: ${SAMUS_DUAL_CHANNEL_ENABLED:-false}
+    # ADR-014: in-stack daily prospecting cadence. When true the prospecting
+    # workcell starts an asyncio loop on boot (5-min settle delay then 24h
+    # interval) that fires the same /work discover path the host scheduled
+    # task used to. Default false; tonight 2026-06-23 we arm it and disable
+    # the host 'Samus Prospecting Daily' task.
+    SAMUS_PROSPECTING_IN_STACK_CADENCE_ENABLED: ${SAMUS_PROSPECTING_IN_STACK_CADENCE_ENABLED:-false}
+    # Force-multiplier (Lever A): the control_tick auto-stake sweep promotes
+    # qualified prospects (lead_score >= 75, owner_email present, no
+    # existing opportunity, not contacted in 14d) to staked opportunities
+    # so the cash_engine can walk them autonomously. Default false; arm
+    # SAMUS_AUTO_STAKE_ENABLED=true when ready to let Samus run in parallel
+    # with operator dials. Knobs: SAMUS_AUTO_STAKE_{MIN_LEAD_SCORE,
+    # MAX_PER_SWEEP,RECENT_DAYS,SCAN_LIMIT}.
+    SAMUS_AUTO_STAKE_ENABLED: ${SAMUS_AUTO_STAKE_ENABLED:-false}
+    SAMUS_AUTO_STAKE_MIN_LEAD_SCORE: ${SAMUS_AUTO_STAKE_MIN_LEAD_SCORE:-}
+    SAMUS_AUTO_STAKE_MAX_PER_SWEEP: ${SAMUS_AUTO_STAKE_MAX_PER_SWEEP:-}
+    SAMUS_AUTO_STAKE_RECENT_DAYS: ${SAMUS_AUTO_STAKE_RECENT_DAYS:-}
+    SAMUS_AUTO_STAKE_SCAN_LIMIT: ${SAMUS_AUTO_STAKE_SCAN_LIMIT:-}
+    # Force-multiplier (Lever B): Apollo.io last-resort owner-contact
+    # lookup for prospects whose on-site cascade yielded no owner_email.
+    # Empty key = adapter is a no-op (default). Daily $-cap enforced by
+    # the SHARED G11 store (apollo_budget.py + SAMUS_APOLLO_DAILY_BUDGET_USD,
+    # default $5/day) — same ledger as backend.outreach.apollo_source.
+    APOLLO_API_KEY: ${APOLLO_API_KEY:-}
+    SAMUS_NOTE_DISTILLER_ARMED: ${SAMUS_NOTE_DISTILLER_ARMED:-false}
+    # NOTE: SAMUS_STATE_ROOT (durable governance/observability state +
+    # Codex Validation Layer state) is defined ONCE above at /opt/samus/data
+    # — the writable samus-data volume root. A second definition here
+    # (${SAMUS_STATE_ROOT:-/opt/samus/data/state}) was removed 2026-06-01: it
+    # was a YAML duplicate key that fails strict Compose parsing (Compose
+    # v2.29+/Docker 29.x), and its /state default diverged from the live
+    # /opt/samus/data value the running stack uses. See state_paths.py.
+
+networks:
+  samus-edge:
+    name: samus-edge
+    driver: bridge
+  samus-internal:
+    name: samus-internal
+    driver: bridge
+    # NOTE: `internal: true` was removed — workcells need outbound HTTPS to
+    # reach AWS (SQS, DynamoDB, SNS) and Google Places. Inter-
+    # workcell isolation is now enforced at the application layer via the
+    # HMAC middleware (backend.common.middleware.VerifyHMACMiddleware), not
+    # at the Docker network layer.
+
+volumes:
+  samus-data:
+    name: samus-data
+  docuseal-data:
+    name: samus-docuseal-data
+  docuseal-db-data:
+    name: samus-docuseal-db-data
+
+# Host-managed Neo4j: the Hustleforge DBMS runs on the host (Aura/Neo4j Desktop)
+# with per-agent databases (anita, darwin, hivemind, samus, sapphire, system).
+# Workcells reach it via host.docker.internal:7687. Docker Desktop resolves
+# host.docker.internal natively; for Linux engines the extra_hosts entry on
+# each workcell maps it to the host-gateway IP.
+
+x-host-neo4j: &host-neo4j
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+
+services:
+
+  # ----- Data-volume initializer ---------------------------------------
+  # Named docker volumes are created root-owned with 0755 perms by default.
+  # All workcells run as non-root 'samus' (uid 10001) via the base image's
+  # USER directive, so they cannot mkdir under /opt/samus/data on a fresh
+  # volume -- every per-workcell audit ledger silently fails to persist
+  # (caught at the JsonlLedger layer, logged as a warning).
+  #
+  # This init container runs once at compose-up under root, chowns the
+  # mount, and exits. Every other service depends_on it so they start
+  # only after the volume is samus-writable.
+  samus-data-init:
+    image: busybox:1.36
+    container_name: samus-data-init
+    user: "0:0"
+    command:
+      - sh
+      - -c
+      - "chown -R 10001:10001 /opt/samus/data && chmod -R u+rwX /opt/samus/data && echo 'samus-data ownership fixed'"
+    volumes:
+      - samus-data:/opt/samus/data
+    restart: "no"
+
+  # NOTE: the consolidated ngrok agent is defined ONCE, further down under
+  # "----- ngrok (consolidated webhook tunnels) -----". An earlier duplicate
+  # `samus-ngrok:` definition lived here (a YAML duplicate key that fails
+  # strict Compose parsing — Docker 29.x rejects the whole file); it was the
+  # less-complete stub (no 4040 publish, optional authtoken). Removed
+  # 2026-06-07 (D5-DOCK-01) so the file parses; the canonical block below
+  # carries the loopback inspector publish + required authtoken.
+
+  # ----- Gateway (edge) ------------------------------------------------
+  samus-gateway:
+    <<: *samus-common
+    build:
+      context: ../../..
+      dockerfile: Samus/docker/workcells/gateway/Dockerfile
+    image: samus/gateway:local
+    container_name: samus-gateway
+    networks:
+      - samus-edge
+      - samus-internal
+    ports:
+      # Bound to loopback (red/blue drill 2026-06-30): the gateway is the only
+      # host-published service and /health + /metrics are unauthenticated
+      # (gateway is the HMAC signer, name-exempt from VerifyHMACMiddleware).
+      # /metrics enumerates every route + traffic pattern — keep it off-host.
+      - "127.0.0.1:8100:8080"
+    # The cross-agent Quorum Hub MCP server runs on the host at
+    # 127.0.0.1:8090; the gateway subscribes to its /events SSE stream
+    # (backend/standard/inter_agent/hub_subscriber.py). Reaching the host
+    # requires the host.docker.internal alias — Docker Desktop sets this
+    # on Windows by default, but Linux engines need the extra_hosts entry.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - samus-data:/opt/samus/data
+      # The gateway runs the control-tick idle-production drive (self-pacing
+      # engine). Its observer + campaign portfolio read the SAME artifact truth
+      # the production services use — call lists, dial-run + email ledgers,
+      # voicemail drafts. Bind host_artifacts here for parity with
+      # samus-prospecting / samus-outreach / samus-voice; without it the gateway
+      # sees only the named volume (no call lists) and the drive self-gates to
+      # zero. Matches the "single source of truth shared across services" note
+      # on those services. See project_samus_self_pacing_engine.
+      - type: bind
+        source: ../../.data/host_artifacts
+        target: /opt/samus/data/artifacts
+        bind:
+          create_host_path: true
+    environment:
+      <<: *samus-common-env
+      SAMUS_SERVICE: gateway
+      # Cognition cadence right-sizing (Framework diagnosis 2026-07-08). The
+      # strategic cognition loop ran every 60s with a ~1.4k-token prompt =>
+      # 143 calls burned its full 200k/day LLM quota by 02:48 UTC, then sat
+      # budget-locked the rest of the UTC day. Because the daily reset is
+      # 00:00 UTC (= 17:00 PDT), the loop was dead through the entire Pacific
+      # business day. 900s (15 min) makes ~96 calls/day (~134k tokens) span
+      # the full day with headroom, cognition-only (no global base bump), no
+      # extra spend. Tighten toward 600s only if paired with more budget.
+      SAMUS_COGNITION_CADENCE_INTERVAL_SECONDS: ${SAMUS_COGNITION_CADENCE_INTERVAL_SECONDS:-900}
+      # Self-pacing engine (ADR-016/017). WIRED, DEFAULT OFF: the idle-drive is
+      # an observe-only no-op until SAMUS_IDLE_PRODUCTION_DRIVE_ENABLED=1. When
+      # armed it self-initiates governed EMAIL + voicemail DRAFTS when idle in
+      # business hours; it CANNOT place a live call (governed dial stays off +
+      # cold list has no consent basis). Arm the governed-dial flag only once a
+      # consented source + live dialer are bound (currently inert).
+      SAMUS_IDLE_PRODUCTION_DRIVE_ENABLED: ${SAMUS_IDLE_PRODUCTION_DRIVE_ENABLED:-false}
+      SAMUS_GOVERNED_AUTONOMOUS_DIAL_ENABLED: ${SAMUS_GOVERNED_AUTONOMOUS_DIAL_ENABLED:-false}
+      # Checkout-funnel gate (backend/catalog/funnel_health.py). WIRED, default
+      # OFF: the idle-drive email channel consults a cached funnel-health
+      # snapshot before pushing catalog buy-links. Disarmed it only LOGS when
+      # the funnel is degraded; armed it makes the email campaign ineligible
+      # while a CATALOG/live-code link is stale (scoped consider_wp=False, so a
+      # stale WordPress-page link never halts email). Only bites when a fresh
+      # snapshot exists — the morning brief lazily refreshes (refresh_if_stale)
+      # whenever the snapshot exceeds the 6h TTL, or run manually:
+      #   python -m backend.catalog.funnel_health --wp
+      SAMUS_FUNNEL_GATE_ENABLED: ${SAMUS_FUNNEL_GATE_ENABLED:-false}
+      # Starvation-aware self-supply (backend/cash_engine/self_supply.py).
+      # WIRED, DEFAULT OFF: when the idle-drive portfolio initiates zero
+      # campaigns because today's call list is missing, the tick fires the
+      # prospecting workcell's daily_supply producer itself instead of
+      # depending on a host scheduled task (which silently skipped 7/03 and
+      # starved the whole morning). Diagnosis reports even while disarmed.
+      SAMUS_SELF_SUPPLY_ENABLED: ${SAMUS_SELF_SUPPLY_ENABLED:-false}
+      # Hot-gate threshold for the idle-drive email channel (operator policy
+      # knob; empty -> morning_batch's own default 70). 7/03: thin ring
+      # topped out at score 66 -> operator set 60 to trade quality for volume.
+      SAMUS_EMAIL_HOT_MIN_SCORE: ${SAMUS_EMAIL_HOT_MIN_SCORE:-}
+      # Production pulse (operator directive 7/03): idle-signal-driven
+      # campaign progression — the idle-drive reasoning re-evaluates every
+      # PULSE_SEC instead of once per 30-min control tick, with a pulse-scale
+      # idle threshold. Pacing lives in the caps + governors (per-pass caps,
+      # affordability intensity, suppression/dedup, send ramp, dial daily cap,
+      # TCPA + business-hours gates), not in dead air between metronome ticks.
+      SAMUS_PRODUCTION_PULSE_ENABLED: ${SAMUS_PRODUCTION_PULSE_ENABLED:-false}
+      SAMUS_PRODUCTION_PULSE_SEC: ${SAMUS_PRODUCTION_PULSE_SEC:-120}
+      SAMUS_PRODUCTION_IDLE_THRESHOLD_S: ${SAMUS_PRODUCTION_IDLE_THRESHOLD_S:-300}
+      # CAN-SPAM footer inputs for the idle-drive's in-gateway email channel.
+      # The compliance guard fail-closes every send without them — found
+      # 7/03 when the first autonomous batch blocked on
+      # postal_address_unconfigured (previously only the host CLI and the
+      # cash-engine worker carried these).
+      SAMUS_SENDER_POSTAL_ADDRESS: ${SAMUS_SENDER_POSTAL_ADDRESS:-}
+      SAMUS_UNSUBSCRIBE_URL: ${SAMUS_UNSUBSCRIBE_URL:-}
+      # EOD triangulation leg C = Claude via the Anthropic API (DPAPI-seeded by
+      # Start-SamusStack as AnthropicApiKey -> ANTHROPIC_API_KEY). Passed into the
+      # gateway (where the intelligence cycle runs) so the daily EOD review gets a
+      # genuinely independent third model. Absent key => local-auditor fallback.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      SAMUS_CLAUDE_MODEL: ${SAMUS_CLAUDE_MODEL:-claude-sonnet-5}
+      # Operator console bearer token. Same value forge-ui uses to call
+      # /api/console/chats (it reads ForgeUi_SamusApiToken from LocalMachine
+      # DPAPI and sends it as `Authorization: Bearer <token>`). The
+      # operator_console pack at /api/console/* fail-closes with 503 when
+      # this is unset in production (SAMUS_ENV=production). Start-SamusStack.ps1
+      # reads ForgeUi_SamusApiToken from LocalMachine DPAPI and exports it
+      # here so the two sides match without a parallel DPAPI entry.
+      SAMUS_OPERATOR_TOKEN: ${SAMUS_OPERATOR_TOKEN:-}
+      # LLM-budget broker (resource_broker pack on Anita, port 8420). The
+      # cognition workcell reserves tokens here before calling the LLM. The
+      # client default is 127.0.0.1:8420 which is the container itself; from
+      # inside the gateway we have to point at the host. Mirrors the
+      # SAMUS_LM_STUDIO_URL pattern above. Without this, REASON in the
+      # cognition loop fails fail-closed every tick with broker_unreachable.
+      SAMUS_BROKER_BASE_URL: ${SAMUS_BROKER_BASE_URL:-https://host.docker.internal:8420}
+      # Operator-relief forwarder (mirror stale pending_stake deals to Anita's
+      # Agora). Only the gateway runs it (lifespan task). 2026-06-03.
+      SAMUS_AGORA_RELIEF_FORWARD_ENABLED: ${SAMUS_AGORA_RELIEF_FORWARD_ENABLED:-false}
+      SAMUS_AGORA_RELIEF_FORWARD_STALENESS_SEC: ${SAMUS_AGORA_RELIEF_FORWARD_STALENESS_SEC:-21600}
+      # Cross-agent Quorum Hub subscription (host MCP server at :8090).
+      # Set QUORUM_HUB_SUBSCRIBE_DISABLED=1 to skip starting the subscriber
+      # (e.g. when the hub server isn't running). The subscriber's own
+      # reconnect loop tolerates a missing hub, so leaving this unset is
+      # safe even if the hub is down at boot.
+      QUORUM_HUB_SSE_URL: ${QUORUM_HUB_SSE_URL:-http://host.docker.internal:8090/events}
+      QUORUM_HUB_SUBSCRIBE_DISABLED: ${QUORUM_HUB_SUBSCRIBE_DISABLED:-}
+      LEADGEN_URL: http://samus-leadgen:8080
+      PROSPECTING_URL: http://samus-prospecting:8080
+      SCAFFOLD_URL: http://samus-scaffold:8080
+      FULFILLMENT_URL: http://samus-fulfillment:8080
+      MEMORY_URL: http://samus-memory:8080
+      CRM_URL: http://samus-crm:8080
+      # FINANCE_URL lets the voice workcell POST inbound-call usage to the
+      # finance /meter-event route (AI Digital Receptionist metered billing).
+      FINANCE_URL: http://samus-finance:8080
+      SIGNAL_FILTER_URL: http://samus-signal-filter:8080
+      PATH_OPTIMIZER_URL: http://samus-path-optimizer:8080
+      TEMPLATE_RECOVERY_URL: http://samus-template-recovery:8080
+      PORTFOLIO_CONTROLLER_URL: http://samus-portfolio-controller:8080
+      ENTROPY_URL: http://samus-entropy:8080
+      SQS_LEADGEN_QUEUE_URL: ${SQS_LEADGEN_QUEUE_URL:-}
+      SQS_PROSPECTING_QUEUE_URL: ${SQS_PROSPECTING_QUEUE_URL:-}
+      SQS_SCAFFOLD_QUEUE_URL: ${SQS_SCAFFOLD_QUEUE_URL:-}
+      SQS_FULFILLMENT_QUEUE_URL: ${SQS_FULFILLMENT_QUEUE_URL:-}
+      SQS_CRM_QUEUE_URL: ${SQS_CRM_QUEUE_URL:-}
+      # Cash Engine front door (POST /api/samus/review_opportunity) + the
+      # signal_decay trigger enqueue RevenueTriggerEnvelopes here. Unset ->
+      # the engine falls back to the local JSONL mock queue (drained via
+      # POST /api/samus/cash_engine/drain); set it to go live on SQS.
+      SQS_CASH_ENGINE_QUEUE_URL: ${SQS_CASH_ENGINE_QUEUE_URL:-}
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 512m
+          pids: 256
+
+  # ----- Prospecting --------------------------------------------------
+  samus-prospecting:
+    <<: *samus-common
+    build:
+      context: ../../..
+      dockerfile: Samus/docker/workcells/prospecting/Dockerfile
+    image: samus/prospecting:local
+    container_name: samus-prospecting
+    networks:
+      - samus-internal
+    volumes:
+      - samus-data:/opt/samus/data
+      # Gap-4 durability (crash-proven 6/30): the ENTIRE artifacts dir is bound
+      # to the host host_artifacts dir so crash-critical mutable state —
+      # buying_signal enrollments, open-no-click watches, campaign ledgers,
+      # customer folders, daily call lists — survives a host crash AND is the
+      # single source of truth shared across services (no host/container
+      # divergence). Previously only daily_calls was bound; the 6/30 host crash
+      # wiped the named volume and lost Kelly's warm enrollment (in-volume only),
+      # which would have caused a warm prospect to be cold-dialed. Path is
+      # relative to this compose file's dir (../../.. = repo root). Nested over
+      # the samus-data volume; the bind shadows the volume's artifacts subdir.
+      - type: bind
+        source: ../../.data/host_artifacts
+        target: /opt/samus/data/artifacts
+        bind:
+          create_host_path: true
+    environment:
+      <<: *samus-common-env
+      SAMUS_SERVICE: prospecting
+      GOOGLE_PLACES_API_KEY: ${GOOGLE_PLACES_API_KEY:-}
+      SQS_PROSPECTING_QUEUE_URL: ${SQS_PROSPECTING_QUEUE_URL:-}
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 512m
+          pids: 256
+
+  # ----- Leadgen ------------------------------------------------------
+  samus-leadgen:
+    <<: *samus-common
+    build:
+      context: ../../..
+      dockerfile: Samus/docker/workcells/leadgen/Dockerfile
+    image: samus/leadgen:local
+    container_name: samus-leadgen
+    networks:
+      - samus-internal
+    volumes:
+      - samus-data:/opt/samus/data
+    environment:
+      <<: *samus-common-env
+      SAMUS_SERVICE: leadgen
+      SQS_LEADGEN_QUEUE_URL: ${SQS_LEADGEN_QUEUE_URL:-}
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 512m
+          pids: 256
+
+  # ----- Scaffold -----------------------------------------------------
+  samus-scaffold:
+    <<: *samus-common
+    build:
+      context: ../../..
+      dockerfile: Samus/docker/workcells/scaffold/Dockerfile
+    image: samus/scaffold:local
+    container_name: samus-scaffold
+    networks:
+      - samus-internal
+    volumes:
+      - samus-data:/opt/samus/data
+    environment:
+      <<: *samus-common-env
+      SAMUS_SERVICE: scaffold
+      SQS_SCAFFOLD_QUEUE_URL: ${SQS_SCAFFOLD_QUEUE_URL:-}
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 512m
+          pids: 256
+
+  # ----- Fulfillment --------------------------------------------------
+  samus-fulfillment:
+    <<: *samus-common
+    build:
+      context: ../../..
+      dockerfile: Samus/docker/workcells/fulfillment/Dockerfile
+    image: samus/fulfillment:local
+    container_name: samus-fulfillment
+    networks:
+      - samus-internal
+    volumes:
+      - samus-data:/opt/samus/data
+    environment:
+      <<: *samus-common-env
+      SAMUS_SERVICE: fulfillment
+      SQS_FULFILLMENT_QUEUE_URL: ${SQS_FULFILLMENT_QUEUE_URL:-}
+      # PageSpeed Insights — fulfill chain calls backend.seo.audit which
+      # now hits PSI for real CWV. Empty -> audit ships on-page-only.
+      GOOGLE_PAGESPEED_API_KEY: ${GOOGLE_PAGESPEED_API_KEY:-}
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 512m
+          pids: 256
+
+  # ----- Memory -------------------------------------------------------
+  samus-memory:
+    <<: *samus-common
+    build:
+      context: ../../..
+      dockerfile: Samus/docker/workcells/memory/Dockerfile
+    image: samus/memory:local
+    container_name: samus-memory
+    networks:
+      - samus-internal
+    volumes:
+      - samus-data:/opt/samus/data
+    environment:
+      <<: *samus-common-env
+      SAMUS_SERVICE: memory
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 512m
+          pids: 256
+
+  samus-feedback:
+    <<: *samus-common
+    build:
+      context: ../../..
+      dockerfile: Samus/docker/workcells/ses/Dockerfile
+    image: samus/feedback:local
+    container_name: samus-feedback
+    networks:
+      - samus-edge
+      - samus-internal
+    volumes:
+      - samus-data:/opt/samus/data
+    environment:
+      <<: *samus-common-env
+      SAMUS_SERVICE: feedback
+      SAMUS_FEEDBACK_AUDIT_PATH: /opt/samus/data/feedback/feedback_audit.jsonl
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256m
+          pids: 256
+
+  # ----- Outreach -----------------------------------------------------
+  # ----- DocuSeal document signing (self-hosted, third-party image) -----
+  # Customer contract e-signing. Samus (outreach) calls the API over the
+  # internal network at http://samus-docuseal:3000/api; the completion webhook
+  # posts back to http://samus-outreach:8080/docuseal/webhook. Customer signing
+  # links are published through the ingress (see ingress/Caddyfile + the public
+  # exposure note in docs). NOT a Samus workcell, so it does not inherit
+  # *samus-common. Pin a version tag in production instead of :latest.
+  samus-docuseal-db:
+    image: postgres:16-alpine
+    container_name: samus-docuseal-db
+    restart: unless-stopped
+    networks:
+      - samus-internal
+    environment:
+      POSTGRES_USER: docuseal
+      POSTGRES_PASSWORD: ${DOCUSEAL_DB_PASSWORD:?DOCUSEAL_DB_PASSWORD required}
+      POSTGRES_DB: docuseal
+    volumes:
+      - docuseal-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U docuseal -d docuseal"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  samus-docuseal:
+    image: docuseal/docuseal:latest
+    container_name: samus-docuseal
+    restart: unless-stopped
+    depends_on:
+      samus-docuseal-db:
+        condition: service_healthy
+    networks:
+      - samus-internal
+    ports:
+      # Operator-only admin UI, bound to loopback. The public customer signing
+      # surface (/s/*, /disk/*, assets) is served through samus-ingress/Caddy,
+      # which blocks /admin*, /api*, /templates* by design — so template
+      # management happens here on localhost, never on the public edge.
+      - "127.0.0.1:3000:3000"
+    environment:
+      DATABASE_URL: postgresql://docuseal:${DOCUSEAL_DB_PASSWORD:?DOCUSEAL_DB_PASSWORD required}@samus-docuseal-db:5432/docuseal
+      SECRET_KEY_BASE: ${DOCUSEAL_SECRET_KEY_BASE:?DOCUSEAL_SECRET_KEY_BASE required}
+      # Public host the signing links resolve on (via the ingress). DocuSeal
+      # builds absolute URLs from this; TLS is terminated upstream at the tunnel,
+      # so FORCE_SSL stays off inside the network.
+      HOST: ${DOCUSEAL_HOST:-}
+      FORCE_SSL: "false"
+    volumes:
+      - docuseal-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/up >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  samus-outreach:
+    <<: *samus-common
+    build:
+      context: ../../..
+      dockerfile: Samus/docker/workcells/outreach/Dockerfile
+    image: samus/outreach:local
+    container_name: samus-outreach
+    networks:
+      - samus-internal
+    volumes:
+      - samus-data:/opt/samus/data
+      # Gap-4 durability: outreach writes buying_signal enrollments, open-no-click
+      # watches, and campaign ledgers — all crash-critical. Bind the artifacts dir
+      # to host so they survive a crash and stay consistent with voice +
+      # prospecting (one host source of truth). See the voice/prospecting blocks.
+      - type: bind
+        source: ../../.data/host_artifacts
+        target: /opt/samus/data/artifacts
+        bind:
+          create_host_path: true
+      # Per-client campaign config read by backend.campaigns.contract_wire on
+      # DocuSeal submission.completed to auto-start the bound campaign. RO
+      # bind: operators add clients/<slug>/campaign.yaml without a rebuild.
+      - type: bind
+        source: ../../clients
+        target: /opt/samus/clients
+        read_only: true
+    environment:
+      <<: *samus-common-env
+      SAMUS_SERVICE: outreach
+      SQS_OUTREACH_QUEUE_URL: ${SQS_OUTREACH_QUEUE_URL:-}
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 512m
+          pids: 256
+
+  # ----- Optimizer ----------------------------------------------------
+  samus-optimizer:
+    <<: *samus-common
+    build:
+      context: ../../..
+      dockerfile: Samus/docker/workcells/optimizer/Dockerfile
+    image: samus/optimizer:local
+    container_name: samus-optimizer
+    networks:
+      - samus-internal
+    volumes:
+      - samus-data:/opt/samus/data
+    environment:
+      <<: *samus-common-env
+      SAMUS_SERVICE: optimizer
+      SQS_OPTIMIZER_QUEUE_URL: ${SQS_OPTIMIZER_QUEUE_URL:-}
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256m
+          pids: 256
+
+  # ----- Proposal -----------------------------------------------------
+  samus-proposal:
+    <<: *samus-common
+    build:
+      context: ../../..
+      dockerfile: Samus/docker/workcells/proposal/Dockerfile
+    image: samus/proposal:local
+    container_name: samus-proposal
+    networks:
+      - samus-internal
+    volumes:
+      - samus-data:/opt/samus/data
+    environment:
+      <<: *samus-common-env
+      SAMUS_SERVICE: proposal
+      SQS_PROPOSAL_QUEUE_URL: ${SQS_PROPOSAL_QUEUE_URL:-}
+      # Lets the proposal workcell dispatch artifact-create jobs to
+      # samus-crm via the gateway -> samus-crm-jobs SQS queue.
+      GATEWAY_URL: http://samus-gateway:8080
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256m
+          pids: 256
+
+  # ----- SEO ----------------------------------------------------------
+  samus-seo:
+    <<: *samus-common
+    build:
+      context: ../../..
+      dockerfile: Samus/docker/workcells/seo/Dockerfile
+    image: samus/seo:local
+    container_name: samus-seo
+    networks:
+      - samus-internal
+    volumes:
+      - samus-data:/opt/samus/data
+    environment:
+      <<: *samus-common-env
+      SAMUS_SERVICE: seo
+      SQS_SEO_QUEUE_URL: ${SQS_SEO_QUEUE_URL:-}
+      # PageSpeed Insights (real Core Web Vitals + Lighthouse subscores).
+      # Empty -> audit_pagespeed returns error='api_key_unset' and the
+      # audit ships with on-page checks only — no crash, just less data.
+      GOOGLE_PAGESPEED_API_KEY: ${GOOGLE_PAGESPEED_API_KEY:-}
+      # Lets the seo workcell dispatch artifact-create jobs to samus-crm
+      # via the gateway -> samus-crm-jobs SQS queue.
+      GATEWAY_URL: http://samus-gateway:8080
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 512m
+          pids: 256
+
+  # ----- Finance -------------------------------------------------------
+  # Phase 1: read-only Stripe ingest + CODB registry + runway math.
+  # HTTP-only (no SQS worker sidecar yet — no samus-finance-jobs queue).
+  # STRIPE_API_KEY is optional: the workcell degrades to "stripe_api_key_unset"
+  # and still serves /codb_summary + /runway (with balance=0) without it.
+  samus-finance:
+    <<: *samus-common
+    build:
+      context: ../../..
+      dockerfile: Samus/docker/workcells/finance/Dockerfile
+    image: samus/finance:local
+    container_name: samus-finance
+    networks:
+      - samus-internal
+    volumes:
+      - samus-data:/opt/samus/data
+      # REAL cash source: the Found business-bank activity export lives in the
+      # operator's tax-docs dir. Mounted READ-ONLY so get_runway/get_snapshot can
+      # total the latest *activity_report*.csv → the true bank balance, replacing
+      # Stripe's auto-swept ~$0 available balance. Path is relative to this compose
+      # file (../../.. = repo parent = D:\Hustleforge). See backend/finance/found_cash.py.
+      - type: bind
+        source: "../../../Executive Docs/04_Tax"
+        target: /opt/samus/exec_docs/tax
+        read_only: true
+    environment:
+      <<: *samus-common-env
+      SAMUS_SERVICE: finance
+      STRIPE_API_KEY: ${STRIPE_API_KEY:-}
+      SAMUS_FOUND_ACTIVITY_DIR: /opt/samus/exec_docs/tax
+      # Mercury READ-ONLY bank API — the live real-cash source once Stripe payouts
+      # land in Mercury. WIRE-NOT-ARM: flag default OFF; flip to 1 only after the
+      # money is actually in Mercury. Token is a READ-ONLY Mercury token
+      # (DPAPI AnthropicApiKey-style: Start-SamusStack seeds MercuryApiToken ->
+      # MERCURY_API_TOKEN). Absent/off => Found CSV → Stripe fallback.
+      SAMUS_MERCURY_ENABLED: ${SAMUS_MERCURY_ENABLED:-false}
+      MERCURY_API_TOKEN: ${MERCURY_API_TOKEN:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      # Lets the Stripe webhook close-the-loop dispatch reach samus-crm
+      # via the gateway -> samus-crm-jobs SQS queue.
+      GATEWAY_URL: http://samus-gateway:8080
+      # SendGrid Mail Send + EMAIL_BACKEND are now defined ONCE in the
+      # &samus-common-env anchor so every workcell that can dispatch mail
+      # (finance, outreach, cash-engine-worker) inherits them. The
+      # finance-only block here was removed 2026-06-22 when cash_engine
+      # live-send needed the creds too.
+      # Comma-separated whitelist of hf_offer_code values that trigger
+      # post-payment auto-fulfill (Win #2). Empty = operator-only manual
+      # Run-Fulfill.ps1 for every sale. Requires the payment_link to also
+      # expose a `website_url` checkout custom_field; without it the
+      # handler skips even whitelisted offers.
+      SAMUS_AUTO_FULFILL_OFFERS: ${SAMUS_AUTO_FULFILL_OFFERS:-}
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384m
+          pids: 128
+
+  # ----- CRM -----------------------------------------------------------
+  # Phase 1: owns the 7 cross-cutting customer-pipeline tables
+  # (prospects, contacts, conversations, call-State, opportunities,
+  # operator_tasks, artifacts). HTTP-only — no SQS worker sidecar yet,
+  # no public surface (network: samus-internal only). Other workcells
+  # dispatch via HMAC for any CRM mutation.
+  samus-crm:
+    <<: *samus-common
+    build:
+      context: ../../..
+      dockerfile: Samus/docker/workcells/crm/Dockerfile
+    image: samus/crm:local
+    container_name: samus-crm
+    networks:
+      - samus-internal
+    volumes:
+      - samus-data:/opt/samus/data
+    environment:
+      <<: *samus-common-env
+      SAMUS_SERVICE: crm
+      DDB_PROSPECTS_TABLE: ${DDB_PROSPECTS_TABLE:-samus_prospects}
+      DDB_CONTACTS_TABLE: ${DDB_CONTACTS_TABLE:-samus_contacts}
+      DDB_CONVERSATIONS_TABLE: ${DDB_CONVERSATIONS_TABLE:-samus_conversations}
+      DDB_CALL_STATE_TABLE: ${DDB_CALL_STATE_TABLE:-samus_call-State}
+      DDB_OPPORTUNITIES_TABLE: ${DDB_OPPORTUNITIES_TABLE:-samus_opportunities}
+      DDB_OPERATOR_TASKS_TABLE: ${DDB_OPERATOR_TASKS_TABLE:-samus_operator_tasks}
+      DDB_ARTIFACTS_TABLE: ${DDB_ARTIFACTS_TABLE:-samus_artifacts}
+      DDB_ONBOARDING_LEADS_TABLE: ${DDB_ONBOARDING_LEADS_TABLE:-samus_onboarding_leads}
+      SAMUS_CRM_AUDIT_PATH: /opt/samus/data/crm/crm_audit.jsonl
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384m
+          pids: 128
+
+  # ----- CRM worker sidecar -------------------------------------------
+  # Drains the samus-crm-jobs SQS queue. Producers (seo, proposal, finance
+  # webhook) dispatch CRM mutations through the gateway -> SQS path so
+  # they survive Cloud Run scale-to-zero (a daemon-thread approach does
+  # not). This worker consumes those messages and routes by envelope
+  # action to the CRM service functions. Action router lives in
+  # backend/crm/worker.py::_handle_action and mirrors the /work HTTP
+  # endpoint actions one-for-one, plus a collapsed
+  # ``close_payment_to_opportunity`` for the finance close-the-loop flow.
+  samus-crm-worker:
+    <<: *samus-common
+    image: samus/crm:local
+    container_name: samus-crm-worker
+    command: ["python", "-m", "backend.crm.worker"]
+    depends_on:
+      samus-crm:
+        condition: service_started
+    networks:
+      - samus-internal
+    volumes:
+      - samus-data:/opt/samus/data
+    environment:
+      <<: *samus-common-env
+      SAMUS_SERVICE: crm
+      SQS_CRM_QUEUE_URL: ${SQS_CRM_QUEUE_URL:-}
+      DDB_PROSPECTS_TABLE: ${DDB_PROSPECTS_TABLE:-samus_prospects}
+      DDB_CONTACTS_TABLE: ${DDB_CONTACTS_TABLE:-samus_contacts}
+      DDB_CONVERSATIONS_TABLE: ${DDB_CONVERSATIONS_TABLE:-samus_conversations}
+      DDB_CALL_STATE_TABLE: ${DDB_CALL_STATE_TABLE:-samus_call-State}
+      DDB_OPPORTUNITIES_TABLE: ${DDB_OPPORTUNITIES_TABLE:-samus_opportunities}
+      DDB_OPERATOR_TASKS_TABLE: ${DDB_OPERATOR_TASKS_TABLE:-samus_operator_tasks}
+      DDB_ARTIFACTS_TABLE: ${DDB_ARTIFACTS_TABLE:-samus_artifacts}
+      DDB_ONBOARDING_LEADS_TABLE: ${DDB_ONBOARDING_LEADS_TABLE:-samus_onboarding_leads}
+      SAMUS_CRM_AUDIT_PATH: /opt/samus/data/crm/crm_audit.jsonl
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import pathlib,sys; sys.exit(0 if 'backend.crm.worker' in pathlib.Path('/proc/1/cmdline').read_text() else 1)\""]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384m
+          pids: 128
+
+  # ----- Cash Engine worker sidecar -----------------------------------
+  # Drains the samus-cash-engine-jobs SQS queue. The front door
+  # (POST /api/samus/review_opportunity on the gateway) and the signal_decay
+  # trigger enqueue RevenueTriggerEnvelopes; this worker pulls each and walks
+  # it through the staged sequence (audit -> proposal -> contact -> outreach
+  # -> dormant) via backend/cash_engine/worker.py::process_job (idempotent per
+  # deal, so SQS redelivery is safe; failures redrive to DLQ).
+  #
+  # FAT WORKER: the staged handlers call into seo.audit, proposal, outreach,
+  # prospecting, and crm. It runs on the gateway image (samus/gateway:local),
+  # which already imports the cash_engine subsystem at boot — but those leaf
+  # modules are imported lazily inside the handlers, so the gateway image MUST
+  # carry their runtime deps (beautifulsoup4, dnspython, httpx) for
+  # the audit/proposal/outreach stages to run; otherwise a job redrives to DLQ.
+  #
+  # With SQS_CASH_ENGINE_QUEUE_URL unset the receive loop idles harmlessly and
+  # the no-SQS path is the gateway's /api/samus/cash_engine/drain over the JSONL
+  # mock queue. Set the URL (and provision the queue + a DLQ redrive policy) to
+  # go live. Live email stays gated by SAMUS_CASH_ENGINE_LIVE_SEND (default off).
+  samus-cash-engine-worker:
+    <<: *samus-common
+    image: samus/gateway:local
+    container_name: samus-cash-engine-worker
+    command: ["python", "-m", "backend.cash_engine.worker"]
+    depends_on:
+      samus-gateway:
+        condition: service_started
+    networks:
+      - samus-internal
+    volumes:
+      - samus-data:/opt/samus/data
+    environment:
+      <<: *samus-common-env
+      SAMUS_SERVICE: cash_engine
+      SQS_CASH_ENGINE_QUEUE_URL: ${SQS_CASH_ENGINE_QUEUE_URL:-}
+      # Outreach send stays drafted-only unless the operator opts in here AND
+      # SES_FROM_EMAIL is set; postal address + unsubscribe satisfy CAN-SPAM.
+      SAMUS_CASH_ENGINE_LIVE_SEND: ${SAMUS_CASH_ENGINE_LIVE_SEND:-}
+      SES_FROM_EMAIL: ${SES_FROM_EMAIL:-}
+      SAMUS_SENDER_POSTAL_ADDRESS: ${SAMUS_SENDER_POSTAL_ADDRESS:-}
+      SAMUS_UNSUBSCRIBE_URL: ${SAMUS_UNSUBSCRIBE_URL:-}
+      DDB_PROSPECTS_TABLE: ${DDB_PROSPECTS_TABLE:-samus_prospects}
+      DDB_CALL_STATE_TABLE: ${DDB_CALL_STATE_TABLE:-samus_call-State}
+      DDB_OPPORTUNITIES_TABLE: ${DDB_OPPORTUNITIES_TABLE:-samus_opportunities}
+      DDB_OPERATOR_TASKS_TABLE: ${DDB_OPERATOR_TASKS_TABLE:-samus_operator_tasks}
+      DDB_ARTIFACTS_TABLE: ${DDB_ARTIFACTS_TABLE:-samus_artifacts}
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import pathlib,sys; sys.exit(0 if 'backend.cash_engine.worker' in pathlib.Path('/proc/1/cmdline').read_text() else 1)\""]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 512m
+          pids: 128
+
+  # ----- Intake --------------------------------------------------------
+  # Phase 1: public-facing receiver for the onboarding form on
+  # hustleforge.tech/onboarding/. HTTP-only (no SQS worker yet).
+  #
+  # Networks: samus-edge AND samus-internal. Browser POSTs from the
+  # marketing site land here through Cloud Run / Caddy / ngrok depending
+  # on environment (production: api.hustleforge.tech -> Cloud Run
+  # samus-intake-2026). No `ports:` block — local dev uses an ngrok-style
+  # tunnel or hits the container through the gateway.
+  #
+  # CORS allow-list is driven by SAMUS_INTAKE_ALLOWED_ORIGINS (default
+  # https://hustleforge.tech); change without rebuilding.
+  samus-intake:
+    <<: *samus-common
+    build:
+      context: ../../..
+      dockerfile: Samus/docker/workcells/intake/Dockerfile
+    image: samus/intake:local
+    container_name: samus-intake
+    networks:
+      - samus-edge
+      - samus-internal
+    volumes:
+      - samus-data:/opt/samus/data
+      # Per-client campaign config read by backend.crm.client_directory on
+      # every inbound email so signed/existing-client mail is categorized as
+      # client_correspondence (not lumped with cold-prospect replies).
+      # RO: operators add clients/<slug>/campaign.yaml without a rebuild;
+      # the container must never mutate it.
+      - type: bind
+        source: ../../clients
+        target: /opt/samus/clients
+        read_only: true
+    environment:
+      <<: *samus-common-env
+      SAMUS_SERVICE: intake
+      DDB_ONBOARDING_LEADS_TABLE: ${DDB_ONBOARDING_LEADS_TABLE:-samus_onboarding_leads}
+      SAMUS_INTAKE_ALLOWED_ORIGINS: ${SAMUS_INTAKE_ALLOWED_ORIGINS:-https://hustleforge.tech}
+      SAMUS_INTAKE_DEDUP_WINDOW_S: ${SAMUS_INTAKE_DEDUP_WINDOW_S:-86400}
+      SAMUS_INTAKE_AUDIT_PATH: /opt/samus/data/intake/intake_audit.jsonl
+      # Site telemetry ingest (backend/intake/telemetry.py).
+      # POST /intake/telemetry — page_view / form_view / pricing_view /
+      # form_submit_view / buy_click beacons from hustleforge.tech. When
+      # OFF the endpoint returns 200 with status='dropped_disabled' so the
+      # site beacon never looks broken; when ON, events land in the JSONL
+      # ledger below. Wired 2026-07-03 as part of the funnel-audit
+      # remediation.
+      SAMUS_TELEMETRY_INGEST_ENABLED: ${SAMUS_TELEMETRY_INGEST_ENABLED:-false}
+      SAMUS_INTAKE_TELEMETRY_PATH: /opt/samus/data/intake/site_telemetry.jsonl
+      # Website onboarding-form warm-lead enrollment
+      # (backend/outreach/buying_signal_route.maybe_enroll_buying_signal_from_website_form).
+      # When a form submission carries declared service_interest (not empty,
+      # not just 'not_sure'), the intake handler enrolls the lead into the
+      # same warm buying_signal sequence used by voice + email_reply.
+      # Independent of the voice-path OUTREACH_BUYING_SIGNAL_ROUTE_ENABLED
+      # flag — this arms website-sourced enrollments only. Sending remains
+      # a separate dormant step (dispatch_due_buying_signal needs a composer +
+      # dry_run=False). Scoped to intake so arming recreates only samus-intake.
+      OUTREACH_WEBSITE_FORM_WARM_ENROLL_ENABLED: ${OUTREACH_WEBSITE_FORM_WARM_ENROLL_ENABLED:-false}
+      # In-container Gmail inbox drain (backend/intake/gmail_poll_task.py).
+      # Operator directive 2026-07-06 (post morning-ritual): recurring
+      # behaviours move OUT of Windows Task Scheduler and INTO the always-on
+      # container. Default ON, 10-min cadence -- matches the retired
+      # "Samus Inbox Poll" scheduled task, which stays disabled (belt-and-
+      # suspenders) during the transition window. Set _ENABLED=0 to disarm
+      # the container loop; when disarmed the poller is a full no-op (no
+      # Gmail API round-trip, no CRM write). See gmail_poll_task.py.
+      SAMUS_GMAIL_POLL_ENABLED: ${SAMUS_GMAIL_POLL_ENABLED:-1}
+      SAMUS_GMAIL_POLL_INTERVAL_SEC: ${SAMUS_GMAIL_POLL_INTERVAL_SEC:-600}
+      # Gmail OAuth credentials for backend.intake.gmail_poller.drain_once.
+      # All three must be set for the poller to do anything -- unset leaves
+      # drain_once returning enabled=False as a clean no-op (poller stays
+      # disarmed rather than failing). Hydrated from DPAPI by
+      # Start-SamusStack.ps1 (GmailInboxEmail / GmailOauthClientId /
+      # GmailOauthClientSecret). The OAuth refresh token itself lives on the
+      # mounted samus-data volume at
+      # /opt/samus/data/intake/gmail_oauth_token.json (config default);
+      # populate it once from the host via Authorize-Gmail.ps1 targeting the
+      # same on-disk path the volume is mounted from.
+      SAMUS_GMAIL_INBOX_EMAIL: ${SAMUS_GMAIL_INBOX_EMAIL:-}
+      SAMUS_GMAIL_OAUTH_CLIENT_ID: ${SAMUS_GMAIL_OAUTH_CLIENT_ID:-}
+      SAMUS_GMAIL_OAUTH_CLIENT_SECRET: ${SAMUS_GMAIL_OAUTH_CLIENT_SECRET:-}
+      # Post-drain categorized forwarder (see backend/intake/email_forwarder.py).
+      # When enabled, every processed message is re-sent FROM the polled inbox
+      # TO SAMUS_FORWARD_TO_EMAIL with a [CATEGORY/INTENT] subject prefix, and
+      # the original is trashed. Unclassifiable + low-confidence hits go to
+      # [URGENT/UNCLASSIFIED] so the operator can eyeball them for training.
+      SAMUS_FORWARD_ENABLED: ${SAMUS_FORWARD_ENABLED:-0}
+      SAMUS_FORWARD_TO_EMAIL: ${SAMUS_FORWARD_TO_EMAIL:-}
+      SAMUS_FORWARD_TRASH_ORIGINAL: ${SAMUS_FORWARD_TRASH_ORIGINAL:-1}
+      SAMUS_FORWARD_CLASSIFY_MIN_CONFIDENCE: ${SAMUS_FORWARD_CLASSIFY_MIN_CONFIDENCE:-0.4}
+      # Two-way calendar sync (backend.intake.calendar_poll_task).
+      # Polls samushustleforge@'s primary Google Calendar every N seconds.
+      # Operator-created events become CRM calendar_event artifacts + emit
+      # calendar.event_scheduled. Events past their end time emit
+      # calendar.event_completed. Samus-created events (source=samus.intake)
+      # are recognized and skipped for ingest but still tracked for completion.
+      SAMUS_CALENDAR_POLL_ENABLED: ${SAMUS_CALENDAR_POLL_ENABLED:-1}
+      SAMUS_CALENDAR_POLL_INTERVAL_SEC: ${SAMUS_CALENDAR_POLL_INTERVAL_SEC:-300}
+      # Stripe key -- OPTIONAL. When set the per-inbound-message billing
+      # summary line reads "paid customer / subscribed / unknown" via
+      # backend.finance.service.get_customer_billing_summary; when unset it
+      # degrades to "billing lookup failed: stripe_api_key_unset" and the
+      # artifact + operator task are still created. Kept scoped to intake
+      # even though finance also holds this key -- the poller does the
+      # lookup inline in this workcell.
+      STRIPE_API_KEY: ${STRIPE_API_KEY:-}
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256m
+          pids: 128
+
+  # ----- Voice ---------------------------------------------------------
+  # Phase 1: Vapi outbound caller + inbound webhook receiver (Morgan SDR loop
+  # from Samus/recovery/vapi_sales_agent_config.md). HTTP-only — no SQS
+  # worker sidecar yet (no samus-voice-jobs queue).
+  #
+  # Networks: samus-edge AND samus-internal. Edge attachment mirrors the
+  # feedback workcell — Vapi pushes webhook events from the public internet,
+  # so the container must be reachable through the same Caddy/edge path that
+  # serves /api/ses/feedback. No `ports:` block here either: local-dev
+  # webhook testing uses an ngrok-style tunnel; VM ingress goes through
+  # Caddy on host port :8080 (architecture doc reservation).
+  #
+  # VAPI_API_KEY is optional: outbound /voice/call degrades to
+  # vapi_error=vapi_api_key_unset without it. VAPI_WEBHOOK_SECRET is
+  # required for /vapi/webhook unless SAMUS_VOICE_VERIFY_WEBHOOK=0; a
+  # missing secret returns 503 (refuse-don't-degrade for an inbound trust
+  # boundary).
+  samus-voice:
+    <<: *samus-common
+    build:
+      context: ../../..
+      dockerfile: Samus/docker/workcells/voice/Dockerfile
+    image: samus/voice:local
+    container_name: samus-voice
+    networks:
+      - samus-edge
+      - samus-internal
+    ports:
+      # Operator voice console (backend.voice.console): GET /console + the
+      # token-gated /console/api/*. Unlike /vapi/webhook (public ingress via
+      # the embedded ngrok tunnel / Caddy), the console is a host-browser
+      # surface and needs a published port. Bound to 127.0.0.1 only — the
+      # console is operator-local, and /console/api/* is additionally gated by
+      # SAMUS_VOICE_CONSOLE_TOKEN.
+      - "127.0.0.1:8107:8080"
+    volumes:
+      - samus-data:/opt/samus/data
+      # Gap-4 durability (crash-proven 6/30): bind the ENTIRE artifacts dir to
+      # host so the dialer's warm-exclusion source (buying_signal_enrollments),
+      # the daily call lists, watches, and customer folders survive a host crash
+      # and stay consistent with prospecting + outreach (one host source of
+      # truth). Widened from the daily_calls-only bind after the 6/30 crash wiped
+      # the named volume and lost Kelly's in-volume warm enrollment. Nested over
+      # the samus-data volume; the bind shadows the volume's artifacts subdir.
+      - type: bind
+        source: ../../.data/host_artifacts
+        target: /opt/samus/data/artifacts
+        bind:
+          create_host_path: true
+    environment:
+      <<: *samus-common-env
+      SAMUS_SERVICE: voice
+      VAPI_API_KEY: ${VAPI_API_KEY:-}
+      VAPI_WEBHOOK_SECRET: ${VAPI_WEBHOOK_SECRET:-}
+      # Morning dialer needs both. Empty -> /voice/dial_call_list refuses to
+      # dial (no fallback). Both are Vapi dashboard UUIDs (account-binding,
+      # not credentials) but stored DPAPI-side for the same reason as the API
+      # key — keeps them out of any accidentally-committed .env diff.
+      VAPI_ASSISTANT_ID: ${VAPI_ASSISTANT_ID:-}
+      VAPI_PHONE_NUMBER_ID: ${VAPI_PHONE_NUMBER_ID:-}
+      # AI Digital Receptionist — the INBOUND assistant + its bound DID.
+      # Separate Vapi assistant from the outbound dialer above (receptionist
+      # persona, recording enabled). Empty -> inbound receptionist path is
+      # off; the outbound surface is unaffected.
+      VAPI_INBOUND_ASSISTANT_ID: ${VAPI_INBOUND_ASSISTANT_ID:-}
+      VAPI_INBOUND_PHONE_NUMBER_ID: ${VAPI_INBOUND_PHONE_NUMBER_ID:-}
+      # Voice does NOT open its own ngrok tunnel. The consolidated samus-ngrok
+      # agent (below) fronts both finance and voice through ONE ngrok session
+      # -- the free plan allows one agent session but three endpoints. Forced
+      # empty so _run_tunnel_startup cleanly skips the embedded tunnel;
+      # Sync-VoiceWebhook.ps1 points Morgan's server.url at the shared voice
+      # tunnel after the stack comes up.
+      NGROK_AUTHTOKEN: ""
+      NGROK_RESERVED_DOMAIN: ""
+      MEMORY_URL: http://samus-memory:8080
+      # End-of-call CRM dispatch (Conversation + CallState upserts). Missing
+      # -> _dispatch_to_crm silently returns crm_url_unset and every call's
+      # outcome is lost to the CRM (observed 64% dispatch-fail 7/02; the rest
+      # failed on lead extraction). The memory dispatch above always had its
+      # URL — this one was never wired.
+      CRM_URL: http://samus-crm:8080
+      SAMUS_VOICE_AUDIT_PATH: /opt/samus/data/voice/voice_audit.jsonl
+      # Rich-payload ledger (briefing rollup source). Parallel to the audit
+      # log, which only stores hashes by design.
+      SAMUS_VOICE_EVENTS_PATH: /opt/samus/data/voice/voice_events.jsonl
+      # Operator browser console bearer token (backend.voice.console). Empty ->
+      # every /console/api/* route returns 503 (fail-closed: no token, no
+      # console; GET /console still serves the page shell). Seeded from DPAPI
+      # 'VoiceConsoleToken' by Start-SamusStack.ps1.
+      SAMUS_VOICE_CONSOLE_TOKEN: ${SAMUS_VOICE_CONSOLE_TOKEN:-}
+      # WordPress Application Password — used by submit_product_page to create
+      # draft pages in wp-admin after a validated offer surfaces on a call.
+      # Credentials injected by Start-SamusStack.ps1 from DPAPI store.
+      WORDPRESS_USERNAME: ${WORDPRESS_USERNAME:-}
+      WORDPRESS_APP_PASSWORD: ${WORDPRESS_APP_PASSWORD:-}
+      # Buying-signal email route (backend/outreach/buying_signal_route.py).
+      # When armed, the end-of-call handler enrolls high-intent prospects into
+      # the warm `buying_signal` sequence. ENROLLMENT only — sending stays a
+      # separate dormant step (dispatch_due_buying_signal needs dry_run=False
+      # AND an explicit composer; fail-closed otherwise). Scoped to this voice
+      # block (not the shared anchor) so arming it recreates only samus-voice.
+      OUTREACH_BUYING_SIGNAL_ROUTE_ENABLED: ${OUTREACH_BUYING_SIGNAL_ROUTE_ENABLED:-false}
+      OUTREACH_BUYING_SIGNAL_INTENT_THRESHOLD: ${OUTREACH_BUYING_SIGNAL_INTENT_THRESHOLD:-70}
+      # Mid-call adaptation bridge (backend/voice/autonomous.py). When ON, each
+      # final user turn during a live Vapi call is fed to the adaptive layer and
+      # the recommendation is recorded on the audit event. NEVER drives a dial —
+      # voice_dial stays VR-G5-blocked unconditionally. Default OFF → byte-
+      # identical log-and-drop. Scoped to this voice block so arming recreates
+      # only samus-voice.
+      SAMUS_VOICE_MIDCALL_ENABLED: ${SAMUS_VOICE_MIDCALL_ENABLED:-0}
+      # Intraday session monitor (backend/voice/call_session_monitor.py). After
+      # each end-of-call event, samples today's outcomes; on a negative streak /
+      # positive-rate collapse / new-objection spike it fires a mid-session
+      # strategy recalc and rewrites dynamic_callsheet_intel so the NEXT call in
+      # the queue uses the corrected approach. Cooldown + min-calls floor guard
+      # over-firing. Default OFF (dormant).
+      SAMUS_VOICE_SESSION_MONITOR: ${SAMUS_VOICE_SESSION_MONITOR:-0}
+      # No-callbacks (operator directive 2026-07-03). When ON, the end-of-call
+      # handler skips the no-answer/voicemail retry-queue enqueue, so autonomous
+      # calls are one-and-done — no scheduled re-dials. Applies to the cold-dial
+      # lane's calls too (they carry no per-call no_callback tag). Prospect-
+      # REQUESTED scheduled callbacks are a separate mechanism and unaffected.
+      SAMUS_VOICE_NO_CALLBACK_ENABLED: ${SAMUS_VOICE_NO_CALLBACK_ENABLED:-false}
+      # Prior-call profile context (backend/voice/prospect_profile.py). When ON,
+      # the dialer merges prior_outcome / prior_notes / prior_contact_summary into
+      # Vapi variableValues so Morgan's prompt can acknowledge a prior touch
+      # instead of cold-pitching. Morgan's system prompt gates each var on
+      # non-empty via LiquidJS, so an empty profile is byte-identical to a first
+      # contact. Scoped to this voice block so arming recreates only samus-voice.
+      SAMUS_VOICE_PROFILE_CONTEXT: "1"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384m
+          pids: 128
+
+  # ----- ingress (public-webhook path router) --------------------------
+  # Single front door behind the one ngrok tunnel. The ngrok free plan
+  # POOLS same-account endpoints onto the one assigned dev domain, so the
+  # previous two-tunnel layout (finance + voice) load-balanced the shared
+  # domain between the two backends: Stripe webhooks randomly 404'd on
+  # voice and Vapi end-of-call reports randomly 401'd on finance — silent,
+  # probabilistic delivery loss (found 2026-07-03). Caddy path-routes
+  # deterministically instead; each backend still enforces its own webhook
+  # signature. No auth here BY DESIGN — see ingress/Caddyfile.
+  samus-ingress:
+    image: caddy:2-alpine
+    container_name: samus-ingress
+    networks:
+      - samus-internal
+    volumes:
+      - ./ingress/Caddyfile:/etc/caddy/Caddyfile:ro
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128m
+          pids: 64
+
+  # ----- ngrok (single consolidated webhook tunnel) --------------------
+  # One ngrok agent fronts samus-ingress, which path-routes to finance
+  # (Stripe) and voice (Vapi end-of-call). Tunnel defined in ngrok.yml
+  # (mounted); the authtoken comes from NGROK_AUTHTOKEN. The public URL is
+  # the stable assigned dev domain, so external webhook config (Stripe
+  # dashboard, Vapi server.url) never needs re-pointing after restarts.
+  samus-ngrok:
+    # D5-DOCK-01 — pinned off :latest to the v3 manifest-list digest (multi-arch).
+    # Re-resolve a bump via `docker buildx imagetools inspect ngrok/ngrok:3`.
+    image: ngrok/ngrok:3@sha256:650a2c2f0b03e9254b4dcc412145aadacd807890860ba1c7663ac924d3e9c3a5
+    container_name: samus-ngrok
+    networks:
+      - samus-internal
+    ports:
+      - "127.0.0.1:4040:4040"
+    volumes:
+      - ./ngrok.yml:/etc/ngrok/ngrok.yml:ro
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:?NGROK_AUTHTOKEN required for the webhook tunnels}
+    command: ["start", "--all", "--config", "/etc/ngrok/ngrok.yml"]
+    depends_on:
+      - samus-ingress
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          pids: 64
+
+  # ----- cloudflared (DocuSeal branded signing link) -------------------
+  # Routes sign.hustleforge.tech → samus-docuseal:3000 through a
+  # Cloudflare Tunnel (free). Independent of the ngrok webhook tunnel.
+  # Create the tunnel in Zero Trust → Tunnels → "docuseal", pick Docker,
+  # and paste the token into CLOUDFLARE_TUNNEL_TOKEN in .env (DPAPI-sealed).
+  samus-cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: samus-cloudflared
+    # Opt-in only: hustleforge.tech DNS is on WordPress.com today, so the
+    # tunnel has no Cloudflare zone to serve. Excluded from the default stack
+    # until the NS migration; bring up with `--profile docuseal-tunnel`.
+    profiles: ["docuseal-tunnel"]
+    networks:
+      - samus-internal
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+      # Force HTTP/2 transport (TCP 7844). The default QUIC transport needs
+      # outbound UDP 7844, which the host NAT / Docker Desktop blocks here
+      # (observed: "failed to dial to edge with quic: timeout"). HTTP/2 rides
+      # TCP, which the same path already allows for the ngrok tunnel.
+      TUNNEL_TRANSPORT_PROTOCOL: http2
+    command: ["tunnel", "--no-autoupdate", "run"]
+    depends_on:
+      - samus-docuseal
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+          pids: 32
+
+  # =====================================================================
+  # SQS worker sidecars
+  #
+  # Per Workcells doc §2 (Two Execution Modes) + §3.26 (BaseSqsWorker.
+  # run_forever), every workcell that ships a `worker.py` runs as a long-
+  # poll SQS consumer in addition to its HTTP app. The HTTP-app containers
+  # above only serve synchronous /actions/* requests; without these
+  # sidecars, messages dropped into SQS sit idle until visibility timeout
+  # and then DLQ. The sidecars compete-consume the same queues as any
+  # Cloud Run worker peer (local-primary, Cloud Run fallback).
+  #
+  # Each sidecar reuses the same image as its HTTP-app counterpart (no
+  # build directive — depends_on the HTTP service so compose builds the
+  # image once via that service). Command overrides the uvicorn CMD with
+  # `python -m backend.<svc>.worker`. Workers run on samus-internal only
+  # (no inbound HTTP) and have no `ports:` block. Idempotency is enforced
+  # in DynamoDB per the worker_base contract.
+  # =====================================================================
+
+  # ----- Leadgen worker -----------------------------------------------
+  samus-leadgen-worker:
+    <<: *samus-common
+    image: samus/leadgen:local
+    container_name: samus-leadgen-worker
+    command: ["python", "-m", "backend.leadgen.worker"]
+    depends_on:
+      samus-leadgen:
+        condition: service_started
+    networks:
+      - samus-internal
+    volumes:
+      - samus-data:/opt/samus/data
+    environment:
+      <<: *samus-common-env
+      SAMUS_SERVICE: leadgen
+      SQS_LEADGEN_QUEUE_URL: ${SQS_LEADGEN_QUEUE_URL:-}
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import pathlib,sys; sys.exit(0 if 'backend.leadgen.worker' in pathlib.Path('/proc/1/cmdline').read_text() else 1)\""]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384m
+          pids: 128
+
+  # ----- Prospecting worker -------------------------------------------
+  samus-prospecting-worker:
+    <<: *samus-common
+    image: samus/prospecting:local
+    container_name: samus-prospecting-worker
+    command: ["python", "-m", "backend.prospecting.worker"]
+    depends_on:
+      samus-prospecting:
+        condition: service_started
+    networks:
+      - samus-internal
+    volumes:
+      - samus-data:/opt/samus/data
+    environment:
+      <<: *samus-common-env
+      SAMUS_SERVICE: prospecting
+      GOOGLE_PLACES_API_KEY: ${GOOGLE_PLACES_API_KEY:-}
+      SQS_PROSPECTING_QUEUE_URL: ${SQS_PROSPECTING_QUEUE_URL:-}
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import pathlib,sys; sys.exit(0 if 'backend.prospecting.worker' in pathlib.Path('/proc/1/cmdline').read_text() else 1)\""]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384m
+          pids: 128
+
+  # ----- Scaffold worker ----------------------------------------------
+  samus-scaffold-worker:
+    <<: *samus-common
+    image: samus/scaffold:local
+    container_name: samus-scaffold-worker
+    command: ["python", "-m", "backend.scaffold.worker"]
+    depends_on:
+      samus-scaffold:
+        condition: service_started
+    networks:
+      - samus-internal
+    volumes:
+      - samus-data:/opt/samus/data
+    environment:
+      <<: *samus-common-env
+      SAMUS_SERVICE: scaffold
+      SQS_SCAFFOLD_QUEUE_URL: ${SQS_SCAFFOLD_QUEUE_URL:-}
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import pathlib,sys; sys.exit(0 if 'backend.scaffold.worker' in pathlib.Path('/proc/1/cmdline').read_text() else 1)\""]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384m
+          pids: 128
+
+  # ----- Fulfillment worker -------------------------------------------
+  samus-fulfillment-worker:
+    <<: *samus-common
+    image: samus/fulfillment:local
+    container_name: samus-fulfillment-worker
+    command: ["python", "-m", "backend.fulfillment.worker"]
+    depends_on:
+      samus-fulfillment:
+        condition: service_started
+    networks:
+      - samus-internal
+    volumes:
+      - samus-data:/opt/samus/data
+    environment:
+      <<: *samus-common-env
+      SAMUS_SERVICE: fulfillment
+      SQS_FULFILLMENT_QUEUE_URL: ${SQS_FULFILLMENT_QUEUE_URL:-}
+      GOOGLE_PAGESPEED_API_KEY: ${GOOGLE_PAGESPEED_API_KEY:-}
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import pathlib,sys; sys.exit(0 if 'backend.fulfillment.worker' in pathlib.Path('/proc/1/cmdline').read_text() else 1)\""]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384m
+          pids: 128
+
+  # ----- Feedback worker ----------------------------------------------
+  samus-feedback-worker:
+    <<: *samus-common
+    image: samus/feedback:local
+    container_name: samus-feedback-worker
+    command: ["python", "-m", "backend.feedback.worker"]
+    depends_on:
+      samus-feedback:
+        condition: service_started
+    networks:
+      - samus-internal
+    volumes:
+      - samus-data:/opt/samus/data
+    environment:
+      <<: *samus-common-env
+      SAMUS_SERVICE: feedback
+      SAMUS_FEEDBACK_AUDIT_PATH: /opt/samus/data/feedback/feedback_audit.jsonl
+      SQS_FEEDBACK_QUEUE_URL: ${SQS_FEEDBACK_QUEUE_URL:-}
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import pathlib,sys; sys.exit(0 if 'backend.feedback.worker' in pathlib.Path('/proc/1/cmdline').read_text() else 1)\""]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384m
+          pids: 128
+
+  # ----- Outreach worker ----------------------------------------------
+  samus-outreach-worker:
+    <<: *samus-common
+    image: samus/outreach:local
+    container_name: samus-outreach-worker
+    command: ["python", "-m", "backend.outreach.worker"]
+    depends_on:
+      samus-outreach:
+        condition: service_started
+    networks:
+      - samus-internal
+    volumes:
+      - samus-data:/opt/samus/data
+      # Match samus-outreach: per-client campaign config for contract_wire.
+      - type: bind
+        source: ../../clients
+        target: /opt/samus/clients
+        read_only: true
+    environment:
+      <<: *samus-common-env
+      SAMUS_SERVICE: outreach
+      SQS_OUTREACH_QUEUE_URL: ${SQS_OUTREACH_QUEUE_URL:-}
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import pathlib,sys; sys.exit(0 if 'backend.outreach.worker' in pathlib.Path('/proc/1/cmdline').read_text() else 1)\""]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384m
+          pids: 128
+
+  # ----- Optimizer worker ---------------------------------------------
+  samus-optimizer-worker:
+    <<: *samus-common
+    image: samus/optimizer:local
+    container_name: samus-optimizer-worker
+    command: ["python", "-m", "backend.optimizer.worker"]
+    depends_on:
+      samus-optimizer:
+        condition: service_started
+    networks:
+      - samus-internal
+    volumes:
+      - samus-data:/opt/samus/data
+    environment:
+      <<: *samus-common-env
+      SAMUS_SERVICE: optimizer
+      SQS_OPTIMIZER_QUEUE_URL: ${SQS_OPTIMIZER_QUEUE_URL:-}
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import pathlib,sys; sys.exit(0 if 'backend.optimizer.worker' in pathlib.Path('/proc/1/cmdline').read_text() else 1)\""]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384m
+          pids: 128
+
+  # ----- Proposal worker ----------------------------------------------
+  samus-proposal-worker:
+    <<: *samus-common
+    image: samus/proposal:local
+    container_name: samus-proposal-worker
+    command: ["python", "-m", "backend.proposal.worker"]
+    depends_on:
+      samus-proposal:
+        condition: service_started
+    networks:
+      - samus-internal
+    volumes:
+      - samus-data:/opt/samus/data
+    environment:
+      <<: *samus-common-env
+      SAMUS_SERVICE: proposal
+      SQS_PROPOSAL_QUEUE_URL: ${SQS_PROPOSAL_QUEUE_URL:-}
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import pathlib,sys; sys.exit(0 if 'backend.proposal.worker' in pathlib.Path('/proc/1/cmdline').read_text() else 1)\""]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384m
+          pids: 128
+
+  # ----- SEO worker ---------------------------------------------------
+  samus-seo-worker:
+    <<: *samus-common
+    image: samus/seo:local
+    container_name: samus-seo-worker
+    command: ["python", "-m", "backend.seo.worker"]
+    depends_on:
+      samus-seo:
+        condition: service_started
+    networks:
+      - samus-internal
+    volumes:
+      - samus-data:/opt/samus/data
+    environment:
+      <<: *samus-common-env
+      SAMUS_SERVICE: seo
+      SQS_SEO_QUEUE_URL: ${SQS_SEO_QUEUE_URL:-}
+      GOOGLE_PAGESPEED_API_KEY: ${GOOGLE_PAGESPEED_API_KEY:-}
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import pathlib,sys; sys.exit(0 if 'backend.seo.worker' in pathlib.Path('/proc/1/cmdline').read_text() else 1)\""]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384m
+          pids: 128
+
+  # ----- Strategy -------------------------------------------------------
+  # Phase 1: HTTP-only workcell — gateway routes inbound strategy requests
+  # here; strategy reads CRM state and dispatches back through the gateway.
+  # No SQS worker sidecar yet (no samus-strategy-jobs queue provisioned).
+  # Internal-only: no edge network attachment, no published ports.
+  samus-strategy:
+    <<: *samus-common
+    build:
+      context: ../../..
+      dockerfile: Samus/docker/workcells/strategy/Dockerfile
+    image: samus/strategy:local
+    container_name: samus-strategy
+    networks:
+      - samus-internal
+    volumes:
+      - D:/Hustleforge/Samus/.data/containers:/opt/samus/data
+    environment:
+      <<: *samus-common-env
+      SAMUS_SERVICE: strategy
+      SAMUS_CRM_URL: http://samus-crm:8080
+      SAMUS_GATEWAY_URL: http://samus-gateway:8080
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384m
+          pids: 128
+
+  # ----- Signal Filter -------------------------------------------------
+  # Autonomous-workcell expansion: observe/decide/recover/coordinate layer.
+  # All five are HTTP-only, internal-network-only, deterministic (zero LLM).
+  samus-signal-filter:
+    <<: *samus-common
+    build:
+      context: ../../..
+      dockerfile: Samus/docker/workcells/signal_filter/Dockerfile
+    image: samus/signal_filter:local
+    container_name: samus-signal-filter
+    networks:
+      - samus-internal
+    volumes:
+      - D:/Hustleforge/Samus/.data/containers:/opt/samus/data
+    environment:
+      <<: *samus-common-env
+      SAMUS_SERVICE: signal_filter
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384m
+          pids: 128
+
+  # ----- Path Optimizer ------------------------------------------------
+  samus-path-optimizer:
+    <<: *samus-common
+    build:
+      context: ../../..
+      dockerfile: Samus/docker/workcells/path_optimizer/Dockerfile
+    image: samus/path_optimizer:local
+    container_name: samus-path-optimizer
+    networks:
+      - samus-internal
+    volumes:
+      - D:/Hustleforge/Samus/.data/containers:/opt/samus/data
+    environment:
+      <<: *samus-common-env
+      SAMUS_SERVICE: path_optimizer
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384m
+          pids: 128
+
+  # ----- Template Recovery ---------------------------------------------
+  samus-template-recovery:
+    <<: *samus-common
+    build:
+      context: ../../..
+      dockerfile: Samus/docker/workcells/template_recovery/Dockerfile
+    image: samus/template_recovery:local
+    container_name: samus-template-recovery
+    networks:
+      - samus-internal
+    volumes:
+      - D:/Hustleforge/Samus/.data/containers:/opt/samus/data
+    environment:
+      <<: *samus-common-env
+      SAMUS_SERVICE: template_recovery
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384m
+          pids: 128
+
+  # ----- Portfolio Controller ------------------------------------------
+  samus-portfolio-controller:
+    <<: *samus-common
+    build:
+      context: ../../..
+      dockerfile: Samus/docker/workcells/portfolio_controller/Dockerfile
+    image: samus/portfolio_controller:local
+    container_name: samus-portfolio-controller
+    networks:
+      - samus-internal
+    volumes:
+      - D:/Hustleforge/Samus/.data/containers:/opt/samus/data
+    environment:
+      <<: *samus-common-env
+      SAMUS_SERVICE: portfolio_controller
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384m
+          pids: 128
+
+  # ----- Entropy -------------------------------------------------------
+  samus-entropy:
+    <<: *samus-common
+    build:
+      context: ../../..
+      dockerfile: Samus/docker/workcells/entropy/Dockerfile
+    image: samus/entropy:local
+    container_name: samus-entropy
+    networks:
+      - samus-internal
+    volumes:
+      - D:/Hustleforge/Samus/.data/containers:/opt/samus/data
+    environment:
+      <<: *samus-common-env
+      SAMUS_SERVICE: entropy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384m
+          pids: 128

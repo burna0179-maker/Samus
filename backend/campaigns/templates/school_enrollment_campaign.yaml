@@ -1,0 +1,341 @@
+# School Enrollment Campaign — the first reusable vertical template.
+#
+# A declarative campaign graph for the "education / school enrollment" vertical.
+# Any school is onboarded by writing a client instance (see
+# clients/<client>/campaign.yaml) that binds this template — NO custom code.
+#
+# Every node routes to a capability an existing Samus workcell already exposes
+# (validated against backend.common.capabilities.SERVICE_CAPABILITIES at load).
+# High-risk outward actions (public posting, external outreach, review
+# requests) carry an approval gate so they never auto-run.
+campaign_template:
+  template_id: school_enrollment_campaign
+  vertical: education
+  name: School Enrollment Campaign
+  version: 1.0.0
+
+  # Everything a client instance must supply to run this template.
+  required_inputs:
+    - client_id
+    - school_name
+    - website_url
+    - enrollment_deadline      # e.g. 2026-08-15 — drives cadence + urgency
+    - target_geography         # city / radius the audience discovery targets
+    - social_channels          # channels social content publishes to
+    - asset_drive_url          # video/content asset queue source
+    - approval_contact         # who receives client-level approval requests
+
+  # Defaults consumed by nodes via input_mapping ($inputs.<key>). These express
+  # the "should support" concerns (cadence, open house, testimonial, review,
+  # community outreach, facility/academic highlights) declaratively.
+  defaults:
+    social_posting_cadence: "3/week"
+    open_house_enabled: true
+    parent_testimonial_capture: true
+    review_generation_enabled: true
+    academic_metrics_research: true
+    facility_highlights: true
+    community_outreach_enabled: true
+    flyer_outreach_enabled: true
+
+  # Funnel + reporting KPIs tracked for this campaign (deliverable §9).
+  kpis:
+    - key: page_views
+      label: Page Views
+      target: 5000
+    - key: source_clicks
+    - key: cta_clicks
+      target: 400
+    - key: phone_clicks
+    - key: email_clicks
+    - key: application_starts
+      target: 120
+    - key: application_completions
+      target: 60
+    - key: tour_requests
+      target: 40
+    - key: open_house_registrations
+      target: 80
+    - key: social_posts_published
+    - key: social_engagements
+    - key: local_partners_contacted
+    - key: backlinks_created
+    - key: reviews_requested
+    - key: reviews_received
+    - key: flyers_distributed
+
+  # Target audience — discovery sources local families in the school's geography.
+  audience:
+    name: local_families
+    geography: ["${target_geography}"]
+    radius_miles: 15
+    segments: ["parents_k12", "preschool_transition", "faith_community"]
+    source_workcell: prospecting
+
+  # Channels the campaign operates through (social cadence, flyers, community,
+  # reviews). These populate the run context for reporting + top-channel ranking.
+  channels:
+    - name: facebook
+      kind: social
+      cadence: "3/week"
+    - name: instagram
+      kind: social
+      cadence: "3/week"
+    - name: google_business
+      kind: review
+    - name: local_business_flyers
+      kind: flyer
+    - name: community_groups
+      kind: partner
+    - name: school_website
+      kind: web
+
+  # Vertical governance — education never runs paid ads without operator sign-off
+  # and caps auto-run severity at "notice".
+  vertical_rules:
+    vertical: education
+    max_auto_severity: notice
+    forbidden_capabilities: []
+    approval_overrides:
+      public_action: client        # parents' channels — client must approve
+      review_request: operator
+
+  nodes:
+    # --- inward setup (auto-run) ---
+    - id: intake_assets
+      type: artifact_ingest
+      target_workcell: scaffold
+      capability: generate_assets
+      approval_required: none
+      input_mapping:
+        asset_source: $inputs.asset_drive_url
+        school_name: $inputs.school_name
+
+    - id: audit_website
+      type: seo_audit
+      target_workcell: seo
+      capability: audit_and_report
+      approval_required: none
+      input_mapping:
+        url: $inputs.website_url
+      kpis: [page_views]
+
+    # --- research + content (operator-gated content generation) ---
+    - id: academic_metrics_research
+      type: content_generation
+      target_workcell: scaffold
+      capability: generate_assets
+      approval_required: operator
+      input_mapping:
+        asset_type: "campaign_brief"
+        title: "Academic outcomes research brief"
+        client: $inputs.school_name
+        brand_voice: "warm, community-focused, faith-centered"
+        offer: "Academic outcomes research brief for enrollment content"
+        inputs:
+          topic: "academic outcomes"
+          school_name: $inputs.school_name
+
+    - id: facility_highlights
+      type: content_generation
+      target_workcell: scaffold
+      capability: generate_assets
+      approval_required: operator
+      input_mapping:
+        asset_type: "campaign_brief"
+        title: "Facilities and resources highlights"
+        client: $inputs.school_name
+        brand_voice: "warm, community-focused, faith-centered"
+        offer: "Facility highlights brief for enrollment content"
+        inputs:
+          topic: "facilities and resources"
+          school_name: $inputs.school_name
+
+    - id: build_enrollment_funnel
+      type: funnel_plan
+      target_workcell: proposal
+      capability: generate_proposal
+      approval_required: operator
+      input_mapping:
+        deadline: $inputs.enrollment_deadline
+        school_name: $inputs.school_name
+
+    - id: generate_social_content
+      type: content_generation
+      target_workcell: scaffold
+      capability: generate_assets
+      approval_required: operator
+      input_mapping:
+        asset_type: "campaign_brief"
+        title: "Social content calendar"
+        client: $inputs.school_name
+        brand_voice: "warm, community-focused, faith-centered"
+        offer: "Monthly social content calendar draft"
+        inputs:
+          cadence: $inputs.social_posting_cadence
+          channels: $inputs.social_channels
+          school_name: $inputs.school_name
+
+    - id: open_house_promotion
+      type: content_generation
+      target_workcell: scaffold
+      capability: generate_assets
+      approval_required: operator
+      input_mapping:
+        asset_type: "campaign_brief"
+        title: "Open house promotion content"
+        client: $inputs.school_name
+        brand_voice: "warm, community-focused, faith-centered"
+        offer: "Open house promotion content ahead of the enrollment deadline"
+        inputs:
+          deadline: $inputs.enrollment_deadline
+          school_name: $inputs.school_name
+
+    - id: parent_testimonial_capture
+      type: content_generation
+      target_workcell: scaffold
+      capability: generate_assets
+      approval_required: operator
+      input_mapping:
+        asset_type: "campaign_brief"
+        title: "Parent testimonial capture plan"
+        client: $inputs.school_name
+        brand_voice: "warm, community-focused, faith-centered"
+        offer: "Parent testimonial capture outreach plan"
+        inputs:
+          school_name: $inputs.school_name
+
+    - id: generate_geo_content
+      type: seo_geo_content
+      target_workcell: seo
+      capability: generate_content
+      approval_required: operator
+      input_mapping:
+        geography: $inputs.target_geography
+      kpis: [backlinks_created]
+
+    # --- outward actions (high-risk, approval-gated) ---
+    - id: publish_social_content
+      type: public_action
+      target_workcell: outreach
+      capability: send_message
+      approval_required: client
+      audit_severity: critical
+      input_mapping:
+        channels: $inputs.social_channels
+      kpis: [social_posts_published, social_engagements]
+
+    - id: discover_local_partners
+      type: audience_discovery
+      target_workcell: prospecting
+      capability: discover
+      approval_required: none
+      input_mapping:
+        geography: $inputs.target_geography
+      kpis: [local_partners_contacted]
+
+    - id: outreach_local_partners
+      type: external_outreach
+      target_workcell: outreach
+      capability: send_message
+      approval_required: operator
+      audit_severity: critical
+
+    - id: flyer_outreach
+      type: external_outreach
+      target_workcell: outreach
+      capability: send_message
+      approval_required: operator
+      audit_severity: critical
+      kpis: [flyers_distributed]
+
+    - id: community_group_outreach
+      type: external_outreach
+      target_workcell: outreach
+      capability: send_message
+      approval_required: operator
+      audit_severity: critical
+
+    # --- metrics + review + reporting ---
+    - id: collect_campaign_metrics
+      type: metrics_collection
+      target_workcell: campaigns
+      capability: update_kpis
+      approval_required: none
+
+    - id: review_generation
+      type: review_request
+      target_workcell: outreach
+      capability: send_message
+      approval_required: operator
+      audit_severity: high
+      kpis: [reviews_requested, reviews_received]
+
+    - id: weekly_report
+      type: reporting
+      target_workcell: campaigns
+      capability: generate_report
+      approval_required: operator
+
+  edges:
+    # inward setup
+    - from: intake_assets
+      to: audit_website
+    - from: intake_assets
+      to: academic_metrics_research
+    - from: intake_assets
+      to: facility_highlights
+    - from: intake_assets
+      to: parent_testimonial_capture
+
+    # funnel + content
+    - from: audit_website
+      to: build_enrollment_funnel
+    - from: build_enrollment_funnel
+      to: generate_social_content
+    - from: build_enrollment_funnel
+      to: open_house_promotion
+    - from: facility_highlights
+      to: generate_social_content
+    - from: audit_website
+      to: generate_geo_content
+    - from: academic_metrics_research
+      to: generate_geo_content
+
+    # publish (conditional: only when social content is ready)
+    - from: generate_social_content
+      to: publish_social_content
+    - from: open_house_promotion
+      to: publish_social_content
+    - from: parent_testimonial_capture
+      to: publish_social_content
+
+    # partner + flyer + community outreach
+    - from: build_enrollment_funnel
+      to: discover_local_partners
+    - from: discover_local_partners
+      to: outreach_local_partners
+    - from: discover_local_partners
+      to: flyer_outreach
+    - from: discover_local_partners
+      to: community_group_outreach
+
+    # metrics fan-in
+    - from: publish_social_content
+      to: collect_campaign_metrics
+    - from: outreach_local_partners
+      to: collect_campaign_metrics
+    - from: flyer_outreach
+      to: collect_campaign_metrics
+    - from: community_group_outreach
+      to: collect_campaign_metrics
+    - from: generate_geo_content
+      to: collect_campaign_metrics
+
+    # review + weekly report
+    - from: collect_campaign_metrics
+      to: review_generation
+    - from: collect_campaign_metrics
+      to: weekly_report
+    - from: review_generation
+      to: weekly_report

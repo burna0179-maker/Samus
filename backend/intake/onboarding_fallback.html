@@ -1,0 +1,363 @@
+<!--
+  hustleforge.tech/onboarding — WordPress fallback for Next.js /onboarding.
+
+  This is the fallback the funnel audit (2026-07-03) called for: if Next.js
+  routing lags or the hustleforge.ai deploy is unreachable, visitors landing
+  on hustleforge.tech/onboarding still hit a working form that POSTs to the
+  SAME Samus intake API the Next.js page uses.
+
+  Owned by Samus (WP application password). Ship path — one of:
+
+    (a) Samus module — call
+        ``backend.common.wordpress_client.get_page("onboarding")`` to check
+        for the existing slug; if found, ``update_page_content(page_id,
+        <this file's contents>)``; otherwise ``create_draft_page(
+          title="Onboarding", content=<this file>, slug="onboarding")``.
+        Gate behind SAMUS_WP_ONBOARDING_PUBLISH_ENABLED like the rest of
+        Samus's WP writes.
+
+    (b) Operator — paste this HTML into the wp-admin block editor for the
+        /onboarding page ("Custom HTML" block) and publish.
+
+  Anything in ${SUBST} is templated by the publisher — API base is the only
+  variable so a staging deploy can point at a staging intake service. The
+  default in this file is production (api.hustleforge.tech), safe to ship
+  verbatim.
+
+  Design constraints (all deliberate):
+    * No external CSS or JS. WP themes can strip <link>/<script src=> tags
+      and the site must render without a CDN reachable.
+    * Inline styles scoped to .hf-onb-* class names to avoid theme collision.
+    * Fetch failures degrade to a plain link out to hustleforge.ai/onboarding
+      instead of a dead page.
+    * Telemetry (page_view, form_view, form_submit_view) fires against the
+      same /intake/telemetry endpoint the Next.js site uses, so the funnel
+      picture stays whole even when this fallback is the entry point.
+-->
+<div class="hf-onb-root">
+  <style>
+    .hf-onb-root {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 2rem 1rem 4rem;
+      color: #e6e7ee;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    .hf-onb-root h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      margin: 0 0 0.75rem;
+      color: #0b0d17;
+    }
+    .hf-onb-root .hf-onb-sub {
+      color: #4a5060;
+      font-size: 0.9rem;
+      margin: 0 0 2rem;
+    }
+    .hf-onb-root .hf-onb-card {
+      background: #f7f8fb;
+      border: 1px solid #e6e8ef;
+      border-radius: 14px;
+      padding: 1.5rem;
+      color: #0b0d17;
+    }
+    .hf-onb-root .hf-onb-field {
+      margin-bottom: 1rem;
+    }
+    .hf-onb-root .hf-onb-field label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 0.4rem;
+      color: #0b0d17;
+    }
+    .hf-onb-root .hf-onb-field input,
+    .hf-onb-root .hf-onb-field textarea,
+    .hf-onb-root .hf-onb-field select {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 0.65rem 0.75rem;
+      font-size: 0.9rem;
+      border-radius: 10px;
+      border: 1px solid #d5d9e3;
+      background: #ffffff;
+      color: #0b0d17;
+      font-family: inherit;
+    }
+    .hf-onb-root .hf-onb-field textarea {
+      min-height: 110px;
+      resize: vertical;
+    }
+    .hf-onb-root .hf-onb-checkgrid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.4rem;
+    }
+    @media (min-width: 520px) {
+      .hf-onb-root .hf-onb-checkgrid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+    .hf-onb-root .hf-onb-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid #d5d9e3;
+      border-radius: 10px;
+      background: #ffffff;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .hf-onb-root .hf-onb-req {
+      color: #7c6cff;
+      margin-left: 0.15rem;
+    }
+    .hf-onb-root .hf-onb-submit {
+      width: 100%;
+      padding: 0.85rem 1rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #ffffff;
+      background: linear-gradient(180deg, #9b8dff 0%, #7c6cff 100%);
+      border: 0;
+      border-radius: 999px;
+      cursor: pointer;
+      box-shadow: 0 10px 40px -12px rgba(124, 108, 255, 0.9);
+    }
+    .hf-onb-root .hf-onb-submit:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .hf-onb-root .hf-onb-note {
+      text-align: center;
+      color: #6b7080;
+      font-size: 0.75rem;
+      margin-top: 1rem;
+    }
+    .hf-onb-root .hf-onb-error {
+      color: #b30000;
+      background: #ffecec;
+      border: 1px solid #ffbdbd;
+      border-radius: 10px;
+      padding: 0.6rem 0.75rem;
+      font-size: 0.8rem;
+      margin: 0 0 1rem;
+    }
+    .hf-onb-root .hf-onb-success {
+      background: #eaf5ee;
+      border: 1px solid #b6ddc4;
+      color: #0b3f22;
+      border-radius: 12px;
+      padding: 1.25rem;
+      text-align: center;
+    }
+    .hf-onb-root .hf-onb-fallback-link {
+      color: #7c6cff;
+      text-decoration: underline;
+    }
+  </style>
+
+  <h1>Tell us what&rsquo;s slowing you down.</h1>
+  <p class="hf-onb-sub">
+    One business day response. Priority for active purchases and urgent
+    workflow bottlenecks.
+  </p>
+
+  <div id="hf-onb-mount" class="hf-onb-card" aria-busy="true">
+    Loading form&hellip;
+    <noscript>
+      <p style="margin-top:1rem">
+        This form needs JavaScript. Please email
+        <a href="mailto:hello@hustleforge.ai" class="hf-onb-fallback-link">hello@hustleforge.ai</a>
+        instead, and we&rsquo;ll pick it up manually.
+      </p>
+    </noscript>
+  </div>
+
+  <script>
+    (function () {
+      var API_BASE = "https://api.hustleforge.tech";
+      var SESSION_KEY = "hf_session_id";
+      var mount = document.getElementById("hf-onb-mount");
+
+      function getSid() {
+        try {
+          var sid = sessionStorage.getItem(SESSION_KEY);
+          if (!sid) {
+            var b = new Uint8Array(16);
+            crypto.getRandomValues(b);
+            sid = Array.prototype.map.call(b, function (x) {
+              return ("0" + x.toString(16)).slice(-2);
+            }).join("");
+            sessionStorage.setItem(SESSION_KEY, sid);
+          }
+          return sid;
+        } catch (e) { return ""; }
+      }
+
+      function track(event) {
+        try {
+          var body = JSON.stringify({
+            event: event,
+            path: location.pathname + location.search,
+            referrer: document.referrer || "",
+            session_id: getSid(),
+            ts: new Date().toISOString(),
+            sku_id: ""
+          });
+          var url = API_BASE + "/intake/telemetry";
+          if (navigator.sendBeacon) {
+            var blob = new Blob([body], { type: "application/json" });
+            if (navigator.sendBeacon(url, blob)) return;
+          }
+          fetch(url, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: body,
+            keepalive: true,
+            mode: "cors",
+            credentials: "omit"
+          }).catch(function () {});
+        } catch (e) { /* telemetry never breaks the page */ }
+      }
+
+      function escapeHtml(s) {
+        return String(s == null ? "" : s)
+          .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+      }
+
+      function readInterest() {
+        try {
+          return new URLSearchParams(location.search).get("interest") || "";
+        } catch (e) { return ""; }
+      }
+
+      function renderError(msg) {
+        mount.removeAttribute("aria-busy");
+        mount.innerHTML =
+          '<div class="hf-onb-error"><strong>Couldn’t load the form.</strong> ' +
+          'Please try <a class="hf-onb-fallback-link" href="https://hustleforge.ai/onboarding">the main site</a> ' +
+          'or email <a class="hf-onb-fallback-link" href="mailto:hello@hustleforge.ai">hello@hustleforge.ai</a>. ' +
+          '<span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;opacity:.6">ref: ' +
+          escapeHtml(msg) + '</span></div>';
+      }
+
+      function renderSuccess(cfg) {
+        mount.innerHTML =
+          '<div class="hf-onb-success">' +
+          '<strong>You&rsquo;re in the queue.</strong>' +
+          '<p style="margin-top:.75rem">' + escapeHtml(cfg.success_message) + '</p>' +
+          '</div>';
+        track("form_submit_view");
+      }
+
+      function renderForm(schema, preselect) {
+        var fieldsHtml = schema.fields.map(function (f) {
+          var required = f.required ? '<span class="hf-onb-req">*</span>' : "";
+          var maxAttr = f.max_length ? ' maxlength="' + f.max_length + '"' : "";
+          var reqAttr = f.required ? " required" : "";
+          if (f.kind === "textarea") {
+            return '<div class="hf-onb-field"><label for="f-' + f.name + '">' +
+              escapeHtml(f.label) + required + '</label>' +
+              '<textarea id="f-' + f.name + '" name="' + f.name + '"' + reqAttr + maxAttr +
+              ' placeholder="' + escapeHtml(f.placeholder || "") + '"></textarea></div>';
+          }
+          if (f.kind === "select") {
+            var opts = (f.options || []).map(function (o, i) {
+              return '<option value="' + escapeHtml(o) + '">' +
+                escapeHtml((f.option_labels || [])[i] || o) + '</option>';
+            }).join("");
+            return '<div class="hf-onb-field"><label for="f-' + f.name + '">' +
+              escapeHtml(f.label) + required + '</label>' +
+              '<select id="f-' + f.name + '" name="' + f.name + '"' + reqAttr + '>' + opts + '</select></div>';
+          }
+          if (f.kind === "checkbox") {
+            var boxes = (f.options || []).map(function (o, i) {
+              var checked = (f.name === "service_interest" && o === preselect) ? " checked" : "";
+              return '<label class="hf-onb-checkbox"><input type="checkbox" name="' + f.name + '" value="' +
+                escapeHtml(o) + '"' + checked + '> <span>' +
+                escapeHtml((f.option_labels || [])[i] || o) + '</span></label>';
+            }).join("");
+            return '<div class="hf-onb-field"><label>' + escapeHtml(f.label) + required + '</label>' +
+              '<div class="hf-onb-checkgrid">' + boxes + '</div></div>';
+          }
+          var t = f.kind === "email" ? "email" : (f.kind === "url" ? "url" : "text");
+          return '<div class="hf-onb-field"><label for="f-' + f.name + '">' +
+            escapeHtml(f.label) + required + '</label>' +
+            '<input type="' + t + '" id="f-' + f.name + '" name="' + f.name + '"' + reqAttr + maxAttr +
+            ' placeholder="' + escapeHtml(f.placeholder || "") + '"></div>';
+        }).join("");
+
+        mount.removeAttribute("aria-busy");
+        mount.innerHTML =
+          '<form id="hf-onb-form" novalidate>' + fieldsHtml +
+          '<div id="hf-onb-error-slot"></div>' +
+          '<button class="hf-onb-submit" type="submit">' +
+          escapeHtml(schema.submit.button_text) + '</button>' +
+          '<p class="hf-onb-note">' + escapeHtml(schema.submit.trust_note) + '</p>' +
+          '</form>';
+
+        track("form_view");
+
+        var form = document.getElementById("hf-onb-form");
+        form.addEventListener("submit", function (ev) {
+          ev.preventDefault();
+          var btn = form.querySelector("button[type=submit]");
+          btn.disabled = true;
+          btn.textContent = "Sending…";
+
+          var body = {};
+          schema.fields.forEach(function (f) {
+            if (f.kind === "checkbox") {
+              body[f.name] = Array.prototype.map.call(
+                form.querySelectorAll('input[name="' + f.name + '"]:checked'),
+                function (n) { return n.value; }
+              );
+            } else {
+              var el = form.querySelector('[name="' + f.name + '"]');
+              body[f.name] = el ? el.value : "";
+            }
+          });
+
+          var postUrl = schema.submit.post_url;
+          if (!/^https?:\/\//i.test(postUrl)) {
+            postUrl = API_BASE + (postUrl.charAt(0) === "/" ? postUrl : "/" + postUrl);
+          }
+
+          fetch(postUrl, {
+            method: "POST",
+            headers: { "content-type": "application/json", "accept": "application/json" },
+            credentials: "omit",
+            body: JSON.stringify(body)
+          }).then(function (r) {
+            if (!r.ok) throw new Error("submit_" + r.status);
+            renderSuccess(schema.submit);
+          }).catch(function (err) {
+            btn.disabled = false;
+            btn.textContent = schema.submit.button_text;
+            var slot = document.getElementById("hf-onb-error-slot");
+            slot.innerHTML = '<p class="hf-onb-error">Submit failed (' +
+              escapeHtml(err && err.message || "unknown") +
+              '). Please try again or email <a class="hf-onb-fallback-link" href="mailto:hello@hustleforge.ai">hello@hustleforge.ai</a>.</p>';
+          });
+        });
+      }
+
+      track("page_view");
+
+      fetch(API_BASE + "/intake/form-schema", {
+        headers: { "accept": "application/json" },
+        credentials: "omit"
+      }).then(function (r) {
+        if (!r.ok) throw new Error("schema_" + r.status);
+        return r.json();
+      }).then(function (schema) {
+        renderForm(schema, readInterest());
+      }).catch(function (err) {
+        renderError(err && err.message || "load_failed");
+      });
+    })();
+  </script>
+</div>

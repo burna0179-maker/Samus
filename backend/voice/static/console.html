@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<!--
+  Samus Voice Console — operator UI for placing single Vapi calls.
+
+  Served by backend.voice.console at GET /console. Self-contained: no build
+  step, no external assets, vanilla JS. Every data call goes to a token-gated
+  /console/api/* route; the Vapi API key stays server-side.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Samus Voice Console</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #1a1d24; --panel2: #21252e; --line: #2d323d;
+    --txt: #e6e8ec; --muted: #8b919e; --accent: #5b8cff; --accent-d: #3f6fe0;
+    --ok: #3ecf8e; --warn: #f0b429; --err: #ff5d5d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--txt);
+    font: 15px/1.5 -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  }
+  header {
+    padding: 16px 20px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: 10px;
+  }
+  header h1 { font-size: 17px; margin: 0; font-weight: 600; }
+  header .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+  header .dot.live { background: var(--ok); }
+  main { max-width: 760px; margin: 0 auto; padding: 20px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; padding: 18px; margin-bottom: 16px;
+  }
+  .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--muted); margin: 0 0 14px; font-weight: 600; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 5px; }
+  input {
+    width: 100%; padding: 10px 12px; background: var(--panel2);
+    border: 1px solid var(--line); border-radius: 7px; color: var(--txt);
+    font-size: 15px;
+  }
+  input:focus { outline: none; border-color: var(--accent); }
+  button {
+    padding: 10px 18px; border: 0; border-radius: 7px; background: var(--accent);
+    color: #fff; font-size: 15px; font-weight: 600; cursor: pointer;
+  }
+  button:hover:not(:disabled) { background: var(--accent-d); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.ghost { background: transparent; border: 1px solid var(--line); color: var(--txt); }
+  .row { display: flex; gap: 10px; align-items: flex-end; }
+  .row > div { flex: 1; }
+  .hidden { display: none !important; }
+  .banner { padding: 10px 12px; border-radius: 7px; font-size: 13px; margin-bottom: 10px; }
+  .banner.warn { background: rgba(240,180,41,.12); color: var(--warn); border: 1px solid rgba(240,180,41,.3); }
+  .banner.err  { background: rgba(255,93,93,.12);  color: var(--err);  border: 1px solid rgba(255,93,93,.3); }
+  .banner.ok   { background: rgba(62,207,142,.12); color: var(--ok);   border: 1px solid rgba(62,207,142,.3); }
+  .badge {
+    display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 12px;
+    font-weight: 600; background: var(--panel2); color: var(--muted);
+  }
+  .badge.queued, .badge.ringing { background: rgba(240,180,41,.15); color: var(--warn); }
+  .badge.in-progress, .badge.forwarding { background: rgba(91,140,255,.15); color: var(--accent); }
+  .badge.ended { background: rgba(62,207,142,.15); color: var(--ok); }
+  .badge.error { background: rgba(255,93,93,.15); color: var(--err); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: var(--muted); font-weight: 600; padding: 6px 8px;
+    border-bottom: 1px solid var(--line); }
+  td { padding: 8px; border-bottom: 1px solid var(--line); }
+  tr:last-child td { border-bottom: 0; }
+  .stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
+  .stat { background: var(--panel2); border-radius: 8px; padding: 12px; text-align: center; }
+  .stat .n { font-size: 22px; font-weight: 700; }
+  .stat .l { font-size: 11px; color: var(--muted); text-transform: uppercase; }
+  .muted { color: var(--muted); }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+  .between { display: flex; justify-content: space-between; align-items: center; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="dot" id="connDot"></div>
+  <h1>Samus Voice Console</h1>
+</header>
+
+<main>
+
+  <!-- ── Token gate ──────────────────────────────────────────────── -->
+  <div class="card" id="gate">
+    <h2>Operator Sign-In</h2>
+    <div id="gateErr" class="banner err hidden"></div>
+    <label for="token">Console token</label>
+    <input id="token" type="password" placeholder="SAMUS_VOICE_CONSOLE_TOKEN"
+           autocomplete="off">
+    <p class="muted" style="font-size:12px;">
+      The token set server-side as <span class="mono">SAMUS_VOICE_CONSOLE_TOKEN</span>.
+      Kept only in this tab's session storage.
+    </p>
+    <button id="connectBtn">Connect</button>
+  </div>
+
+  <!-- ── Console (revealed after connect) ────────────────────────── -->
+  <div id="console" class="hidden">
+
+    <div id="configBanner"></div>
+
+    <!-- Place a call -->
+    <div class="card">
+      <h2>Place a Call</h2>
+      <div id="callErr" class="banner err hidden"></div>
+      <div class="row">
+        <div>
+          <label for="phone">Phone number</label>
+          <input id="phone" type="tel" placeholder="+1 530 648 9959 or 5555555555"
+                 autocomplete="off">
+        </div>
+        <div>
+          <label for="name">Name / company (optional)</label>
+          <input id="name" type="text" placeholder="Acme HVAC" autocomplete="off">
+        </div>
+      </div>
+      <div style="margin-top:14px;">
+        <button id="callBtn">Call</button>
+        <span id="callHint" class="muted" style="font-size:12px;margin-left:8px;"></span>
+      </div>
+    </div>
+
+    <!-- Active call -->
+    <div class="card hidden" id="activeCard">
+      <h2>Active Call</h2>
+      <div class="between">
+        <div>
+          <div class="mono" id="activeId"></div>
+          <div class="muted" id="activeMeta" style="font-size:12px;"></div>
+        </div>
+        <span class="badge" id="activeBadge">…</span>
+      </div>
+    </div>
+
+    <!-- Recent calls -->
+    <div class="card">
+      <div class="between" style="margin-bottom:8px;">
+        <h2 style="margin:0;">Recent Calls</h2>
+        <button class="ghost" id="refreshBtn">Refresh</button>
+      </div>
+      <div id="callsErr" class="banner err hidden"></div>
+      <table>
+        <thead><tr><th>When</th><th>Number</th><th>Status</th><th>Ended</th></tr></thead>
+        <tbody id="callsBody"><tr><td colspan="4" class="muted">Loading…</td></tr></tbody>
+      </table>
+    </div>
+
+    <!-- Summary -->
+    <div class="card">
+      <h2>Last 24 Hours</h2>
+      <div class="stats" id="stats">
+        <div class="stat"><div class="n" id="sTotal">–</div><div class="l">Calls</div></div>
+        <div class="stat"><div class="n" id="sInit">–</div><div class="l">Initiated</div></div>
+        <div class="stat"><div class="n" id="sEoc">–</div><div class="l">Completed</div></div>
+        <div class="stat"><div class="n" id="sIntent">–</div><div class="l">Avg intent</div></div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+
+// ── Token handling (session-scoped) ─────────────────────────────────
+const TOKEN_KEY = "samus_voice_console_token";
+const getToken = () => sessionStorage.getItem(TOKEN_KEY) || "";
+const setToken = (t) => sessionStorage.setItem(TOKEN_KEY, t);
+const clearToken = () => sessionStorage.removeItem(TOKEN_KEY);
+
+let pollTimer = null;     // active-call status poll
+let inFlight = false;     // a call is queued/ringing/in-progress
+
+// ── API wrapper ─────────────────────────────────────────────────────
+// Returns parsed JSON, or throws an Error whose message is operator-readable.
+async function api(path, opts = {}) {
+  const headers = Object.assign({ "X-Console-Token": getToken() }, opts.headers || {});
+  if (opts.body) headers["Content-Type"] = "application/json";
+  let res;
+  try {
+    res = await fetch(path, Object.assign({}, opts, { headers }));
+  } catch (e) {
+    throw new Error("Network error — is the voice service running?");
+  }
+  let data = null;
+  try { data = await res.json(); } catch (_) { /* empty body */ }
+  if (!res.ok) {
+    const detail = data && (data.detail || data.message || data.error);
+    if (res.status === 401) { clearToken(); showGate("Token rejected. Sign in again."); }
+    throw new Error(detailText(detail, res.status));
+  }
+  return data;
+}
+function detailText(detail, status) {
+  if (!detail) return "Request failed (HTTP " + status + ")";
+  if (typeof detail === "string") return detail;
+  return JSON.stringify(detail);
+}
+
+// ── Gate <-> console visibility ─────────────────────────────────────
+function showGate(msg) {
+  $("console").classList.add("hidden");
+  $("gate").classList.remove("hidden");
+  $("connDot").classList.remove("live");
+  if (msg) { $("gateErr").textContent = msg; $("gateErr").classList.remove("hidden"); }
+}
+function showConsole() {
+  $("gate").classList.add("hidden");
+  $("gateErr").classList.add("hidden");
+  $("console").classList.remove("hidden");
+  $("connDot").classList.add("live");
+}
+
+// ── Connect ─────────────────────────────────────────────────────────
+async function connect() {
+  const t = $("token").value.trim();
+  if (!t) { showGate("Enter the console token."); return; }
+  setToken(t);
+  try {
+    const cfg = await api("/console/api/config-check");
+    showConsole();
+    renderConfig(cfg);
+    loadCalls();
+    loadSummary();
+  } catch (e) {
+    showGate(e.message);
+  }
+}
+
+function renderConfig(cfg) {
+  const missing = [];
+  if (!cfg.vapi_api_key_set)         missing.push("VAPI_API_KEY");
+  if (!cfg.vapi_assistant_id_set)    missing.push("VAPI_ASSISTANT_ID");
+  if (!cfg.vapi_phone_number_id_set) missing.push("VAPI_PHONE_NUMBER_ID");
+  const el = $("configBanner");
+  if (missing.length) {
+    el.className = "banner warn";
+    el.textContent = "Not call-ready — unset server settings: " + missing.join(", ");
+    $("callBtn").disabled = true;
+  } else {
+    el.className = "banner ok";
+    el.textContent = "Vapi configured — ready to place calls.";
+    $("callBtn").disabled = false;
+  }
+}
+
+// ── Place a call ────────────────────────────────────────────────────
+async function placeCall() {
+  $("callErr").classList.add("hidden");
+  const number = $("phone").value.trim();
+  const name = $("name").value.trim();
+  if (!number) { showCallErr("Enter a phone number."); return; }
+
+  $("callBtn").disabled = true;
+  $("callHint").textContent = "Dialing…";
+  try {
+    const r = await api("/console/api/call", {
+      method: "POST",
+      body: JSON.stringify({ customer_number: number, customer_name: name || null }),
+    });
+    // HTTP 200 but the service layer may still report a degraded Vapi call.
+    if (r.vapi_error) { showCallErr("Vapi error: " + r.vapi_error); resetCallBtn(); return; }
+    if (!r.call_id)   { showCallErr("No call id returned."); resetCallBtn(); return; }
+    $("callHint").textContent = "";
+    startTracking(r.call_id, number, name, r.status);
+  } catch (e) {
+    showCallErr(e.message);
+    resetCallBtn();
+  }
+}
+function showCallErr(msg) {
+  $("callErr").textContent = msg;
+  $("callErr").classList.remove("hidden");
+}
+function resetCallBtn() {
+  inFlight = false;
+  $("callBtn").disabled = false;
+  $("callHint").textContent = "";
+}
+
+// ── Active-call tracking (polls until terminal) ─────────────────────
+const TERMINAL = ["ended"];
+function startTracking(callId, number, name, status) {
+  inFlight = true;
+  $("activeCard").classList.remove("hidden");
+  $("activeId").textContent = callId;
+  $("activeMeta").textContent = (name ? name + " · " : "") + number;
+  setBadge(status || "queued");
+
+  if (pollTimer) clearInterval(pollTimer);
+  let ticks = 0;
+  pollTimer = setInterval(async () => {
+    ticks++;
+    if (ticks > 45) { clearInterval(pollTimer); resetCallBtn(); return; } // ~3 min cap
+    try {
+      const r = await api("/console/api/call-status?call_id=" + encodeURIComponent(callId));
+      if (r.vapi_error) { setBadge("error"); $("activeMeta").textContent += " — " + r.vapi_error;
+        clearInterval(pollTimer); resetCallBtn(); return; }
+      const st = (r.call && r.call.status) || "unknown";
+      setBadge(st);
+      if (TERMINAL.includes(st)) {
+        const reason = (r.call && r.call.endedReason) || "";
+        if (reason) $("activeMeta").textContent =
+          (name ? name + " · " : "") + number + " — " + reason;
+        clearInterval(pollTimer);
+        resetCallBtn();
+        loadCalls();
+        loadSummary();
+      }
+    } catch (e) {
+      setBadge("error");
+      $("activeMeta").textContent += " — " + e.message;
+      clearInterval(pollTimer);
+      resetCallBtn();
+    }
+  }, 4000);
+}
+function setBadge(status) {
+  const b = $("activeBadge");
+  b.textContent = status;
+  b.className = "badge " + status;
+}
+
+// ── Recent calls ────────────────────────────────────────────────────
+async function loadCalls() {
+  try {
+    const r = await api("/console/api/calls?limit=10");
+    const body = $("callsBody");
+    if (r.vapi_error) {
+      $("callsErr").textContent = "Vapi error: " + r.vapi_error;
+      $("callsErr").classList.remove("hidden");
+      body.innerHTML = '<tr><td colspan="4" class="muted">—</td></tr>';
+      return;
+    }
+    $("callsErr").classList.add("hidden");
+    const calls = r.calls || [];
+    if (!calls.length) {
+      body.innerHTML = '<tr><td colspan="4" class="muted">No calls yet.</td></tr>';
+      return;
+    }
+    body.innerHTML = calls.map((c) => {
+      const num = (c.customer && c.customer.number) || "—";
+      const when = fmtTime(c.createdAt || c.startedAt);
+      const st = c.status || "—";
+      return "<tr><td class='muted'>" + esc(when) + "</td>" +
+             "<td class='mono'>" + esc(num) + "</td>" +
+             "<td><span class='badge " + esc(st) + "'>" + esc(st) + "</span></td>" +
+             "<td class='muted'>" + esc(c.endedReason || "") + "</td></tr>";
+    }).join("");
+  } catch (e) {
+    $("callsErr").textContent = e.message;
+    $("callsErr").classList.remove("hidden");
+  }
+}
+
+// ── Summary ─────────────────────────────────────────────────────────
+async function loadSummary() {
+  try {
+    const s = await api("/console/api/summary?window_hours=24");
+    $("sTotal").textContent  = s.total_calls ?? "–";
+    $("sInit").textContent   = s.initiated_count ?? "–";
+    $("sEoc").textContent    = s.end_of_call_count ?? "–";
+    $("sIntent").textContent = (s.avg_intent_score == null) ? "–" : s.avg_intent_score;
+  } catch (e) {
+    /* summary is non-critical; leave dashes */
+  }
+}
+
+// ── Helpers ─────────────────────────────────────────────────────────
+function esc(s) {
+  // WEB-D8-05 — also escape ' so values interpolated into single-quoted
+  // attributes cannot break out of the attribute.
+  return String(s == null ? "" : s).replace(/[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function fmtTime(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return isNaN(d) ? iso : d.toLocaleString();
+}
+
+// ── Wire up ─────────────────────────────────────────────────────────
+$("connectBtn").addEventListener("click", connect);
+$("token").addEventListener("keydown", (e) => { if (e.key === "Enter") connect(); });
+$("callBtn").addEventListener("click", placeCall);
+$("refreshBtn").addEventListener("click", () => { loadCalls(); loadSummary(); });
+$("phone").addEventListener("keydown", (e) => { if (e.key === "Enter") placeCall(); });
+
+// Auto-reconnect if a token is already in this tab's session.
+if (getToken()) { $("token").value = getToken(); connect(); }
+</script>
+</body>
+</html>

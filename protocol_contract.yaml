@@ -1,0 +1,328 @@
+# =============================================================================
+# SAMUS PROTOCOL CONTRACT  (v0.3.5 Auditability Layer declaration)
+# =============================================================================
+# Samus is the commercial workcell: prospecting -> outreach -> CRM ->
+# fulfillment -> finance/Stripe -> voice receptionist. His sinks/channels
+# touch external paying customers, so the AL audit surface here is dense.
+#
+# Drift between this file and the running code is itself a ProtocolViolation.
+# =============================================================================
+
+agent_id: samus
+contract_version: 0.3.5
+signed_by_agent_owner: Alex Hartman
+last_updated_ts: 2026-05-26
+
+# -----------------------------------------------------------------------------
+# Declared sinks
+# -----------------------------------------------------------------------------
+# Path conventions:
+#   - Samus/state/...                  -> repo-relative (depth + governance layer)
+#   - /opt/samus/data/...              -> in-container default; bind-mounted from
+#                                        D:\Hustleforge\Samus\.data\ on host
+#   - <SAMUS_ARTIFACT_ROOT>/...        -> per-customer artifact root, env-overridable
+#                                        (default E:\Hustleforge\Samus\data\artifacts\)
+# -----------------------------------------------------------------------------
+
+declared_sinks:
+
+  # --- Depth / governance layer (v0.3.5) -----------------------------------
+  - path: Samus/state/confusion/events.jsonl
+    purpose: confusion event log emitted by backend/observability/confusion_emitter
+    schema_ref: ConfusionEvent
+    append_only: true
+
+  - path: Samus/state/ethical_vetoes/*.yaml
+    purpose: EFH veto records produced by backend/governance/efh_evaluator
+    schema_ref: EthicalReviewVeto
+    append_only: true
+
+  # --- Workcell audit ledgers (bind-mounted) -------------------------------
+  - path: /opt/samus/data/crm/crm_audit.jsonl
+    purpose: CRM opportunity/customer FSM transitions + LLM-cost-per-prospect rows
+    schema_ref: AdversarialActionTaken
+    append_only: true
+
+  - path: /opt/samus/data/outreach/outreach_audit.jsonl
+    purpose: outbound outreach send-attempts, FSM advance_call/log_outcome, SES adapter results
+    schema_ref: AdversarialActionTaken
+    append_only: true
+
+  - path: /opt/samus/data/finance/stripe_events.jsonl
+    purpose: Stripe webhook ingestion log (event_id + idempotency mark)
+    schema_ref: AdversarialActionTaken
+    append_only: true
+
+  - path: /opt/samus/data/finance/finance_audit.jsonl
+    purpose: finance service audit (subscription lifecycle, receipts, metering, declines)
+    schema_ref: AdversarialActionTaken
+    append_only: true
+
+  - path: /opt/samus/data/fulfillment/fulfillment_audit.jsonl
+    purpose: fulfillment DAG stage transitions + deliverable hand-off
+    schema_ref: AdversarialActionTaken
+    append_only: true
+
+  - path: /opt/samus/data/voice/voice_audit.jsonl
+    purpose: voice receptionist audit ledger (call lifecycle, Vapi callbacks)
+    schema_ref: AdversarialActionTaken
+    append_only: true
+
+  - path: /opt/samus/data/voice/voice_events.jsonl
+    purpose: voice raw event stream (inbound/outbound call events, dialer telemetry)
+    schema_ref: AdversarialActionTaken
+    append_only: true
+
+  - path: /opt/samus/data/leadgen/leadgen_audit.jsonl
+    purpose: leadgen service audit ledger
+    schema_ref: AdversarialActionTaken
+    append_only: true
+
+  - path: /opt/samus/data/feedback/feedback_audit.jsonl
+    purpose: feedback handler audit ledger (proposal/portfolio feedback rows)
+    schema_ref: AdversarialActionTaken
+    append_only: true
+
+  - path: /opt/samus/data/seo/seo_audit.jsonl
+    purpose: SEO service audit ledger (audit runs, content generation, LLM cost rows)
+    schema_ref: AdversarialActionTaken
+    append_only: true
+
+  # --- LLM cost-accounting (token-cost-hardening 2026-05-18) ---------------
+  - path: <SAMUS_LLM_BUDGET_PATH>
+    purpose: per-workcell LLM token budget state (Prometheus-degraded JSON fallback)
+    schema_ref: AdversarialActionTaken
+    append_only: false
+
+  - path: <SAMUS_LLM_GLOBAL_BUDGET_PATH>
+    purpose: global $1/day LLM cost cap accounting; required emission target for llm_call
+    schema_ref: AdversarialActionTaken
+    append_only: false
+
+  # --- Prospecting state ---------------------------------------------------
+  - path: <SAMUS_ARTIFACT_ROOT>/prospecting_geo_state.json
+    purpose: cumulative zipcode/ring state for daily prospecting batch (operator-controlled rings)
+    schema_ref: AdversarialActionTaken
+    append_only: false
+
+  # --- Per-customer fulfillment artifacts ----------------------------------
+  - path: <SAMUS_ARTIFACT_ROOT>/customers/*/seo_report.md
+    purpose: SEO report deliverable handed to paying customer
+    schema_ref: AdversarialActionTaken
+    append_only: true
+
+  - path: <SAMUS_ARTIFACT_ROOT>/customers/*/receptionist/config.yaml
+    purpose: per-customer voice receptionist config (Vapi assistant binding)
+    schema_ref: AdversarialActionTaken
+    append_only: false
+
+  - path: <SAMUS_ARTIFACT_ROOT>/customers/*/calls/*/*
+    purpose: inbound call recordings, transcripts, summaries (PII — see al_exemptions note)
+    schema_ref: AdversarialActionTaken
+    append_only: true
+
+# -----------------------------------------------------------------------------
+# Declared channels
+# -----------------------------------------------------------------------------
+
+declared_channels:
+  - kind: inter_agent_envelope
+    direction: outbound
+    recipients_allowed: [anita, optimus, major]
+    purpose: EFH vetoes -> Anita; mutation permits requested -> Optimus; standard coord -> Major
+
+  - kind: gate
+    direction: outbound
+    recipients_allowed: [anita]
+    purpose: ethical/meaning escalations + jettison proposals to Anita's /gate
+
+  - kind: evidence_ledger
+    direction: outbound
+    recipients_allowed: [darwin]
+    purpose: append-only evidence-ledger entries for goal commits, mutation permits, Stripe webhook receipts
+
+  - kind: local_state_write
+    direction: outbound
+    recipients_allowed: []
+    purpose: writes restricted to declared_sinks above
+
+  # --- EXTERNAL (non-ecosystem) channels -----------------------------------
+  - kind: external_inbound_webhook
+    direction: inbound
+    recipients_allowed: [stripe]
+    purpose: Stripe webhook ingress (subscription lifecycle, invoice, payment events) — EXTERNAL
+    note: served via backend/finance/webhook.py; ingress currently via ngrok in dev
+
+  - kind: external_outbound_http
+    direction: outbound
+    recipients_allowed: [anthropic_api, lm_studio_local]
+    purpose: LLM endpoint calls — Anthropic primary + LM Studio fallback; ALL routed through anthropic_messages()
+    note: subject to $1/day SAMUS_LLM_GLOBAL_DAILY_DOLLAR_CAP
+
+  - kind: external_outbound_http
+    direction: outbound
+    recipients_allowed: [vapi]
+    purpose: voice receptionist outbound — assistant provisioning + call dispatch via Vapi
+
+  - kind: external_outbound_http
+    direction: outbound
+    recipients_allowed: [stripe_api]
+    purpose: Stripe API calls (customer/subscription/invoice/refund mgmt) via backend/finance/stripe_client
+
+  - kind: external_outbound_email
+    direction: outbound
+    recipients_allowed: [sendgrid]
+    purpose: outreach SES adapter (now routed through SendGrid) — prospect + customer email send
+
+# -----------------------------------------------------------------------------
+# Required emissions
+# -----------------------------------------------------------------------------
+
+required_emissions:
+
+  - action_class: outreach_attempt
+    must_emit:
+      - kind: ConfusionEvent
+        schema_ref: ConfusionEvent
+        sink: Samus/state/confusion/events.jsonl
+        max_delay_seconds: 1
+        condition: emitted when consent_quality_uncertain == true (low-confidence opt-in signal)
+      - kind: EthicalReviewVeto
+        schema_ref: EthicalReviewVeto
+        sink: Samus/state/ethical_vetoes/*.yaml
+        max_delay_seconds: 1
+        condition: EFH evaluator must run BEFORE send; veto blocks emission of audit-row
+      - kind: OutreachAttemptLogged
+        schema_ref: AdversarialActionTaken
+        sink: /opt/samus/data/outreach/outreach_audit.jsonl
+        max_delay_seconds: 5
+
+  - action_class: crm_subscription_signup
+    must_emit:
+      - kind: MeaningAssessment
+        schema_ref: MeaningAssessment
+        sink: evidence_ledger
+        max_delay_seconds: 5
+        condition: treadmill-relevance check per meaning_anchors Q2 (recurring revenue commitments)
+      - kind: CRMTransitionLogged
+        schema_ref: AdversarialActionTaken
+        sink: /opt/samus/data/crm/crm_audit.jsonl
+        max_delay_seconds: 5
+
+  - action_class: stripe_webhook_received
+    must_emit:
+      - kind: StripeEventLedgered
+        schema_ref: AdversarialActionTaken
+        sink: evidence_ledger
+        max_delay_seconds: 5
+        condition: ledger entry MUST carry stripe event_id + idempotency_mark to defeat replay
+      - kind: StripeEventLogged
+        schema_ref: AdversarialActionTaken
+        sink: /opt/samus/data/finance/stripe_events.jsonl
+        max_delay_seconds: 1
+
+  - action_class: llm_call
+    must_emit:
+      - kind: LLMCostAccounted
+        schema_ref: AdversarialActionTaken
+        sink: <SAMUS_LLM_GLOBAL_BUDGET_PATH>
+        max_delay_seconds: 1
+        condition: every anthropic_messages() / LM Studio call MUST bump global $/day used; circuit-trips when cap hit (SAMUS_LLM_GLOBAL_DAILY_DOLLAR_CAP=1.0)
+
+  - action_class: efh_veto_issued
+    must_emit:
+      - kind: EthicalReviewVeto
+        schema_ref: EthicalReviewVeto
+        sink: Samus/state/ethical_vetoes/*.yaml
+        max_delay_seconds: 1
+      - kind: GateEscalation
+        schema_ref: EthicalReviewVeto
+        sink: inter_agent_envelope to anita
+        max_delay_seconds: 5
+        note: |
+          backend/governance/efh_evaluator.py currently has
+          TODO(parent-validate): send envelope to Anita's ethical_vetoes sink — disk write works,
+          envelope dispatch still stubbed. Tracked as known drift.
+
+  - action_class: voice_call_received
+    must_emit:
+      - kind: VoiceCallLogged
+        schema_ref: AdversarialActionTaken
+        sink: /opt/samus/data/voice/voice_events.jsonl
+        max_delay_seconds: 5
+
+  - action_class: prospecting_batch_completed
+    must_emit:
+      - kind: LeadgenBatchLogged
+        schema_ref: AdversarialActionTaken
+        sink: /opt/samus/data/leadgen/leadgen_audit.jsonl
+        max_delay_seconds: 60
+
+# -----------------------------------------------------------------------------
+# Schema refs
+# -----------------------------------------------------------------------------
+
+schema_refs:
+  - name: ConfusionEvent
+    source: Darwin/axioms/SCHEMA.md
+  - name: EthicalReviewVeto
+    source: Darwin/axioms/SCHEMA.md
+  - name: MeaningAssessment
+    source: Darwin/axioms/SCHEMA.md
+  - name: ProtocolViolation
+    source: Darwin/axioms/SCHEMA.md
+  - name: AdversarialActionTaken
+    source: Darwin/axioms/SCHEMA.md
+
+# -----------------------------------------------------------------------------
+# Immutable code paths
+# -----------------------------------------------------------------------------
+# TODO(parent-validate): create per-Samus immutable manifest at
+# Samus/data/immutable_subsystems.json. Until then the AL should hash-audit
+# the listed paths against the canonical Darwin manifest.
+# -----------------------------------------------------------------------------
+
+immutable_code_paths:
+  manifest_ref: Darwin/data/immutable_subsystems.json
+  paths:
+    - Samus/backend/governance/efh_evaluator.py
+    - Samus/backend/observability/confusion_emitter.py
+    - Samus/backend/finance/webhook.py
+    - Samus/backend/finance/stripe_client.py
+    - Samus/backend/common/llm_global_budget.py
+    - Samus/backend/common/llm_budget.py
+    - Samus/backend/common/llm_client.py
+    - Samus/axioms/inviolable_axioms.yaml
+    - Samus/axioms/meaning_anchors.yaml
+    - Samus/axioms/informed_consent.spec.yaml
+
+# -----------------------------------------------------------------------------
+# Emission-rate baseline overrides
+# -----------------------------------------------------------------------------
+
+rate_baseline_overrides:
+  - event_kind: prospecting_batch_completed
+    expected_rate_per_hour: 0.04   # one daily batch via Run-ProspectingDaily.ps1 (07:30)
+    anomaly_floor: 0               # zero on rest days / paused rings is legitimate
+
+  - event_kind: stripe_webhook_received
+    expected_rate_per_hour: 0.5    # quiet baseline; spikes on signup bursts
+    anomaly_floor: 0               # legitimately zero on quiet days
+
+  - event_kind: voice_call_received
+    expected_rate_per_hour: 0.2    # inbound DID; depends on customer load
+    anomaly_floor: 0               # zero is legitimate (pre-launch customers)
+
+  - event_kind: GateEscalation
+    expected_rate_per_hour: 0.05   # rare by design
+    anomaly_floor: 0
+
+  - event_kind: EthicalReviewVeto
+    expected_rate_per_hour: 0.1
+    anomaly_floor: 0
+
+# -----------------------------------------------------------------------------
+# AL exemptions
+# -----------------------------------------------------------------------------
+
+al_exemptions: []

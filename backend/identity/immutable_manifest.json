@@ -1,0 +1,18 @@
+{
+  "version": "1.0.0",
+  "comment": "Samus runtime-immutable source set. These security-critical modules must not drift at runtime. Seed the baseline with scripts/seed_immutable_manifest.py, then bless it with scripts/sign_immutable_manifest.py --ed25519 --yes. Paths are relative to the Samus code root (/opt/samus in the container).",
+  "subsystems": [
+    "backend/common/security.py",
+    "backend/common/capabilities.py",
+    "backend/common/middleware.py",
+    "backend/common/queue_signing.py",
+    "backend/common/audit_ledger.py",
+    "backend/identity/charter.py",
+    "backend/identity/charter_signature.py",
+    "backend/identity/baseline_signature.py",
+    "backend/identity/immutable_manifest.py",
+    "backend/identity/shared_bootstrap.py",
+    "backend/identity/autonomy_layer.py",
+    "backend/identity/charter.json"
+  ]
+}

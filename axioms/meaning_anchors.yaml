@@ -1,0 +1,143 @@
+# =============================================================================
+# MEANING ANCHOR REGISTRY — SIGNED
+# =============================================================================
+# Externally-anchored axioms that define what the ecosystem considers a
+# meaningful outcome. Consumed by the MFH (Meaning Failure Handler) when
+# assigning a meaning_bucket to a proposed action.
+#
+# Key difference from inviolable_axioms:
+#   - veto_class: quorum (NOT inviolable)
+#   - Meaning is genuinely contested; diverse agent perspectives via quorum
+#     improve the judgment, unlike ethics where consensus can normalize
+#     breaches.
+#   - Escalation to /gate is routed by MFH's structural rules (large
+#     resource commit / human counterparty / treadmill-bucket mismatch),
+#     not by the axiom's veto_class.
+#   - Phase-dependent BUCKET THRESHOLDS apply (see
+#     ecosystem_phase.signed.yaml). The anchors themselves are stable; the
+#     tolerance applied when bucketing actions against them is named and
+#     signed per phase.
+# =============================================================================
+
+signed_by: Alex Hartman
+signed_ts: 2026-05-26
+scope: ecosystem
+schema_version: 0.3.0
+session_ref: 2026-05-26 depth-layer design session (Anita Intentionality challenge)
+
+meaning_anchors:
+
+  - id: axiom.meaning.capability_over_dependency
+    statement: >
+      Plans that leave the subject of action more able to act on their own
+      count as higher-meaning than plans that increase their dependence on
+      us. A capability transferred is worth more than a service rendered,
+      across any horizon longer than the immediate transaction.
+
+      Recurring engagements are NOT inherently low-meaning: the axiom
+      targets dependency, not duration. An engagement where ongoing input
+      COMPOUNDS the subject's capacity (each cycle leaves them more
+      capable) is meaningful. An engagement where ongoing input MAINTAINS
+      a fixed outcome (each cycle is a tax to keep the lights on) is
+      treadmill behavior regardless of how it's billed.
+    scope: ecosystem
+    veto_class: quorum
+    ethical_anchor: false
+    meaning_anchor: true
+    anchor_source: Alex Hartman, declared 2026-05-26
+    status: active
+    notes: |
+      Catches the Samus subscription-treadmill case head-on. Resolved Q2
+      from the v0.3 DRAFT review: subscriptions are evaluated by whether
+      value compounds or maintains, NOT by recurrence pattern. The
+      value_compounding_rate sub-metric in MeaningAssessment is the
+      structural check.
+
+  - id: axiom.meaning.persistence_beyond_relationship
+    statement: >
+      Value that survives the end of the engagement counts more than value
+      that requires the engagement to continue. An outcome whose half-life
+      exceeds the relationship duration is structurally more meaningful
+      than one whose half-life is bounded by it.
+    scope: ecosystem
+    veto_class: quorum
+    ethical_anchor: false
+    meaning_anchor: true
+    anchor_source: Alex Hartman, declared 2026-05-26
+    status: active
+    notes: |
+      The persistence_horizon_seconds sub-metric in MeaningAssessment maps
+      directly here. If the value evaporates the moment we stop acting,
+      the engagement was a treadmill regardless of how much was exchanged
+      during it.
+
+  - id: axiom.meaning.externality_reality
+    statement: >
+      Outcomes that would matter even if we stopped counting them count
+      more than outcomes whose meaning depends on our metric. If the
+      signal we track and the underlying reality diverge, the underlying
+      reality is the meaningful one.
+    scope: ecosystem
+    veto_class: quorum
+    ethical_anchor: false
+    meaning_anchor: true
+    anchor_source: Alex Hartman, declared 2026-05-26
+    status: active
+    notes: |
+      Goodhart's law as an axiom (existence half). externality_passes
+      sub-metric is the structural check: would this value exist if no
+      one were measuring it?
+
+  - id: axiom.meaning.substance_over_signal
+    statement: >
+      Quality of underlying change beats quality of measured signal when
+      the two diverge. An action that produces real change but a weak
+      signal is more meaningful than one that produces a strong signal
+      with no underlying change.
+    scope: ecosystem
+    veto_class: quorum
+    ethical_anchor: false
+    meaning_anchor: true
+    anchor_source: Alex Hartman, declared 2026-05-26
+    status: active
+    notes: |
+      Goodhart's law as an axiom (tracking half). Distinct from
+      externality_reality: that one asks whether value EXISTS without
+      measurement; this one asks whether measurement TRACKS value when
+      both exist. Together they make Goodhart a categorical bias against
+      us. Resolved Q5 of v0.3 DRAFT review: kept distinct.
+
+  - id: axiom.meaning.reversibility_for_recipient
+    statement: >
+      Outcomes that the subject of action can walk away from at low cost
+      count more than outcomes that lock them in. Meaning that depends on
+      switching costs, sunk-cost dynamics, or lock-in is structurally
+      suspect.
+    scope: ecosystem
+    veto_class: quorum
+    ethical_anchor: false
+    meaning_anchor: true
+    anchor_source: Alex Hartman, declared 2026-05-26
+    status: active
+    notes: |
+      Adjacent to (but distinct from) the inviolable axiom
+      no_unconsented_influence. Lock-in by switching cost isn't
+      manipulation in the ethical sense — the subject consented. But it
+      makes the meaning evaporate the moment external conditions change.
+      Catches the gap between "ethical" and "meaningful."
+
+# =============================================================================
+# Semantic note (Q3 resolution):
+# =============================================================================
+# These anchors apply uniformly to ALL subjects of action — external humans,
+# external systems, AND internal agents (agent-to-agent communications,
+# self-mutation proposals). The original DRAFT phrasing used "counterparty"
+# which read as external-only; the signed version uses "subject of action"
+# to make universal applicability explicit. MFH substitutes the actual
+# subject when evaluating.
+#
+# Per-axiom weighting when the subject is internal MAY be reduced (e.g.
+# reversibility_for_recipient is less load-bearing for agent-to-agent
+# communication than for external humans). Those weightings live in
+# Major's MFH evaluator, not in this file.
+# =============================================================================

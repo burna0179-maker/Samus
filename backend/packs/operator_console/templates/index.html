@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ ai_name }} Operator Console</title>
+  <meta name="api-version" content="{{ api_version }}">
+  <meta name="default-persona" content="{{ default_persona }}">
+  <meta name="ai-name" content="{{ ai_name }}">
+  <meta name="user-name" content="{{ user_name }}">
+  <link rel="stylesheet" href="/console/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="dot" id="health-dot" title="health"></span>
+      <span class="title">{{ ai_name }}</span>
+      <span class="subtitle">Operator Console</span>
+    </div>
+    <nav class="topnav">
+      <button data-view="chat"      class="navlink is-active">Chat</button>
+      <button data-view="workcells" class="navlink">Workcells</button>
+      <button data-view="crm"       class="navlink">CRM</button>
+      <button data-view="proposals" class="navlink">Proposals</button>
+      <button data-view="peers"     class="navlink">Peers</button>
+      <button data-view="settings"  class="navlink">Settings</button>
+    </nav>
+  </header>
+
+  <main id="view-root">
+    <div class="view-placeholder">Loading view&hellip;</div>
+  </main>
+
+  <aside class="sidebar" id="sidebar" hidden>
+    <div class="sidebar-section">
+      <h3>Persona</h3>
+      <select id="persona-picker"></select>
+      <p class="muted" id="persona-tagline"></p>
+    </div>
+    <div class="sidebar-section">
+      <h3>Preset</h3>
+      <select id="preset-picker"></select>
+    </div>
+    <div class="sidebar-section">
+      <h3>Behaviour</h3>
+      <label><input type="checkbox" id="bag-inject-datetime"> Inject UTC datetime</label>
+      <label><input type="checkbox" id="bag-inject-evidence"> Inject evidence tip</label>
+      <label><input type="checkbox" id="bag-spice-enabled"> Rotate spice</label>
+      <label class="inline">Spice cadence
+        <input type="number" id="bag-spice-turns" min="1" value="3">
+      </label>
+      <label class="block">Custom context
+        <textarea id="bag-custom-context" rows="4"></textarea>
+      </label>
+      <label class="inline">Trim color
+        <input type="color" id="bag-trim-color" value="#dc2626">
+      </label>
+      <button id="bag-save">Save</button>
+    </div>
+  </aside>
+
+  <footer class="statusbar">
+    <span id="status-text">ready</span>
+    <span id="trace-id" class="muted"></span>
+  </footer>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "core/": "/console/static/core/",
+        "features/": "/console/static/features/",
+        "views/": "/console/static/views/"
+      }
+    }
+  </script>
+  <script type="module" src="/console/static/main.js"></script>
+</body>
+</html>

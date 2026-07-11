@@ -1,0 +1,33 @@
+name: immutable-gate-guard
+
+# Fail a PR (and pushes to samus) the moment the immutable baseline drifts from
+# its operator signature — the window that shipped stale through the 2026-07-06
+# arch-completion merges (baseline reseeded to 9879a24, sidecar still blessed
+# 304ea39, enforce-mode boot = TAMPER while every test stayed green).
+#
+# Path-filtered to the dirs that hold the 12 manifested files (+ the sidecar),
+# so it only runs when a change can actually move the baseline. Pure-stdlib
+# guard: no _shared tree, no cryptography, no operator key material required.
+
+on:
+  pull_request:
+    paths:
+      - "backend/common/**"
+      - "backend/identity/**"
+      - "scripts/ci_immutable_gate_guard.py"
+  push:
+    branches: [samus]
+    paths:
+      - "backend/common/**"
+      - "backend/identity/**"
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Verify baseline signature is not stale
+        run: python scripts/ci_immutable_gate_guard.py

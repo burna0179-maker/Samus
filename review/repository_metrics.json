@@ -1,0 +1,10 @@
+{
+  "snapshot_source": "Samus.zip supplied in conversation",
+  "fastapi_app_modules": 21,
+  "worker_modules": 14,
+  "dockerfiles": 22,
+  "test_files": 416,
+  "direct_test_function_declarations": 4582,
+  "python_files_excluding_cache": 4560,
+  "warning": "Structural snapshot counts; not proof of test success or production scale."
+}

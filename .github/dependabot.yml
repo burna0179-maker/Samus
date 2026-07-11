@@ -1,0 +1,63 @@
+version: 2
+
+updates:
+  # Python runtime + dev dependencies.
+  # requirements.txt is the production surface; requirements-dev.txt is CI-only.
+  # Dependabot picks up both since they share this directory.
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "04:00"
+      timezone: America/Los_Angeles
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - python
+    commit-message:
+      prefix: "deps"
+      include: scope
+    groups:
+      # Bundle routine patch/minor updates into a single weekly PR so the
+      # review load stays flat. Major bumps still open as individual PRs
+      # so release notes can be reviewed against the diff.
+      python-routine:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+        exclude-patterns:
+          # Supply-chain pinned per requirements.txt: an unreviewed drift here
+          # would silently change Ed25519/HKDF/HMAC behavior on the audit-ledger
+          # signing paths.
+          - "cryptography"
+          # Supply-chain pinned per requirements.txt: silent drift could change
+          # the log-record shape that the security audit trail depends on.
+          - "structlog"
+
+  # GitHub Actions workflow files under .github/workflows/.
+  # Actions drift is a real supply-chain surface — Dependabot rewrites the
+  # `uses:` refs to the latest tag while preserving pinned SHAs.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "04:00"
+      timezone: America/Los_Angeles
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - github-actions
+    commit-message:
+      prefix: "ci"
+      include: scope
+    groups:
+      actions-routine:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"

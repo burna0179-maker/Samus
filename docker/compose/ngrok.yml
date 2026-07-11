@@ -1,0 +1,37 @@
+# ngrok agent config — single consolidated ingress tunnel for the Samus stack.
+#
+# HISTORY: this used to define TWO tunnels (finance + voice). The ngrok free
+# plan pools same-account endpoints onto the one assigned dev domain, so both
+# tunnels ended up serving millard-unruffable-reginia.ngrok-free.dev with
+# round-robin load balancing — Stripe webhooks randomly hit samus-voice (404)
+# and Vapi reports randomly hit samus-finance (401), each silently dropped
+# (found 2026-07-03). One tunnel -> samus-ingress (Caddy) now path-routes:
+#
+#   /stripe_webhook -> samus-finance:8080   (Stripe dashboard URL unchanged)
+#   /vapi/webhook   -> samus-voice:8080     (Morgan server.url unchanged)
+#   everything else -> 404
+#
+# The voice URL no longer rotates, so Sync-VoiceWebhook.ps1 is obsolete for
+# routine operation (kept for disaster recovery).
+#
+# The authtoken is NOT stored here — it is supplied via the NGROK_AUTHTOKEN
+# env var on the container (Start-SamusStack.ps1 seeds it from DPAPI), so
+# this file is safe to commit.
+#
+# Run with:  ngrok start --all --config /etc/ngrok/ngrok.yml
+version: "2"
+
+# D5-DOCK-01 — bind the inspector API to loopback INSIDE the container only.
+# The inspector exposes full request/response bodies (Stripe / Vapi payloads);
+# binding 0.0.0.0 made it reachable by every sibling workcell on samus-internal
+# (lateral data exposure). Loopback keeps it private to the ngrok container.
+web_addr: 127.0.0.1:4040
+
+tunnels:
+  # The ONE public ingress — pinned to the free plan's assigned dev domain so
+  # the URLs configured in the Stripe dashboard and on the Vapi assistants
+  # stay stable across agent restarts.
+  ingress:
+    proto: http
+    addr: samus-ingress:80
+    domain: millard-unruffable-reginia.ngrok-free.dev

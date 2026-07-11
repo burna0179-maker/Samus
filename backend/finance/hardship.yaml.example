@@ -1,0 +1,57 @@
+# hardship.yaml — documented hardship evidence for loss-mit applications.
+#
+# These items make every payment-plan / forbearance / fee-reduction /
+# legal-aid eligibility application stronger. Surface them in /snapshot
+# so they're always one click away when negotiating.
+#
+# Copy to hardship.yaml (gitignored) and populate.
+#
+# Schema reference: backend/finance/models.py :: HardshipContext
+
+calfresh:
+  approved: false
+  case_number: null
+  issuing_agency: null
+  worker_id: null
+  worker_phone: null
+  notice_date: null
+  initial_benefits_usd: null
+  recurring_benefits_usd: null
+  recurring_through: null
+  household_size: null
+  earned_income_monthly_usd: null
+  adjusted_countable_income_monthly_usd: null
+  net_countable_income_monthly_usd: null
+  housing_expense_monthly_usd: null
+  utility_expense_monthly_usd: null
+  income_reporting_threshold_usd: null
+  certification_period_start: null
+  certification_period_end: null
+  notes: ""
+
+# Bank / debit-card vehicles that operator uses for inbound deposits or
+# bill-pay. Routing and account numbers are intentionally null-able so the
+# example file never leaks real numbers; populate locally in the gitignored
+# hardship.yaml.
+banking_vehicles:
+  - id: example-bank
+    bank: "Example Bank, N.A."
+    card_type: "Visa Debit"
+    fdic_insured: true
+    status: not_activated         # not_activated | active | closed
+    activate_url: "examplebank.com"
+    activate_phone: "000-000-0000"
+    routing_number: null
+    account_number: null
+    use_case: "Direct deposit / bill-pay vehicle separate from primary account"
+    notes: ""
+
+other_evidence:
+  # Free-form items that strengthen hardship claims. Examples:
+  #   - Medical-baseline / life-support utility protection enrollment
+  #   - SSI / SSDI award letters
+  #   - Unemployment determinations
+  - id: example-evidence
+    label: ""
+    date: null
+    notes: ""

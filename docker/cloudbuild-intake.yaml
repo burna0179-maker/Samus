@@ -1,0 +1,85 @@
+# =============================================================================
+# DEPRECATED -- KEPT FOR REFERENCE ONLY. DO NOT SUBMIT.
+#
+# Cloud Build is no longer the deploy path for Samus. Cloud Build runtime VMs
+# in project `${GCP_PROJECT}` (created after Apr 2024) cannot push to Artifact
+# Registry even with correct IAM -- the build VM's OAuth scope is locked and
+# `docker push` returns 403. The workaround embedded below (fetch a token from
+# the metadata server, `docker login` inline) was the last attempt to route
+# around it before the path was abandoned entirely.
+#
+# The current deploy path is a LOCAL `docker build` + `docker push` from the
+# operator host, then `gcloud run deploy`. See `Samus/docker/DEPLOY.md`
+# section 6 ("Why not Cloud Build") and section 4 (the local build+push
+# runbook). The local-deploy helper is `Deploy-SamusLocal.ps1`.
+#
+# This file is retained so the historical metadata-server token trick is not
+# lost, and as a record of what was tried. It is NOT wired into any pipeline.
+# =============================================================================
+#
+# Focused Cloud Build pipeline for the samus-intake workcell.
+#
+# Builds + pushes the intake image only, against the existing samus-base:latest.
+# Build context is the Hustleforge repo root (parent of Samus/). For history,
+# this was submitted with:
+#
+#   gcloud builds submit --config=Samus/docker/cloudbuild-intake.yaml \
+#       --project=${GCP_PROJECT} --region=us-west1 \
+#       --substitutions=_REGION=us-west1
+#
+# Project is `${GCP_PROJECT}` and the AR repo is `samus`; the build steps
+# below hardcode `${GCP_PROJECT}` in the image tags rather than taking it as
+# a `_PROJECT` substitution.
+
+substitutions:
+  _REGION: us-west1
+  _AR_REPO: samus
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8
+  dynamic_substitutions: true
+
+# No `images:` field on purpose: the build step pushes via `docker push`
+# directly using the project-ID-based tag (us-west1-docker.pkg.dev/${GCP_PROJECT}/...),
+# so the post-build push hook would otherwise look for project-number-based
+# tags that don't exist and fail with "failed to find one or more images".
+
+steps:
+  # All-in-one: login + pull + build + push in a single step using the
+  # cloud-builders/docker image. Cross-step config-sharing didn't work
+  # because cloud-builders/docker's CLI ignores DOCKER_CONFIG (or the
+  # daemon ignores client auth — unclear). Doing everything in one step
+  # eliminates the cross-step indirection entirely.
+  - id: build-intake
+    name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -e
+        echo "--- fetching access token from metadata server ---"
+        TOKEN=$$(curl -sf -H "Metadata-Flavor: Google" \
+          "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token" \
+          | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
+        if [ -z "$$TOKEN" ]; then echo "FAILED to get token"; exit 1; fi
+        echo "token starts: $${TOKEN:0:24}..."
+
+        echo "--- docker login ---"
+        echo "$$TOKEN" | docker login -u oauth2accesstoken --password-stdin "https://${_REGION}-docker.pkg.dev"
+
+        echo "--- docker pull base ---"
+        docker pull "${_REGION}-docker.pkg.dev/${GCP_PROJECT}/${_AR_REPO}/samus-base:latest"
+
+        echo "--- docker build intake ---"
+        docker build \
+          --build-arg "BASE_IMAGE=${_REGION}-docker.pkg.dev/${GCP_PROJECT}/${_AR_REPO}/samus-base:latest" \
+          -f Samus/docker/workcells/intake/Dockerfile \
+          -t "${_REGION}-docker.pkg.dev/${GCP_PROJECT}/${_AR_REPO}/samus-intake:${SHORT_SHA}" \
+          -t "${_REGION}-docker.pkg.dev/${GCP_PROJECT}/${_AR_REPO}/samus-intake:latest" \
+          .
+
+        echo "--- docker push intake (both tags) ---"
+        docker push "${_REGION}-docker.pkg.dev/${GCP_PROJECT}/${_AR_REPO}/samus-intake:${SHORT_SHA}"
+        docker push "${_REGION}-docker.pkg.dev/${GCP_PROJECT}/${_AR_REPO}/samus-intake:latest"
+        echo "build + push done."

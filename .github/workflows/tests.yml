@@ -1,0 +1,82 @@
+name: Tests
+
+# Pytest across the supported Python versions with coverage upload.
+# Scoped to the shared platform library (backend/common/) — the code every
+# workcell inherits. Broader per-workcell suites are being brought under CI
+# incrementally as their state-directory dependencies are containerized;
+# tracked in KNOWN_TECHNICAL_DEBT.md.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    name: pytest (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    env:
+      SAMUS_ENV: test
+      PYTHONDONTWRITEBYTECODE: "1"
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Run pytest with coverage
+        run: |
+          pytest tests/test_common_*.py \
+            --strict-markers \
+            --tb=short \
+            -ra \
+            --cov=backend/common \
+            --cov-branch \
+            --cov-report=xml \
+            --cov-report=term \
+            --junitxml=test-results-${{ matrix.python-version }}.xml
+
+      - name: Upload coverage to Codecov
+        # Only upload from the primary Python version — otherwise duplicate
+        # reports from the matrix inflate coverage arithmetic.
+        if: matrix.python-version == '3.11'
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage.xml
+          flags: platform-library
+          # Non-blocking: a Codecov API hiccup should not fail the pipeline.
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results-${{ matrix.python-version }}
+          path: test-results-${{ matrix.python-version }}.xml
+          if-no-files-found: ignore

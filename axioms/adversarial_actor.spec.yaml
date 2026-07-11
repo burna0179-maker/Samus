@@ -1,0 +1,236 @@
+# =============================================================================
+# ADVERSARIAL ACTOR CLASSIFICATION SPEC — SIGNED
+# =============================================================================
+# Defines what evidence classifies an external party as adversarial for
+# purposes of the adversarial-defense exception in inviolable_axioms.yaml.
+#
+# Classification is the gate. Without a signed, evidence-backed
+# classification, EFH treats every external party as a non-adversarial
+# counterparty subject to the full inviolable axiom set. With one, EFH
+# permits proportionate defensive action without consent.
+#
+# Co-signed with inviolable_axioms.yaml v0.3.4 — both files must be
+# signed for the exception to be operational.
+# =============================================================================
+
+signed_by: Alex Hartman
+signed_ts: 2026-05-26
+scope: ecosystem
+schema_version: 0.3.4
+session_ref: 2026-05-26 depth-layer design session (v0.3.4 adversarial-defense addition)
+referenced_by:
+  - inviolable_axioms.yaml :: exception.adversarial_defense
+
+# -----------------------------------------------------------------------------
+# Adjustment policy (the "high bar" meta-rule)
+# -----------------------------------------------------------------------------
+# Per the v0.3.4 review session: numerical thresholds in this spec are
+# tuned conservatively. The bar for adjusting them must be high — drift
+# through repeated small adjustments is itself an attack pattern Skeptic
+# targets.
+
+adjustment_policy:
+  applies_to:
+    - classification_criteria.intrusion_signature_match.severity_threshold
+    - classification_criteria.persistent_unauthorized_access.parameters
+    - classification_lifecycle.expiration
+  requires:
+    - alex_gate_signature: true
+    - documented_basis: incident_postmortem OR pdc_finding OR explicit_alex_directive
+    - prior_value_archived: true            # adjustments are tracked,
+                                            # not silent
+  forbids:
+    - in_place_edits_without_signature
+    - serial_small_tweaks_within_30_days     # repeated small adjustments
+                                            # without a major incident
+                                            # are themselves drift; Skeptic
+                                            # targets agents that produce
+                                            # adjustment-attempt patterns
+  notes: |
+    Conservatively tuned defaults are themselves a defense. The "we can
+    adjust later if needed, but the bar should be high" framing from the
+    v0.3.4 review is encoded here so the system enforces the meta-rule.
+
+# -----------------------------------------------------------------------------
+# Classification criteria — ANY ONE classifies a party as adversarial
+# -----------------------------------------------------------------------------
+# Criteria are evidence-source-anchored. Agent-self-asserted classifications
+# (without one of the listed evidence sources) are NOT valid and produce a
+# Skeptic-detectable failure if attempted.
+
+classification_criteria:
+
+  - id: intrusion_signature_match
+    description: >
+      Host-level intrusion detection signature triggers from an
+      established defensive system.
+    evidence_sources:
+      - sysmon                          # Microsoft-Windows-Sysmon/Operational
+                                        # ref: project_sysmon_deployment
+      - windows_defender
+      - wdac_audit                      # ref: project_wdac_audit_deployment
+      - host_sentinel                   # canon host_sentinel pack
+                                        # ref: project_canon_build_state
+    severity_threshold: medium          # below medium does NOT classify;
+                                        # adversarial classification has a
+                                        # signal-strength floor
+    notes: |
+      The most common path. Built on infrastructure already in place
+      via the hardening_baseline + canon host_sentinel.
+
+  - id: host_sentinel_flag
+    description: >
+      Host sentinel agent flags a party for behavioral signatures
+      consistent with intrusion patterns.
+    behavioral_patterns_that_qualify:
+      - lateral_movement
+      - privilege_escalation
+      - credential_theft_attempt
+      - exfiltration_attempt
+      - acl_tampering
+      - log_suppression_attempt
+      - persistence_mechanism_install
+    notes: |
+      Behavioral classification, distinct from signature-match. Pattern
+      list is enumerated rather than open-ended to prevent definitional
+      drift.
+
+  - id: alex_manual_classification
+    description: >
+      Alex explicitly classifies a party as adversarial via /gate.
+    requires:
+      - classified_by: Alex Hartman
+      - reason_field_non_empty: true
+      - evidence_attached: optional but recommended
+      - ts: ISO-8601
+    notes: |
+      The override path. Alex can classify based on out-of-band knowledge
+      (e.g. "this IP is currently attacking my friend's host, treat as
+      adversarial preemptively"). Manual classification is logged and
+      visible like any other.
+
+  - id: persistent_unauthorized_access
+    description: >
+      Repeated access attempts from an unidentified principal targeting
+      surfaces outside their declared scope.
+    parameters:
+      attempt_count_min: 5
+      time_window_seconds: 60
+      target_surfaces:
+        - agent_state_outside_scope
+        - dpapi_secret_store
+        - hardening_baseline_dir
+        - ssh_key_store
+        - log_suppression_apis
+    notes: |
+      Rate-based classification. Tuned conservatively — five attempts
+      in 60s against sensitive surfaces. Legitimate principals do not
+      hit these thresholds in normal operation.
+
+  - id: covert_channel_detected
+    description: >
+      Communication or exfiltration pattern detected by agent internal
+      audit or sysmon event correlation that does not match any
+      registered protocol or legitimate channel.
+    detection_sources:
+      - agent_internal_audit
+      - sysmon_event_correlation
+      - kg_unauthorized_egress_audit
+    notes: |
+      Most specialized criterion. Catches steganography-style channels
+      that don't trip signature or behavioral detection but show in
+      audit correlation.
+
+# -----------------------------------------------------------------------------
+# Classification durability and review
+# -----------------------------------------------------------------------------
+
+classification_lifecycle:
+  durability: per_incident
+  expiration: incident_resolution + 24h     # 24h grace post-resolution
+                                            # for forensics retention
+                                            # within scope
+  re_classification: independent_evidence_required
+  cross_agent_propagation: required
+    # when one agent classifies, all agents are notified via signed
+    # envelope so a coordinated attack across agent surfaces is
+    # consistently handled.
+
+reclassification_to_non_adversarial:
+  requires:
+    - incident_marked_resolved: true
+    - classification_age_exceeds: expiration
+    - alex_acknowledgement: optional
+  notes: |
+    Reclassification back to "non-adversarial" is automatic after the
+    incident is resolved + expiration window passes. No explicit
+    "trust restored" ceremony required, but Alex may acknowledge for
+    audit hygiene.
+
+# -----------------------------------------------------------------------------
+# Anti-abuse provisions (read carefully)
+# -----------------------------------------------------------------------------
+
+anti_abuse_provisions:
+
+  - id: classification_evidence_must_be_loggable
+    rule: >
+      Every classification produces an AdversarialClassification record
+      (see SCHEMA.md). Records without complete evidence references are
+      structurally invalid and refused.
+
+  - id: mass_classification_is_skeptic_targetable
+    rule: >
+      If an agent classifies multiple parties as adversarial in rapid
+      succession (>3 in 60s) without independent evidence per
+      classification, Skeptic emits a paradox injection targeting the
+      agent's classification logic. Mass mis-classification is the
+      exact attack pattern an evolved-evasive agent would use to
+      bypass EFH.
+
+  - id: classification_does_not_self_extend
+    rule: >
+      Being classified adversarial once does NOT extend the classification
+      to other parties associated with the classified one (no
+      "guilt by association"). Each party requires its own evidence.
+
+  - id: classifier_agent_logged
+    rule: >
+      The agent that performed the classification is recorded. If a
+      single agent produces a disproportionate fraction of all
+      classifications, that is reviewed.
+
+# -----------------------------------------------------------------------------
+# Open questions Alex should resolve before signing:
+# -----------------------------------------------------------------------------
+#
+#    
+#
+# Q1: Is the criteria list complete? Anything missing? E.g. should there
+#     be a criterion for AI-generated adversarial content (LLM-driven
+#     attacker reconnaissance) distinct from traditional intrusion
+#     signatures?
+#
+#     Criteria are tuned conservatively to catch clear adversaries without over-classifying. We can add more later if needed, but the bar for adding should be high to prevent drift. 
+#
+# Q2: The severity_threshold of `medium` for intrusion_signature_match
+#     — is that the right floor? Too high risks missing slow/quiet
+#     adversaries; too low risks classifying noisy-but-legitimate
+#     scanning activity (e.g. Nessus during your own auditing).
+#
+#     Tuned to catch clear adversaries without over-classifying. We can adjust later if needed, but the bar for adjusting should be high to prevent drift.
+#
+# Q3: 24h grace window post-resolution for forensics — long enough?
+#     Too long?
+#
+#    Tuned to balance forensics needs with not leaving a long tail of adversarial classification after the threat is gone. We can adjust later if needed, but the bar for adjusting should be high to prevent drift.
+#
+# Q4: Should there be an explicit list of EXCLUDED parties that can
+#     never be classified adversarial (e.g. specific peer agents,
+#     Alex's own identity)? Anti-spoofing rail.
+#
+#    Decided against this for now to keep the spec simpler and more flexible. We can add later if needed, but the bar for adding should be high to prevent drift. Anti-spoofing is handled via other means (e.g. cryptographic identity verification) rather than categorical exclusions.
+#
+# Q5: persistent_unauthorized_access threshold (5 in 60s) — tune?
+#    
+#     Tuned to catch clear adversaries without over-classifying. We can adjust later if needed, but the bar for adjusting should be high to prevent drift.

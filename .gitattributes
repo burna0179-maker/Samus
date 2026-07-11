@@ -1,0 +1,33 @@
+# Line-ending policy for the Samus tree.
+#
+# core.autocrlf=true at the system level (Git-for-Windows install) checks text
+# files out as CRLF on Windows. Two things break when that happens:
+#
+# 1. Shell scripts in a workcell image get a CRLF shebang, and the Linux
+#    container exits 127 on start:
+#      /usr/bin/env: 'bash\r': No such file or directory
+#
+# 2. The immutable-baseline drift gate at boot (backend/identity/boot.py)
+#    hashes raw file bytes and compares them against the hashes recorded in
+#    backend/identity/immutable_baseline.json, which are seeded from LF bytes.
+#    A fresh `git worktree add` inherits system core.autocrlf=true and produces
+#    CRLF Python/JSON files, so all 12 manifest paths flip to <drift> and the
+#    gate refuses to boot.
+#
+# The main Samus checkout works around this with a local core.autocrlf=false
+# in .git/config, but that setting is not inherited by worktrees. Pinning the
+# file types below to LF here makes every checkout (main tree, per-agent
+# worktree, fresh clone) byte-identical, so `docker compose build` and the
+# baseline gate never depend on which checkout produced the bytes.
+*.sh text eol=lf
+
+# Git hooks are shebang scripts — CRLF would break the interpreter line.
+scripts/hooks/* text eol=lf
+
+# Python and Markdown stay LF on every OS. Windows editors (and some agent
+# tooling) otherwise write CRLF, which lands as whole-file EOL diffs and CRLF
+# churn in the docs/codex drafts. Pinning eol=lf also keeps the immutable-
+# baseline .py byte-stable across checkouts regardless of core.autocrlf, so the
+# signature-drift gate cannot flip on a CRLF-converted worktree.
+*.py text eol=lf
+*.md text eol=lf

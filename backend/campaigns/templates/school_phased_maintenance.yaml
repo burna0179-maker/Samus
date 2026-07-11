@@ -1,0 +1,228 @@
+# School Phased Maintenance — foundation-building ongoing engagement.
+#
+# Sibling to `school_enrollment_campaign.yaml`. Where that template drives an
+# ACCELERATED enrollment push (Aug 12 deadline, community outreach, flyer
+# distribution, publish cadence at 3-4/wk, ~$3.5k-5k investment), this
+# template describes the ONGOING MAINTENANCE posture a school stays in when
+# they cannot afford the accelerated campaign — foundation work only
+# (WordPress + technical SEO + analytics + content framework + Google
+# Business Profile), no cold outreach, no paid ads, no aggressive publish
+# cadence.
+#
+# When to bind an instance to this template:
+#   - Existing client on a small monthly retainer ($200-500/mo) that
+#     covers foundation work but not the accelerated push.
+#   - A prospect who counter-offered on the accelerated proposal and the
+#     operator accepted a phased approach (see clients/
+#     sample_school/campaign.yaml for the canonical example).
+#
+# When to graduate to `school_enrollment_campaign`:
+#   - The client's budget grows to support the accelerated activities;
+#     - a new signing event happens (new DocuSeal submission).
+#     - the instance's template_id is updated + a new run is created;
+#       maintenance history is preserved in the business-event ledger.
+#
+# Governance is deliberately STRICTER than the accelerated template: every
+# content_generation and website_edit is operator-gated. Nothing outward
+# runs without explicit operator approval, and nothing outward is included
+# in this template at all — the point of "phased maintenance" is inward,
+# reversible foundation work.
+campaign_template:
+  template_id: school_phased_maintenance
+  vertical: education
+  name: School Phased Maintenance
+  version: 1.0.0
+
+  # Everything a client instance must supply. Notably absent:
+  # `enrollment_deadline` — this template is ongoing, not deadline-driven.
+  required_inputs:
+    - client_id
+    - school_name
+    - website_url
+    - target_geography
+    - approval_contact
+
+  defaults:
+    # Foundation-first — the "should support" concerns are the ones Alex
+    # committed to Kerry: WordPress + FB/IG + Google Business + tech SEO
+    # + analytics + content framework + website improvements.
+    wordpress_optimization_enabled: true
+    social_channel_setup_enabled: true
+    google_business_profile_enabled: true
+    technical_seo_enabled: true
+    analytics_and_reporting_enabled: true
+    content_publishing_framework_enabled: true
+    website_improvements_enabled: true
+    # Explicitly OFF — these belong to the accelerated template. Setting
+    # them here documents that they're intentionally deferred.
+    open_house_enabled: false
+    community_outreach_enabled: false
+    flyer_outreach_enabled: false
+    paid_ads_enabled: false
+    parent_testimonial_capture: false
+
+  # Modest ongoing metrics — the point is durable foundation, not a spike.
+  kpis:
+    - key: page_views
+      label: Page Views
+      target: 500
+    - key: source_clicks
+    - key: cta_clicks
+      target: 30
+    - key: phone_clicks
+    - key: email_clicks
+    - key: tour_requests
+      target: 5
+    - key: social_engagements
+    - key: backlinks_created
+    - key: reviews_received
+
+  # The audience block is retained for reporting/attribution shape but the
+  # phased engagement doesn't drive prospecting discovery — it's inward.
+  audience:
+    name: local_families
+    geography: ["${target_geography}"]
+    radius_miles: 15
+    segments: ["parents_k12", "faith_community"]
+    source_workcell: prospecting
+
+  # No publish/outreach channels — those are accelerated-template only.
+  # school_website + google_business are the surfaces we improve.
+  channels:
+    - name: school_website
+      kind: web
+    - name: google_business
+      kind: review
+
+  # Vertical governance — same posture as accelerated (no ads, notice cap).
+  vertical_rules:
+    vertical: education
+    max_auto_severity: notice
+    forbidden_capabilities: []
+    approval_overrides:
+      # Every website change goes through operator sign-off — a phased
+      # engagement's promise is CAREFUL foundation work, not fast moves.
+      website_edit: operator
+      content_generation: operator
+      reporting: operator
+
+  nodes:
+    # --- inward setup (auto-run) ---
+    - id: intake_assets
+      type: artifact_ingest
+      target_workcell: scaffold
+      capability: generate_assets
+      approval_required: none
+      input_mapping:
+        school_name: $inputs.school_name
+
+    - id: audit_website
+      type: seo_audit
+      target_workcell: seo
+      capability: audit_and_report
+      approval_required: none
+      input_mapping:
+        url: $inputs.website_url
+      kpis: [page_views]
+
+    # --- foundation content + technical (operator-gated) ---
+    - id: setup_analytics
+      type: content_generation
+      target_workcell: scaffold
+      capability: generate_assets
+      approval_required: operator
+      input_mapping:
+        asset_type: "campaign_brief"
+        title: "Analytics + conversion tracking setup"
+        client: $inputs.school_name
+        brand_voice: "warm, community-focused, faith-centered"
+        offer: "Analytics and conversion tracking setup plan"
+        inputs:
+          topic: "analytics + conversion tracking setup"
+          school_name: $inputs.school_name
+
+    - id: technical_seo_improvements
+      type: seo_geo_content
+      target_workcell: seo
+      capability: generate_content
+      approval_required: operator
+      input_mapping:
+        geography: $inputs.target_geography
+
+    - id: google_business_optimization
+      type: content_generation
+      target_workcell: scaffold
+      capability: generate_assets
+      approval_required: operator
+      input_mapping:
+        asset_type: "campaign_brief"
+        title: "Google Business Profile update plan"
+        client: $inputs.school_name
+        brand_voice: "warm, community-focused, faith-centered"
+        offer: "Google Business Profile update plan"
+        inputs:
+          topic: "google business profile updates"
+          school_name: $inputs.school_name
+
+    - id: wordpress_optimization
+      type: website_edit
+      target_workcell: seo
+      capability: generate_content
+      approval_required: operator
+      audit_severity: high
+      input_mapping:
+        url: $inputs.website_url
+
+    - id: content_publishing_framework
+      type: content_generation
+      target_workcell: scaffold
+      capability: generate_assets
+      approval_required: operator
+      input_mapping:
+        asset_type: "campaign_brief"
+        title: "Content publishing framework"
+        client: $inputs.school_name
+        brand_voice: "warm, community-focused, faith-centered"
+        offer: "Monthly content publishing framework draft"
+        inputs:
+          topic: "content publishing framework"
+          school_name: $inputs.school_name
+
+    # --- metrics + monthly report ---
+    - id: collect_campaign_metrics
+      type: metrics_collection
+      target_workcell: campaigns
+      capability: update_kpis
+      approval_required: none
+
+    - id: monthly_report
+      type: reporting
+      target_workcell: campaigns
+      capability: generate_report
+      approval_required: operator
+
+  edges:
+    - from: intake_assets
+      to: audit_website
+    - from: audit_website
+      to: technical_seo_improvements
+    - from: audit_website
+      to: wordpress_optimization
+    - from: audit_website
+      to: setup_analytics
+    - from: audit_website
+      to: google_business_optimization
+    - from: intake_assets
+      to: content_publishing_framework
+    - from: technical_seo_improvements
+      to: collect_campaign_metrics
+    - from: wordpress_optimization
+      to: collect_campaign_metrics
+    - from: setup_analytics
+      to: collect_campaign_metrics
+    - from: google_business_optimization
+      to: collect_campaign_metrics
+    - from: content_publishing_framework
+      to: collect_campaign_metrics
+    - from: collect_campaign_metrics
+      to: monthly_report

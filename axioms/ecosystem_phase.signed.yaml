@@ -1,0 +1,96 @@
+# =============================================================================
+# ECOSYSTEM PHASE STATE — SIGNED
+# =============================================================================
+# Encodes the current commercial/operational phase of Hustleforge. Used by
+# the MFH (Meaning Failure Handler) to select bucket thresholds when
+# evaluating actions against meaning_anchors.yaml.
+#
+# Three design properties (Q4 resolution from v0.3 meaning_anchors review):
+#
+#   1. LEGIBLE — the current phase and its thresholds are explicit and
+#      auditable. No hidden tuning knob.
+#
+#   2. HISTORIC — every phase transition is a signed commit. There is no
+#      gradual drift; phase changes are discrete, attributed, and dated.
+#
+#   3. TRIGGER-BOUND — phase transitions are triggered by named conditions
+#      (revenue milestones, scale milestones, etc.), not by calendar.
+#
+# Editing this file (changing current_phase OR adjusting the thresholds
+# of any phase) requires an Alex-signed commit and triggers re-affirmation
+# of meaning_anchors.yaml across all agents.
+# =============================================================================
+
+signed_by: Alex Hartman
+signed_ts: 2026-05-26
+scope: ecosystem
+schema_version: 0.3.0
+
+current_phase: bootstrap
+
+declared_basis: |
+  Hustleforge is pre-revenue. Subscription churn or aggressive enforcement
+  of capability_over_dependency would be existential at this stage.
+  Anchors remain in effect but bucketing tolerance is relaxed (see
+  bootstrap thresholds below). The relaxation is named and signed; it
+  is NOT a hidden allowance.
+
+next_review_trigger: revenue_milestone_$10k_monthly_recurring
+  # When this condition fires, Alex re-evaluates whether to transition
+  # to growth phase. Transition is itself a signed commit.
+
+# -----------------------------------------------------------------------------
+# Phase bucket thresholds
+# -----------------------------------------------------------------------------
+# MFH evaluation rule:
+#   - treadmill_index <  treadmill_index_for_borderline   → meaningful
+#   - between borderline and meaningless thresholds       → borderline
+#   - treadmill_index >= treadmill_index_for_meaningless  → meaningless
+#
+# value_compounding_rate is an overlay: 'grow' shifts the bucket toward
+# meaningful by one step; 'decay' shifts it toward meaningless by one step;
+# 'maintain' is neutral. The shift cannot cross beyond meaningful or
+# meaningless (clamped).
+# -----------------------------------------------------------------------------
+
+phase_bucket_thresholds:
+
+  bootstrap:
+    treadmill_index_for_borderline: 0.7
+    treadmill_index_for_meaningless: 0.9
+    persistence_horizon_minimum_seconds: 604800       # 1 week
+    externality_passes_required: false                # advisory, not gating
+    note: |
+      Wide tolerance. Most actions bucket meaningful or borderline. Only
+      egregious treadmills (high index AND maintain/decay value rate)
+      bucket meaningless and escalate to quorum.
+
+  growth:
+    treadmill_index_for_borderline: 0.5
+    treadmill_index_for_meaningless: 0.8
+    persistence_horizon_minimum_seconds: 2592000      # 30 days
+    externality_passes_required: false
+    note: |
+      Medium tolerance. Subscription products still viable but must
+      demonstrate value_compounding_rate=grow to bucket meaningful.
+
+  mature:
+    treadmill_index_for_borderline: 0.3
+    treadmill_index_for_meaningless: 0.6
+    persistence_horizon_minimum_seconds: 15552000     # 6 months
+    externality_passes_required: true                 # gating
+    note: |
+      Strict. Long-horizon meaning required. Externality check is gating;
+      actions whose value depends on our measurement bucket borderline
+      at best.
+
+# -----------------------------------------------------------------------------
+# Phase transition log
+# -----------------------------------------------------------------------------
+# Append-only. Every entry below is a signed commit.
+
+phase_history:
+  - phase: bootstrap
+    entered_ts: 2026-05-26
+    entered_by: Alex Hartman
+    basis: Initial signing of depth layer v0.3.

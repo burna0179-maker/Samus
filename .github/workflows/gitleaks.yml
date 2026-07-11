@@ -1,0 +1,39 @@
+name: Gitleaks
+
+# Secret scanning across commit history and the working tree. Runs on
+# every push and PR because a leaked credential in a feature branch is a
+# credential exposure regardless of whether the branch merges — action
+# has to happen before the push, not after review.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gitleaks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    name: gitleaks scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history so gitleaks can walk the commit graph, not just HEAD.
+          fetch-depth: 0
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GITLEAKS_LICENSE is only required for GitHub Organization accounts.
+          # Personal accounts and public repos run without a license key.
+          # If this repo moves under an Organization, add GITLEAKS_LICENSE to
+          # repo secrets and uncomment the line below.
+          # GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}

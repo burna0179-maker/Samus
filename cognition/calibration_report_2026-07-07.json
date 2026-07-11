@@ -1,0 +1,15 @@
+{
+  "window": {
+    "start": "2026-06-27T04:23:51Z",
+    "end": "2026-07-11T04:23:51Z",
+    "days": 14
+  },
+  "overall": {
+    "decisions": 0,
+    "unscoreable": 0,
+    "loop_completion_rate": 0.0
+  },
+  "per_actor": {},
+  "day": "2026-07-07",
+  "written_at": "2026-07-11T04:23:51Z"
+}
