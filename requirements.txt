@@ -22,7 +22,7 @@ PyYAML
 # (48.0.0); intentionally NOT downgraded to Major's 45.0.7 — Samus's stack
 # tests against 48.x, and pinning to a tested-older crypto would be a
 # regression, not a hardening.
-cryptography==48.0.0
+cryptography==49.0.0
 # HTML parser for SEO audit enrichment (backend.seo.audit). Previously an
 # optional dep with a regex fallback; promoted to required when the
 # enrichment surface added structural extractors (alt-text coverage, link
