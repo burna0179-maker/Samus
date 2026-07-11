@@ -4,6 +4,7 @@
 counted by priority; critical-priority gaps are always surfaced as a
 separate list so they appear in /snapshot without being hidden in counts.
 """
+
 from __future__ import annotations
 
 import logging
@@ -45,8 +46,7 @@ def _open_gaps(gaps: list[InfoGap]) -> list[InfoGap]:
     return [g for g in gaps if g.status == "open"]
 
 
-def summarize(registry: InfoGapsRegistry, registry_loaded: bool,
-              ts: str) -> InfoGapsSummary:
+def summarize(registry: InfoGapsRegistry, registry_loaded: bool, ts: str) -> InfoGapsSummary:
     open_gaps = _open_gaps(registry.gaps)
     by_pri: Counter = Counter(g.priority for g in open_gaps)
     critical = sorted(

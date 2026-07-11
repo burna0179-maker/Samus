@@ -9,6 +9,7 @@ Actions dispatched via POST /work:
   resume_plan     — reset RUNNING steps to PENDING (pre-retry)
   finalize_plan   — derive terminal plan status from step statuses
 """
+
 from __future__ import annotations
 
 import logging
@@ -114,4 +115,5 @@ async def work_endpoint(envelope: TaskEnvelope) -> dict:
     # ------------------------------------------------------------------
     _LOG.warning("fulfillment unknown action=%s task_id=%s", action, envelope.task_id)
     from fastapi import HTTPException
+
     raise HTTPException(status_code=400, detail=f"unknown fulfillment action: {action!r}")

@@ -4,6 +4,7 @@ The decomposition math (build_goal_tree) is pure given injected economics, so
 most assertions hand-compute the expected values. Seeding/idempotency tests use
 tmp store paths.
 """
+
 from __future__ import annotations
 
 import datetime as _dt
@@ -31,6 +32,7 @@ def planning_paths(tmp_path, monkeypatch):
 
 # --- funnel arithmetic (pure) ----------------------------------------------
 
+
 def test_funnel_leads_for_revenue():
     econ = FunnelEconomics(avg_deal_usd=3500.0, close_rate=0.15, source="test")
     # needed_leads = revenue / (avg_deal * close_rate)
@@ -53,12 +55,15 @@ def test_funnel_leads_for_zero_revenue_is_zero():
 
 # --- tree shape ------------------------------------------------------------
 
+
 def test_build_goal_tree_has_all_horizons():
     today = _dt.date(2026, 1, 1)
     target_date = _dt.date(2026, 12, 31)  # ~364 days out
     econ = FunnelEconomics(avg_deal_usd=3500.0, close_rate=0.15, source="test")
     goals = gt.build_goal_tree(
-        target_usd=40000.0, target_date=target_date, today=today,
+        target_usd=40000.0,
+        target_date=target_date,
+        today=today,
         economics=econ,
     )
     horizons = [g.horizon for g in goals]
@@ -73,7 +78,9 @@ def test_build_goal_tree_parent_links_form_a_chain():
     today = _dt.date(2026, 1, 1)
     target_date = _dt.date(2026, 12, 31)
     goals = gt.build_goal_tree(
-        target_usd=40000.0, target_date=target_date, today=today,
+        target_usd=40000.0,
+        target_date=target_date,
+        today=today,
         economics=FunnelEconomics(3500.0, 0.15, "test"),
     )
     by_horizon = {g.horizon: g for g in goals if g.horizon != HORIZON_DAY}
@@ -93,7 +100,9 @@ def test_build_goal_tree_revenue_splits_by_days():
     today = _dt.date(2026, 1, 1)
     target_date = today + _dt.timedelta(days=365)
     goals = gt.build_goal_tree(
-        target_usd=36500.0, target_date=target_date, today=today,
+        target_usd=36500.0,
+        target_date=target_date,
+        today=today,
         economics=FunnelEconomics(3500.0, 0.15, "test"),
     )
     by_horizon = {g.horizon: g for g in goals if g.horizon != HORIZON_DAY}
@@ -113,17 +122,17 @@ def test_build_goal_tree_daily_leads_from_funnel():
     today = _dt.date(2026, 1, 1)
     target_date = today + _dt.timedelta(days=365)
     goals = gt.build_goal_tree(
-        target_usd=36500.0, target_date=target_date, today=today,
+        target_usd=36500.0,
+        target_date=target_date,
+        today=today,
         economics=FunnelEconomics(3500.0, 0.10, "test"),
     )
     leads_goal = next(
-        g for g in goals
-        if g.horizon == HORIZON_DAY and g.target_metric == "leads_created"
+        g for g in goals if g.horizon == HORIZON_DAY and g.target_metric == "leads_created"
     )
     assert leads_goal.target_value >= 1.0
     tasks_goal = next(
-        g for g in goals
-        if g.horizon == HORIZON_DAY and g.target_metric == "tasks_completed"
+        g for g in goals if g.horizon == HORIZON_DAY and g.target_metric == "tasks_completed"
     )
     assert tasks_goal.target_value >= 1.0
 
@@ -134,7 +143,9 @@ def test_build_goal_tree_near_deadline_clamps_windows():
     today = _dt.date(2026, 7, 6)
     target_date = _dt.date(2026, 7, 9)  # 3 days
     goals = gt.build_goal_tree(
-        target_usd=40000.0, target_date=target_date, today=today,
+        target_usd=40000.0,
+        target_date=target_date,
+        today=today,
         economics=FunnelEconomics(3500.0, 0.15, "test"),
     )
     by_horizon = {g.horizon: g for g in goals if g.horizon != HORIZON_DAY}
@@ -148,7 +159,9 @@ def test_build_goal_tree_past_deadline_still_produces_tree():
     today = _dt.date(2026, 7, 6)
     target_date = _dt.date(2026, 7, 1)  # already passed
     goals = gt.build_goal_tree(
-        target_usd=40000.0, target_date=target_date, today=today,
+        target_usd=40000.0,
+        target_date=target_date,
+        today=today,
         economics=FunnelEconomics(3500.0, 0.15, "test"),
     )
     assert len(goals) == 6
@@ -158,9 +171,11 @@ def test_build_goal_tree_past_deadline_still_produces_tree():
 
 # --- seeding + idempotency -------------------------------------------------
 
+
 def test_seed_goal_tree_persists(planning_paths):
     goals = gt.seed_goal_tree(
-        target_usd=40000.0, target_date=_dt.date(2026, 12, 31),
+        target_usd=40000.0,
+        target_date=_dt.date(2026, 12, 31),
         today=_dt.date(2026, 1, 1),
     )
     assert len(goals) == 6
@@ -169,8 +184,7 @@ def test_seed_goal_tree_persists(planning_paths):
 
 
 def test_seed_goal_tree_idempotent(planning_paths):
-    kw = dict(target_usd=40000.0, target_date=_dt.date(2026, 12, 31),
-              today=_dt.date(2026, 1, 1))
+    kw = dict(target_usd=40000.0, target_date=_dt.date(2026, 12, 31), today=_dt.date(2026, 1, 1))
     gt.seed_goal_tree(**kw)
     gt.seed_goal_tree(**kw)  # re-seed same day -> same deterministic ids
     stored = store.list_goals()

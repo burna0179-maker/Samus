@@ -8,6 +8,7 @@ two-proportion z-test. No scipy/numpy — the normal CDF comes from
 from arm B's at level alpha?" (two-sided). Promotion callers pass the
 candidate winner as ``a_stats`` and check ``a`` also has the HIGHER rate.
 """
+
 from __future__ import annotations
 
 import math
@@ -29,7 +30,10 @@ def _wins_trials(stats: Mapping[str, Any]) -> tuple[int, int]:
 
 
 def two_proportion_z(
-    a_wins: int, a_trials: int, b_wins: int, b_trials: int,
+    a_wins: int,
+    a_trials: int,
+    b_wins: int,
+    b_trials: int,
 ) -> float:
     """Pooled two-proportion z statistic. 0.0 when undefined (empty arms)."""
     if a_trials <= 0 or b_trials <= 0:

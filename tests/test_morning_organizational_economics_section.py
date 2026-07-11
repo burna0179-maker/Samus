@@ -9,6 +9,7 @@ would fake resolution when the truth is 'no data yet'). This test file
 codifies that expectation so a future change can't silently break the
 honest-degradation contract.
 """
+
 from __future__ import annotations
 
 from backend import morning
@@ -55,9 +56,9 @@ def test_saturation_reader_returns_risk_map_from_real_trials(monkeypatch):
         _Exp("cs-01", "call_script"),
     ]
     stats_by_experiment = {
-        "pt-01": {"A": {"trials": 5}, "B": {"trials": 5}},   # 10 total
-        "pt-02": {"A": {"trials": 40}},                       # 40 total
-        "cs-01": {"A": {"trials": 3}, "B": {"trials": 2}},   # 5 total
+        "pt-01": {"A": {"trials": 5}, "B": {"trials": 5}},  # 10 total
+        "pt-02": {"A": {"trials": 40}},  # 40 total
+        "cs-01": {"A": {"trials": 3}, "B": {"trials": 2}},  # 5 total
     }
     monkeypatch.setattr(
         "backend.experiments.registry.list_experiments",

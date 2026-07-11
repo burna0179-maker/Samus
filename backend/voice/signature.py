@@ -12,6 +12,7 @@ The verifier uses :func:`hmac.compare_digest` so the wall-clock time to fail
 is independent of how many leading bytes happened to match — that's the
 standard defense against signature-timing oracle attacks.
 """
+
 from __future__ import annotations
 
 import hmac

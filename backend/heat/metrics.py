@@ -12,16 +12,17 @@ every delivered email draws a complaint, the score must read critical even with
 zero bounces. The other signals are contributory (they raise heat together with
 complaints but rarely solo-trip).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 
 # ── Per-signal "full danger" rates: the rate at which a signal ALONE is a
 #    reputation emergency (danger -> 1.0). ───────────────────────────────────
-COMPLAINT_FULL_DANGER_RATE: float = 0.004   # 0.4% spam complaints
-BOUNCE_FULL_DANGER_RATE: float = 0.12       # 12% bounces
-BLOCK_FULL_DANGER_RATE: float = 0.10        # 10% blocked/dropped
-DEFERRAL_FULL_DANGER_RATE: float = 0.40     # 40% deferrals
+COMPLAINT_FULL_DANGER_RATE: float = 0.004  # 0.4% spam complaints
+BOUNCE_FULL_DANGER_RATE: float = 0.12  # 12% bounces
+BLOCK_FULL_DANGER_RATE: float = 0.10  # 10% blocked/dropped
+DEFERRAL_FULL_DANGER_RATE: float = 0.40  # 40% deferrals
 
 # ── Contribution weights. Complaint >= 1.0 so it can solo-reach critical; the
 #    rest are contributory. (They intentionally do NOT sum to 1.) ────────────

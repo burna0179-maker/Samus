@@ -1,13 +1,12 @@
 """Per-workcell LLM token budget store + adaptive quota math."""
+
 from __future__ import annotations
 
-import json
 
 import pytest
 
 from backend.common.llm_budget import (
     LlmBudgetStore,
-    WorkcellBudget,
     compute_quota,
 )
 
@@ -15,6 +14,7 @@ from backend.common.llm_budget import (
 # ---------------------------------------------------------------------------
 # Pure quota math (no I/O)
 # ---------------------------------------------------------------------------
+
 
 def test_compute_quota_returns_base_when_insufficient_signal():
     """First 10 calls -> full base quota (no adaptive scaling yet)."""
@@ -29,7 +29,9 @@ def test_compute_quota_100pct_efficiency_doubles_base():
 
 def test_compute_quota_0pct_efficiency_halves_base():
     q = compute_quota(
-        100_000, efficiency_ema=0.0, efficiency_call_count=100,
+        100_000,
+        efficiency_ema=0.0,
+        efficiency_call_count=100,
         floor_pct=0.10,
     )
     # factor = 0.5; 100_000 * 0.5 = 50_000. Floor is 10_000. max wins.
@@ -56,11 +58,12 @@ def test_compute_quota_clamps_invalid_ema_to_range():
 # LlmBudgetStore — JSON backend (no DDB)
 # ---------------------------------------------------------------------------
 
+
 def _store(tmp_path, **overrides) -> LlmBudgetStore:
     """Build a store backed only by a tmp JSON file (no DDB)."""
     kwargs = dict(
         base_token_budget=100_000,
-        ema_alpha=0.5,                     # high alpha for fast test feedback
+        ema_alpha=0.5,  # high alpha for fast test feedback
         floor_pct=0.10,
         ddb_table=None,
         json_path=str(tmp_path / "budget.json"),
@@ -173,13 +176,19 @@ def test_json_persistence_round_trip(tmp_path):
     """Store state must survive a fresh store pointed at the same JSON file."""
     path = str(tmp_path / "budget.json")
     s1 = LlmBudgetStore(
-        base_token_budget=1_000, ema_alpha=0.5, floor_pct=0.10,
-        ddb_table=None, json_path=path,
+        base_token_budget=1_000,
+        ema_alpha=0.5,
+        floor_pct=0.10,
+        ddb_table=None,
+        json_path=path,
     )
     s1.record_spend("prospecting", input_tokens=200, output_tokens=100, outcome="success")
     s2 = LlmBudgetStore(
-        base_token_budget=1_000, ema_alpha=0.5, floor_pct=0.10,
-        ddb_table=None, json_path=path,
+        base_token_budget=1_000,
+        ema_alpha=0.5,
+        floor_pct=0.10,
+        ddb_table=None,
+        json_path=path,
     )
     b = s2.snapshot("prospecting")
     assert b.total_tokens_today == 300
@@ -189,35 +198,49 @@ def test_json_persistence_round_trip(tmp_path):
 def test_constructor_rejects_bad_ema_alpha(tmp_path):
     with pytest.raises(ValueError):
         LlmBudgetStore(
-            base_token_budget=1_000, ema_alpha=0.0, floor_pct=0.10,
-            ddb_table=None, json_path=str(tmp_path / "b.json"),
+            base_token_budget=1_000,
+            ema_alpha=0.0,
+            floor_pct=0.10,
+            ddb_table=None,
+            json_path=str(tmp_path / "b.json"),
         )
     with pytest.raises(ValueError):
         LlmBudgetStore(
-            base_token_budget=1_000, ema_alpha=1.5, floor_pct=0.10,
-            ddb_table=None, json_path=str(tmp_path / "b.json"),
+            base_token_budget=1_000,
+            ema_alpha=1.5,
+            floor_pct=0.10,
+            ddb_table=None,
+            json_path=str(tmp_path / "b.json"),
         )
 
 
 def test_constructor_rejects_bad_floor_pct(tmp_path):
     with pytest.raises(ValueError):
         LlmBudgetStore(
-            base_token_budget=1_000, ema_alpha=0.5, floor_pct=-0.1,
-            ddb_table=None, json_path=str(tmp_path / "b.json"),
+            base_token_budget=1_000,
+            ema_alpha=0.5,
+            floor_pct=-0.1,
+            ddb_table=None,
+            json_path=str(tmp_path / "b.json"),
         )
     with pytest.raises(ValueError):
         LlmBudgetStore(
-            base_token_budget=1_000, ema_alpha=0.5, floor_pct=1.5,
-            ddb_table=None, json_path=str(tmp_path / "b.json"),
+            base_token_budget=1_000,
+            ema_alpha=0.5,
+            floor_pct=1.5,
+            ddb_table=None,
+            json_path=str(tmp_path / "b.json"),
         )
 
 
 def test_store_unavailable_still_allows_calls(tmp_path, monkeypatch):
     """Catastrophic store failure must not block work."""
     s = _store(tmp_path)
+
     # Force load to raise
     def _explode(_):
         raise RuntimeError("backend gone")
+
     monkeypatch.setattr(s, "_load", _explode)
     d = s.can_spend("prospecting", est_tokens=999)
     assert d.allowed is True

@@ -18,6 +18,7 @@ a valid HMAC signature (``/health`` stays exempt, consistent with the rest
 of the mesh). The middleware is default-on; the test suite opts out via the
 conftest-set ``SAMUS_DISABLE_HMAC_MIDDLEWARE`` env var.
 """
+
 from __future__ import annotations
 
 from typing import Any

@@ -23,6 +23,7 @@ write) — byte-identical to "engine absent".
 DORMANCY: constructed no-arg; no live importer; inert unless armed AND the
 (dormant) wrapper constructs it.
 """
+
 from __future__ import annotations
 
 import json
@@ -97,7 +98,7 @@ class UpgradeEngine:
             self._pending = {
                 "schema": "samus.autonomy.upgrade_proposal/1",
                 "ts": _time.time(),
-                "status": "proposed",            # never auto-applied
+                "status": "proposed",  # never auto-applied
                 "kind": "architecture_upgrade",
                 "reasons": reasons,
                 "situation": {

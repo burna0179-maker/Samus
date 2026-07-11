@@ -22,6 +22,7 @@ NOTE: no ``from __future__ import annotations`` — it breaks FastAPI/pydantic
 forward-ref resolution of the ``Request`` parameter type (same caveat as Optimus's
 quorum_assess_route), turning the auth gate into a 422 body-validation error.
 """
+
 import hashlib
 import json
 import logging
@@ -60,7 +61,11 @@ def _ensure_security_client_on_path() -> None:
 def is_contribute_enabled() -> bool:
     """Read ``SN_AGORA_CONTRIBUTE_ENABLED`` live. Default OFF (dormant)."""
     return os.environ.get(ENV_CONTRIBUTE_ENABLED, "").strip().lower() in (
-        "1", "true", "yes", "on", "y",
+        "1",
+        "true",
+        "yes",
+        "on",
+        "y",
     )
 
 
@@ -88,11 +93,15 @@ def _verify_anita_envelope(body: Any) -> dict[str, Any]:
     _ensure_security_client_on_path()
     try:
         from security_client.agent_envelope import (  # type: ignore
-            AgentEnvelope, EnvelopeError, EnvelopeReplay,
-            EnvelopeSignatureInvalid, EnvelopeStale,
+            AgentEnvelope,
+            EnvelopeError,
+            EnvelopeReplay,
+            EnvelopeSignatureInvalid,
+            EnvelopeStale,
         )
         from security_client.rotating_hmac import (  # type: ignore
-            RotatingHMACKey, RotatingHMACKeyError,
+            RotatingHMACKey,
+            RotatingHMACKeyError,
         )
     except Exception as exc:  # noqa: BLE001 — import failure ⇒ cannot verify ⇒ 503
         _LOG.error("agora_contribute: security_client unavailable: %s", exc)
@@ -101,8 +110,7 @@ def _verify_anita_envelope(body: Any) -> dict[str, Any]:
     try:
         verifying_key = RotatingHMACKey.for_agent(COLLECTOR_AGENT)  # SS_HMAC_KEY_ANITA
     except RotatingHMACKeyError as exc:
-        _LOG.error("agora_contribute: collector '%s' key unprovisioned: %s",
-                   COLLECTOR_AGENT, exc)
+        _LOG.error("agora_contribute: collector '%s' key unprovisioned: %s", COLLECTOR_AGENT, exc)
         raise _VerificationUnavailable("collector_key_unprovisioned") from exc
 
     try:
@@ -120,7 +128,8 @@ def _verify_anita_envelope(body: Any) -> dict[str, Any]:
         env.verify(verifying_key)
     except (EnvelopeSignatureInvalid, EnvelopeStale, EnvelopeReplay) as exc:
         raise _EnvelopeRejected(
-            f"envelope_verification_failed: {type(exc).__name__}", status_code=403) from exc
+            f"envelope_verification_failed: {type(exc).__name__}", status_code=403
+        ) from exc
     except EnvelopeError as exc:
         raise _EnvelopeRejected(f"envelope_verification_failed: {exc}", status_code=403) from exc
 
@@ -135,20 +144,25 @@ def _gather_commercial_evidence() -> dict[str, Any]:
     return {
         "have_evidence": True,
         "role": "revenue + fulfillment engine",
-        "local_gpu_contender": False,          # Anthropic-only path; NOT the local 4090
+        "local_gpu_contender": False,  # Anthropic-only path; NOT the local 4090
         "inference_path": "anthropic-only",
         "llm_daily_cap_usd": 1.0,
         "outbound_guardrails": [
-            "stake_sentence", "can_spam", "evidence_source", "reward_density",
-            "legitimacy_filter", "apollo_budget",
+            "stake_sentence",
+            "can_spam",
+            "evidence_source",
+            "reward_density",
+            "legitimacy_filter",
+            "apollo_budget",
         ],
         "evidence_namespace": SOURCE_KIND,
     }
 
 
 def _evidence_hash(evidence_payload: dict[str, Any]) -> str:
-    canonical = json.dumps(evidence_payload, sort_keys=True, separators=(",", ":"),
-                           default=str).encode("utf-8")
+    canonical = json.dumps(
+        evidence_payload, sort_keys=True, separators=(",", ":"), default=str
+    ).encode("utf-8")
     return hashlib.sha256(canonical).hexdigest()
 
 
@@ -207,12 +221,19 @@ def register(app) -> None:
 
         evidence = _gather_commercial_evidence()
         result = _build_contribution(payload, evidence)
-        _LOG.info("agora_contribute from=anita topic=%s evidence_hash=%s",
-                  str(payload.get("topic", ""))[:60], result["evidence_hash"][:12])
+        _LOG.info(
+            "agora_contribute from=anita topic=%s evidence_hash=%s",
+            str(payload.get("topic", ""))[:60],
+            result["evidence_hash"][:12],
+        )
         return result
 
 
 __all__ = [
-    "COLLECTOR_AGENT", "SOURCE_KIND", "is_contribute_enabled", "register",
-    "_verify_anita_envelope", "_gather_commercial_evidence",
+    "COLLECTOR_AGENT",
+    "SOURCE_KIND",
+    "is_contribute_enabled",
+    "register",
+    "_verify_anita_envelope",
+    "_gather_commercial_evidence",
 ]

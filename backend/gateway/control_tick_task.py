@@ -26,6 +26,7 @@ Default-ON (this is the revenue heartbeat). Off-switch
 ``SAMUS_CONTROL_TICK_INTERVAL_SEC`` (default 1800 = 30 min, so a freshly
 staked deal walks within half an hour without waiting for any daily job).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -91,7 +92,8 @@ async def start_control_tick_loop(app: Any) -> Optional[asyncio.Task]:
         return existing
     interval = _interval_sec()
     task = asyncio.create_task(
-        _control_tick_loop(interval), name="samus.control_tick_loop",
+        _control_tick_loop(interval),
+        name="samus.control_tick_loop",
     )
     app.state.control_tick_task = task
     _LOG.info("control_tick loop started (interval=%.0fs)", interval)

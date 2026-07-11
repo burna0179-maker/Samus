@@ -3,6 +3,7 @@
 Walks every dependency the multi-service stack needs to boot. Returns a
 structured report; CLI exits 0 on green, 1 on any failure.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -44,21 +45,26 @@ def run() -> dict[str, Any]:
         ("suppression", s.ddb_suppression_table),
         ("feedback", s.ddb_feedback_table),
     ):
-        checks.append(_check(
-            f"ddb_table_{logical}",
-            lambda n=name: dynamodb_resource().Table(n).table_status,
-        ))
+        checks.append(
+            _check(
+                f"ddb_table_{logical}",
+                lambda n=name: dynamodb_resource().Table(n).table_status,
+            )
+        )
 
     # SQS queues exist (if configured).
     for svc, url in s.sqs_queue_urls.items():
         if not url:
             continue
-        checks.append(_check(
-            f"sqs_queue_{svc}",
-            lambda u=url: sqs_client().get_queue_attributes(
-                QueueUrl=u, AttributeNames=["QueueArn"],
-            )["Attributes"]["QueueArn"],
-        ))
+        checks.append(
+            _check(
+                f"sqs_queue_{svc}",
+                lambda u=url: sqs_client().get_queue_attributes(
+                    QueueUrl=u,
+                    AttributeNames=["QueueArn"],
+                )["Attributes"]["QueueArn"],
+            )
+        )
 
     all_ok = all(c["ok"] for c in checks)
     return {"all_ok": all_ok, "checks": checks}

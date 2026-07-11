@@ -8,6 +8,7 @@ Covers the four doctrine guarantees:
   * the projection never raises (best-effort), and tier stamping follows
     SAMUS_KG_TIER_MODE.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -22,6 +23,7 @@ from backend.crm.models import Contact, Conversation, Opportunity, Prospect
 # ---------------------------------------------------------------------------
 # Fakes
 # ---------------------------------------------------------------------------
+
 
 class _FakeClient:
     """Minimal GraphClient stand-in, mirroring test_common_neo4j_runtime."""
@@ -39,19 +41,25 @@ class _FakeClient:
         return True
 
     def write_relationship(
-        self, source_label: str, source_key: Any, rel_type: str,
-        target_label: str, target_key: Any,
+        self,
+        source_label: str,
+        source_key: Any,
+        rel_type: str,
+        target_label: str,
+        target_key: Any,
     ) -> bool:
-        self.rel_calls.append(
-            (source_label, source_key, rel_type, target_label, target_key)
-        )
+        self.rel_calls.append((source_label, source_key, rel_type, target_label, target_key))
         return True
 
 
 def _opp(**over: Any) -> Opportunity:
     base: dict[str, Any] = dict(
-        opportunity_id="op_1", prospect_id="pr_1", contact_id="co_1",
-        stage="qualified", deal_size_usd=1200.0, close_probability=0.25,
+        opportunity_id="op_1",
+        prospect_id="pr_1",
+        contact_id="co_1",
+        stage="qualified",
+        deal_size_usd=1200.0,
+        close_probability=0.25,
     )
     base.update(over)
     return Opportunity(**base)
@@ -71,6 +79,7 @@ def _armed(monkeypatch):
 # ---------------------------------------------------------------------------
 # Flag gating (default ON; explicit-off is a clean no-op)
 # ---------------------------------------------------------------------------
+
 
 def test_flag_explicitly_off_is_noop(monkeypatch):
     monkeypatch.setenv("SAMUS_CRM_HIVEMIND_PROJECTION_ENABLED", "false")
@@ -101,6 +110,7 @@ def test_projection_enabled_by_default(monkeypatch):
 # Local-default degrade (Neo4j down)
 # ---------------------------------------------------------------------------
 
+
 def test_armed_but_graph_unavailable_is_noop(_armed):
     fake = _FakeClient(available=False)
 
@@ -115,14 +125,19 @@ def test_armed_but_graph_unavailable_is_noop(_armed):
 # Happy path — full sub-graph projected
 # ---------------------------------------------------------------------------
 
+
 def test_projects_full_subgraph_when_armed(_armed):
     fake = _FakeClient(available=True)
     prospect = Prospect(prospect_id="pr_1", company_name="Acme LLC")
-    contact = Contact(contact_id="co_1", prospect_id="pr_1",
-                      name="Jane", email="jane@acme.test", role="Owner")
+    contact = Contact(
+        contact_id="co_1", prospect_id="pr_1", name="Jane", email="jane@acme.test", role="Owner"
+    )
 
     result = hp.project_opportunity(
-        _opp(), prospect=prospect, contact=contact, client=fake,
+        _opp(),
+        prospect=prospect,
+        contact=contact,
+        client=fake,
     )
 
     assert result["reason"] == hp.PROJECTED
@@ -174,6 +189,7 @@ def test_no_prospect_id_skips(_armed):
 # Tier stamping follows SAMUS_KG_TIER_MODE
 # ---------------------------------------------------------------------------
 
+
 def test_tier_property_written_only_in_label_mode(monkeypatch):
     monkeypatch.setenv("SAMUS_CRM_HIVEMIND_PROJECTION_ENABLED", "true")
     monkeypatch.setenv("SAMUS_KG_TIER_MODE", "label")
@@ -194,6 +210,7 @@ def test_tier_property_written_only_in_label_mode(monkeypatch):
 # Best-effort: never raises
 # ---------------------------------------------------------------------------
 
+
 def test_never_raises_on_graph_error(_armed):
     fake = _FakeClient(available=True, raise_on_node=True)
 
@@ -207,11 +224,17 @@ def test_never_raises_on_graph_error(_armed):
 # Conversation projection (prospect -> contact -> conversation)
 # ---------------------------------------------------------------------------
 
+
 def _conv(**over: Any) -> Conversation:
     base: dict[str, Any] = dict(
-        conversation_id="cv_1", prospect_id="pr_1", contact_id="co_1",
-        channel="call", status="completed", direction="outbound",
-        outcome="follow_up", started_at="2026-07-06T10:00:00Z",
+        conversation_id="cv_1",
+        prospect_id="pr_1",
+        contact_id="co_1",
+        channel="call",
+        status="completed",
+        direction="outbound",
+        outcome="follow_up",
+        started_at="2026-07-06T10:00:00Z",
     )
     base.update(over)
     return Conversation(**base)
@@ -243,11 +266,15 @@ def test_conversation_armed_but_graph_unavailable_is_noop(_armed):
 def test_projects_conversation_subgraph_when_armed(_armed):
     fake = _FakeClient(available=True)
     prospect = Prospect(prospect_id="pr_1", company_name="Acme LLC")
-    contact = Contact(contact_id="co_1", prospect_id="pr_1",
-                      name="Jane", email="jane@acme.test", role="Owner")
+    contact = Contact(
+        contact_id="co_1", prospect_id="pr_1", name="Jane", email="jane@acme.test", role="Owner"
+    )
 
     result = hp.project_conversation(
-        _conv(), prospect=prospect, contact=contact, client=fake,
+        _conv(),
+        prospect=prospect,
+        contact=contact,
+        client=fake,
     )
 
     assert result["reason"] == hp.PROJECTED

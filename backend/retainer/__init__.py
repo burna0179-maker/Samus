@@ -15,6 +15,7 @@ Public surface:
 Persistence convention: each customer-month writes its plan + outputs under
 ``<SAMUS_ARTIFACT_ROOT>/customers/<slug>/<sku>/<YYYY-MM>/``.
 """
+
 from __future__ import annotations
 
 from .registry import RETAINER_SKUS, RetainerProductConfig, get_retainer_sku

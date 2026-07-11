@@ -1,7 +1,8 @@
 """Dataclasses for the referral loop. Stdlib-only."""
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Literal
 
 ReferralStatus = Literal["pending", "qualified", "rewarded", "rejected"]

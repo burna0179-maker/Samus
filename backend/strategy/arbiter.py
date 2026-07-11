@@ -23,6 +23,7 @@ every other Samus ledger) and emitted as a ``decision.made`` business event
 through :mod:`backend.common.business_events_shim` (a no-op until the
 Tranche-1 unified stream merges).
 """
+
 from __future__ import annotations
 
 import datetime as _dt
@@ -68,20 +69,21 @@ def _ledger():
 # WorkBid + ranking
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class WorkBid:
     """One candidate unit of work, priced in the common economic currency."""
 
-    action: str                       # e.g. "call_follow_up", "seo_audit"
-    target_id: str                    # prospect / opportunity / task id
-    ev_usd: float                     # expected value if the work converts
-    probability: float                # 0-1 chance the work converts
-    urgency: float                    # 0-1 time-decay multiplier
-    cost_usd: float                   # marginal cost of doing the work
-    time_estimate_hrs: float          # operator/agent time to execute
-    source_workcell: str              # which workcell proposed the bid
-    rationale: str = ""               # one-line human "why"
-    channel: str = ""                 # call / email / seo / retention
+    action: str  # e.g. "call_follow_up", "seo_audit"
+    target_id: str  # prospect / opportunity / task id
+    ev_usd: float  # expected value if the work converts
+    probability: float  # 0-1 chance the work converts
+    urgency: float  # 0-1 time-decay multiplier
+    cost_usd: float  # marginal cost of doing the work
+    time_estimate_hrs: float  # operator/agent time to execute
+    source_workcell: str  # which workcell proposed the bid
+    rationale: str = ""  # one-line human "why"
+    channel: str = ""  # call / email / seo / retention
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -132,8 +134,8 @@ _CHANNEL_COST_TIER: dict[str, str] = {
     "email": "low",
     "retention": "low",
     "call": "paid",
-    "campaign": "low",       # a marketing campaign — cost tier per bid metadata
-    "prospect": "low",       # advance a prospect via the baseline sales action
+    "campaign": "low",  # a marketing campaign — cost tier per bid metadata
+    "prospect": "low",  # advance a prospect via the baseline sales action
 }
 
 
@@ -164,6 +166,7 @@ def collect_crm_task_bids(*, limit: int = 50) -> list[WorkBid]:
     """
     try:
         from backend.crm import service as crm_service
+
         result = crm_service.list_operator_tasks(status="open", limit=limit)
         tasks = list(result.tasks)
     except Exception as exc:  # noqa: BLE001 — CRM is optional input
@@ -181,10 +184,12 @@ def collect_crm_task_bids(*, limit: int = 50) -> list[WorkBid]:
         cost = EMAIL_SEND_COST_USD
         hours = DEFAULT_TIME_ESTIMATE_HRS
         opp = None
-        if getattr(task, "related_entity_kind", "") == "opportunity" \
-                and getattr(task, "related_entity_id", ""):
+        if getattr(task, "related_entity_kind", "") == "opportunity" and getattr(
+            task, "related_entity_id", ""
+        ):
             try:
                 from backend.crm import service as crm_service
+
                 opp = crm_service.get_opportunity(task.related_entity_id)
             except Exception:  # noqa: BLE001
                 opp = None
@@ -209,22 +214,24 @@ def collect_crm_task_bids(*, limit: int = 50) -> list[WorkBid]:
                 except ValueError:
                     pass
             urgency = urgency_multiplier(days)
-        bids.append(WorkBid(
-            action=f"operator_task:{kind}",
-            target_id=task.operator_task_id,
-            ev_usd=ev,
-            probability=probability,
-            urgency=urgency,
-            cost_usd=cost,
-            time_estimate_hrs=hours,
-            source_workcell="crm",
-            channel=channel,
-            rationale=(task.title or kind)[:120],
-            metadata={
-                "related_entity_kind": getattr(task, "related_entity_kind", ""),
-                "related_entity_id": getattr(task, "related_entity_id", ""),
-            },
-        ))
+        bids.append(
+            WorkBid(
+                action=f"operator_task:{kind}",
+                target_id=task.operator_task_id,
+                ev_usd=ev,
+                probability=probability,
+                urgency=urgency,
+                cost_usd=cost,
+                time_estimate_hrs=hours,
+                source_workcell="crm",
+                channel=channel,
+                rationale=(task.title or kind)[:120],
+                metadata={
+                    "related_entity_kind": getattr(task, "related_entity_kind", ""),
+                    "related_entity_id": getattr(task, "related_entity_id", ""),
+                },
+            )
+        )
     return bids
 
 
@@ -232,6 +239,7 @@ def collect_follow_up_bids(*, today: str | None = None, limit: int = 100) -> lis
     """Bids from due outreach follow-ups (CallState: emailed earlier, call now)."""
     try:
         from backend.crm import service as crm_service
+
         day = today or _dt.date.today().isoformat()
         result = crm_service.list_follow_ups_due(today=day, limit=limit)
         follow_ups = list(result.follow_ups)
@@ -245,6 +253,7 @@ def collect_follow_up_bids(*, today: str | None = None, limit: int = 100) -> lis
         probability = DEFAULT_BID_PROBABILITY
         try:
             from backend.crm import service as crm_service
+
             opp = crm_service.get_opportunity_for_prospect(fu.prospect_id)
             if opp is not None:
                 ev = float(opp.deal_size_usd or ev)
@@ -254,20 +263,22 @@ def collect_follow_up_bids(*, today: str | None = None, limit: int = 100) -> lis
         # A follow-up cools as the prospect waits — decay on days_waiting.
         urgency = urgency_multiplier(float(fu.days_waiting or 0))
         cost = estimate_voice_cost_usd(1) or 0.05  # one dial; nominal floor
-        bids.append(WorkBid(
-            action="call_follow_up",
-            target_id=fu.prospect_id,
-            ev_usd=ev,
-            probability=probability,
-            urgency=urgency,
-            cost_usd=cost,
-            time_estimate_hrs=0.25,
-            source_workcell="voice",
-            channel="call",
-            rationale=f"outreach sent {fu.days_waiting}d ago — call due"
-                      + (f" ({fu.company})" if fu.company else ""),
-            metadata={"phone": fu.phone, "subject": fu.subject},
-        ))
+        bids.append(
+            WorkBid(
+                action="call_follow_up",
+                target_id=fu.prospect_id,
+                ev_usd=ev,
+                probability=probability,
+                urgency=urgency,
+                cost_usd=cost,
+                time_estimate_hrs=0.25,
+                source_workcell="voice",
+                channel="call",
+                rationale=f"outreach sent {fu.days_waiting}d ago — call due"
+                + (f" ({fu.company})" if fu.company else ""),
+                metadata={"phone": fu.phone, "subject": fu.subject},
+            )
+        )
     return bids
 
 
@@ -280,6 +291,7 @@ def collect_seo_bids(*, limit: int = 50, max_score: int = 50) -> list[WorkBid]:
     """
     try:
         from backend.crm import service as crm_service
+
         result = crm_service.list_opportunities(limit=limit)
         opportunities = list(result.opportunities)
     except Exception as exc:  # noqa: BLE001
@@ -296,21 +308,22 @@ def collect_seo_bids(*, limit: int = 50, max_score: int = 50) -> list[WorkBid]:
         if seo_score >= max_score:
             continue
         score = priority_score(opp.model_dump(), now=now)
-        bids.append(WorkBid(
-            action="seo_audit",
-            target_id=opp.prospect_id or opp.opportunity_id,
-            ev_usd=score.ev_usd,
-            # An audit only *assists* the close — haircut the probability.
-            probability=round(score.probability * 0.5, 4),
-            urgency=score.urgency,
-            cost_usd=0.05,          # metered LLM summarisation + fetch
-            time_estimate_hrs=0.25,  # autonomous; agent time only
-            source_workcell="seo",
-            channel="seo",
-            rationale=f"seo_score={seo_score} (<{max_score}) on open deal "
-                      f"in stage={stage}",
-            metadata={"opportunity_id": opp.opportunity_id},
-        ))
+        bids.append(
+            WorkBid(
+                action="seo_audit",
+                target_id=opp.prospect_id or opp.opportunity_id,
+                ev_usd=score.ev_usd,
+                # An audit only *assists* the close — haircut the probability.
+                probability=round(score.probability * 0.5, 4),
+                urgency=score.urgency,
+                cost_usd=0.05,  # metered LLM summarisation + fetch
+                time_estimate_hrs=0.25,  # autonomous; agent time only
+                source_workcell="seo",
+                channel="seo",
+                rationale=f"seo_score={seo_score} (<{max_score}) on open deal in stage={stage}",
+                metadata={"opportunity_id": opp.opportunity_id},
+            )
+        )
     return bids
 
 
@@ -323,6 +336,7 @@ def collect_reengagement_bids(*, window_days: int = 7) -> list[WorkBid]:
     """
     try:
         from backend.crm.reengagement_sweep import _ledger_path
+
         path = _ledger_path()
     except Exception as exc:  # noqa: BLE001
         _LOG.debug("collect_reengagement_bids degraded to empty: %s", exc)
@@ -330,9 +344,8 @@ def collect_reengagement_bids(*, window_days: int = 7) -> list[WorkBid]:
     if not path.exists():
         return []
     import json as _json
-    cutoff = (
-        _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(days=window_days)
-    ).isoformat()
+
+    cutoff = (_dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(days=window_days)).isoformat()
     seen: dict[str, dict[str, Any]] = {}
     try:
         with path.open("r", encoding="utf-8") as fh:
@@ -359,24 +372,27 @@ def collect_reengagement_bids(*, window_days: int = 7) -> list[WorkBid]:
         probability = 0.10  # soft-no re-engagement converts rarely
         try:
             from backend.crm import service as crm_service
+
             opp = crm_service.get_opportunity_for_prospect(pid)
             if opp is not None:
                 ev = float(opp.deal_size_usd or ev)
         except Exception:  # noqa: BLE001
             pass
-        bids.append(WorkBid(
-            action="reengagement_touch",
-            target_id=pid,
-            ev_usd=ev,
-            probability=probability,
-            urgency=0.5,  # queued = pre-vetted eligible, but never same-day hot
-            cost_usd=EMAIL_SEND_COST_USD,
-            time_estimate_hrs=0.1,
-            source_workcell="crm",
-            channel="retention",
-            rationale="soft-no prospect resurfaced by re-engagement sweep",
-            metadata={"opportunity_id": rec.get("opportunity_id", "")},
-        ))
+        bids.append(
+            WorkBid(
+                action="reengagement_touch",
+                target_id=pid,
+                ev_usd=ev,
+                probability=probability,
+                urgency=0.5,  # queued = pre-vetted eligible, but never same-day hot
+                cost_usd=EMAIL_SEND_COST_USD,
+                time_estimate_hrs=0.1,
+                source_workcell="crm",
+                channel="retention",
+                rationale="soft-no prospect resurfaced by re-engagement sweep",
+                metadata={"opportunity_id": rec.get("opportunity_id", "")},
+            )
+        )
     return bids
 
 
@@ -394,6 +410,7 @@ def collect_prospect_bids(*, limit: int = 50) -> list[WorkBid]:
     """
     try:
         from backend.crm import service as crm_service
+
         result = crm_service.list_opportunities(limit=limit)
         opportunities = list(result.opportunities)
     except Exception as exc:  # noqa: BLE001
@@ -410,25 +427,27 @@ def collect_prospect_bids(*, limit: int = 50) -> list[WorkBid]:
         if not target:
             continue
         score = priority_score(opp.model_dump(), now=now)
-        bids.append(WorkBid(
-            action="advance_prospect",
-            target_id=target,
-            ev_usd=score.ev_usd,
-            probability=score.probability,
-            urgency=score.urgency,
-            cost_usd=score.cost_usd,
-            time_estimate_hrs=score.time_estimate_hrs,
-            source_workcell="crm",
-            channel="email",  # baseline sales action is an outreach touch
-            rationale=(
-                f"open opportunity stage={stage} deal=${score.ev_usd:,.0f} "
-                f"p={score.probability:.2f}"
-            ),
-            metadata={
-                "opportunity_id": opp.opportunity_id,
-                "stage": stage,
-            },
-        ))
+        bids.append(
+            WorkBid(
+                action="advance_prospect",
+                target_id=target,
+                ev_usd=score.ev_usd,
+                probability=score.probability,
+                urgency=score.urgency,
+                cost_usd=score.cost_usd,
+                time_estimate_hrs=score.time_estimate_hrs,
+                source_workcell="crm",
+                channel="email",  # baseline sales action is an outreach touch
+                rationale=(
+                    f"open opportunity stage={stage} deal=${score.ev_usd:,.0f} "
+                    f"p={score.probability:.2f}"
+                ),
+                metadata={
+                    "opportunity_id": opp.opportunity_id,
+                    "stage": stage,
+                },
+            )
+        )
     return bids
 
 
@@ -455,6 +474,7 @@ def collect_campaign_bids() -> list[WorkBid]:
     """
     try:
         from backend.cash_engine.campaign_portfolio import default_portfolio_deps
+
         deps = default_portfolio_deps()
     except Exception as exc:  # noqa: BLE001
         _LOG.debug("collect_campaign_bids degraded to empty: %s", exc)
@@ -495,34 +515,37 @@ def collect_campaign_bids() -> list[WorkBid]:
         # tiny nominal cost so the ratio stays finite AND ordered.
         cost_usd = max(cost_usd, 0.01)
 
-        bids.append(WorkBid(
-            action=f"campaign:{campaign.campaign_id}",
-            target_id=campaign.campaign_id,
-            ev_usd=ev_usd,
-            probability=conversion_prob,
-            urgency=urgency,
-            cost_usd=cost_usd,
-            time_estimate_hrs=0.5,
-            source_workcell="cash_engine",
-            channel="campaign",
-            rationale=(
-                f"campaign {campaign.campaign_id} eligible; kind={kind or '?'} "
-                f"cap={volume} tier={campaign.cost_tier}"
-            ),
-            metadata={
-                "campaign_id": campaign.campaign_id,
-                "kind": kind,
-                "cost_tier": str(campaign.cost_tier or "low"),
-                "monitor_cost": float(campaign.monitor_cost or 0.0),
-                "priority_hint": float(campaign.priority),
-            },
-        ))
+        bids.append(
+            WorkBid(
+                action=f"campaign:{campaign.campaign_id}",
+                target_id=campaign.campaign_id,
+                ev_usd=ev_usd,
+                probability=conversion_prob,
+                urgency=urgency,
+                cost_usd=cost_usd,
+                time_estimate_hrs=0.5,
+                source_workcell="cash_engine",
+                channel="campaign",
+                rationale=(
+                    f"campaign {campaign.campaign_id} eligible; kind={kind or '?'} "
+                    f"cap={volume} tier={campaign.cost_tier}"
+                ),
+                metadata={
+                    "campaign_id": campaign.campaign_id,
+                    "kind": kind,
+                    "cost_tier": str(campaign.cost_tier or "low"),
+                    "monitor_cost": float(campaign.monitor_cost or 0.0),
+                    "priority_hint": float(campaign.priority),
+                },
+            )
+        )
     return bids
 
 
 # ---------------------------------------------------------------------------
 # Daily arbitration
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class ArbitrationResult:
@@ -558,11 +581,9 @@ def _decision_record(rank: int, bid: WorkBid) -> dict[str, Any]:
         "decision": {
             "why": bid.rationale or bid.action,
             "expected_outcome": (
-                f"EV ${bid.ev_usd:,.2f} at p={bid.probability:.2f} "
-                f"urgency={bid.urgency:.2f}"
+                f"EV ${bid.ev_usd:,.2f} at p={bid.probability:.2f} urgency={bid.urgency:.2f}"
             ),
-            "data_used": [f"source_workcell={bid.source_workcell}",
-                          f"channel={bid.channel}"],
+            "data_used": [f"source_workcell={bid.source_workcell}", f"channel={bid.channel}"],
             "cost_usd": bid.cost_usd,
             "time_estimate_hrs": bid.time_estimate_hrs,
             "priority": bid.priority,
@@ -614,6 +635,7 @@ def arbitrate_daily(
 
     try:
         from backend.strategy.portfolio_manager import select_best_channel
+
         best_channel = select_best_channel()
     except Exception as exc:  # noqa: BLE001 — bandit is optional input
         _LOG.debug("arbitrate_daily: channel bandit unavailable: %s", exc)
@@ -627,6 +649,7 @@ def arbitrate_daily(
     if apply_affordability:
         try:
             from backend.cash_engine.affordability import assess_affordability
+
             afford = assess_affordability()
             affordability_dict = afford.to_dict()
             allowed_tiers = afford.allowed_tiers
@@ -666,9 +689,7 @@ def arbitrate_daily(
         best_channel=best_channel,
         ranked=[_decision_record(i + 1, b) for i, b in enumerate(active_bids)],
         affordability=affordability_dict,
-        held_by_affordability=[
-            _held_record(i + 1, b) for i, b in enumerate(held_bids)
-        ],
+        held_by_affordability=[_held_record(i + 1, b) for i, b in enumerate(held_bids)],
     )
 
     if persist:

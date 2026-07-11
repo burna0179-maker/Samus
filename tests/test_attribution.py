@@ -1,11 +1,11 @@
 """Attribution engine — arm_id, reward shaping, store, UCB1 select, learn."""
+
 from __future__ import annotations
 
 import pytest
 
 from backend.attribution import engine
 from backend.attribution import store as attr_store
-from backend.attribution.store import VariantStats
 
 
 @pytest.fixture
@@ -20,12 +20,14 @@ def attr_env(tmp_path, monkeypatch):
 def _set_flag(monkeypatch, enabled: bool):
     monkeypatch.setenv("SAMUS_ATTRIBUTION_ENABLED", "true" if enabled else "false")
     from backend.common.settings import reload_settings
+
     reload_settings()
 
 
 # ---------------------------------------------------------------------------
 # arm_id + reward shaping
 # ---------------------------------------------------------------------------
+
 
 def test_build_arm_id_normalizes_blanks():
     assert engine.build_arm_id("cold_v1") == "cold_v1::default::default"
@@ -43,6 +45,7 @@ def test_reward_bounds():
 # ---------------------------------------------------------------------------
 # store
 # ---------------------------------------------------------------------------
+
 
 def test_unknown_arm_loads_none(attr_env):
     assert attr_store.get_store().load("nope::default::default") is None
@@ -68,10 +71,11 @@ def test_record_outcome_accrues_even_when_disabled(attr_env, monkeypatch):
 # select_variant
 # ---------------------------------------------------------------------------
 
+
 def test_select_passthrough_when_disabled(attr_env, monkeypatch):
     _set_flag(monkeypatch, False)
     choice = engine.select_variant(["a", "b", "c"])
-    assert choice.arm_id == "a"           # deterministic first = current behavior
+    assert choice.arm_id == "a"  # deterministic first = current behavior
     assert choice.reason == "passthrough"
 
 

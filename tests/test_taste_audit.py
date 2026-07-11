@@ -1,4 +1,5 @@
 """Tests for backend.taste.audit (deterministic Pre-Flight gate)."""
+
 from __future__ import annotations
 
 from backend.taste.audit import audit_deliverable, audit_text
@@ -8,7 +9,7 @@ from backend.taste.models import TasteAuditResult
 def test_clean_markup_passes_with_high_score():
     html = (
         '<section><h1 class="text-6xl">Build faster operations</h1>'
-        '<p>Automation-first orchestration with governed execution.</p>'
+        "<p>Automation-first orchestration with governed execution.</p>"
         '<a class="btn">Get started</a></section>'
     )
     r = audit_text(html, section_count=1)
@@ -81,7 +82,7 @@ def test_h_screen_warns():
 
 
 def test_duplicate_cta_intent_warns():
-    r = audit_text('<a>Get in touch</a> ... <a>Contact us</a>')
+    r = audit_text("<a>Get in touch</a> ... <a>Contact us</a>")
     assert any(v.check_id == "duplicate_cta_intent" for v in r.violations)
 
 

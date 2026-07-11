@@ -5,6 +5,7 @@ Mirrors ``tests/test_control_tick_loop.py`` -- same asyncio start/stop
 ``backend.intake.gmail_poll_task`` module. Every test collapses the
 _INITIAL_DELAY_SEC to 0 so the loop first tick fires immediately.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -19,6 +20,7 @@ from backend.intake import gmail_poll_task as gpt
 @dataclass
 class _FakeResult:
     """Stand-in for backend.intake.gmail_poller.DrainPassResult."""
+
     enabled: bool = True
     fetched: int = 0
     processed: int = 0
@@ -41,12 +43,14 @@ def _install_fake_drain(monkeypatch, drain):
     gmail_poll_task.
     """
     from backend.intake import gmail_poller
+
     monkeypatch.setattr(gmail_poller, "drain_once", drain)
 
 
 # ---------------------------------------------------------------------------
 # Master switch
 # ---------------------------------------------------------------------------
+
 
 def test_disabled_env_returns_no_task(monkeypatch):
     """SAMUS_GMAIL_POLL_ENABLED=0 -> start returns None, no task on app.state."""
@@ -102,9 +106,13 @@ def test_interval_env_override_is_honoured(monkeypatch):
     assert gpt._float_env(gpt.ENV_INTERVAL, gpt._DEFAULT_INTERVAL_SEC) == 42.5
 
     monkeypatch.setenv(gpt.ENV_INTERVAL, "not-a-number")
-    assert gpt._float_env(
-        gpt.ENV_INTERVAL, gpt._DEFAULT_INTERVAL_SEC,
-    ) == gpt._DEFAULT_INTERVAL_SEC
+    assert (
+        gpt._float_env(
+            gpt.ENV_INTERVAL,
+            gpt._DEFAULT_INTERVAL_SEC,
+        )
+        == gpt._DEFAULT_INTERVAL_SEC
+    )
 
 
 def test_loop_actually_invokes_drain_once(monkeypatch):
@@ -177,6 +185,7 @@ def test_run_drain_pass_survives_import_error(monkeypatch):
 
 def test_stop_when_never_started_is_noop():
     """Calling stop with no task attached returns cleanly."""
+
     async def _run():
         app = SimpleNamespace(state=SimpleNamespace())
         await gpt.stop_gmail_poll_loop(app)

@@ -10,6 +10,7 @@ URI. In that mode, :func:`put` / :func:`get` / :func:`exists` go to GCS
 local ``/tmp`` shadow used only by callers that still build paths with
 ``root() / subdir`` for short-lived working files.
 """
+
 from __future__ import annotations
 
 import os
@@ -42,7 +43,7 @@ def _is_gcs() -> bool:
 def _parse_gs(uri: str) -> tuple[str, str]:
     """Split ``gs://bucket/prefix/sub`` into ``(bucket, "prefix/sub")``."""
     assert uri.startswith("gs://"), uri
-    bare = uri[len("gs://"):]
+    bare = uri[len("gs://") :]
     bucket, _, prefix = bare.partition("/")
     return bucket, prefix.strip("/")
 

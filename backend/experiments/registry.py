@@ -17,6 +17,7 @@ Persistence (existing patterns):
     is also emitted as an ``experiment.assigned`` unified business event via
     the Tranche-1 shim (no-op pre-merge).
 """
+
 from __future__ import annotations
 
 import json
@@ -44,10 +45,18 @@ _ASSIGNMENTS_COLLECTION = "experiment_assignments"
 _PROPOSALS_JSONL = ("experiments", "proposals.jsonl")
 _PROPOSALS_COLLECTION = "experiment_proposals"
 
-DIMENSIONS = frozenset({
-    "opener", "offer", "pricing_tier", "cadence",
-    "call_script", "subject", "cta", "landing",
-})
+DIMENSIONS = frozenset(
+    {
+        "opener",
+        "offer",
+        "pricing_tier",
+        "cadence",
+        "call_script",
+        "subject",
+        "cta",
+        "landing",
+    }
+)
 
 STATUSES = frozenset({"active", "paused", "concluded"})
 
@@ -61,10 +70,10 @@ PROPOSAL_RISK_GATE = 0.5
 # so a proposal handed to ``register_experiment`` never underruns significance.
 DEFAULT_PROPOSAL_SAMPLE_SIZE = DEFAULT_MIN_TRIALS
 
-PROPOSAL_STATUS_PENDING = "pending"          # not yet gated / promoted
+PROPOSAL_STATUS_PENDING = "pending"  # not yet gated / promoted
 PROPOSAL_STATUS_BLOCKED = "blocked_on_hotl"  # awaiting operator approval
-PROPOSAL_STATUS_PROMOTED = "promoted"        # became an active experiment
-PROPOSAL_STATUS_SKIPPED = "skipped"          # nothing to propose from context
+PROPOSAL_STATUS_PROMOTED = "promoted"  # became an active experiment
+PROPOSAL_STATUS_SKIPPED = "skipped"  # nothing to propose from context
 
 _LOCK = threading.Lock()
 
@@ -105,8 +114,7 @@ class Experiment:
             status=str(row.get("status", "active") or "active"),
             archived_arms=[str(a) for a in (row.get("archived_arms") or [])],
             allocation_floors={
-                str(k): float(v)
-                for k, v in (row.get("allocation_floors") or {}).items()
+                str(k): float(v) for k, v in (row.get("allocation_floors") or {}).items()
             },
             control_arm=str(row.get("control_arm", "") or ""),
             created_at=str(row.get("created_at", "")),
@@ -291,7 +299,11 @@ def assign(
 
 
 def record_result(
-    experiment_id: str, arm: str, reward: float, *, won: bool = False,
+    experiment_id: str,
+    arm: str,
+    reward: float,
+    *,
+    won: bool = False,
 ) -> None:
     """Credit one trial outcome to the experiment arm's bandit stats."""
     from backend.attribution.engine import record_outcome
@@ -392,8 +404,11 @@ def _read_stale_beliefs(min_impact: float) -> list[Any]:
     try:
         from backend.cognitive import belief_ledger
 
-        return [b for b in belief_ledger.stale_beliefs()
-                if float(getattr(b, "economic_impact", 0.0) or 0.0) >= min_impact]
+        return [
+            b
+            for b in belief_ledger.stale_beliefs()
+            if float(getattr(b, "economic_impact", 0.0) or 0.0) >= min_impact
+        ]
     except Exception as exc:  # noqa: BLE001 — cognitive optional at import time
         _LOG.info("belief ledger read failed (%s); proposing without beliefs", exc)
         return []
@@ -429,12 +444,14 @@ def _read_promoted_patterns() -> list[dict[str, Any]]:
         records = GuidanceLedger().all_latest()
         out: list[dict[str, Any]] = []
         for rec in records:
-            out.append({
-                "recommendation_id": getattr(rec, "recommendation_id", ""),
-                "action": (getattr(rec, "action", "") or "").strip(),
-                "rationale": (getattr(rec, "rationale", "") or "").strip(),
-                "tier": int(getattr(rec, "tier", 2) or 2),
-            })
+            out.append(
+                {
+                    "recommendation_id": getattr(rec, "recommendation_id", ""),
+                    "action": (getattr(rec, "action", "") or "").strip(),
+                    "rationale": (getattr(rec, "rationale", "") or "").strip(),
+                    "tier": int(getattr(rec, "tier", 2) or 2),
+                }
+            )
         return out
     except Exception as exc:  # noqa: BLE001 — guidance optional
         _LOG.info("guidance ledger read failed (%s); no promoted patterns", exc)
@@ -449,8 +466,9 @@ def _current_experiment_arms() -> dict[str, set[str]]:
     return out
 
 
-def _risk_score(*, dimension: str, expected_impact: float,
-                belief_tier: int, stale_days: float) -> float:
+def _risk_score(
+    *, dimension: str, expected_impact: float, belief_tier: int, stale_days: float
+) -> float:
     """Bounded [0,1] risk score.
 
     Higher when: the dimension is side-effect heavy (call_script, cadence,
@@ -460,8 +478,13 @@ def _risk_score(*, dimension: str, expected_impact: float,
     burn multiple prospects before we detect a regression.
     """
     dimension_risk = {
-        "opener": 0.20, "subject": 0.20, "cta": 0.25, "landing": 0.25,
-        "offer": 0.35, "call_script": 0.55, "cadence": 0.55,
+        "opener": 0.20,
+        "subject": 0.20,
+        "cta": 0.25,
+        "landing": 0.25,
+        "offer": 0.35,
+        "call_script": 0.55,
+        "cadence": 0.55,
         "pricing_tier": 0.70,
     }.get(dimension, 0.30)
     # tier-1 (critical) beliefs get the full weight; tier-3 (minor) barely nudges
@@ -476,11 +499,15 @@ def _risk_score(*, dimension: str, expected_impact: float,
 def _hypothesis_from_belief(belief: Any, dimension: str, arm: str) -> str:
     claim = (getattr(belief, "claim", "") or "").strip()
     if claim:
-        return (f"Varying the {dimension} arm to '{arm}' will yield a "
-                f"measurably higher success rate than the incumbent, testing "
-                f"the stale belief: '{claim}'.")
-    return (f"Varying the {dimension} arm to '{arm}' will yield a "
-            f"measurably higher success rate than the incumbent.")
+        return (
+            f"Varying the {dimension} arm to '{arm}' will yield a "
+            f"measurably higher success rate than the incumbent, testing "
+            f"the stale belief: '{claim}'."
+        )
+    return (
+        f"Varying the {dimension} arm to '{arm}' will yield a "
+        f"measurably higher success rate than the incumbent."
+    )
 
 
 def _success_metric_for(dimension: str) -> str:
@@ -503,14 +530,26 @@ def _pick_dimension_from_belief(claim_lower: str) -> str:
     ``opener`` (the lowest-risk dimension) when nothing keys.
     """
     tokens = [
-        ("pricing", "pricing_tier"), ("price", "pricing_tier"), ("tier", "pricing_tier"),
-        ("call", "call_script"), ("script", "call_script"),
-        ("cadence", "cadence"), ("touch", "cadence"), ("frequency", "cadence"),
-        ("subject", "subject"), ("headline", "subject"),
-        ("cta", "cta"), ("button", "cta"),
-        ("landing", "landing"), ("page", "landing"),
-        ("offer", "offer"), ("bundle", "offer"), ("discount", "offer"),
-        ("opener", "opener"), ("intro", "opener"), ("first line", "opener"),
+        ("pricing", "pricing_tier"),
+        ("price", "pricing_tier"),
+        ("tier", "pricing_tier"),
+        ("call", "call_script"),
+        ("script", "call_script"),
+        ("cadence", "cadence"),
+        ("touch", "cadence"),
+        ("frequency", "cadence"),
+        ("subject", "subject"),
+        ("headline", "subject"),
+        ("cta", "cta"),
+        ("button", "cta"),
+        ("landing", "landing"),
+        ("page", "landing"),
+        ("offer", "offer"),
+        ("bundle", "offer"),
+        ("discount", "offer"),
+        ("opener", "opener"),
+        ("intro", "opener"),
+        ("first line", "opener"),
     ]
     for key, dim in tokens:
         if key in claim_lower:
@@ -675,9 +714,11 @@ def propose_next_experiment(
             success_metric="",
             status=PROPOSAL_STATUS_SKIPPED,
             created_at=iso_now(),
-            metadata={"reason": "no_actionable_observation",
-                      "stale_beliefs": len(stale),
-                      "settled_beliefs": len(settled)},
+            metadata={
+                "reason": "no_actionable_observation",
+                "stale_beliefs": len(stale),
+                "settled_beliefs": len(settled),
+            },
         )
         _write_proposal(skipped)
         _emit_proposal_event(skipped)
@@ -697,8 +738,7 @@ def propose_next_experiment(
     hypothesis = _hypothesis_from_belief(picked_belief, picked_dimension, picked_arm)
 
     guidance_ids = [
-        g["recommendation_id"] for g in _read_promoted_patterns()
-        if g.get("recommendation_id")
+        g["recommendation_id"] for g in _read_promoted_patterns() if g.get("recommendation_id")
     ][:5]
 
     proposal = ExperimentProposal(
@@ -708,8 +748,9 @@ def propose_next_experiment(
         control_arm=control_arm,
         candidate_arm=picked_arm,
         success_metric=_success_metric_for(picked_dimension),
-        min_sample_size=int(ctx.get("min_sample_size", DEFAULT_PROPOSAL_SAMPLE_SIZE)
-                            or DEFAULT_PROPOSAL_SAMPLE_SIZE),
+        min_sample_size=int(
+            ctx.get("min_sample_size", DEFAULT_PROPOSAL_SAMPLE_SIZE) or DEFAULT_PROPOSAL_SAMPLE_SIZE
+        ),
         risk_score=risk_score,
         expected_economic_impact=expected_impact,
         source_belief_ids=[str(getattr(picked_belief, "belief_id", "") or "")],
@@ -733,7 +774,11 @@ def propose_next_experiment(
         return proposal
 
     # Low-risk: register the arms straight into the experiments registry.
-    arms = [control_arm, picked_arm] if control_arm != picked_arm else [picked_arm, f"{picked_arm}-ctrl"]
+    arms = (
+        [control_arm, picked_arm]
+        if control_arm != picked_arm
+        else [picked_arm, f"{picked_arm}-ctrl"]
+    )
     try:
         exp = register_experiment(
             dimension=picked_dimension,
@@ -749,16 +794,16 @@ def propose_next_experiment(
         proposal.status = PROPOSAL_STATUS_PROMOTED
         proposal.metadata["experiment_id"] = exp.experiment_id
     except Exception as exc:  # noqa: BLE001 — persist proposal even if registration fails
-        _LOG.warning("propose_next_experiment: registration failed (%s); "
-                     "leaving proposal pending", exc)
+        _LOG.warning(
+            "propose_next_experiment: registration failed (%s); leaving proposal pending", exc
+        )
 
     _write_proposal(proposal)
     _emit_proposal_event(proposal)
     return proposal
 
 
-def list_proposals(*, status: str | None = None,
-                   limit: int = 100) -> list[dict[str, Any]]:
+def list_proposals(*, status: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
     """Recent proposals (oldest-first). Fail-open to []."""
     try:
         rows = _proposals_ledger().tail(limit=limit)

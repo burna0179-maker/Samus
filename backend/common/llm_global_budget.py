@@ -35,6 +35,7 @@ flat-line gaps as an indirect health check.
 No new external deps — stdlib (`json`, `os`, `threading`, `time`)
 plus the existing ``backend.common.aws`` factory for DDB.
 """
+
 from __future__ import annotations
 
 import json
@@ -70,6 +71,7 @@ def _publish_dollar_gauge(scope: str, used: float, cap: float) -> None:
     """Best-effort gauge publish — never blocks the budget path."""
     try:
         from . import metrics as _metrics
+
         _metrics.SAMUS_LLM_DOLLAR_USED_TODAY.labels(scope=scope).set(used)
         _metrics.SAMUS_LLM_DOLLAR_CAP.labels(scope=scope).set(cap)
     except Exception as exc:  # noqa: BLE001
@@ -186,6 +188,7 @@ class _DdbBackend:
 
     def _table(self) -> Any:
         from . import aws
+
         return aws.table(self.table_name, self.region)
 
     def load(self) -> GlobalBudget | None:
@@ -253,6 +256,7 @@ class LlmGlobalBudgetStore:
             return self._static_cap
         try:
             from . import llm_budget_scaler
+
             return llm_budget_scaler.compute_daily_cap()
         except Exception as exc:  # noqa: BLE001
             _LOG.warning("dynamic cap failed, using static $%.2f: %s", self._static_cap, exc)
@@ -384,7 +388,8 @@ class LlmGlobalBudgetStore:
         except UnknownModelPricing as exc:
             _LOG.warning(
                 "llm_global_budget cannot record unknown model %s (%s); skipping",
-                model, exc,
+                model,
+                exc,
             )
             return GlobalBudget(bucket_day=_today_utc(self._now))
 
@@ -420,10 +425,12 @@ def get_global_store() -> LlmGlobalBudgetStore:
         if _STORE is not None:
             return _STORE
         from .config import get_settings
+
         s = get_settings()
         dynamic = os.getenv("SAMUS_LLM_DYNAMIC_CAP", "").lower() in ("1", "true", "yes")
         if not dynamic:
             from .llm_client import _USING_OPENAI
+
             dynamic = _USING_OPENAI
         _STORE = LlmGlobalBudgetStore(
             daily_dollar_cap=s.llm_global_daily_dollar_cap,
@@ -434,10 +441,12 @@ def get_global_store() -> LlmGlobalBudgetStore:
         )
         if dynamic:
             from . import llm_budget_scaler as _scaler
+
             _LOG.info(
                 "llm_global_budget: dynamic cap ENABLED (MRR-scaled, "
                 "floor=$%.2f, ceiling=$%.2f, reinvest=%.0f%%)",
-                _scaler.FLOOR_USD, _scaler.CEILING_USD,
+                _scaler.FLOOR_USD,
+                _scaler.CEILING_USD,
                 _scaler.REINVEST_PCT * 100,
             )
         return _STORE

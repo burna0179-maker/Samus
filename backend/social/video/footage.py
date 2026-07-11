@@ -15,6 +15,7 @@ OR ``video_approved``). Every shot forces the reel aspect (9:16 by default).
 Fail-closed: a per-shot failure or budget deny is recorded in the report and
 skipped; the function never raises. Returns ``(footage_paths, report)``.
 """
+
 from __future__ import annotations
 
 import logging
@@ -44,7 +45,12 @@ def generate_segment_footage(
 
     api_key = (getattr(settings, "gemini_api_key", "") or "").strip()
     if not api_key:
-        return [], {"status": "no_api_key", "generated": 0, "skipped": ["all:no_api_key"], "spent_usd": 0.0}
+        return [], {
+            "status": "no_api_key",
+            "generated": 0,
+            "skipped": ["all:no_api_key"],
+            "spent_usd": 0.0,
+        }
 
     # Lazy: media_gen imports httpx at module load — fine in the Samus image, but
     # keep it local so this module's import surface stays minimal.
@@ -84,12 +90,25 @@ def generate_segment_footage(
         try:
             if as_video:
                 path = _make_video(
-                    media_gen, prompt, idx, out_dir, api_key=api_key, model=vid_model,
-                    aspect=aspect, resolution=vid_res, seconds=vid_secs,
+                    media_gen,
+                    prompt,
+                    idx,
+                    out_dir,
+                    api_key=api_key,
+                    model=vid_model,
+                    aspect=aspect,
+                    resolution=vid_res,
+                    seconds=vid_secs,
                 )
             else:
                 path = _make_image(
-                    media_gen, prompt, idx, out_dir, api_key=api_key, model=img_model, aspect=aspect,
+                    media_gen,
+                    prompt,
+                    idx,
+                    out_dir,
+                    api_key=api_key,
+                    model=img_model,
+                    aspect=aspect,
                 )
         except media_gen.MediaGenError as exc:
             skipped.append(f"shot{idx}:{type(exc).__name__}:{exc}")
@@ -110,15 +129,23 @@ def generate_segment_footage(
 
 
 def _shot_prompt(visual_prompt: str, *, people: str) -> str:
-    base = (visual_prompt or "Cinematic vertical b-roll. Photorealistic, natural light. "
-            "No text, no words, no logos, no watermarks.").strip()
+    base = (
+        visual_prompt
+        or "Cinematic vertical b-roll. Photorealistic, natural light. "
+        "No text, no words, no logos, no watermarks."
+    ).strip()
     # Append the representation directive only when the shot may depict people.
-    if people and any(w in base.lower() for w in ("person", "people", "team", "worker", "customer", "hand", "staff", "man", "woman")):
+    if people and any(
+        w in base.lower()
+        for w in ("person", "people", "team", "worker", "customer", "hand", "staff", "man", "woman")
+    ):
         base = f"{base} {people}"
     return base
 
 
-def _make_image(media_gen, prompt: str, idx: int, out_dir: Path, *, api_key: str, model: str, aspect: str) -> str:
+def _make_image(
+    media_gen, prompt: str, idx: int, out_dir: Path, *, api_key: str, model: str, aspect: str
+) -> str:
     data = media_gen.generate_image(prompt, api_key=api_key, model=model, aspect_ratio=aspect)
     path = out_dir / f"shot_{idx:02d}.png"
     path.write_bytes(data)
@@ -126,11 +153,25 @@ def _make_image(media_gen, prompt: str, idx: int, out_dir: Path, *, api_key: str
 
 
 def _make_video(
-    media_gen, prompt: str, idx: int, out_dir: Path, *, api_key: str, model: str,
-    aspect: str, resolution: str, seconds: str,
+    media_gen,
+    prompt: str,
+    idx: int,
+    out_dir: Path,
+    *,
+    api_key: str,
+    model: str,
+    aspect: str,
+    resolution: str,
+    seconds: str,
 ) -> str:
-    op = media_gen.start_video(prompt, api_key=api_key, model=model, aspect_ratio=aspect,
-                               resolution=resolution, seconds=seconds)
+    op = media_gen.start_video(
+        prompt,
+        api_key=api_key,
+        model=model,
+        aspect_ratio=aspect,
+        resolution=resolution,
+        seconds=seconds,
+    )
     result = media_gen.poll_video(op, api_key=api_key)
     uri = media_gen._extract_video_uri(result)
     if not uri:

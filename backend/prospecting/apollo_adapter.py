@@ -23,6 +23,7 @@ The adapter is INTENTIONALLY narrow: people-search by org domain + title
 unmasked. Anything more (org enrichment, sequences, lists) lives in the
 standalone outreach.apollo_source module.
 """
+
 from __future__ import annotations
 
 import logging
@@ -56,6 +57,7 @@ _MASKED_TOKENS = ("email_not_unlocked", "not_unlocked@", "domain.com")
 def _domain_from_url(url: str) -> str:
     """Strip scheme / www / path. Returns the bare host."""
     import re  # noqa: PLC0415
+
     u = (url or "").strip().lower()
     if not u:
         return ""
@@ -98,7 +100,8 @@ def enrich_via_apollo(
         return {}
 
     from backend.common.config import get_settings  # local import to keep
-    settings = get_settings()                       # cold-import cheap
+
+    settings = get_settings()  # cold-import cheap
 
     key = (getattr(settings, "apollo_api_key", "") or "").strip()
     if not key:
@@ -126,8 +129,9 @@ def enrich_via_apollo(
         estimated_usd = estimate_call_cost(_APOLLO_SEARCH_ENDPOINT, units=1)
         _budget_store().assert_allows(estimated_usd)
     except ApolloBudgetExceeded as exc:
-        _LOG.info("apollo G11 cap reached (%s); skipping enrichment for %r",
-                  exc, company_name or domain)
+        _LOG.info(
+            "apollo G11 cap reached (%s); skipping enrichment for %r", exc, company_name or domain
+        )
         return {}
     except Exception as exc:  # noqa: BLE001 — store fault is fail-OPEN
         _LOG.warning("apollo budget pre-flight degraded (%s); proceeding", exc)
@@ -153,9 +157,7 @@ def enrich_via_apollo(
     # Locality is a soft filter — pass when known so Apollo prefers local
     # matches over an out-of-state same-named org.
     if city:
-        payload["person_locations"] = [
-            ", ".join([c for c in (city, state) if c]).strip(", ")
-        ]
+        payload["person_locations"] = [", ".join([c for c in (city, state) if c]).strip(", ")]
 
     try:
         # 8s timeout: longer than the homepage fetch (network call), shorter
@@ -171,8 +173,7 @@ def enrich_via_apollo(
             timeout=8.0,
         )
     except Exception as exc:  # noqa: BLE001 — network boundary
-        _LOG.warning("apollo request failed company=%r domain=%r err=%s",
-                     company_name, domain, exc)
+        _LOG.warning("apollo request failed company=%r domain=%r err=%s", company_name, domain, exc)
         return {}
 
     # G11 post-flight: record the actual spend on the SHARED budget ledger
@@ -196,25 +197,31 @@ def enrich_via_apollo(
     if resp.status_code in (401, 403):
         _auth_fail_count += 1
         if _auth_fail_count >= _AUTH_FAIL_THRESHOLD:
-            _auth_fail_suppressed_until = (
-                time.monotonic() + _AUTH_FAIL_COOLDOWN_SEC
-            )
+            _auth_fail_suppressed_until = time.monotonic() + _AUTH_FAIL_COOLDOWN_SEC
             _LOG.error(
                 "apollo circuit-breaker OPEN after %d consecutive auth "
                 "failures — suppressing calls for %ds. Rotate the key or "
                 "check account credits before the cooldown expires.",
-                _auth_fail_count, int(_AUTH_FAIL_COOLDOWN_SEC),
+                _auth_fail_count,
+                int(_AUTH_FAIL_COOLDOWN_SEC),
             )
         else:
             _LOG.warning(
                 "apollo auth/forbidden (%d) — body=%s [fail %d/%d]",
-                resp.status_code, resp.text[:200],
-                _auth_fail_count, _AUTH_FAIL_THRESHOLD,
+                resp.status_code,
+                resp.text[:200],
+                _auth_fail_count,
+                _AUTH_FAIL_THRESHOLD,
             )
         return {}
     if resp.status_code >= 400:
-        _LOG.warning("apollo http %d for company=%r domain=%r body=%s",
-                     resp.status_code, company_name, domain, resp.text[:200])
+        _LOG.warning(
+            "apollo http %d for company=%r domain=%r body=%s",
+            resp.status_code,
+            company_name,
+            domain,
+            resp.text[:200],
+        )
         return {}
 
     _auth_fail_count = 0

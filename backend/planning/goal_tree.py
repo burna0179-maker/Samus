@@ -21,6 +21,7 @@ Decomposition arithmetic (framework Phase 5):
 Idempotent: re-seeding refreshes the SAME deterministic goal ids (namespaced by
 horizon + period) in place rather than spawning duplicates.
 """
+
 from __future__ import annotations
 
 import datetime as _dt
@@ -62,9 +63,7 @@ class FunnelEconomics:
     source: str
 
     def leads_for_revenue(self, revenue_usd: float) -> float:
-        denom = max(_MIN_AVG_DEAL_USD, self.avg_deal_usd) * max(
-            _MIN_CLOSE_RATE, self.close_rate
-        )
+        denom = max(_MIN_AVG_DEAL_USD, self.avg_deal_usd) * max(_MIN_CLOSE_RATE, self.close_rate)
         if denom <= 0:
             return 0.0
         return max(0.0, float(revenue_usd)) / denom
@@ -303,7 +302,9 @@ def seed_goal_tree(
     still returns the in-memory tree so a caller can inspect it.
     """
     goals = build_goal_tree(
-        target_usd=target_usd, target_date=target_date, today=today,
+        target_usd=target_usd,
+        target_date=target_date,
+        today=today,
     )
     try:
         store.save_goals(goals)

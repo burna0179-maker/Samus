@@ -2,14 +2,14 @@
 
 All tests are pure — no I/O, no external calls.
 """
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 
 # ---------------------------------------------------------------------------
 # score_prospect
 # ---------------------------------------------------------------------------
+
 
 def test_score_prospect_zero_probability_returns_zero():
     """Prospect with 0% conversion chance must score 0.0."""
@@ -135,6 +135,7 @@ def test_score_prospect_cost_exceeds_gross_clamps_to_zero():
 # rank_portfolio
 # ---------------------------------------------------------------------------
 
+
 def test_rank_portfolio_empty_returns_empty():
     """Empty portfolio should return empty list without error."""
     from backend.strategy.optimizer import rank_portfolio
@@ -162,8 +163,11 @@ def test_rank_portfolio_action_labels():
     from backend.strategy.optimizer import ProspectSignals, rank_portfolio
 
     prospects = [
-        ProspectSignals(prospect_id=f"p{i}", expected_value=float(1000 * (20 - i)),
-                        conversion_prob=0.5 - i * 0.02)
+        ProspectSignals(
+            prospect_id=f"p{i}",
+            expected_value=float(1000 * (20 - i)),
+            conversion_prob=0.5 - i * 0.02,
+        )
         for i in range(20)
     ]
     result = rank_portfolio(prospects)

@@ -8,13 +8,13 @@ Template hit -> EFH bypass with attribution `template_<id>` recorded in
 usage entry. Caller (commercial wrap) reads that attribution into
 ValueExchangeRecord.efh_verdict_ref.
 """
+
 from __future__ import annotations
 
 import datetime as _dt
 import logging
 import uuid
 from pathlib import Path
-from typing import Any
 
 import yaml
 
@@ -38,6 +38,7 @@ _USAGE_DIR = state_path("template_usage")
 
 def _resolve_default_spec_path() -> Path:
     import os
+
     override = os.getenv("SAMUS_TEMPLATES_SPEC_PATH", "").strip()
     if override:
         return Path(override)
@@ -45,6 +46,7 @@ def _resolve_default_spec_path() -> Path:
         if p.is_file():
             return p
     return _SPEC_CANDIDATES[0]
+
 
 _SAMUS_TEMPLATE_IDS = {
     "samus.standard_warm_prospect_outreach",
@@ -83,7 +85,7 @@ class TemplateRegistry:
         if not isinstance(doc, dict):
             return
         self._spec_signed_ts = str(doc.get("signed_ts") or "")
-        for t in (doc.get("templates") or []):
+        for t in doc.get("templates") or []:
             if not isinstance(t, dict):
                 continue
             tid = t.get("id")
@@ -91,14 +93,17 @@ class TemplateRegistry:
                 self._templates[tid] = t
         _LOG.info(
             "samus.templates.loaded: count=%d ids=%s",
-            len(self._templates), sorted(self._templates),
+            len(self._templates),
+            sorted(self._templates),
         )
 
     # ------------------------------------------------------------------
     # Lookup
     # ------------------------------------------------------------------
     def lookup_for_action(
-        self, action_class: str, action_payload: dict | None = None,
+        self,
+        action_class: str,
+        action_payload: dict | None = None,
     ) -> dict | None:
         """Return matching template or None if no template covers the action."""
         payload = action_payload or {}

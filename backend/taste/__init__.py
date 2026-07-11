@@ -20,6 +20,7 @@ The audit emits a ``TasteAuditResult`` shaped to slot into the PDC composite
 Source of the encoded rules: the open ``Leonxlnx/taste-skill`` skill, mapped
 onto Samus's domain. Dormant by default — see SAMUS_TASTE_* settings.
 """
+
 from __future__ import annotations
 
 from .audit import audit_deliverable, audit_text

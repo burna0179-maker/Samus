@@ -4,6 +4,7 @@ Covers the ProspectRecord→enrichment-dict adapter, the admit/reject decision,
 the best-effort skip path when signal_filter is unavailable, the per-prospect
 fail-open path, and the Step 2c integration inside process_discovery.
 """
+
 from __future__ import annotations
 
 from backend.prospecting.models import DiscoveryRequest, ProspectRecord
@@ -77,7 +78,9 @@ def test_apply_gate_bypasses_no_website_prospects():
     presence-weighted axes cap it at 0.60 < threshold 0.62, but absence of a
     website IS the web-design signal the morning call list wants surfaced."""
     no_site = _weak_prospect(
-        prospect_id="pr_nosite", website_url="", website_status="no_website",
+        prospect_id="pr_nosite",
+        website_url="",
+        website_status="no_website",
     )
     admitted, rejected = apply_signal_filter_gate([no_site, _weak_prospect()])
     assert rejected == 1
@@ -137,17 +140,18 @@ def test_apply_gate_keeps_prospect_when_scoring_raises(monkeypatch):
 def _fake_discover_factory(prospects_per_zip):
     def _fake(*, zipcode, industries, max_results_per_zip, must_have_website):
         return list(prospects_per_zip.get(zipcode, []))
+
     return _fake
 
 
 def _isolate_idempotency(monkeypatch):
     from backend.common.idempotency import IdempotencyStore
     import backend.common.idempotency as idem_mod
+
     monkeypatch.setattr(idem_mod, "GLOBAL_IDEMPOTENCY_STORE", IdempotencyStore())
     import backend.prospecting.service as svc_mod
-    monkeypatch.setattr(
-        svc_mod, "GLOBAL_IDEMPOTENCY_STORE", idem_mod.GLOBAL_IDEMPOTENCY_STORE
-    )
+
+    monkeypatch.setattr(svc_mod, "GLOBAL_IDEMPOTENCY_STORE", idem_mod.GLOBAL_IDEMPOTENCY_STORE)
 
 
 def test_process_discovery_gate_drops_weak_prospect(tmp_path, monkeypatch):
@@ -158,20 +162,33 @@ def test_process_discovery_gate_drops_weak_prospect(tmp_path, monkeypatch):
     prospects = {
         "95993": [
             ProspectRecord(
-                prospect_id="pr_strong", company_name="Strong Co",
-                phone="(530) 555-1000", website_url="https://strongco.example",
-                website_status="live", seo_score=85,
+                prospect_id="pr_strong",
+                company_name="Strong Co",
+                phone="(530) 555-1000",
+                website_url="https://strongco.example",
+                website_status="live",
+                seo_score=85,
                 owner_email="owner@strongco.example",
                 social_facebook="https://facebook.com/strongco",
-                city="Yuba City", state="CA", zipcode="95993",
-                industry="hvac", review_rating="4.8", review_count="120",
+                city="Yuba City",
+                state="CA",
+                zipcode="95993",
+                industry="hvac",
+                review_rating="4.8",
+                review_count="120",
             ),
             ProspectRecord(
-                prospect_id="pr_weak", company_name="Weak Co",
-                website_url="https://weakco.example", website_status="parked",
+                prospect_id="pr_weak",
+                company_name="Weak Co",
+                website_url="https://weakco.example",
+                website_status="parked",
                 seo_score=0,
-                city="Yuba City", state="CA", zipcode="95993",
-                industry="hvac", review_rating="", review_count="0",
+                city="Yuba City",
+                state="CA",
+                zipcode="95993",
+                industry="hvac",
+                review_rating="",
+                review_count="0",
             ),
         ],
     }
@@ -181,11 +198,17 @@ def test_process_discovery_gate_drops_weak_prospect(tmp_path, monkeypatch):
     )
 
     from backend.prospecting.service import process_discovery
+
     req = DiscoveryRequest(
-        campaign_name="gate_drop", zipcodes=["95993"], industries=["hvac"],
-        max_results_per_zip=10, enable_seo_audit=False,
-        enable_owner_enrichment=False, enable_full_audit_for_warm=False,
-        enable_strategy_policy=False, enable_signal_filter_gate=True,
+        campaign_name="gate_drop",
+        zipcodes=["95993"],
+        industries=["hvac"],
+        max_results_per_zip=10,
+        enable_seo_audit=False,
+        enable_owner_enrichment=False,
+        enable_full_audit_for_warm=False,
+        enable_strategy_policy=False,
+        enable_signal_filter_gate=True,
     )
     result = process_discovery(req, task_id="t-gate-drop")
     # The weak prospect is dropped before the call list is built.
@@ -202,18 +225,31 @@ def test_process_discovery_gate_disabled_keeps_all(tmp_path, monkeypatch):
     prospects = {
         "95993": [
             ProspectRecord(
-                prospect_id="pr_strong", company_name="Strong Co",
-                phone="(530) 555-1000", website_url="https://strongco.example",
-                website_status="live", seo_score=85,
-                city="Yuba City", state="CA", zipcode="95993",
-                industry="hvac", review_rating="4.8", review_count="120",
+                prospect_id="pr_strong",
+                company_name="Strong Co",
+                phone="(530) 555-1000",
+                website_url="https://strongco.example",
+                website_status="live",
+                seo_score=85,
+                city="Yuba City",
+                state="CA",
+                zipcode="95993",
+                industry="hvac",
+                review_rating="4.8",
+                review_count="120",
             ),
             ProspectRecord(
-                prospect_id="pr_weak", company_name="Weak Co",
-                website_url="https://weakco.example", website_status="parked",
+                prospect_id="pr_weak",
+                company_name="Weak Co",
+                website_url="https://weakco.example",
+                website_status="parked",
                 seo_score=0,
-                city="Yuba City", state="CA", zipcode="95993",
-                industry="hvac", review_rating="", review_count="0",
+                city="Yuba City",
+                state="CA",
+                zipcode="95993",
+                industry="hvac",
+                review_rating="",
+                review_count="0",
             ),
         ],
     }
@@ -223,11 +259,17 @@ def test_process_discovery_gate_disabled_keeps_all(tmp_path, monkeypatch):
     )
 
     from backend.prospecting.service import process_discovery
+
     req = DiscoveryRequest(
-        campaign_name="gate_off", zipcodes=["95993"], industries=["hvac"],
-        max_results_per_zip=10, enable_seo_audit=False,
-        enable_owner_enrichment=False, enable_full_audit_for_warm=False,
-        enable_strategy_policy=False, enable_signal_filter_gate=False,
+        campaign_name="gate_off",
+        zipcodes=["95993"],
+        industries=["hvac"],
+        max_results_per_zip=10,
+        enable_seo_audit=False,
+        enable_owner_enrichment=False,
+        enable_full_audit_for_warm=False,
+        enable_strategy_policy=False,
+        enable_signal_filter_gate=False,
     )
     result = process_discovery(req, task_id="t-gate-off")
     # Gate disabled — both prospects survive to the call list.

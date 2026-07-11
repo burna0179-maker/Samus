@@ -38,6 +38,7 @@ The daemon thread is best-effort by design — any exception in either
 channel is logged and swallowed. The shell must never crash because Major
 is reachable or the shared coordination directory is unwritable.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -125,7 +126,9 @@ def _sign_envelope(secret: str, envelope: dict) -> str:
     """HMAC-SHA256 hex over canonical(envelope), keyed by epoch."""
     ts = float(envelope.get("ts", time.time()))
     key = _derive_heartbeat_key(secret, ts)
-    material = json.dumps(envelope, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
+    material = json.dumps(envelope, sort_keys=True, separators=(",", ":"), default=str).encode(
+        "utf-8"
+    )
     return hmac.new(key, material, hashlib.sha256).hexdigest()
 
 
@@ -238,7 +241,11 @@ def start(config: Optional[HeartbeatConfig] = None) -> bool:
         stop_event = _stop_event
 
         def _loop() -> None:
-            log.info("heartbeat daemon started (interval=%.1fs, agent=%s)", cfg.interval_sec, cfg.agent_id)
+            log.info(
+                "heartbeat daemon started (interval=%.1fs, agent=%s)",
+                cfg.interval_sec,
+                cfg.agent_id,
+            )
             while not stop_event.is_set():
                 try:
                     write_once(cfg)

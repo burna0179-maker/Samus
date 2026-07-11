@@ -29,13 +29,14 @@ GET /admin/reputation surfaces the table. ``compute_reputation`` never raises �
 every source degrades to a neutral contribution so a missing ledger yields a
 truthful "insufficient evidence" row rather than an error.
 """
+
 from __future__ import annotations
 
 import json
 import logging
 import os
 import threading
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from typing import Any
 
 from .business_events import DECISION_MADE, read_events
@@ -50,23 +51,52 @@ _json_lock = threading.Lock()
 # Workcells that carry a reputation. Mirrors the roster the diagnostics + ROI
 # code use.
 WORKCELLS: tuple[str, ...] = (
-    "leadgen", "prospecting", "scaffold", "fulfillment", "memory", "feedback",
-    "outreach", "proposal", "seo", "finance", "voice", "intake", "crm",
-    "strategy", "cash_engine", "entropy",
+    "leadgen",
+    "prospecting",
+    "scaffold",
+    "fulfillment",
+    "memory",
+    "feedback",
+    "outreach",
+    "proposal",
+    "seo",
+    "finance",
+    "voice",
+    "intake",
+    "crm",
+    "strategy",
+    "cash_engine",
+    "entropy",
 )
 
 # Business-event types that count as a successful "output" for a workcell.
-_SUCCESS_EVENT_TYPES: frozenset[str] = frozenset({
-    "lead.created", "lead.enriched", "email.sent", "email.opened",
-    "email.clicked", "call.placed", "call.answered", "meeting.booked",
-    "proposal.sent", "contract.sent", "invoice.sent", "payment.received",
-    "customer.retained", "experiment.assigned",
-})
+_SUCCESS_EVENT_TYPES: frozenset[str] = frozenset(
+    {
+        "lead.created",
+        "lead.enriched",
+        "email.sent",
+        "email.opened",
+        "email.clicked",
+        "call.placed",
+        "call.answered",
+        "meeting.booked",
+        "proposal.sent",
+        "contract.sent",
+        "invoice.sent",
+        "payment.received",
+        "customer.retained",
+        "experiment.assigned",
+    }
+)
 
 # decision.made decisions that count as a BLOCK/failure against the workcell.
-_BLOCK_DECISIONS: frozenset[str] = frozenset({
-    "harm_suppressed_send", "send_cap_blocked", "call_cap_blocked",
-})
+_BLOCK_DECISIONS: frozenset[str] = frozenset(
+    {
+        "harm_suppressed_send",
+        "send_cap_blocked",
+        "call_cap_blocked",
+    }
+)
 
 # Composite-score weights (sum to 1.0). Profitability is downweighted — it is
 # $-scaled and noisy — so the behavioural axes dominate reputation.
@@ -88,7 +118,7 @@ class ReputationRow:
     profitability_usd: float = 0.0
     reliability: float = 1.0
     score: float = 1.0
-    sample_size: int = 0        # events + failures the row was computed from
+    sample_size: int = 0  # events + failures the row was computed from
     generated_at: str = ""
 
     def to_record(self) -> dict[str, Any]:
@@ -99,7 +129,10 @@ class ReputationRow:
 # signal readers (each degrades to a neutral value)
 # ---------------------------------------------------------------------------
 
-def _events_by_workcell(since: str | None = None) -> tuple[dict[str, int], dict[str, int], dict[str, list], dict[str, int]]:
+
+def _events_by_workcell(
+    since: str | None = None,
+) -> tuple[dict[str, int], dict[str, int], dict[str, list], dict[str, int]]:
     """Single pass over the event stream -> per-workcell success/block/decision counts."""
     successes: dict[str, int] = {}
     blocks: dict[str, int] = {}
@@ -226,7 +259,10 @@ def _decision_accuracy(decisions: list[dict]) -> tuple[float, int]:
 # computation
 # ---------------------------------------------------------------------------
 
-def compute_reputation(*, day: str | None = None, since: str | None = None) -> dict[str, ReputationRow]:
+
+def compute_reputation(
+    *, day: str | None = None, since: str | None = None
+) -> dict[str, ReputationRow]:
     """Compute the per-workcell reputation table from the readable surfaces."""
     successes, blocks, decisions, _totals = _events_by_workcell(since=since)
     dlq_failures = _dlq_failures_by_workcell()
@@ -271,6 +307,7 @@ def compute_reputation(*, day: str | None = None, since: str | None = None) -> d
 # persistence (JSON-first, DDB mirror best-effort — mirrors finance/roi)
 # ---------------------------------------------------------------------------
 
+
 def store_path() -> str:
     return os.environ.get(_ENV_JSON_PATH, _DEFAULT_JSON_PATH)
 
@@ -297,7 +334,8 @@ def save_reputation(table: dict[str, ReputationRow]) -> bool:
 
 def _save_ddb(payload: dict[str, Any]) -> bool:
     table_name = os.environ.get(
-        "DDB_PORTFOLIO_SNAPSHOTS_TABLE", "samus_portfolio_snapshots",
+        "DDB_PORTFOLIO_SNAPSHOTS_TABLE",
+        "samus_portfolio_snapshots",
     )
     if not table_name:
         return False
@@ -348,6 +386,7 @@ def get_reputation(*, recompute: bool = False, day: str | None = None) -> dict[s
 # ---------------------------------------------------------------------------
 # admin route (self-registering — gateway gains one line, like finance/roi)
 # ---------------------------------------------------------------------------
+
 
 def register_reputation_admin_routes(app: Any) -> None:
     """Attach ``GET /admin/reputation`` to a FastAPI app.

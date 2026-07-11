@@ -13,6 +13,7 @@ forged/tampered body is rejected before any business logic runs. ``cryptography`
 is imported lazily so a box without it (or without a configured key) degrades
 gracefully per the caller's prod/dev gate rather than hard-failing at import.
 """
+
 from __future__ import annotations
 
 import base64

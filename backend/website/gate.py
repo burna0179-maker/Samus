@@ -22,6 +22,7 @@ Three checks, layered, all fail-closed:
 Keeping all three here (not scattered through the handlers) means "what is
 Samus allowed to do without me, and when" is answerable from one file.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -61,7 +62,10 @@ def codex_gate(*, capability: str, payload: dict[str, Any]) -> Verdict:
 
 
 def approval_ok(
-    state: WebsiteBuildState, stage: str, *, autonomous: bool,
+    state: WebsiteBuildState,
+    stage: str,
+    *,
+    autonomous: bool,
 ) -> bool:
     """Is ``stage`` cleared to run by the operator-approval gate?
 

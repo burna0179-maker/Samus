@@ -5,6 +5,7 @@ Proves each new action is reachable through the governed envelope dispatch
 dormant: no LLM spend (handlers default use_llm=False; aio_probe is flag-gated
 off), no live posting (dispatch is DRY-RUN), no payouts.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -71,7 +72,11 @@ def test_work_geo_format():
         c,
         "geo_format",
         {
-            "drafts": {"h1": "Emergency Plumbing", "body_intro": "Burst pipes can't wait. We arrive same day with fixed pricing.", "body_main": "We handle drains and heaters."},
+            "drafts": {
+                "h1": "Emergency Plumbing",
+                "body_intro": "Burst pipes can't wait. We arrive same day with fixed pricing.",
+                "body_main": "We handle drains and heaters.",
+            },
             "keywords": ["emergency plumbing", "drain cleaning"],
         },
     )
@@ -87,7 +92,13 @@ def test_work_aio_analyze_pure():
         c,
         "aio_analyze",
         {
-            "answers": [{"platform": "claude", "query": "best tool", "text": "Hustleforge and Apollo. https://apollo.io"}],
+            "answers": [
+                {
+                    "platform": "claude",
+                    "query": "best tool",
+                    "text": "Hustleforge and Apollo. https://apollo.io",
+                }
+            ],
             "brand_terms": ["Hustleforge"],
             "competitor_terms": ["Apollo"],
         },
@@ -112,7 +123,15 @@ def test_work_aio_probe_disabled_by_default(monkeypatch):
 
 def test_work_repurpose_blog_post():
     c = _client("outreach")
-    out = _work(c, "repurpose_blog_post", {"title": "The 44% rule", "summary": "AI cites the first 30%.", "key_points": ["lead with the answer"]})
+    out = _work(
+        c,
+        "repurpose_blog_post",
+        {
+            "title": "The 44% rule",
+            "summary": "AI cites the first 30%.",
+            "key_points": ["lead with the answer"],
+        },
+    )
     assert len(out["assets"]) == 8
     assert out["used_llm"] is False
 
@@ -137,7 +156,11 @@ def test_work_plan_nurture():
         "plan_nurture",
         {
             "sequence_id": "welcome",
-            "enrollment": {"prospect_id": "p1", "sequence_id": "welcome", "started_at": "2026-06-01T00:00:00+00:00"},
+            "enrollment": {
+                "prospect_id": "p1",
+                "sequence_id": "welcome",
+                "started_at": "2026-06-01T00:00:00+00:00",
+            },
             "now": "2026-06-01T01:00:00+00:00",
         },
     )
@@ -171,7 +194,9 @@ def test_work_generate_case_study():
 
 def test_work_build_proof_wall():
     c = _client("crm")
-    out = _work(c, "build_proof_wall", {"points": [{"company": "A", "result": "2x", "industry": "SaaS"}]})
+    out = _work(
+        c, "build_proof_wall", {"points": [{"company": "A", "result": "2x", "industry": "SaaS"}]}
+    )
     assert out["count"] == 1
     assert out["industries"] == ["SaaS"]
 

@@ -6,6 +6,7 @@ Asserts that ``render_seo_report_markdown``:
   * Logs each drop with the finding id + reason.
   * Leaves the input ``AuditResult`` unmutated (model_copy semantics).
 """
+
 from __future__ import annotations
 
 import logging
@@ -25,24 +26,35 @@ def _mixed_audit() -> AuditResult:
     # the "unverified" case as None — the type system forbids the other.
     issues = [
         SeoIssue(
-            id="fetch_failed", severity="critical", category="technical",
-            message="Could not fetch page.", evidence="",
+            id="fetch_failed",
+            severity="critical",
+            category="technical",
+            message="Could not fetch page.",
+            evidence="",
             evidence_source="http_status",
         ),
         SeoIssue(
-            id="blocked_by_robots", severity="critical", category="technical",
+            id="blocked_by_robots",
+            severity="critical",
+            category="technical",
             message="robots.txt blocks crawlers.",
             evidence="https://acme.example.com/robots.txt",
             evidence_source="robots_txt",
         ),
         SeoIssue(
-            id="missing_title", severity="high", category="content",
-            message="Page is missing a <title> tag.", evidence="",
+            id="missing_title",
+            severity="high",
+            category="content",
+            message="Page is missing a <title> tag.",
+            evidence="",
             evidence_source=None,
         ),
         SeoIssue(
-            id="missing_h1", severity="high", category="content",
-            message="Page has no <h1>.", evidence="",
+            id="missing_h1",
+            severity="high",
+            category="content",
+            message="Page has no <h1>.",
+            evidence="",
             evidence_source=None,
         ),
     ]
@@ -64,7 +76,10 @@ def _empty_optimize() -> OptimizeResult:
         url="https://acme.example.com",
         recommendations=[
             OptimizationRecommendation(
-                area="content", action="x", rationale="y", priority=3,
+                area="content",
+                action="x",
+                rationale="y",
+                priority=3,
             ),
         ],
         on_page_changes={},
@@ -94,10 +109,7 @@ def test_drop_events_logged_with_id_and_reason(caplog) -> None:
 
     render_seo_report_markdown(audit, optimize, None)
 
-    drop_messages = [
-        rec.getMessage() for rec in caplog.records
-        if "G6 dropped" in rec.getMessage()
-    ]
+    drop_messages = [rec.getMessage() for rec in caplog.records if "G6 dropped" in rec.getMessage()]
     # Two unverified findings, two drop events.
     assert len(drop_messages) == 2
     ids_logged = " ".join(drop_messages)
@@ -112,8 +124,11 @@ def test_all_verified_findings_renders_fully() -> None:
         seo_score=60,
         issues=[
             SeoIssue(
-                id="fetch_failed", severity="critical", category="technical",
-                message="Could not fetch page.", evidence="",
+                id="fetch_failed",
+                severity="critical",
+                category="technical",
+                message="Could not fetch page.",
+                evidence="",
                 evidence_source="http_status",
             ),
         ],
@@ -134,8 +149,11 @@ def test_all_unverified_findings_renders_no_findings_section_body() -> None:
         seo_score=80,
         issues=[
             SeoIssue(
-                id="missing_title", severity="high", category="content",
-                message="m", evidence_source=None,
+                id="missing_title",
+                severity="high",
+                category="content",
+                message="m",
+                evidence_source=None,
             ),
         ],
         findings={},

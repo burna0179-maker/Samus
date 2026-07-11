@@ -12,6 +12,7 @@ The whole module is best-effort: :func:`apply_signal_filter_gate` swallows any
 fault and returns the prospect list untouched, so a signal_filter regression
 can never tank a discovery run.
 """
+
 from __future__ import annotations
 
 import logging
@@ -120,7 +121,8 @@ def apply_signal_filter_gate(
         except Exception as exc:  # noqa: BLE001 — per-prospect fail-open
             _LOG.warning(
                 "signal_filter scoring failed prospect=%s; keeping (fail-open): %s",
-                p.prospect_id, exc,
+                p.prospect_id,
+                exc,
             )
             admitted.append(p)
             continue
@@ -130,7 +132,8 @@ def apply_signal_filter_gate(
             rejected += 1
             _LOG.info(
                 "signal_filter rejected prospect=%s company=%s",
-                p.prospect_id, p.company_name,
+                p.prospect_id,
+                p.company_name,
             )
     return admitted, rejected
 

@@ -12,6 +12,7 @@ Phone normalisation: strip all non-digits, then compare the last 10 digits
 (US numbers). This handles E.164, local 10-digit, 11-digit with leading 1,
 and common formatted variants like (555) 123-4567.
 """
+
 from __future__ import annotations
 
 import csv
@@ -102,11 +103,7 @@ def _scan_csv(path: Path, target_10: str) -> ProspectRecord | None:
             for row in reader:
                 raw_phone = row.get("phone") or ""
                 if _norm10(raw_phone) == target_10:
-                    payload = {
-                        col: row[col]
-                        for col in CSV_COLUMNS
-                        if (row.get(col) or "") != ""
-                    }
+                    payload = {col: row[col] for col in CSV_COLUMNS if (row.get(col) or "") != ""}
                     try:
                         return ProspectRecord.model_validate(payload)
                     except Exception as exc:  # noqa: BLE001
@@ -148,11 +145,7 @@ def build_phone_index(lookback_days: int = _LOOKBACK_DAYS) -> dict[str, Prospect
                     key = _norm10(raw_phone)
                     if len(key) < 7:
                         continue
-                    payload = {
-                        col: row[col]
-                        for col in CSV_COLUMNS
-                        if (row.get(col) or "") != ""
-                    }
+                    payload = {col: row[col] for col in CSV_COLUMNS if (row.get(col) or "") != ""}
                     try:
                         index[key] = ProspectRecord.model_validate(payload)
                     except Exception:  # noqa: BLE001

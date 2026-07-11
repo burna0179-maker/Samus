@@ -10,6 +10,7 @@ Covers:
 All offline: the LLM is always injected as a stub; the ledger is redirected to
 tmp via SAMUS_STATE_ROOT.
 """
+
 from __future__ import annotations
 
 import json
@@ -20,15 +21,28 @@ from backend.cognitive.guidance import GuidanceLedger, ingest_guidance
 from backend.cognitive import intelligence_cycle as ic
 
 
-_STUB_GUIDANCE = json.dumps({
-    "recommendations": [
-        {"category": "revenue_acceleration", "recommendation": "Send SEO-audit cold emails",
-         "action_steps": ["pull list", "send"], "feasibility": "high",
-         "expected_impact": "high", "risk_level": "low", "suggested_owner": "outreach"},
-        {"category": "risk_reduction", "recommendation": "Firestore graph substitute",
-         "feasibility": "medium", "expected_impact": "low", "risk_level": "low"},
-    ]
-})
+_STUB_GUIDANCE = json.dumps(
+    {
+        "recommendations": [
+            {
+                "category": "revenue_acceleration",
+                "recommendation": "Send SEO-audit cold emails",
+                "action_steps": ["pull list", "send"],
+                "feasibility": "high",
+                "expected_impact": "high",
+                "risk_level": "low",
+                "suggested_owner": "outreach",
+            },
+            {
+                "category": "risk_reduction",
+                "recommendation": "Firestore graph substitute",
+                "feasibility": "medium",
+                "expected_impact": "low",
+                "risk_level": "low",
+            },
+        ]
+    }
+)
 
 
 @pytest.fixture
@@ -71,14 +85,17 @@ def test_gather_production_state_date_is_pacific_business_day(monkeypatch):
 def test_business_today_helper_falls_back_on_lookup_failure(monkeypatch):
     """Fail-safe: a broken timezone lookup must yield the UTC date rather than
     crashing the briefing (the whole cycle is designed to degrade)."""
+
     def _boom(state="CA"):
         raise RuntimeError("timezone lookup down")
 
     from backend.common import us_timezones
+
     monkeypatch.setattr(us_timezones, "business_today", _boom)
     iso = ic._business_today_iso()
     # Should be a valid ISO date string, not raise.
     from datetime import date as _date
+
     _date.fromisoformat(iso)  # raises ValueError if malformed
 
 
@@ -110,9 +127,20 @@ def test_run_briefing_llm_failure_is_failsafe(ledger):
 
 def test_run_review_local_only(ledger):
     # seed a completed recommendation so effectiveness has signal
-    [rec] = ingest_guidance("b", {"recommendations": [
-        {"recommendation": "x", "feasibility": "high", "expected_impact": "high", "risk_level": "low"}
-    ]}, ledger=ledger)
+    [rec] = ingest_guidance(
+        "b",
+        {
+            "recommendations": [
+                {
+                    "recommendation": "x",
+                    "feasibility": "high",
+                    "expected_impact": "high",
+                    "risk_level": "low",
+                }
+            ]
+        },
+        ledger=ledger,
+    )
     ledger.record_outcome(rec.recommendation_id, outcome="won", success_score=0.9)
 
     result = ic.run_end_of_day_review(ledger=ledger, consult_openai=False)
@@ -138,27 +166,59 @@ def test_active_guidance_context_empty(ledger):
 
 
 def test_active_guidance_context_accepted_only(ledger):
-    records = ingest_guidance("b", {"recommendations": [
-        {"category": "revenue_acceleration", "recommendation": "ACCEPTED ONE",
-         "feasibility": "high", "expected_impact": "high", "risk_level": "low"},
-        {"category": "risk_reduction", "recommendation": "STILL PROPOSED",
-         "feasibility": "medium", "expected_impact": "low", "risk_level": "low"},
-    ]}, ledger=ledger)
+    records = ingest_guidance(
+        "b",
+        {
+            "recommendations": [
+                {
+                    "category": "revenue_acceleration",
+                    "recommendation": "ACCEPTED ONE",
+                    "feasibility": "high",
+                    "expected_impact": "high",
+                    "risk_level": "low",
+                },
+                {
+                    "category": "risk_reduction",
+                    "recommendation": "STILL PROPOSED",
+                    "feasibility": "medium",
+                    "expected_impact": "low",
+                    "risk_level": "low",
+                },
+            ]
+        },
+        ledger=ledger,
+    )
     ledger.accept(records[0].recommendation_id)
 
     ctx = ic.active_guidance_context(ledger=ledger)
     assert "ACCEPTED ONE" in ctx
-    assert "STILL PROPOSED" not in ctx   # proposed-but-not-accepted excluded
+    assert "STILL PROPOSED" not in ctx  # proposed-but-not-accepted excluded
     assert "Active Strategic Guidance" in ctx
 
 
 def test_active_guidance_context_tier_ordering(ledger):
-    records = ingest_guidance("b", {"recommendations": [
-        {"category": "risk_reduction", "recommendation": "LOW TIER",
-         "feasibility": "high", "expected_impact": "low", "risk_level": "low"},   # tier 3
-        {"category": "revenue_acceleration", "recommendation": "HIGH TIER",
-         "feasibility": "high", "expected_impact": "high", "risk_level": "low"},  # tier 1
-    ]}, ledger=ledger)
+    records = ingest_guidance(
+        "b",
+        {
+            "recommendations": [
+                {
+                    "category": "risk_reduction",
+                    "recommendation": "LOW TIER",
+                    "feasibility": "high",
+                    "expected_impact": "low",
+                    "risk_level": "low",
+                },  # tier 3
+                {
+                    "category": "revenue_acceleration",
+                    "recommendation": "HIGH TIER",
+                    "feasibility": "high",
+                    "expected_impact": "high",
+                    "risk_level": "low",
+                },  # tier 1
+            ]
+        },
+        ledger=ledger,
+    )
     for r in records:
         ledger.accept(r.recommendation_id)
 
@@ -187,6 +247,7 @@ def belief_state(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_STATE_ROOT", str(tmp_path / "state"))
     monkeypatch.setenv("SAMUS_LEDGER_BACKEND", "jsonl")
     from backend.cognitive import belief_ledger as bl
+
     return bl
 
 
@@ -305,8 +366,12 @@ def test_compose_pre_shift_briefing_appends_precedent_block(belief_state):
         "timestamp_utc": "2026-07-06T00:00:00Z",
         "codb": {"total_monthly_burn": 500.0, "by_category": []},
         "runway": {"days_remaining": 15, "alert_triggered": True},
-        "revenue": {"mrr_usd": 0, "phase": "pre-revenue",
-                    "target_usd": 50000, "days_to_target": 90},
+        "revenue": {
+            "mrr_usd": 0,
+            "phase": "pre-revenue",
+            "target_usd": 50000,
+            "days_to_target": 90,
+        },
     }
     baseline = ic.compose_pre_shift_briefing(state)
     # Baseline is expected to have NO Prior beliefs section (no seeded belief),

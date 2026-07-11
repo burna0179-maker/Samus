@@ -1,4 +1,5 @@
 """Dynamic LLM budget scaler — MRR-proportional daily cap."""
+
 from __future__ import annotations
 
 import pytest
@@ -16,6 +17,7 @@ def _clean_cache():
 # ---------------------------------------------------------------------------
 # compute_daily_cap formula
 # ---------------------------------------------------------------------------
+
 
 def test_zero_mrr_returns_floor(monkeypatch):
     monkeypatch.setattr(scaler, "_fetch_mrr", lambda: 0.0)
@@ -46,6 +48,7 @@ def test_mrr_just_above_floor(monkeypatch):
 # ---------------------------------------------------------------------------
 # Cache behavior
 # ---------------------------------------------------------------------------
+
 
 def test_cache_prevents_repeated_fetch(monkeypatch):
     calls = {"n": 0}
@@ -83,6 +86,7 @@ def test_cold_start_no_stripe_returns_floor(monkeypatch):
 # ---------------------------------------------------------------------------
 # Integration with LlmGlobalBudgetStore
 # ---------------------------------------------------------------------------
+
 
 def test_global_store_uses_dynamic_cap(tmp_path, monkeypatch):
     from backend.common.llm_global_budget import LlmGlobalBudgetStore

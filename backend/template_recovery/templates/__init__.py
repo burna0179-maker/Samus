@@ -9,6 +9,7 @@ unknown kind.
 ``TEMPLATE_VERSIONS`` records the version string each builder advertises so
 the service can report which exact template served a recovery.
 """
+
 from __future__ import annotations
 
 from typing import Any, Callable

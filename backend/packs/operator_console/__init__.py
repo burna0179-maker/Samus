@@ -12,6 +12,7 @@ Canon §4 pack-wire convention the gateway's ``create_app`` uses.
 Auth: optional bearer-token gate via ``SAMUS_OPERATOR_TOKEN`` env var.
 Off by default (Samus's existing services rely on AWS-side perimeter).
 """
+
 from __future__ import annotations
 
 from typing import Any

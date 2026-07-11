@@ -1,4 +1,5 @@
 """Offline tests for the Apollo people-source adapter."""
+
 from __future__ import annotations
 
 import json

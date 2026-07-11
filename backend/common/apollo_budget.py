@@ -33,6 +33,7 @@ The ``@apollo_budgeted("endpoint_name")`` decorator below is the
 preferred wrapping pattern at call sites — it does pre-flight +
 post-flight in one place, so the apollo_source module stays readable.
 """
+
 from __future__ import annotations
 
 import functools
@@ -41,7 +42,7 @@ import logging
 import os
 import threading
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any, Callable, TypeVar
 
@@ -79,13 +80,15 @@ def get_daily_cap_usd() -> float:
     except ValueError:
         _LOG.warning(
             "SAMUS_APOLLO_DAILY_BUDGET_USD not numeric (%r); using default $%.2f",
-            raw, _DEFAULT_DAILY_CAP_USD,
+            raw,
+            _DEFAULT_DAILY_CAP_USD,
         )
         return _DEFAULT_DAILY_CAP_USD
     if cap < 0:
         _LOG.warning(
             "SAMUS_APOLLO_DAILY_BUDGET_USD negative (%s); using default $%.2f",
-            cap, _DEFAULT_DAILY_CAP_USD,
+            cap,
+            _DEFAULT_DAILY_CAP_USD,
         )
         return _DEFAULT_DAILY_CAP_USD
     return cap
@@ -109,7 +112,8 @@ def get_credit_ceiling() -> int:
         val = int(raw)
     except ValueError:
         _LOG.warning(
-            "SAMUS_APOLLO_CREDIT_CEILING not int (%r); ceiling disabled", raw,
+            "SAMUS_APOLLO_CREDIT_CEILING not int (%r); ceiling disabled",
+            raw,
         )
         return _DEFAULT_CREDIT_CEILING
     return max(0, val)
@@ -173,15 +177,16 @@ class ApolloBudget:
             if not isinstance(rc, dict):
                 continue
             try:
-                calls.append(ApolloCallRecord(
-                    ts=str(rc.get("ts", "") or ""),
-                    endpoint=str(rc.get("endpoint", "") or ""),
-                    usd=float(rc.get("usd", 0.0) or 0.0),
-                    prospect_id=(
-                        None if rc.get("prospect_id") is None
-                        else str(rc.get("prospect_id"))
-                    ),
-                ))
+                calls.append(
+                    ApolloCallRecord(
+                        ts=str(rc.get("ts", "") or ""),
+                        endpoint=str(rc.get("endpoint", "") or ""),
+                        usd=float(rc.get("usd", 0.0) or 0.0),
+                        prospect_id=(
+                            None if rc.get("prospect_id") is None else str(rc.get("prospect_id"))
+                        ),
+                    )
+                )
             except (TypeError, ValueError):
                 continue
         return cls(
@@ -259,6 +264,7 @@ class _DdbBackend:
 
     def _table(self) -> Any:
         from . import aws
+
         return aws.table(self.table_name, self.region)
 
     def load(self) -> ApolloBudget | None:
@@ -426,7 +432,8 @@ class ApolloBudgetStore:
             _LOG.warning(
                 "apollo_budget record_spend: store unavailable on load (%s); "
                 "allowing $%.4f spend but NOT persisted",
-                exc, usd,
+                exc,
+                usd,
             )
             # Return a synthetic budget so the caller has something coherent
             # to read; today's running total is lost until the store recovers.
@@ -435,12 +442,14 @@ class ApolloBudgetStore:
                 dollars_today=usd,
                 call_count_today=1,
                 last_updated=_iso_now(self._now),
-                recent_calls=[ApolloCallRecord(
-                    ts=_iso_now(self._now),
-                    endpoint=endpoint,
-                    usd=round(usd, 4),
-                    prospect_id=prospect_id,
-                )],
+                recent_calls=[
+                    ApolloCallRecord(
+                        ts=_iso_now(self._now),
+                        endpoint=endpoint,
+                        usd=round(usd, 4),
+                        prospect_id=prospect_id,
+                    )
+                ],
             )
 
         if (b.dollars_today + usd) > cap:
@@ -452,12 +461,14 @@ class ApolloBudgetStore:
         b.dollars_today = round(b.dollars_today + usd, 4)
         b.call_count_today += 1
         b.lifetime_credits += 1
-        b.recent_calls.append(ApolloCallRecord(
-            ts=_iso_now(self._now),
-            endpoint=endpoint,
-            usd=round(usd, 4),
-            prospect_id=prospect_id,
-        ))
+        b.recent_calls.append(
+            ApolloCallRecord(
+                ts=_iso_now(self._now),
+                endpoint=endpoint,
+                usd=round(usd, 4),
+                prospect_id=prospect_id,
+            )
+        )
         # Trim to the last N — bounded row size for DDB friendliness.
         if len(b.recent_calls) > _RECENT_CALLS_KEPT:
             b.recent_calls = b.recent_calls[-_RECENT_CALLS_KEPT:]

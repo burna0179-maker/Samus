@@ -4,6 +4,7 @@ This test reads the ACTUAL ``docs/codex/`` directory of the worktree.
 If anyone edits a chapter in a way the parser can't handle, this fails
 immediately — it's the canary that keeps fail-CLOSED boot honest.
 """
+
 from __future__ import annotations
 
 from pathlib import Path

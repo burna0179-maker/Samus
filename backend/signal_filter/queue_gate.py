@@ -11,6 +11,7 @@ and ``revenue_estimate`` are intentionally *not* weighted — social presence
 is noisy and the revenue proxy is neutral whenever paid firmographics are
 absent (the local-first default), so neither should move the admission line.
 """
+
 from __future__ import annotations
 
 from backend.signal_filter.scoring import ProspectSignal

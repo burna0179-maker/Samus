@@ -4,6 +4,7 @@ Pre-flip these rules emitted VW-* warnings. Post-flip they emit VR-G6/G7/G8
 blocking verdicts. The "missing" payload now refuses; the "present" payload
 passes clean (no warnings, allowed=True).
 """
+
 from __future__ import annotations
 
 from pathlib import Path

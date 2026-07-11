@@ -5,6 +5,7 @@ Same persistence shape as ``backend.heat.store`` / ``backend.governance.karma``
 tuple). **Fail-OPEN**: a read error returns ``None`` (treated as a cold arm),
 a write error is swallowed — attribution is an optimization, never load-bearing.
 """
+
 from __future__ import annotations
 
 import json
@@ -24,9 +25,9 @@ class VariantStats:
     """Bandit stats for one email variant arm."""
 
     arm_id: str = ""
-    trials: int = 0          # sends attributed to this variant
+    trials: int = 0  # sends attributed to this variant
     reward_sum: float = 0.0  # accumulated [0,1] reward
-    wins: int = 0            # closed deals
+    wins: int = 0  # closed deals
     last_updated: str = ""
 
     @property
@@ -54,7 +55,9 @@ class VariantStats:
 
         return cls(
             arm_id=str(item.get("arm_id", "") or ""),
-            trials=_i("trials"), reward_sum=_f("reward_sum"), wins=_i("wins"),
+            trials=_i("trials"),
+            reward_sum=_f("reward_sum"),
+            wins=_i("wins"),
             last_updated=str(item.get("last_updated", "") or ""),
         )
 
@@ -102,6 +105,7 @@ class _DdbBackend:
 
     def _table(self) -> Any:
         from backend.common import aws
+
         return aws.table(self.table_name, self.region)
 
     def load(self, arm_id: str) -> VariantStats | None:
@@ -116,6 +120,7 @@ class _DdbBackend:
     def save(self, stats: VariantStats) -> bool:
         try:
             from decimal import Decimal
+
             item = {
                 k: (Decimal(str(v)) if isinstance(v, float) else v)
                 for k, v in stats.to_item().items()
@@ -130,8 +135,9 @@ class _DdbBackend:
 class VariantAttributionStore:
     """Process-wide per-variant stats store. Fail-OPEN."""
 
-    def __init__(self, *, ddb_table: str | None, aws_region: str = "us-west-1",
-                 json_path: str | None = None) -> None:
+    def __init__(
+        self, *, ddb_table: str | None, aws_region: str = "us-west-1", json_path: str | None = None
+    ) -> None:
         self._ddb = _DdbBackend(ddb_table, aws_region) if ddb_table else None
         self._json = _JsonBackend(json_path or _DEFAULT_JSON_PATH)
         self._lock = threading.Lock()
@@ -162,7 +168,9 @@ def get_store() -> VariantAttributionStore:
         ddb_table = os.getenv("DDB_ATTRIBUTION_TABLE", "").strip() or None
         json_path = os.getenv("SAMUS_ATTRIBUTION_PATH", "").strip() or None
         region = os.getenv("AWS_REGION", "us-west-1")
-        _STORE = VariantAttributionStore(ddb_table=ddb_table, aws_region=region, json_path=json_path)
+        _STORE = VariantAttributionStore(
+            ddb_table=ddb_table, aws_region=region, json_path=json_path
+        )
         return _STORE
 
 

@@ -47,6 +47,7 @@ The pull + pipeline are synchronous (the pipeline does file IO + an LLM pass),
 so the loop offloads the whole tick to a worker thread (``asyncio.to_thread``)
 -- the gateway event loop is never blocked while a batch is analyzed.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -62,7 +63,7 @@ from backend.common.dates import iso_now
 _LOG = logging.getLogger("samus.gateway.voice_ingest_task")
 
 _DEFAULT_INTERVAL_SEC = 1200.0  # 20 min -- reward flows within one cadence
-_INITIAL_DELAY_SEC = 180.0      # let boot churn settle + a dial batch complete
+_INITIAL_DELAY_SEC = 180.0  # let boot churn settle + a dial batch complete
 
 ENV_ENABLED = "SAMUS_VOICE_INGEST_LOOP_ENABLED"
 ENV_INTERVAL = "SAMUS_VOICE_INGEST_INTERVAL_SEC"
@@ -80,6 +81,7 @@ _PASS_LEDGER = "voice/ingest_passes.jsonl"
 # ---------------------------------------------------------------------------
 # Env helpers (same idiom as cold_dial_task / morning_ritual_task)
 # ---------------------------------------------------------------------------
+
 
 def _flag_on(name: str, default_on: bool = True) -> bool:
     raw = (os.environ.get(name) or "").strip().lower()
@@ -106,6 +108,7 @@ def _float_env(name: str, default: float) -> float:
 # Per-pass telemetry
 # ---------------------------------------------------------------------------
 
+
 def _emit_pass_telemetry(result: dict[str, Any]) -> None:
     """Append one ingest-pass row to the telemetry ledger. Fail-soft -- a
     telemetry miss must never disturb the loop or the reward flow it drives."""
@@ -130,6 +133,7 @@ def _emit_pass_telemetry(result: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 # One tick -- pull, and (only on new data) analyze -> reward. Never raises.
 # ---------------------------------------------------------------------------
+
 
 def run_once(
     *,
@@ -190,6 +194,7 @@ def run_once(
 # The asyncio loop + lifespan hooks (same shape as cold_dial_task)
 # ---------------------------------------------------------------------------
 
+
 async def _voice_ingest_loop(interval: float) -> None:
     """Poll every ``interval`` seconds; pull + analyze completed Vapi calls.
 
@@ -210,22 +215,29 @@ async def _voice_ingest_loop(interval: float) -> None:
                 _LOG.info(
                     "voice_ingest: analyzed %s new transcript(s) "
                     "(pulled=%s eligible=%s staged=%s outcomes=%s)",
-                    result.get("analyzed"), result.get("pulled"),
-                    result.get("eligible"), result.get("staged"),
+                    result.get("analyzed"),
+                    result.get("pulled"),
+                    result.get("eligible"),
+                    result.get("staged"),
                     result.get("outcomes"),
                 )
             elif result.get("staged"):
                 # Staged but nothing analyzed (e.g. all gated pending / llm error).
                 _LOG.info(
                     "voice_ingest: staged %s, analyzed 0 (stage_error=%s)",
-                    result.get("staged"), result.get("stage_error"),
+                    result.get("staged"),
+                    result.get("stage_error"),
                 )
             else:
                 # Steady-state no-op -- log INFO at most once per hour so the ops
                 # timeline shows the loop alive without spamming every cadence.
                 hour = datetime.now(timezone.utc).hour
                 if hour != getattr(_voice_ingest_loop, "_last_idle_hour", None):
-                    reason = result.get("reason") or result.get("stage_error") or "no new completed calls"
+                    reason = (
+                        result.get("reason")
+                        or result.get("stage_error")
+                        or "no new completed calls"
+                    )
                     _LOG.info("voice_ingest: idle (%s)", reason)
                     _voice_ingest_loop._last_idle_hour = hour  # type: ignore[attr-defined]
         except Exception:  # noqa: BLE001 -- a tick fault never kills the loop
@@ -246,7 +258,8 @@ async def start_voice_ingest_loop(app: Any) -> Optional[asyncio.Task]:
         return existing
     interval = _float_env(ENV_INTERVAL, _DEFAULT_INTERVAL_SEC)
     task = asyncio.create_task(
-        _voice_ingest_loop(interval), name="samus.voice_ingest_loop",
+        _voice_ingest_loop(interval),
+        name="samus.voice_ingest_loop",
     )
     app.state.voice_ingest_task = task
     _LOG.info("voice_ingest loop started (interval=%.0fs)", interval)

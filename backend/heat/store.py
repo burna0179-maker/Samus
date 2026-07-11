@@ -12,6 +12,7 @@ nothing in the codebase tracked outbound send volume (the live cash-engine send
 path never ticked any ramp counter). ``record_send`` is the single tick; the
 SendGrid event webhook ticks the delivery-outcome counters.
 """
+
 from __future__ import annotations
 
 import json
@@ -50,8 +51,16 @@ _EVENT_TO_COUNTER: dict[str, str] = {
 }
 
 _COUNTERS = (
-    "sent", "processed", "delivered", "bounced", "blocked",
-    "deferred", "complained", "opened", "clicked", "unsubscribed",
+    "sent",
+    "processed",
+    "delivered",
+    "bounced",
+    "blocked",
+    "deferred",
+    "complained",
+    "opened",
+    "clicked",
+    "unsubscribed",
 )
 
 
@@ -92,11 +101,18 @@ class HeatState:
                 return int(item.get(key, 0) or 0)
             except (TypeError, ValueError):
                 return 0
+
         return cls(
             bucket_day=str(item.get("bucket_day", "") or ""),
-            sent=_i("sent"), processed=_i("processed"), delivered=_i("delivered"),
-            bounced=_i("bounced"), blocked=_i("blocked"), deferred=_i("deferred"),
-            complained=_i("complained"), opened=_i("opened"), clicked=_i("clicked"),
+            sent=_i("sent"),
+            processed=_i("processed"),
+            delivered=_i("delivered"),
+            bounced=_i("bounced"),
+            blocked=_i("blocked"),
+            deferred=_i("deferred"),
+            complained=_i("complained"),
+            opened=_i("opened"),
+            clicked=_i("clicked"),
             unsubscribed=_i("unsubscribed"),
             last_updated=str(item.get("last_updated", "") or ""),
         )
@@ -163,6 +179,7 @@ class _DdbBackend:
 
     def _table(self) -> Any:
         from backend.common import aws
+
         return aws.table(self.table_name, self.region)
 
     def load(self) -> HeatState | None:
@@ -270,7 +287,9 @@ def get_store() -> HeatStateStore:
         json_path = os.getenv("SAMUS_HEAT_STATE_PATH", "").strip() or None
         region = os.getenv("AWS_REGION", "us-west-1")
         _STORE = HeatStateStore(
-            ddb_table=ddb_table, aws_region=region, json_path=json_path,
+            ddb_table=ddb_table,
+            aws_region=region,
+            json_path=json_path,
         )
         return _STORE
 

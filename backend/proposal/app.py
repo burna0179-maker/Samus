@@ -5,6 +5,7 @@ Endpoints:
   POST /generate - direct ProposalRequest body
   POST /validate - direct CompiledWorkflow body
 """
+
 from __future__ import annotations
 
 import logging

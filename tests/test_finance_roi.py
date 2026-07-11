@@ -4,6 +4,7 @@ Fixtures write the real concrete ledgers (outreach conversions JSONL, Stripe
 webhook event ledger, voice events, llm-budget JSON) so the roll-up totals
 are reconciled against hand-computed sums, pre-merge (empty event stream).
 """
+
 from __future__ import annotations
 
 import datetime as _dt
@@ -42,14 +43,19 @@ def roi_env(monkeypatch, tmp_path):
     monkeypatch.setenv("SAMUS_ROI_ROLLUP_PATH", str(store))
     monkeypatch.setenv("DDB_PORTFOLIO_SNAPSHOTS_TABLE", "")  # skip DDB mirror
     return types.SimpleNamespace(
-        conv=conv, stripe=stripe, voice=voice, budgets=budgets, store=store,
+        conv=conv,
+        stripe=stripe,
+        voice=voice,
+        budgets=budgets,
+        store=store,
         tmp=tmp_path,
     )
 
 
 def _write_jsonl(path, rows):
     path.write_text(
-        "\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8",
+        "\n".join(json.dumps(r) for r in rows) + "\n",
+        encoding="utf-8",
     )
 
 
@@ -82,6 +88,7 @@ def _conv_row(event_id: str, prospect_id: str, amount: float, *, day: str = TODA
 # compute_daily_rollup — totals reconcile with the concrete ledgers
 # ---------------------------------------------------------------------------
 
+
 def test_empty_sources_yield_zero_rollup(roi_env):
     rollup = compute_daily_rollup(TODAY)
     assert isinstance(rollup, RoiRollup)
@@ -97,17 +104,22 @@ def test_empty_sources_yield_zero_rollup(roi_env):
 def test_revenue_from_both_concrete_ledgers_with_event_id_dedup(roi_env):
     # Conversion evt_1 ($150) also appears in the webhook ledger — counted ONCE.
     _write_jsonl(roi_env.conv, [_conv_row("evt_1", "p_1", 150.0)])
-    _write_jsonl(roi_env.stripe, [
-        _stripe_row("evt_1", 150.0),        # dup of the conversion — skipped
-        _stripe_row("evt_2", 500.0),        # direct sale — counted
-        _stripe_row("evt_3", 75.0, day="2020-01-01"),  # wrong day — skipped
-        _stripe_row("evt_4", 20.0, status="unpaid"),   # unpaid — skipped
-    ])
+    _write_jsonl(
+        roi_env.stripe,
+        [
+            _stripe_row("evt_1", 150.0),  # dup of the conversion — skipped
+            _stripe_row("evt_2", 500.0),  # direct sale — counted
+            _stripe_row("evt_3", 75.0, day="2020-01-01"),  # wrong day — skipped
+            _stripe_row("evt_4", 20.0, status="unpaid"),  # unpaid — skipped
+        ],
+    )
     rollup = compute_daily_rollup(TODAY)
     assert rollup.revenue_usd == pytest.approx(650.0)
     assert rollup.conversion_count == 2
     assert rollup.sources == {
-        "outreach_conversions": 1, "webhook_ledger": 1, "event_stream": 0,
+        "outreach_conversions": 1,
+        "webhook_ledger": 1,
+        "event_stream": 0,
     }
     # Dimension grouping: conversion is email/outreach, webhook is direct.
     assert rollup.by_channel["email"]["revenue_usd"] == pytest.approx(150.0)
@@ -134,23 +146,41 @@ def test_multitouch_falls_back_to_recording_workcell_when_no_journey(roi_env):
 
 def test_costs_from_llm_budget_and_voice_ledger(roi_env):
     # llm budget: today's bucket for two workcells; a stale bucket ignored.
-    roi_env.budgets.write_text(json.dumps({
-        "strategy": {"bucket_day": TODAY, "input_tokens_today": 1_000_000,
-                     "output_tokens_today": 0},
-        "seo": {"bucket_day": "2020-01-01", "input_tokens_today": 9_999_999,
-                "output_tokens_today": 9_999_999},
-    }), encoding="utf-8")
+    roi_env.budgets.write_text(
+        json.dumps(
+            {
+                "strategy": {
+                    "bucket_day": TODAY,
+                    "input_tokens_today": 1_000_000,
+                    "output_tokens_today": 0,
+                },
+                "seo": {
+                    "bucket_day": "2020-01-01",
+                    "input_tokens_today": 9_999_999,
+                    "output_tokens_today": 9_999_999,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
     # voice: one call today ($0.42), one on another day.
-    _write_jsonl(roi_env.voice, [
-        {"kind": "end_of_call", "ts": f"{TODAY}T11:00:00Z", "vapi_cost": 0.42},
-        {"kind": "end_of_call", "ts": "2020-01-01T11:00:00Z", "vapi_cost": 5.0},
-        {"kind": "status_update", "ts": f"{TODAY}T11:00:00Z", "vapi_cost": 9.0},
-    ])
+    _write_jsonl(
+        roi_env.voice,
+        [
+            {"kind": "end_of_call", "ts": f"{TODAY}T11:00:00Z", "vapi_cost": 0.42},
+            {"kind": "end_of_call", "ts": "2020-01-01T11:00:00Z", "vapi_cost": 5.0},
+            {"kind": "status_update", "ts": f"{TODAY}T11:00:00Z", "vapi_cost": 9.0},
+        ],
+    )
     rollup = compute_daily_rollup(TODAY)
     from backend.common.llm_pricing import cost_from_usage
-    expected_llm = float(cost_from_usage(
-        "claude-haiku-4", {"input_tokens": 1_000_000, "output_tokens": 0},
-    ))
+
+    expected_llm = float(
+        cost_from_usage(
+            "claude-haiku-4",
+            {"input_tokens": 1_000_000, "output_tokens": 0},
+        )
+    )
     assert expected_llm > 0
     assert rollup.cost_usd == pytest.approx(round(expected_llm, 4) + 0.42, abs=1e-6)
     assert rollup.by_workcell["strategy"]["cost_usd"] == pytest.approx(round(expected_llm, 4))
@@ -161,9 +191,12 @@ def test_costs_from_llm_budget_and_voice_ledger(roi_env):
 
 def test_net_is_revenue_minus_cost(roi_env):
     _write_jsonl(roi_env.stripe, [_stripe_row("evt_1", 100.0)])
-    _write_jsonl(roi_env.voice, [
-        {"kind": "end_of_call", "ts": f"{TODAY}T11:00:00Z", "vapi_cost": 10.0},
-    ])
+    _write_jsonl(
+        roi_env.voice,
+        [
+            {"kind": "end_of_call", "ts": f"{TODAY}T11:00:00Z", "vapi_cost": 10.0},
+        ],
+    )
     rollup = compute_daily_rollup(TODAY)
     assert rollup.revenue_usd == pytest.approx(100.0)
     assert rollup.cost_usd == pytest.approx(10.0)
@@ -173,6 +206,7 @@ def test_net_is_revenue_minus_cost(roi_env):
 # ---------------------------------------------------------------------------
 # Unified event stream (post-merge behaviour, via a fake business_events)
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture()
 def fake_events_module(monkeypatch):
@@ -185,8 +219,9 @@ def fake_events_module(monkeypatch):
         mod._events.append(ev)  # type: ignore[attr-defined]
         return ev
 
-    def read_events(prospect_id=None, opportunity_id=None, since=None,
-                    event_types=None, limit=1000):
+    def read_events(
+        prospect_id=None, opportunity_id=None, since=None, event_types=None, limit=1000
+    ):
         out = []
         for ev in mod._events:  # type: ignore[attr-defined]
             if prospect_id and ev.get("prospect_id") != prospect_id:
@@ -205,10 +240,14 @@ def fake_events_module(monkeypatch):
 def test_multitouch_splits_across_journey_workcells(roi_env, fake_events_module):
     # Journey: prospecting -> outreach -> voice touched p_1.
     for wc in ("prospecting", "outreach", "voice"):
-        fake_events_module._events.append({
-            "event_type": "email.sent", "workcell": wc, "prospect_id": "p_1",
-            "ts": f"{TODAY}T08:00:00Z",
-        })
+        fake_events_module._events.append(
+            {
+                "event_type": "email.sent",
+                "workcell": wc,
+                "prospect_id": "p_1",
+                "ts": f"{TODAY}T08:00:00Z",
+            }
+        )
     _write_jsonl(roi_env.conv, [_conv_row("evt_1", "p_1", 300.0)])
     rollup = compute_daily_rollup(TODAY)
     assert rollup.events_stream_available is True
@@ -218,21 +257,29 @@ def test_multitouch_splits_across_journey_workcells(roi_env, fake_events_module)
 
 
 def test_event_stream_payment_and_costs_counted_with_dims(roi_env, fake_events_module):
-    fake_events_module._events.extend([
-        {
-            "event_type": "payment.received", "workcell": "finance",
-            "prospect_id": "p_9", "ts": f"{TODAY}T12:00:00Z",
-            "revenue_usd": 250.0, "campaign_id": "camp_1",
-            "variant_arm_id": "subject::v3",
-            "metadata": {"channel": "email", "lead_source": "campaign"},
-        },
-        {
-            "event_type": "email.sent", "workcell": "outreach",
-            "prospect_id": "p_9", "ts": f"{TODAY}T07:00:00Z",
-            "cost_usd": 0.10, "campaign_id": "camp_1",
-            "metadata": {"channel": "email"},
-        },
-    ])
+    fake_events_module._events.extend(
+        [
+            {
+                "event_type": "payment.received",
+                "workcell": "finance",
+                "prospect_id": "p_9",
+                "ts": f"{TODAY}T12:00:00Z",
+                "revenue_usd": 250.0,
+                "campaign_id": "camp_1",
+                "variant_arm_id": "subject::v3",
+                "metadata": {"channel": "email", "lead_source": "campaign"},
+            },
+            {
+                "event_type": "email.sent",
+                "workcell": "outreach",
+                "prospect_id": "p_9",
+                "ts": f"{TODAY}T07:00:00Z",
+                "cost_usd": 0.10,
+                "campaign_id": "camp_1",
+                "metadata": {"channel": "email"},
+            },
+        ]
+    )
     rollup = compute_daily_rollup(TODAY)
     assert rollup.revenue_usd == pytest.approx(250.0)
     assert rollup.by_campaign["camp_1"]["revenue_usd"] == pytest.approx(250.0)
@@ -244,6 +291,7 @@ def test_event_stream_payment_and_costs_counted_with_dims(roi_env, fake_events_m
 # ---------------------------------------------------------------------------
 # Persistence + nightly entry point
 # ---------------------------------------------------------------------------
+
 
 def test_save_and_load_rollup_round_trip(roi_env):
     rollup = compute_daily_rollup(TODAY)
@@ -269,9 +317,7 @@ def test_get_rollup_serves_stored_historical_day(roi_env):
 
 
 def test_run_nightly_rollup_defaults_to_yesterday_and_persists(roi_env):
-    yesterday = (
-        _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(days=1)
-    ).strftime("%Y-%m-%d")
+    yesterday = (_dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(days=1)).strftime("%Y-%m-%d")
     _write_jsonl(roi_env.stripe, [_stripe_row("evt_y", 99.0, day=yesterday)])
     rollup = run_nightly_rollup()
     assert rollup.day == yesterday
@@ -281,8 +327,7 @@ def test_run_nightly_rollup_defaults_to_yesterday_and_persists(roi_env):
 
 def test_run_nightly_rollup_emits_business_event(roi_env, fake_events_module):
     run_nightly_rollup(day=TODAY)
-    decisions = [e for e in fake_events_module._events
-                 if e["event_type"] == "decision.made"]
+    decisions = [e for e in fake_events_module._events if e["event_type"] == "decision.made"]
     assert len(decisions) == 1
     assert decisions[0]["metadata"]["decision_kind"] == "roi_nightly_rollup"
 
@@ -290,6 +335,7 @@ def test_run_nightly_rollup_emits_business_event(roi_env, fake_events_module):
 # ---------------------------------------------------------------------------
 # Gateway route registration (one line in gateway/app.py binds these)
 # ---------------------------------------------------------------------------
+
 
 def test_admin_routes_serve_roi_and_arbitration(roi_env, monkeypatch, tmp_path):
     from fastapi import FastAPI

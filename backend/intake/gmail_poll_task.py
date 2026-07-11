@@ -41,6 +41,7 @@ The Poll-Inbox.ps1 host script stays checked in through the transition
 window as an explicit manual trigger; once the container loop has proven
 itself for a week the script + the disabled Windows task can be removed.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -90,6 +91,7 @@ def _run_drain_pass() -> dict[str, Any]:
     but we still wrap in case a downstream import raises at first use."""
     try:
         from backend.intake.gmail_poller import drain_once
+
         result = drain_once()
         return {
             "enabled": bool(result.enabled),
@@ -132,8 +134,10 @@ async def _gmail_poll_loop(interval: float) -> None:
                     _LOG.info(
                         "gmail_poll tick: fetched=%d processed=%d "
                         "duplicates=%d failed=%d connect_error=%r",
-                        summary["fetched"], summary["processed"],
-                        summary["duplicates"], summary["failed"],
+                        summary["fetched"],
+                        summary["processed"],
+                        summary["duplicates"],
+                        summary["failed"],
                         summary["connect_error"],
                     )
                 else:
@@ -167,7 +171,8 @@ async def start_gmail_poll_loop(app: Any) -> Optional[asyncio.Task]:
         return existing
     interval = _float_env(ENV_INTERVAL, _DEFAULT_INTERVAL_SEC)
     task = asyncio.create_task(
-        _gmail_poll_loop(interval), name="samus.gmail_poll_loop",
+        _gmail_poll_loop(interval),
+        name="samus.gmail_poll_loop",
     )
     app.state.gmail_poll_task = task
     _LOG.info("gmail_poll loop started (interval=%.0fs)", interval)

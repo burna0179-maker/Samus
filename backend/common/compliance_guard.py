@@ -43,6 +43,7 @@ This module is pure + deterministic except a single fail-open suppression read
 (``backend.common.suppression.is_email_suppressed``). ``evaluate`` never raises
 on normal input; mode handling (block vs. log) is the caller's responsibility.
 """
+
 from __future__ import annotations
 
 import logging
@@ -95,8 +96,8 @@ class ComplianceVerdict:
     ok: bool
     kind: str
     score: float
-    reasons: tuple[str, ...] = ()       # hard-block reasons (drive ok=False)
-    warnings: tuple[str, ...] = ()      # soft reasons (score penalty only)
+    reasons: tuple[str, ...] = ()  # hard-block reasons (drive ok=False)
+    warnings: tuple[str, ...] = ()  # soft reasons (score penalty only)
     headers: dict[str, str] = field(default_factory=dict)  # List-Unsubscribe to inject
 
     def to_dict(self) -> dict:

@@ -31,6 +31,7 @@ Why pure httpx: mirrors the StripeClient pattern in finance/. The Google
 SDK pulls ~10MB and adds a threading/retry machinery we don't need for
 three GET/POSTs per drain pass.
 """
+
 from __future__ import annotations
 
 import base64
@@ -64,12 +65,14 @@ class GmailApiError(Exception):
 # Persisted-token JSON
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class GmailOauthToken:
     """The shape persisted at gmail_oauth_token_path."""
+
     refresh_token: str
     access_token: str = ""
-    expires_at: int = 0                # unix epoch seconds
+    expires_at: int = 0  # unix epoch seconds
     scope: str = ""
 
     @classmethod
@@ -99,12 +102,15 @@ class GmailOauthToken:
         happens you'll see auth errors and need to re-mint via
         Authorize-Gmail.ps1 + re-upload to Secret Manager).
         """
-        body = json.dumps({
-            "refresh_token": self.refresh_token,
-            "access_token": self.access_token,
-            "expires_at": int(self.expires_at),
-            "scope": self.scope,
-        }, indent=2)
+        body = json.dumps(
+            {
+                "refresh_token": self.refresh_token,
+                "access_token": self.access_token,
+                "expires_at": int(self.expires_at),
+                "scope": self.scope,
+            },
+            indent=2,
+        )
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
             # The file holds a long-lived Gmail refresh_token — create it
@@ -116,7 +122,8 @@ class GmailOauthToken:
                 fh.write(body)
         except OSError as exc:
             _LOG.info(
-                "gmail oauth token persist skipped (read-only fs?): %s", exc,
+                "gmail oauth token persist skipped (read-only fs?): %s",
+                exc,
             )
             return None
         return path
@@ -132,6 +139,7 @@ class GmailOauthToken:
 # ---------------------------------------------------------------------------
 # Low-level OAuth refresh (POST /token)
 # ---------------------------------------------------------------------------
+
 
 def refresh_access_token(
     *,
@@ -172,8 +180,7 @@ def refresh_access_token(
         except ValueError:
             err = {"error_description": resp.text[:200]}
         raise GmailApiError(
-            f"oauth_http_{resp.status_code}: "
-            f"{err.get('error')}: {err.get('error_description')}"
+            f"oauth_http_{resp.status_code}: {err.get('error')}: {err.get('error_description')}"
         )
     try:
         body = resp.json()
@@ -187,6 +194,7 @@ def refresh_access_token(
 # ---------------------------------------------------------------------------
 # Gmail API client (drop-in replacement for the IMAP client surface)
 # ---------------------------------------------------------------------------
+
 
 class GmailApiClient:
     """One-pass Gmail API client built around a persisted refresh token.
@@ -278,8 +286,11 @@ class GmailApiClient:
         try:
             with httpx.Client(timeout=self._timeout) as client:
                 resp = client.request(
-                    method, url, headers=headers,
-                    params=params or {}, json=json_body,
+                    method,
+                    url,
+                    headers=headers,
+                    params=params or {},
+                    json=json_body,
                 )
         except httpx.HTTPError as exc:
             raise GmailApiError(f"gmail_transport_error: {exc}") from exc
@@ -288,7 +299,10 @@ class GmailApiClient:
             # Access token rejected; force a refresh + one retry.
             self._refresh_now()
             return self._authed_request(
-                method, path, params=params, json_body=json_body,
+                method,
+                path,
+                params=params,
+                json_body=json_body,
                 retry_on_401=False,
             )
         if resp.status_code >= 400:
@@ -297,8 +311,7 @@ class GmailApiClient:
             except ValueError:
                 err = {}
             raise GmailApiError(
-                f"gmail_http_{resp.status_code}: "
-                f"{err.get('message') or resp.text[:200]}",
+                f"gmail_http_{resp.status_code}: {err.get('message') or resp.text[:200]}",
             )
         try:
             return resp.json() if resp.content else {}

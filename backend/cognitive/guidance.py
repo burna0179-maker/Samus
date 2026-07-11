@@ -42,6 +42,7 @@ Design properties, mirrored from the proposal-promoter ledger conventions:
     Acceptance and execution are deliberate downstream transitions. This module
     touches no effector, no send path, no cash engine.
 """
+
 from __future__ import annotations
 
 import json
@@ -227,9 +228,13 @@ def _derive_tier(expected_impact: str, risk_level: str) -> int:
     if expected_impact == "high":
         return GuidanceTier.CRITICAL.value
     if expected_impact == "medium":
-        return GuidanceTier.CRITICAL.value if risk_level == "high" else GuidanceTier.HIGH_VALUE.value
+        return (
+            GuidanceTier.CRITICAL.value if risk_level == "high" else GuidanceTier.HIGH_VALUE.value
+        )
     # low impact
-    return GuidanceTier.HIGH_VALUE.value if risk_level == "high" else GuidanceTier.INFORMATIONAL.value
+    return (
+        GuidanceTier.HIGH_VALUE.value if risk_level == "high" else GuidanceTier.INFORMATIONAL.value
+    )
 
 
 def _acceptance_hint(feasibility: str, risk_level: str) -> str:
@@ -366,8 +371,7 @@ class GuidanceLedger:
         try:
             self._resolve().append(record.to_dict())
         except Exception as exc:  # noqa: BLE001 — persistence is best-effort
-            log.warning("guidance ledger append failed for %s: %s",
-                        record.recommendation_id, exc)
+            log.warning("guidance ledger append failed for %s: %s", record.recommendation_id, exc)
         return record
 
     # ---- reads ---------------------------------------------------------
@@ -414,8 +418,11 @@ class GuidanceLedger:
             try:
                 out.append(GuidanceRecord.from_dict(r))
             except Exception as exc:  # noqa: BLE001 — one poison row is not fatal
-                log.warning("guidance: skipping malformed ledger row %s: %s",
-                            r.get("recommendation_id"), exc)
+                log.warning(
+                    "guidance: skipping malformed ledger row %s: %s",
+                    r.get("recommendation_id"),
+                    exc,
+                )
         return out
 
     def get(self, recommendation_id: str) -> Optional[GuidanceRecord]:
@@ -451,25 +458,34 @@ class GuidanceLedger:
             setattr(rec, key, val)
         return self.append(rec)
 
-    def accept(self, recommendation_id: str, *, action_plan: Optional[List[str]] = None) -> Optional[GuidanceRecord]:
+    def accept(
+        self, recommendation_id: str, *, action_plan: Optional[List[str]] = None
+    ) -> Optional[GuidanceRecord]:
         """Accept a recommendation -> ACCEPTED (optionally refine the plan)."""
         return self._transition(
-            recommendation_id, GuidanceStatus.ACCEPTED,
+            recommendation_id,
+            GuidanceStatus.ACCEPTED,
             action_plan=(action_plan if action_plan is not None else _UNSET),
         )
 
-    def reject(self, recommendation_id: str, *, reason: Optional[str] = None) -> Optional[GuidanceRecord]:
+    def reject(
+        self, recommendation_id: str, *, reason: Optional[str] = None
+    ) -> Optional[GuidanceRecord]:
         return self._transition(
-            recommendation_id, GuidanceStatus.REJECTED,
+            recommendation_id,
+            GuidanceStatus.REJECTED,
             outcome=(f"rejected: {reason}" if reason else "rejected"),
         )
 
     def start(self, recommendation_id: str) -> Optional[GuidanceRecord]:
         return self._transition(recommendation_id, GuidanceStatus.IN_PROGRESS)
 
-    def abandon(self, recommendation_id: str, *, reason: Optional[str] = None) -> Optional[GuidanceRecord]:
+    def abandon(
+        self, recommendation_id: str, *, reason: Optional[str] = None
+    ) -> Optional[GuidanceRecord]:
         return self._transition(
-            recommendation_id, GuidanceStatus.ABANDONED,
+            recommendation_id,
+            GuidanceStatus.ABANDONED,
             outcome=(f"abandoned: {reason}" if reason else "abandoned"),
         )
 
@@ -502,7 +518,9 @@ class GuidanceLedger:
             impact_actual=(coerce_level(impact_actual) if impact_actual else _UNSET),
             success_score=score,
             lessons_learned=(lessons_learned if lessons_learned is not None else _UNSET),
-            implemented_actions=(implemented_actions if implemented_actions is not None else _UNSET),
+            implemented_actions=(
+                implemented_actions if implemented_actions is not None else _UNSET
+            ),
         )
 
     # ---- aggregate -----------------------------------------------------
@@ -568,6 +586,7 @@ class GuidanceLedger:
             return 0
         try:
             import json as _json
+
             tmp = path.with_name(path.name + ".compact.tmp")
             with tmp.open("w", encoding="utf-8") as fh:
                 for row in kept:
@@ -610,11 +629,7 @@ def ingest_guidance(
     seen: set[str] = set()
     if dedup:
         try:
-            seen = {
-                _norm_rec_text(r.recommendation)
-                for r in led.open_items()
-                if r.recommendation
-            }
+            seen = {_norm_rec_text(r.recommendation) for r in led.open_items() if r.recommendation}
         except Exception as exc:  # noqa: BLE001 — dedup is best-effort, never fatal
             log.warning("guidance ingest: dedup preload failed (%s); proceeding", exc)
             seen = set()
@@ -637,8 +652,9 @@ def ingest_guidance(
             seen.add(key)
         led.append(rec)
         created.append(rec)
-    log.info("guidance ingest: briefing=%s ingested=%d deduped=%d",
-             briefing_id, len(created), skipped)
+    log.info(
+        "guidance ingest: briefing=%s ingested=%d deduped=%d", briefing_id, len(created), skipped
+    )
     return created
 
 

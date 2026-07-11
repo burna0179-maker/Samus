@@ -1,9 +1,9 @@
 """Tests for the SEO customer-facing markdown report."""
+
 from __future__ import annotations
 
 import json
 
-import httpx
 
 from backend.seo.models import (
     AuditResult,
@@ -32,28 +32,49 @@ from tests.test_seo_deeper import (  # type: ignore[import-untyped]
 # Synthetic fixtures
 # ---------------------------------------------------------------------------
 
+
 def _five_issue_audit() -> AuditResult:
     # G6 evidence_source tags: every finding here is detected by a
     # deterministic HTML/meta parser, so each is tagged with crawled_html
     # or crawled_meta. None are LLM-inferred. Without tags the G6
     # serialization filter would drop them.
     issues = [
-        SeoIssue(id="mixed_content", severity="critical", category="technical",
-                 message="HTTPS page loads HTTP sub-resources (mixed content).",
-                 evidence="http://x.example/a.png",
-                 evidence_source="crawled_html"),
-        SeoIssue(id="noindex_directive", severity="critical", category="technical",
-                 message="Page explicitly opts out of indexing (noindex).",
-                 evidence_source="crawled_meta"),
-        SeoIssue(id="missing_title", severity="high", category="content",
-                 message="Page is missing a <title> tag.",
-                 evidence_source="crawled_meta"),
-        SeoIssue(id="missing_h1", severity="high", category="content",
-                 message="Page has no <h1> heading.",
-                 evidence_source="crawled_html"),
-        SeoIssue(id="missing_local_signals", severity="medium", category="local",
-                 message="Page has no visible phone or address tokens.",
-                 evidence_source="crawled_html"),
+        SeoIssue(
+            id="mixed_content",
+            severity="critical",
+            category="technical",
+            message="HTTPS page loads HTTP sub-resources (mixed content).",
+            evidence="http://x.example/a.png",
+            evidence_source="crawled_html",
+        ),
+        SeoIssue(
+            id="noindex_directive",
+            severity="critical",
+            category="technical",
+            message="Page explicitly opts out of indexing (noindex).",
+            evidence_source="crawled_meta",
+        ),
+        SeoIssue(
+            id="missing_title",
+            severity="high",
+            category="content",
+            message="Page is missing a <title> tag.",
+            evidence_source="crawled_meta",
+        ),
+        SeoIssue(
+            id="missing_h1",
+            severity="high",
+            category="content",
+            message="Page has no <h1> heading.",
+            evidence_source="crawled_html",
+        ),
+        SeoIssue(
+            id="missing_local_signals",
+            severity="medium",
+            category="local",
+            message="Page has no visible phone or address tokens.",
+            evidence_source="crawled_html",
+        ),
     ]
     return AuditResult(
         url="https://acme.example.com",
@@ -67,16 +88,22 @@ def _five_issue_audit() -> AuditResult:
 def _matching_optimize(audit: AuditResult) -> OptimizeResult:
     recs = [
         OptimizationRecommendation(
-            area="technical", action="Migrate HTTP sub-resources to HTTPS",
-            rationale="Mixed content blocks indexing.", priority=5,
+            area="technical",
+            action="Migrate HTTP sub-resources to HTTPS",
+            rationale="Mixed content blocks indexing.",
+            priority=5,
         ),
         OptimizationRecommendation(
-            area="title", action="Add a <title> tag with the primary keyword",
-            rationale="Title tags are the highest-impact on-page signal.", priority=4,
+            area="title",
+            action="Add a <title> tag with the primary keyword",
+            rationale="Title tags are the highest-impact on-page signal.",
+            priority=4,
         ),
         OptimizationRecommendation(
-            area="local", action="Add visible phone number and street address",
-            rationale="Local pack ranking requires NAP signals.", priority=3,
+            area="local",
+            action="Add visible phone number and street address",
+            rationale="Local pack ranking requires NAP signals.",
+            priority=3,
         ),
     ]
     on_page = {
@@ -84,7 +111,9 @@ def _matching_optimize(audit: AuditResult) -> OptimizeResult:
         "h1": "Plumbing Yuba You Can Trust",
     }
     return OptimizeResult(
-        url=audit.url, recommendations=recs, on_page_changes=on_page,
+        url=audit.url,
+        recommendations=recs,
+        on_page_changes=on_page,
         ts="2026-05-15T00:00:00Z",
     )
 
@@ -109,6 +138,7 @@ def _full_content() -> ContentResult:
 # ---------------------------------------------------------------------------
 # Rendering tests
 # ---------------------------------------------------------------------------
+
 
 def test_render_with_bad_audit_includes_all_issues():
     audit = _five_issue_audit()
@@ -154,8 +184,10 @@ def test_render_with_content_includes_drafts():
 
 
 def test_customer_slug_from_url_examples():
-    assert customer_slug_from_url("https://www.acme-plumbing.example.com/") == \
-        "acme-plumbing_example_com"
+    assert (
+        customer_slug_from_url("https://www.acme-plumbing.example.com/")
+        == "acme-plumbing_example_com"
+    )
     assert customer_slug_from_url("http://yuba-pizza.com") == "yuba-pizza_com"
     assert customer_slug_from_url("https://ACME.COM/foo?bar=1") == "acme_com"
     # Edge cases: hostnameless input should not crash.
@@ -198,8 +230,10 @@ def _audit_with_security() -> AuditResult:
         "checks_run": ["security_headers"],
         "findings": [
             SecurityFinding(
-                id="missing_content_security_policy", severity="medium",
-                category="headers", title="No Content-Security-Policy header",
+                id="missing_content_security_policy",
+                severity="medium",
+                category="headers",
+                title="No Content-Security-Policy header",
                 evidence="Content-Security-Policy header absent",
                 risk="injected scripts run freely",
                 remediation="Add a Content-Security-Policy header.",
@@ -207,9 +241,13 @@ def _audit_with_security() -> AuditResult:
                 client_impact="Your site has no safety net for a bad script.",
             ).model_dump(),
             SecurityFinding(
-                id="tls_certificate_valid", severity="info", category="tls",
-                title="TLS certificate valid", evidence="expires 2027-01-01",
-                risk="", remediation="No action required.",
+                id="tls_certificate_valid",
+                severity="info",
+                category="tls",
+                title="TLS certificate valid",
+                evidence="expires 2027-01-01",
+                risk="",
+                remediation="No action required.",
                 client_headline="Your secure-connection certificate is healthy",
                 client_impact="Visitors see the padlock and browsers trust you.",
             ).model_dump(),
@@ -257,6 +295,7 @@ def test_write_seo_report_skips_technical_when_no_security_audit(tmp_path, monke
 # Service-level / pipeline test
 # ---------------------------------------------------------------------------
 
+
 def test_audit_and_report_full_pipeline(tmp_path, monkeypatch):
     _reset_idempotency(monkeypatch)
     _patch_audit_fetch(monkeypatch, _BAD_HTML)
@@ -277,14 +316,14 @@ def test_audit_and_report_full_pipeline(tmp_path, monkeypatch):
         anthropic_api_key = "stub-key"
 
     import backend.seo.service as svc_mod
+
     monkeypatch.setattr(svc_mod, "get_settings", lambda: _StubSettings())
 
     from backend.seo.models import AuditRequest
     from backend.seo.service import audit_and_report
 
     result = audit_and_report(
-        AuditRequest(url="https://e2e.example.com",
-                     keywords=["plumbing"], industry="plumbing"),
+        AuditRequest(url="https://e2e.example.com", keywords=["plumbing"], industry="plumbing"),
         target_keywords=["plumbing"],
     )
 
@@ -293,6 +332,7 @@ def test_audit_and_report_full_pipeline(tmp_path, monkeypatch):
     assert result["customer_slug"] == "e2e_example_com"
 
     from pathlib import Path
+
     p = Path(result["report_path"])
     assert p.exists()
     assert p.stat().st_size > 0
@@ -301,8 +341,7 @@ def test_audit_and_report_full_pipeline(tmp_path, monkeypatch):
     assert "Plumbing You Can Trust" in text  # LLM-generated h1 ends up in drafts
     # Idempotency: a second call returns cached dict.
     result2 = audit_and_report(
-        AuditRequest(url="https://e2e.example.com",
-                     keywords=["plumbing"], industry="plumbing"),
+        AuditRequest(url="https://e2e.example.com", keywords=["plumbing"], industry="plumbing"),
         target_keywords=["plumbing"],
     )
     assert result2 == result
@@ -319,18 +358,23 @@ def test_app_endpoint_audit_and_report(tmp_path, monkeypatch):
         anthropic_api_key = ""
 
     import backend.seo.service as svc_mod
+
     monkeypatch.setattr(svc_mod, "get_settings", lambda: _StubSettings())
 
     from fastapi.testclient import TestClient
     from backend.seo.app import app
+
     client = TestClient(app)
-    r = client.post("/audit_and_report", json={
-        "url": "https://endpoint.example.com",
-        "keywords": ["plumbing"],
-        "industry": "plumbing",
-        "target_keywords": ["plumbing"],
-        "tone": "professional",
-    })
+    r = client.post(
+        "/audit_and_report",
+        json={
+            "url": "https://endpoint.example.com",
+            "keywords": ["plumbing"],
+            "industry": "plumbing",
+            "target_keywords": ["plumbing"],
+            "tone": "professional",
+        },
+    )
     assert r.status_code == 200, r.text
     body = r.json()
     for key in ("audit", "optimize", "content", "report_path", "customer_slug"):
@@ -338,4 +382,5 @@ def test_app_endpoint_audit_and_report(tmp_path, monkeypatch):
     assert body["customer_slug"] == "endpoint_example_com"
 
     from pathlib import Path
+
     assert Path(body["report_path"]).exists()

@@ -18,6 +18,7 @@ operator decision to demand proof-of-human; silently waving requests through
 on a verification outage would defeat that decision. This only triggers when
 a secret is set, so it never blocks the default (CAPTCHA-off) deployment.
 """
+
 from __future__ import annotations
 
 import logging
@@ -44,6 +45,7 @@ class CaptchaResult:
     ``detail`` carries a short machine-readable reason on failure for the
     HTTP 400 body + logs.
     """
+
     ok: bool
     detail: str = ""
 
@@ -86,10 +88,12 @@ def verify_captcha(token: str, *, source_ip: str = "") -> CaptchaResult:
 
     if resp.status_code != 200:
         _LOG.warning(
-            "intake captcha verify non-200 (%s) — rejecting", resp.status_code,
+            "intake captcha verify non-200 (%s) — rejecting",
+            resp.status_code,
         )
         return CaptchaResult(
-            ok=False, detail=f"captcha_verify_http_{resp.status_code}",
+            ok=False,
+            detail=f"captcha_verify_http_{resp.status_code}",
         )
 
     try:
@@ -106,7 +110,7 @@ def verify_captcha(token: str, *, source_ip: str = "") -> CaptchaResult:
         return CaptchaResult(
             ok=False,
             detail="captcha_verification_failed: "
-                   + (",".join(str(c) for c in codes) or "no_success"),
+            + (",".join(str(c) for c in codes) or "no_success"),
         )
 
     return CaptchaResult(ok=True)

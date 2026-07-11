@@ -7,6 +7,7 @@ Prior shell exported task-lifecycle helpers (``start/processing/completed/failed
 that wrapped DynamoDB writes. Those move into ``aws_runtime`` / ``dynamodb`` as
 direct calls; this module is now the ephemeral StateBackend ABC.
 """
+
 from __future__ import annotations
 
 import os

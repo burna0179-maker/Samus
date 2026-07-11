@@ -41,6 +41,7 @@ The store is injectable: ``portfolio_manager`` reaches it through
 ``get_default_store()`` and tests swap it via ``set_default_store()``, so the
 pure-logic bandit functions stay unit-testable without a hard DDB import.
 """
+
 from __future__ import annotations
 
 import json
@@ -77,6 +78,7 @@ _DEFAULT_CACHE_TTL_SEC: float = 5.0
 # Data structure
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class BanditArm:
     """In-memory shape of one arm's row. Mirrors the DDB schema.
@@ -110,6 +112,7 @@ class BanditArm:
 # ---------------------------------------------------------------------------
 # Storage backends
 # ---------------------------------------------------------------------------
+
 
 class _JsonBanditBackend:
     """Local JSON-file backend. Process-local lock; atomic rename on save.
@@ -198,6 +201,7 @@ class _DdbBanditBackend:
 
     def _table(self) -> Any:
         from backend.common import aws  # local import so JSON fallback works without boto3
+
         return aws.table(self.table_name, self.region)
 
     def read_all(self) -> dict[str, BanditArm] | None:
@@ -246,6 +250,7 @@ class _DdbBanditBackend:
 # Store (public API)
 # ---------------------------------------------------------------------------
 
+
 class BanditStore:
     """Durable bandit store. DDB primary, JSON fallback, never raises.
 
@@ -273,7 +278,8 @@ class BanditStore:
         # when the caller passed nothing (None).
         if ddb_table is None:
             self._ddb_table = os.environ.get(
-                "DDB_STRATEGY_BANDIT_TABLE", _DEFAULT_DDB_TABLE,
+                "DDB_STRATEGY_BANDIT_TABLE",
+                _DEFAULT_DDB_TABLE,
             )
         else:
             self._ddb_table = ddb_table
@@ -303,8 +309,7 @@ class BanditStore:
         now = self._now()
         with self._lock:
             if self._cache is not None and (now - self._cache_at) < self._cache_ttl:
-                return {k: BanditArm(v.arm_id, v.wins, v.trials)
-                        for k, v in self._cache.items()}
+                return {k: BanditArm(v.arm_id, v.wins, v.trials) for k, v in self._cache.items()}
 
         arms: dict[str, BanditArm] | None = None
         try:
@@ -317,8 +322,7 @@ class BanditStore:
             arms = {}
 
         with self._lock:
-            self._cache = {k: BanditArm(v.arm_id, v.wins, v.trials)
-                           for k, v in arms.items()}
+            self._cache = {k: BanditArm(v.arm_id, v.wins, v.trials) for k, v in arms.items()}
             self._cache_at = self._now()
         return arms
 
@@ -364,6 +368,7 @@ class BanditStore:
 # Settings-bound path + process-global accessor
 # ---------------------------------------------------------------------------
 
+
 def bandit_store_path() -> str:
     """JSON fallback path. ``SAMUS_STRATEGY_BANDIT_PATH`` overrides the default.
 
@@ -393,6 +398,7 @@ def get_default_store() -> BanditStore:
         region: str | None = None
         try:
             from backend.common.config import get_settings
+
             s = get_settings()
             # ``""`` (DDB disabled) is a meaningful value — pass it through as
             # the empty string so BanditStore disables DDB, rather than None

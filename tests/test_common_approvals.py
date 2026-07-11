@@ -1,4 +1,5 @@
 """HOTL approval queue (backend/common/approvals.py) — ADR-0019 semantics."""
+
 from __future__ import annotations
 
 import time
@@ -17,8 +18,9 @@ def _isolate(tmp_path, monkeypatch):
 
 
 def test_create_routine_low_risk():
-    row = mod.create_approval("stake_draft", {"opportunity_id": "o1"},
-                              risk_level="normal", ev_usd=1200.0, confidence=0.8)
+    row = mod.create_approval(
+        "stake_draft", {"opportunity_id": "o1"}, risk_level="normal", ev_usd=1200.0, confidence=0.8
+    )
     assert row["id"]
     assert row["status"] == "pending"
     assert row["severity"] == "routine"
@@ -85,6 +87,7 @@ def test_expired_rows_leave_pending_list():
     a = mod.create_approval("stake_draft", {}, ttl_seconds=1)
     b = mod.create_approval("stake_draft", {}, ttl_seconds=3600)
     import time as _t
+
     with pytest.MonkeyPatch.context() as mp:
         real = _t.time
         mp.setattr(mod.time, "time", lambda: real() + 5)

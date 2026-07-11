@@ -1,4 +1,5 @@
 """review_opportunity orchestration + the portfolio_controller decay sweep."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
@@ -42,7 +43,9 @@ class FakeCRM:
         return SimpleNamespace(opportunities=list(self._opps))
 
 
-def _opp(stake=VALID_STAKE, stage="proposal", age_days=30, opportunity_id="op-1", prospect_id="pr-1"):
+def _opp(
+    stake=VALID_STAKE, stage="proposal", age_days=30, opportunity_id="op-1", prospect_id="pr-1"
+):
     stamp = (NOW - timedelta(days=age_days)).strftime(FMT)
     return Opportunity(
         opportunity_id=opportunity_id,
@@ -65,6 +68,7 @@ def _req(**kw):
 # --------------------------------------------------------------------------
 # review_opportunity
 # --------------------------------------------------------------------------
+
 
 def test_clean_gate_enqueues_with_audit_stage():
     calls = []
@@ -90,7 +94,8 @@ def test_clean_gate_enqueues_with_audit_stage():
 def test_missing_stake_escalates_and_does_not_enqueue():
     calls = []
     res = review_opportunity(
-        _req(), crm=FakeCRM(opp=_opp(stake="")),
+        _req(),
+        crm=FakeCRM(opp=_opp(stake="")),
         enqueue=lambda **k: calls.append(k),
     )
     assert res.accepted is False
@@ -109,6 +114,7 @@ def test_no_opportunity_is_invalid():
 def test_disabled_engine_parks(monkeypatch):
     monkeypatch.setenv("SAMUS_CASH_ENGINE_ENABLED", "false")
     from backend.common.settings import reload_settings
+
     reload_settings()
 
     res = review_opportunity(_req(), crm=FakeCRM(opp=_opp()), enqueue=lambda **k: None)
@@ -118,7 +124,8 @@ def test_disabled_engine_parks(monkeypatch):
 
 def test_decay_risk_threads_into_result():
     res = review_opportunity(
-        _req(), crm=FakeCRM(opp=_opp()),
+        _req(),
+        crm=FakeCRM(opp=_opp()),
         enqueue=lambda **k: {"queue": "mock:test", "task_id": k["task_id"]},
         decay_risk=0.91,
     )
@@ -128,6 +135,7 @@ def test_decay_risk_threads_into_result():
 # --------------------------------------------------------------------------
 # decay_scan (signal_decay trigger)
 # --------------------------------------------------------------------------
+
 
 def test_decay_scan_fires_only_on_crossing_deals():
     opps = [
@@ -140,12 +148,17 @@ def test_decay_scan_fires_only_on_crossing_deals():
     def fake_review(req, *, crm=None, decay_risk=None):
         seen.append((req.prospect_id, req.trigger_source, decay_risk))
         return RevenueTriggerResult(
-            accepted=True, status="enqueued", prospect_id=req.prospect_id,
+            accepted=True,
+            status="enqueued",
+            prospect_id=req.prospect_id,
         )
 
     out = scan_for_decay_triggers(
-        crm=FakeCRM(opps=opps), review=fake_review,
-        now=NOW, threshold=0.6, stall_days=7,
+        crm=FakeCRM(opps=opps),
+        review=fake_review,
+        now=NOW,
+        threshold=0.6,
+        stall_days=7,
     )
     assert out.scanned == 3
     assert out.crossed == 1
@@ -159,6 +172,7 @@ def test_decay_scan_fires_only_on_crossing_deals():
 def test_decay_scan_noop_when_disabled(monkeypatch):
     monkeypatch.setenv("SAMUS_CASH_ENGINE_ENABLED", "false")
     from backend.common.settings import reload_settings
+
     reload_settings()
 
     called = []

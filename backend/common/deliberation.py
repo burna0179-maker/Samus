@@ -19,6 +19,7 @@ whether to ESCALATE to the ADR-0019 approval queue). Affordability is folded in
 via a read-only probe of the LLM budget store, so a broke workcell is downgraded
 rather than blocked. Nothing here calls an LLM.
 """
+
 from __future__ import annotations
 
 import os
@@ -26,17 +27,25 @@ from dataclasses import dataclass, field
 from typing import Any
 
 __all__ = [
-    "FAST", "STANDARD", "DEEP", "DEBATE", "ESCALATE",
-    "DEPTHS", "DeliberationDecision",
-    "deliberate", "decide_depth", "depth_to_max_tokens", "affordable_depth",
+    "FAST",
+    "STANDARD",
+    "DEEP",
+    "DEBATE",
+    "ESCALATE",
+    "DEPTHS",
+    "DeliberationDecision",
+    "deliberate",
+    "decide_depth",
+    "depth_to_max_tokens",
+    "affordable_depth",
 ]
 
 # --- the reasoning-depth ladder (ordinal: cheaper -> more expensive) ---------
-FAST = "fast"            # deterministic / single cheap shot
-STANDARD = "standard"    # one normal LLM pass
-DEEP = "deep"            # extended budget / self-consistency
-DEBATE = "debate"        # multi-model corroboration (e.g. triangulation)
-ESCALATE = "escalate"    # defer to a human (approval queue)
+FAST = "fast"  # deterministic / single cheap shot
+STANDARD = "standard"  # one normal LLM pass
+DEEP = "deep"  # extended budget / self-consistency
+DEBATE = "debate"  # multi-model corroboration (e.g. triangulation)
+ESCALATE = "escalate"  # defer to a human (approval queue)
 
 DEPTHS = (FAST, STANDARD, DEEP, DEBATE, ESCALATE)
 _RANK = {d: i for i, d in enumerate(DEPTHS)}
@@ -54,8 +63,8 @@ _ESCALATE_VALUE = 0.8
 _ESCALATE_REVERSIBILITY = 0.2
 _ESCALATE_UNCERTAINTY = 0.5
 # Urgency caps: under time pressure the slow paths are unaffordable.
-_URGENCY_CAP_HARD = 0.8   # -> at most STANDARD
-_URGENCY_CAP_SOFT = 0.6   # -> at most DEEP
+_URGENCY_CAP_HARD = 0.8  # -> at most STANDARD
+_URGENCY_CAP_SOFT = 0.6  # -> at most DEEP
 
 
 def _clamp01(x: float) -> float:
@@ -74,18 +83,21 @@ def _cap(depth: str, ceiling: str) -> str:
 @dataclass
 class DeliberationDecision:
     depth: str
-    score: float                 # the value-of-computation score
-    escalate: bool               # depth == ESCALATE (route to a human)
-    debate: bool                 # depth == DEBATE (multi-model corroboration)
-    max_tokens: int              # suggested token ceiling for this depth
+    score: float  # the value-of-computation score
+    escalate: bool  # depth == ESCALATE (route to a human)
+    debate: bool  # depth == DEBATE (multi-model corroboration)
+    max_tokens: int  # suggested token ceiling for this depth
     rationale: str
     inputs: dict[str, float] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "depth": self.depth, "score": round(self.score, 4),
-            "escalate": self.escalate, "debate": self.debate,
-            "max_tokens": self.max_tokens, "rationale": self.rationale,
+            "depth": self.depth,
+            "score": round(self.score, 4),
+            "escalate": self.escalate,
+            "debate": self.debate,
+            "max_tokens": self.max_tokens,
+            "rationale": self.rationale,
             "inputs": self.inputs,
         }
 
@@ -130,12 +142,17 @@ def decide_depth(
     # compute should auto-commit this.
     if (
         value >= _env_float("SAMUS_DELIB_ESCALATE_VALUE", _ESCALATE_VALUE)
-        and reversibility <= _env_float("SAMUS_DELIB_ESCALATE_REVERSIBILITY", _ESCALATE_REVERSIBILITY)
+        and reversibility
+        <= _env_float("SAMUS_DELIB_ESCALATE_REVERSIBILITY", _ESCALATE_REVERSIBILITY)
         and uncertainty >= _env_float("SAMUS_DELIB_ESCALATE_UNCERTAINTY", _ESCALATE_UNCERTAINTY)
     ):
-        return ESCALATE, score, (
-            f"escalate: high stakes (value={value:.2f}) + irreversible "
-            f"(reversibility={reversibility:.2f}) + uncertain ({uncertainty:.2f})"
+        return (
+            ESCALATE,
+            score,
+            (
+                f"escalate: high stakes (value={value:.2f}) + irreversible "
+                f"(reversibility={reversibility:.2f}) + uncertain ({uncertainty:.2f})"
+            ),
         )
 
     t_fast = _env_float("SAMUS_DELIB_T_FAST", _T_FAST)
@@ -213,7 +230,9 @@ def deliberate(
     ESCALATE — a human hand-off is the right answer when compute is unaffordable).
     """
     depth, score, rationale = decide_depth(
-        value=value, urgency=urgency, uncertainty=uncertainty,
+        value=value,
+        urgency=urgency,
+        uncertainty=uncertainty,
         reversibility=reversibility,
     )
     if workcell and depth != ESCALATE:
@@ -230,7 +249,9 @@ def deliberate(
         max_tokens=depth_to_max_tokens(depth, base_tokens),
         rationale=rationale,
         inputs={
-            "value": _clamp01(value), "urgency": _clamp01(urgency),
-            "uncertainty": _clamp01(uncertainty), "reversibility": _clamp01(reversibility),
+            "value": _clamp01(value),
+            "urgency": _clamp01(urgency),
+            "uncertainty": _clamp01(uncertainty),
+            "reversibility": _clamp01(reversibility),
         },
     )

@@ -1,4 +1,5 @@
 """Verify VapiClient.create_call forwards variable_values under assistantOverrides."""
+
 from __future__ import annotations
 
 import httpx
@@ -22,14 +23,21 @@ def _build_client(monkeypatch, *, capture: dict):
             return {"id": "call_1", "status": "queued"}
 
     class _Client:
-        def __init__(self, *a, **kw): pass
-        def __enter__(self): return self
-        def __exit__(self, *a): return False
+        def __init__(self, *a, **kw):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
         def request(self, method, url, headers=None, params=None, json=None):
             capture["body"] = json
             return _Resp()
 
     import backend.voice.client as mod
+
     monkeypatch.setattr(mod, "httpx", _FakeHttpx(_Client))
     return mod.VapiClient(api_key="k")
 
@@ -38,7 +46,8 @@ def test_create_call_forwards_variable_values_under_assistant_overrides(monkeypa
     cap: dict = {}
     client = _build_client(monkeypatch, capture=cap)
     client.create_call(
-        assistant_id="ast_x", phone_number_id="pn_y",
+        assistant_id="ast_x",
+        phone_number_id="pn_y",
         customer_number="+15305551234",
         customer_name="Acme",
         metadata={"prospect_id": "p1"},
@@ -58,7 +67,8 @@ def test_create_call_omits_assistant_overrides_when_no_variables(monkeypatch):
     cap: dict = {}
     client = _build_client(monkeypatch, capture=cap)
     client.create_call(
-        assistant_id="ast_x", phone_number_id="pn_y",
+        assistant_id="ast_x",
+        phone_number_id="pn_y",
         customer_number="+15305551234",
     )
     assert "assistantOverrides" not in cap["body"]
@@ -69,7 +79,8 @@ def test_create_call_forwards_voicemail_message(monkeypatch):
     cap: dict = {}
     client = _build_client(monkeypatch, capture=cap)
     client.create_call(
-        assistant_id="ast_x", phone_number_id="pn_y",
+        assistant_id="ast_x",
+        phone_number_id="pn_y",
         customer_number="+15305551234",
         voicemail_message="Hey, it's Morgan from HustleForge — sorry I missed you.",
     )
@@ -84,7 +95,8 @@ def test_create_call_forwards_variables_and_voicemail_together(monkeypatch):
     cap: dict = {}
     client = _build_client(monkeypatch, capture=cap)
     client.create_call(
-        assistant_id="ast_x", phone_number_id="pn_y",
+        assistant_id="ast_x",
+        phone_number_id="pn_y",
         customer_number="+15305551234",
         variable_values={"company_name": "Acme"},
         voicemail_message="prospect-specific voicemail",
@@ -99,7 +111,8 @@ def test_create_call_forwards_first_message(monkeypatch):
     cap: dict = {}
     client = _build_client(monkeypatch, capture=cap)
     client.create_call(
-        assistant_id="ast_x", phone_number_id="pn_y",
+        assistant_id="ast_x",
+        phone_number_id="pn_y",
         customer_number="+15305551234",
         first_message="Hey, is this Acme? Honestly, this is a cold call...",
     )
@@ -115,7 +128,8 @@ def test_create_call_omits_first_message_when_empty(monkeypatch):
     cap: dict = {}
     client = _build_client(monkeypatch, capture=cap)
     client.create_call(
-        assistant_id="ast_x", phone_number_id="pn_y",
+        assistant_id="ast_x",
+        phone_number_id="pn_y",
         customer_number="+15305551234",
         variable_values={"company_name": "Acme"},
         first_message=None,

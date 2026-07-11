@@ -1,4 +1,5 @@
 """Per-chat operator-console history in SQLite WAL (Samus)."""
+
 from __future__ import annotations
 
 import json
@@ -27,9 +28,13 @@ class StoredMessage:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "message_id": self.message_id, "chat_id": self.chat_id,
-            "turn": self.turn, "role": self.role, "content": self.content,
-            "metadata": dict(self.metadata), "created_at": self.created_at,
+            "message_id": self.message_id,
+            "chat_id": self.chat_id,
+            "turn": self.turn,
+            "role": self.role,
+            "content": self.content,
+            "metadata": dict(self.metadata),
+            "created_at": self.created_at,
         }
 
 
@@ -45,7 +50,9 @@ class StoredChat:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "chat_id": self.chat_id, "name": self.name, "persona_id": self.persona_id,
+            "chat_id": self.chat_id,
+            "name": self.name,
+            "persona_id": self.persona_id,
             "bag": self.bag.model_dump(),
             "spice_state": {
                 "category_id": self.spice_state.category_id,
@@ -53,7 +60,8 @@ class StoredChat:
                 "turn": self.spice_state.turn,
                 "current": self.spice_state.current,
             },
-            "created_at": self.created_at, "updated_at": self.updated_at,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
         }
 
 
@@ -89,7 +97,9 @@ class ConsoleHistory:
 
     def _open_and_init(self) -> None:
         self._conn = sqlite3.connect(
-            str(self._path), check_same_thread=False, isolation_level=None,
+            str(self._path),
+            check_same_thread=False,
+            isolation_level=None,
         )
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA journal_mode=WAL")
@@ -112,21 +122,32 @@ class ConsoleHistory:
             self._conn.execute(
                 "INSERT INTO chats(chat_id, name, persona_id, bag_json, spice_state, created_at, updated_at)"
                 " VALUES(?, ?, ?, ?, ?, ?, ?)",
-                (chat_id, name, persona_id,
-                 json.dumps(bag.model_dump(), sort_keys=True, separators=(",", ":")),
-                 json.dumps(_spice_to_dict(state), sort_keys=True, separators=(",", ":")),
-                 now, now),
+                (
+                    chat_id,
+                    name,
+                    persona_id,
+                    json.dumps(bag.model_dump(), sort_keys=True, separators=(",", ":")),
+                    json.dumps(_spice_to_dict(state), sort_keys=True, separators=(",", ":")),
+                    now,
+                    now,
+                ),
             )
         return StoredChat(
-            chat_id=chat_id, name=name, persona_id=persona_id, bag=bag,
-            spice_state=state, created_at=now, updated_at=now,
+            chat_id=chat_id,
+            name=name,
+            persona_id=persona_id,
+            bag=bag,
+            spice_state=state,
+            created_at=now,
+            updated_at=now,
         )
 
     def get_chat(self, chat_id):
         with self._lock:
             row = self._conn.execute(
                 "SELECT chat_id, name, persona_id, bag_json, spice_state, created_at, updated_at"
-                " FROM chats WHERE chat_id = ?", (chat_id,),
+                " FROM chats WHERE chat_id = ?",
+                (chat_id,),
             ).fetchone()
         return _row_to_chat(row)
 
@@ -141,18 +162,28 @@ class ConsoleHistory:
     def update_chat(self, chat):
         now = time.time()
         updated = StoredChat(
-            chat_id=chat.chat_id, name=chat.name, persona_id=chat.persona_id,
-            bag=chat.bag, spice_state=chat.spice_state,
-            created_at=chat.created_at, updated_at=now,
+            chat_id=chat.chat_id,
+            name=chat.name,
+            persona_id=chat.persona_id,
+            bag=chat.bag,
+            spice_state=chat.spice_state,
+            created_at=chat.created_at,
+            updated_at=now,
         )
         with self._lock:
             self._conn.execute(
                 "UPDATE chats SET name = ?, persona_id = ?, bag_json = ?, spice_state = ?, updated_at = ?"
                 " WHERE chat_id = ?",
-                (updated.name, updated.persona_id,
-                 json.dumps(updated.bag.model_dump(), sort_keys=True, separators=(",", ":")),
-                 json.dumps(_spice_to_dict(updated.spice_state), sort_keys=True, separators=(",", ":")),
-                 now, updated.chat_id),
+                (
+                    updated.name,
+                    updated.persona_id,
+                    json.dumps(updated.bag.model_dump(), sort_keys=True, separators=(",", ":")),
+                    json.dumps(
+                        _spice_to_dict(updated.spice_state), sort_keys=True, separators=(",", ":")
+                    ),
+                    now,
+                    updated.chat_id,
+                ),
             )
         return updated
 
@@ -171,14 +202,24 @@ class ConsoleHistory:
             cur = self._conn.execute(
                 "INSERT INTO messages(chat_id, turn, role, content, metadata, created_at)"
                 " VALUES(?, ?, ?, ?, ?, ?)",
-                (chat_id, turn, role, content,
-                 json.dumps(metadata or {}, sort_keys=True, separators=(",", ":")), now),
+                (
+                    chat_id,
+                    turn,
+                    role,
+                    content,
+                    json.dumps(metadata or {}, sort_keys=True, separators=(",", ":")),
+                    now,
+                ),
             )
             message_id = int(cur.lastrowid or 0)
         return StoredMessage(
-            message_id=message_id, chat_id=chat_id, turn=turn,
-            role=role, content=content,
-            metadata=dict(metadata or {}), created_at=now,
+            message_id=message_id,
+            chat_id=chat_id,
+            turn=turn,
+            role=role,
+            content=content,
+            metadata=dict(metadata or {}),
+            created_at=now,
         )
 
     def list_messages(self, chat_id, *, limit=None):

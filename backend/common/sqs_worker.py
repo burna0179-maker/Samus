@@ -1,4 +1,5 @@
 """Low-level SQS poll loop. Decoupled from worker_base for testability."""
+
 from __future__ import annotations
 
 import logging

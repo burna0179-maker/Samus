@@ -7,25 +7,29 @@ proposal has nothing worth packaging. The dispatch is a best-effort
 ``generate_assets`` TaskEnvelope at the gateway's ``/dispatch/scaffold``;
 ``signed_post_json_sync`` is stubbed so every test stays offline.
 """
+
 from __future__ import annotations
 
 
 def _reset_idempotency(monkeypatch):
     from backend.common.idempotency import IdempotencyStore
     import backend.common.idempotency as idem_mod
+
     fresh = IdempotencyStore()
     monkeypatch.setattr(idem_mod, "GLOBAL_IDEMPOTENCY_STORE", fresh)
     import backend.proposal.service as svc_mod
+
     monkeypatch.setattr(svc_mod, "GLOBAL_IDEMPOTENCY_STORE", fresh)
 
 
-def _stub_settings(monkeypatch, *, gateway_url="http://gateway.local",
-                   shared_hmac_key="secret"):
+def _stub_settings(monkeypatch, *, gateway_url="http://gateway.local", shared_hmac_key="secret"):
     class _S:
         gateway_urls = {"gateway": gateway_url} if gateway_url else {}
+
     s = _S()
     s.shared_hmac_key = shared_hmac_key
     import backend.proposal.service as svc
+
     monkeypatch.setattr(svc, "get_settings", lambda: s)
 
 
@@ -52,6 +56,7 @@ def _approved_intake():
     """An intake whose three wants all resolve to TEMPLATE_REGISTRY templates,
     so the compiled workflow validates -> status='approved'."""
     from backend.proposal.models import OnboardingIntake
+
     return OnboardingIntake(
         client_name="Acme HVAC",
         business_goal="route inbound leads into the CRM automatically",
@@ -65,6 +70,7 @@ def _empty_intake():
     """No wants -> empty workflow -> validation fails 'empty_workflow' ->
     status='needs_review' (the Unit P auto-draft path)."""
     from backend.proposal.models import OnboardingIntake
+
     return OnboardingIntake(
         client_name="Bare Co",
         business_goal="operator to detail the automation scope",
@@ -84,9 +90,13 @@ def test_approved_proposal_dispatches_proposal_pack(tmp_path, monkeypatch):
 
     from backend.proposal.models import ProposalRequest
     from backend.proposal.service import generate_proposal
-    result = generate_proposal(ProposalRequest(
-        task_id="t-appr", intake=_approved_intake(),
-    ))
+
+    result = generate_proposal(
+        ProposalRequest(
+            task_id="t-appr",
+            intake=_approved_intake(),
+        )
+    )
     assert result.status == "approved"
 
     scaffold = _scaffold_posts(posts)
@@ -112,9 +122,13 @@ def test_needs_review_proposal_does_not_dispatch_scaffold(tmp_path, monkeypatch)
 
     from backend.proposal.models import ProposalRequest
     from backend.proposal.service import generate_proposal
-    result = generate_proposal(ProposalRequest(
-        task_id="t-skel", intake=_empty_intake(),
-    ))
+
+    result = generate_proposal(
+        ProposalRequest(
+            task_id="t-skel",
+            intake=_empty_intake(),
+        )
+    )
     assert result.status == "needs_review"
     assert _scaffold_posts(posts) == []
 
@@ -128,12 +142,18 @@ def test_scaffold_payload_validates_as_scaffold_request(tmp_path, monkeypatch):
 
     from backend.proposal.models import ProposalRequest
     from backend.proposal.service import generate_proposal
-    generate_proposal(ProposalRequest(
-        task_id="t-val", intake=_approved_intake(), opportunity_id="op_acme",
-    ))
+
+    generate_proposal(
+        ProposalRequest(
+            task_id="t-val",
+            intake=_approved_intake(),
+            opportunity_id="op_acme",
+        )
+    )
     body = _scaffold_posts(posts)[0][2]["payload"]
 
     from backend.scaffold.models import ScaffoldRequest
+
     sr = ScaffoldRequest.model_validate(body)
     assert sr.asset_type == "proposal_pack"
     assert sr.inputs["opportunity_id"] == "op_acme"
@@ -148,9 +168,13 @@ def test_scaffold_dispatch_skipped_when_gateway_unset(tmp_path, monkeypatch):
 
     from backend.proposal.models import ProposalRequest
     from backend.proposal.service import generate_proposal
-    result = generate_proposal(ProposalRequest(
-        task_id="t-nourl", intake=_approved_intake(),
-    ))
+
+    result = generate_proposal(
+        ProposalRequest(
+            task_id="t-nourl",
+            intake=_approved_intake(),
+        )
+    )
     assert result.status == "approved"
     assert posts == []
 
@@ -165,11 +189,16 @@ def test_scaffold_dispatch_failure_does_not_break_generate(tmp_path, monkeypatch
 
     def _raising(*a, **k):
         raise RuntimeError("simulated gateway outage")
+
     monkeypatch.setattr(svc, "signed_post_json_sync", _raising)
 
     from backend.proposal.models import ProposalRequest
     from backend.proposal.service import generate_proposal
-    result = generate_proposal(ProposalRequest(
-        task_id="t-boom", intake=_approved_intake(),
-    ))
-    assert result.status == "approved"   # producer unaffected by the outage
+
+    result = generate_proposal(
+        ProposalRequest(
+            task_id="t-boom",
+            intake=_approved_intake(),
+        )
+    )
+    assert result.status == "approved"  # producer unaffected by the outage

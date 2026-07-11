@@ -4,6 +4,7 @@ When a target has no SQS queue configured, the gateway POSTs the envelope to
 ``{base_url}/work`` via the shared signed http client. Network / upstream
 failures are routed to the DLQ ledger and a 502 envelope is returned.
 """
+
 from __future__ import annotations
 
 import logging

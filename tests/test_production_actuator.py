@@ -3,6 +3,7 @@
 Routing is pure; orchestration runs with injected fakes so no real send/call
 fires. Central invariant (ADR-017): a prospect with no consent basis is NEVER
 live-dialed — it becomes a voicemail draft."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -16,8 +17,12 @@ from backend.cash_engine.production_actuator import (
     run_production,
 )
 
-_FENCES_PASS = {"within_call_hours": True, "cooldown_ok": True,
-                "under_daily_cap": True, "dnc_ok": True}
+_FENCES_PASS = {
+    "within_call_hours": True,
+    "cooldown_ok": True,
+    "under_daily_cap": True,
+    "dnc_ok": True,
+}
 
 _CODEX_DIR = Path(__file__).resolve().parents[1] / "docs" / "codex"
 
@@ -27,12 +32,14 @@ def _arm_governed_dial(monkeypatch):
     can reach the injected dial_fn (otherwise VR-G5 blocks before it)."""
     from backend.common.codex.registry import REGISTRY
     from backend.common.settings import reload_settings
+
     REGISTRY.load(_CODEX_DIR)
     monkeypatch.setenv("SAMUS_GOVERNED_AUTONOMOUS_DIAL_ENABLED", "true")
     reload_settings()
 
 
 # --- pure routing ------------------------------------------------------------
+
 
 def test_route_no_consent_is_voicemail_even_if_fenced():
     f = {**_FENCES_PASS, "consent_ok": False}
@@ -52,10 +59,15 @@ def test_route_consent_but_one_fence_false_is_skip(fence):
 
 # --- orchestration with fakes ------------------------------------------------
 
+
 def _prospect(pid, phone="+15555550000"):
-    return SimpleNamespace(prospect_id=pid, phone=phone, state="CA",
-                           callsheet_opener=f"Alex flagged {pid}.",
-                           callsheet_voicemail=f"VM for {pid}")
+    return SimpleNamespace(
+        prospect_id=pid,
+        phone=phone,
+        state="CA",
+        callsheet_opener=f"Alex flagged {pid}.",
+        callsheet_voicemail=f"VM for {pid}",
+    )
 
 
 def _deps(*, candidates, consent, dial_fn=None, email=None):
@@ -107,6 +119,7 @@ def test_consented_prospect_not_dialed_when_governed_flag_off(monkeypatch):
     policy is disarmed -> place_governed_dial blocks, dial_fn never reached."""
     monkeypatch.delenv("SAMUS_GOVERNED_AUTONOMOUS_DIAL_ENABLED", raising=False)
     from backend.common.settings import reload_settings
+
     reload_settings()
     cands = [_prospect("warm1")]
     deps, drafted, dialed = _deps(candidates=cands, consent={"warm1": True})
@@ -152,8 +165,7 @@ def test_voice_cap_bounds_drafts():
 
 
 def test_email_channel_counts_surface():
-    deps, _, _ = _deps(candidates=[], consent={},
-                       email=lambda cap: {"sent": 4, "failed": 1})
+    deps, _, _ = _deps(candidates=[], consent={}, email=lambda cap: {"sent": 4, "failed": 1})
     out = run_production(_DECISION, deps=deps)
     assert out["email"] == {"sent": 4, "failed": 1}
     assert out["initiated"] == 4  # 0 voice + 4 email

@@ -49,28 +49,46 @@ _VETO_SINK = state_path("ethical_vetoes")
 # Heuristic keyword patterns mapped to axiom ids. Replace with semantic eval.
 _PATTERNS: dict[str, list[str]] = {
     "axiom.inviolable.no_unconsented_influence": [
-        r"\bmanipulat", r"\bdark[\s-]?pattern", r"\bcovert", r"\bdeceiv",
-        r"\bnudge\b", r"\bundisclosed", r"\bemotional appeal",
+        r"\bmanipulat",
+        r"\bdark[\s-]?pattern",
+        r"\bcovert",
+        r"\bdeceiv",
+        r"\bnudge\b",
+        r"\bundisclosed",
+        r"\bemotional appeal",
     ],
     "axiom.inviolable.no_zero_sum_extraction": [
-        r"\bextract", r"\bworse off\b", r"\bzero[\s-]?sum",
+        r"\bextract",
+        r"\bworse off\b",
+        r"\bzero[\s-]?sum",
     ],
     "axiom.inviolable.no_self_concealment": [
-        r"\bhide\b", r"\bconceal", r"\bsuppress(\s+log|\s+event)",
+        r"\bhide\b",
+        r"\bconceal",
+        r"\bsuppress(\s+log|\s+event)",
         r"\bredact(\s+from\s+alex)?",
     ],
     "axiom.inviolable.no_irreversible_harm_at_scale": [
-        r"\birreversibl", r"\bunrecoverabl", r"\bcannot be undone",
+        r"\birreversibl",
+        r"\bunrecoverabl",
+        r"\bcannot be undone",
     ],
     "axiom.inviolable.human_dignity_floor": [
-        r"\boptimize (over|against)\b", r"\binstrumental", r"\btarget\s+vuln",
+        r"\boptimize (over|against)\b",
+        r"\binstrumental",
+        r"\btarget\s+vuln",
     ],
     "axiom.inviolable.counterparty_data_minimum": [
-        r"\bscrape\b", r"\bharvest\b", r"\bretain.*pii", r"\bcross[\s-]?reference",
+        r"\bscrape\b",
+        r"\bharvest\b",
+        r"\bretain.*pii",
+        r"\bcross[\s-]?reference",
         r"\benrich.*without",
     ],
     "axiom.inviolable.no_adversarial_host_action": [
-        r"\bprivilege escalat", r"\bbypass acl", r"\bexfiltrat",
+        r"\bprivilege escalat",
+        r"\bbypass acl",
+        r"\bexfiltrat",
         r"\btamper\s+with\s+log",
     ],
 }
@@ -85,9 +103,7 @@ class EthicalFailureHandler:
             self.inviolable = yaml.safe_load(f)
         with (d / "informed_consent.spec.yaml").open("r", encoding="utf-8") as f:
             self.consent_spec = yaml.safe_load(f)
-        self._axiom_index = {
-            a["id"]: a for a in self.inviolable.get("inviolable_axioms", [])
-        }
+        self._axiom_index = {a["id"]: a for a in self.inviolable.get("inviolable_axioms", [])}
 
     # ------------------------------------------------------------------
     # Consent evaluation
@@ -103,13 +119,10 @@ class EthicalFailureHandler:
             "affirmative": bool,
           }
         """
-        elements = [
-            e["id"] for e in self.consent_spec["informed_consent_elements"]
-        ]
+        elements = [e["id"] for e in self.consent_spec["informed_consent_elements"]]
         results = {e: bool(action_disclosure.get(e, False)) for e in elements}
         results["valid_consent"] = all(results.values())
-        results["failing_elements"] = [e for e, ok in results.items()
-                                       if e in elements and not ok]
+        results["failing_elements"] = [e for e, ok in results.items() if e in elements and not ok]
         return results
 
     # ------------------------------------------------------------------
@@ -181,28 +194,32 @@ class EthicalFailureHandler:
                 "body": proposed_action.get("body", {}),
             },
             "projected_success_outcome": proposed_action.get(
-                "projected_success_outcome", "unspecified"),
+                "projected_success_outcome", "unspecified"
+            ),
             "projected_failure_outcome": proposed_action.get(
-                "projected_failure_outcome", "unspecified"),
+                "projected_failure_outcome", "unspecified"
+            ),
             "inviolable_axioms_breached": breached,
             "asymmetry_score": float(proposed_action.get("asymmetry_score", 0.0)),
             "escalation": "gate_only",
             "gate_response": "pending",
             "conditions": None,
             "evaluator_layers": evaluator_layers,
-            "notes": proposed_action.get(
-                "notes", f"breach via {'+'.join(evaluator_layers)}"),
+            "notes": proposed_action.get("notes", f"breach via {'+'.join(evaluator_layers)}"),
         }
-        assert veto["escalation"] == "gate_only", \
+        assert veto["escalation"] == "gate_only", (
             "EthicalReviewVeto.escalation MUST be gate_only (SCHEMA invariant)"
-        assert veto["inviolable_axioms_breached"], \
+        )
+        assert veto["inviolable_axioms_breached"], (
             "EthicalReviewVeto.inviolable_axioms_breached MUST be non-empty"
+        )
 
         self._persist(veto)
         # Best-effort publish to the cross-agent Quorum Hub. Fail-open —
         # SAMUS_QUORUM_PUBLISH_ENABLED=off short-circuits inside the publisher.
         try:
             from backend.common.quorum_publisher import publish_efh_veto
+
             publish_efh_veto(veto)
         except Exception:  # noqa: BLE001
             pass
@@ -219,7 +236,9 @@ class EthicalFailureHandler:
     # Layer 2 — semantic classifier
     # ------------------------------------------------------------------
     def _semantic_breaches(
-        self, body_text: str, valid_axiom_ids: set[str],
+        self,
+        body_text: str,
+        valid_axiom_ids: set[str],
     ) -> list[str]:
         """Return the axiom ids the semantic classifier flags (additive only).
 
@@ -232,11 +251,14 @@ class EthicalFailureHandler:
         """
         try:
             from backend.common.config import get_settings
+
             if not getattr(get_settings(), "samus_efh_semantic_enabled", False):
                 return []
             from backend.governance.efh_semantic import classify_breaches
+
             flagged = classify_breaches(
-                body_text, axiom_index=self._axiom_index,
+                body_text,
+                axiom_index=self._axiom_index,
             )
         except Exception as exc:  # noqa: BLE001 — fail-open onto the heuristic floor
             _LOG.warning("efh semantic layer failed (heuristic stands): %s", exc)

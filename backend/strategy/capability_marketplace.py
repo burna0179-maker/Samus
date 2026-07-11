@@ -14,6 +14,7 @@ A listing is identified by ``(provider_agent, capability_id)``. The same
 capability can have many providers, and the same provider can offer many
 capabilities. Republishing the same pair replaces the prior listing.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -25,9 +26,9 @@ class CapabilityListing:
 
     capability_id: str
     provider_agent: str
-    cost: int                  # credits per invocation
-    performance_score: float   # 0.0 .. 1.0; treated as reliability proxy
-    latency_ms: int            # mean latency in milliseconds
+    cost: int  # credits per invocation
+    performance_score: float  # 0.0 .. 1.0; treated as reliability proxy
+    latency_ms: int  # mean latency in milliseconds
     tags: tuple[str, ...] = ()
 
 
@@ -36,9 +37,9 @@ class SelectionWeights:
     """Weights for `compose_score`. Must sum to exactly 1.0."""
 
     performance: float = 0.5
-    cost: float = 0.25         # lower is better → inverted before weighting
-    latency: float = 0.15      # lower is better → inverted before weighting
-    tag_fit: float = 0.10      # fraction of required_tags present
+    cost: float = 0.25  # lower is better → inverted before weighting
+    latency: float = 0.15  # lower is better → inverted before weighting
+    tag_fit: float = 0.10  # fraction of required_tags present
 
     def __post_init__(self) -> None:
         total = self.performance + self.cost + self.latency + self.tag_fit
@@ -143,9 +144,7 @@ class CapabilityMarketplace:
     def list_providers(self, capability_id: str) -> list[CapabilityListing]:
         """All listings advertising ``capability_id``."""
         return [
-            listing
-            for listing in self._listings.values()
-            if listing.capability_id == capability_id
+            listing for listing in self._listings.values() if listing.capability_id == capability_id
         ]
 
     def all_capabilities(self) -> list[str]:
@@ -193,7 +192,5 @@ class CapabilityMarketplace:
         # same score (Python's max returns the first-seen on ties).
         return max(
             candidates,
-            key=lambda c: compose_score(
-                c, required_tags, weights, cost_norm, latency_norm
-            ),
+            key=lambda c: compose_score(c, required_tags, weights, cost_norm, latency_norm),
         )

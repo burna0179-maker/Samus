@@ -37,6 +37,7 @@ present-but-broken signature. There is no forgeable-HMAC fallback here — the
 charter is a tiny, code-tree artifact, so the only meaningful anchor is the
 operator root key.
 """
+
 from __future__ import annotations
 
 import hashlib

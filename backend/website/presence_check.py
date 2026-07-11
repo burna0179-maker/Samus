@@ -20,6 +20,7 @@ Read-only Google Places (``place_search.search_text``). Fail-soft: any check
 failure returns ``buildable=True`` (best-effort insurance must never hard-block
 the pipeline) with the reason recorded.
 """
+
 from __future__ import annotations
 
 import logging
@@ -69,22 +70,64 @@ def _business_from_place(p: dict[str, Any]) -> dict[str, Any]:
 # Aggregators / directories / socials — a result on one of these is NOT the
 # business's own website (Places already covers reviews). Only a result OUTSIDE
 # this set counts as "they have a site".
-_DIRECTORY_HOSTS = frozenset({
-    "yelp.com", "facebook.com", "instagram.com", "linkedin.com", "yellowpages.com",
-    "nextdoor.com", "manta.com", "bbb.org", "dnb.com", "dandb.com", "bizapedia.com",
-    "cylex.us.com", "thumbtack.com", "birdeye.com", "justia.com", "mapquest.com",
-    "google.com", "bing.com", "twitter.com", "x.com", "youtube.com", "tiktok.com",
-    "zoominfo.com", "rocketreach.co", "buzzfile.com", "chamberofcommerce.com",
-    "angi.com", "houzz.com", "tripadvisor.com", "foursquare.com", "opencorporates.com",
-    "bizprofile.net", "yahoo.com", "wikipedia.org", "reddit.com", "indeed.com",
-    "glassdoor.com", "crunchbase.com", "apple.com", "amazon.com", "pinterest.com",
-    "superpages.com", "citysearch.com", "taxbuzz.com", "precisionplanting.com",
-    "virtualvalley.io", "beautihost.com", "dexknows.com", "chamberofcommerce.com",
-})
+_DIRECTORY_HOSTS = frozenset(
+    {
+        "yelp.com",
+        "facebook.com",
+        "instagram.com",
+        "linkedin.com",
+        "yellowpages.com",
+        "nextdoor.com",
+        "manta.com",
+        "bbb.org",
+        "dnb.com",
+        "dandb.com",
+        "bizapedia.com",
+        "cylex.us.com",
+        "thumbtack.com",
+        "birdeye.com",
+        "justia.com",
+        "mapquest.com",
+        "google.com",
+        "bing.com",
+        "twitter.com",
+        "x.com",
+        "youtube.com",
+        "tiktok.com",
+        "zoominfo.com",
+        "rocketreach.co",
+        "buzzfile.com",
+        "chamberofcommerce.com",
+        "angi.com",
+        "houzz.com",
+        "tripadvisor.com",
+        "foursquare.com",
+        "opencorporates.com",
+        "bizprofile.net",
+        "yahoo.com",
+        "wikipedia.org",
+        "reddit.com",
+        "indeed.com",
+        "glassdoor.com",
+        "crunchbase.com",
+        "apple.com",
+        "amazon.com",
+        "pinterest.com",
+        "superpages.com",
+        "citysearch.com",
+        "taxbuzz.com",
+        "precisionplanting.com",
+        "virtualvalley.io",
+        "beautihost.com",
+        "dexknows.com",
+        "chamberofcommerce.com",
+    }
+)
 
 
 def _host(url: str) -> str:
     from urllib.parse import urlparse
+
     try:
         h = (urlparse(url).hostname or "").lower()
     except Exception:  # noqa: BLE001
@@ -126,13 +169,15 @@ def web_search_finds_site(
 
     With neither credential, returns '' (Places-only). Fail-soft."""
     from backend.common.config import get_settings
+
     s = get_settings()
     key = (api_key if api_key is not None else getattr(s, "google_cse_api_key", "")) or ""
     cx = (cse_id if cse_id is not None else getattr(s, "google_cse_id", "")) or ""
 
     if key and cx:
-        site = _cse_finds_site(company_name, city, api_key=key, cse_id=cx,
-                               http_client=http_client, timeout=timeout)
+        site = _cse_finds_site(
+            company_name, city, api_key=key, cse_id=cx, http_client=http_client, timeout=timeout
+        )
         if site:
             return site
         if site == "":
@@ -144,17 +189,21 @@ def web_search_finds_site(
 
     gkey = (getattr(s, "gemini_api_key", "") or "").strip()
     if gkey:
-        return _gemini_finds_site(company_name, city, api_key=gkey,
-                                  http_client=http_client, timeout=timeout)
+        return _gemini_finds_site(
+            company_name, city, api_key=gkey, http_client=http_client, timeout=timeout
+        )
     return ""
 
 
-def _cse_finds_site(company_name, city, *, api_key, cse_id, http_client=None, timeout=30.0) -> str | None:
+def _cse_finds_site(
+    company_name, city, *, api_key, cse_id, http_client=None, timeout=30.0
+) -> str | None:
     """Return the business's own site URL (found), ``""`` (search RAN, nothing
     owned in results), or ``None`` (the CSE call itself FAILED — 403/quota/
     network — so the caller must fall back rather than conclude "no site")."""
     try:
         import httpx
+
         q = " ".join(x for x in (company_name, city) if x).strip()
         params = {"key": api_key, "cx": cse_id, "q": q, "num": 10}
         own = http_client is None
@@ -176,24 +225,25 @@ def _cse_finds_site(company_name, city, *, api_key, cse_id, http_client=None, ti
         return None
 
 
-def _gemini_finds_site(company_name, city, *, api_key, http_client=None, timeout=30.0,
-                       model="gemini-2.5-flash") -> str:
+def _gemini_finds_site(
+    company_name, city, *, api_key, http_client=None, timeout=30.0, model="gemini-2.5-flash"
+) -> str:
     """Gemini grounded Google search: reply is the bare site URL or NONE. Uses
     the already-provisioned Gemini key (no setup). Best-effort/fail-soft."""
     try:
         import re
         import httpx
+
         prompt = (
-            f'Search Google for: {company_name}'
-            f'{f" {city} California" if city else ""} website. '
+            f"Search Google for: {company_name}"
+            f"{f' {city} California' if city else ''} website. "
             f"If the search results include the business's OWN homepage (a real "
             f"company website, NOT a Yelp/Facebook/Yellowpages/directory/social/"
             f"map listing), reply with ONLY that bare URL. Reply NONE only if the "
             f"search returns no company website for them. Prefer returning a URL "
             f"you found over NONE."
         )
-        body = {"contents": [{"parts": [{"text": prompt}]}],
-                "tools": [{"google_search": {}}]}
+        body = {"contents": [{"parts": [{"text": prompt}]}], "tools": [{"google_search": {}}]}
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
         own = http_client is None
         client = http_client or httpx.Client(timeout=timeout)
@@ -205,8 +255,7 @@ def _gemini_finds_site(company_name, city, *, api_key, http_client=None, timeout
             if own:
                 client.close()
         cand = (data.get("candidates") or [{}])[0]
-        text = "".join(p.get("text", "")
-                       for p in (cand.get("content", {}) or {}).get("parts", []))
+        text = "".join(p.get("text", "") for p in (cand.get("content", {}) or {}).get("parts", []))
         m = re.search(r"https?://[^\s)>\]\"']+", text)
         if not m:
             return ""
@@ -235,8 +284,10 @@ def verify_presence(
     a plain search can't. Absent, the Places listing's phone/address is used."""
     if (existing_website or "").strip():
         return PresenceVerdict(
-            False, f"record already carries a website ({existing_website.strip()})",
-            website=existing_website.strip())
+            False,
+            f"record already carries a website ({existing_website.strip()})",
+            website=existing_website.strip(),
+        )
 
     try:
         from backend.prospecting import place_search
@@ -248,8 +299,11 @@ def verify_presence(
         places = resp.get("places") or []
 
         matched = next(
-            (p for p in places
-             if _name_matches((p.get("displayName") or {}).get("text", ""), company_name)),
+            (
+                p
+                for p in places
+                if _name_matches((p.get("displayName") or {}).get("text", ""), company_name)
+            ),
             None,
         )
         # Places website field is authoritative WHEN present (name-matched, so an
@@ -259,8 +313,12 @@ def verify_presence(
             biz = _business_from_place(matched)
             if biz["website"]:
                 return PresenceVerdict(
-                    False, f"Places lists a live website ({biz['website']})",
-                    website=biz["website"], matched_name=biz["name"], business=biz)
+                    False,
+                    f"Places lists a live website ({biz['website']})",
+                    website=biz["website"],
+                    matched_name=biz["name"],
+                    business=biz,
+                )
         elif places:
             biz = _business_from_place(places[0])
 
@@ -278,29 +336,48 @@ def verify_presence(
         site = web_search_finds_site(company_name, city)
 
         from backend.common.config import get_settings
+
         s = get_settings()
         anchor_phone = (known_phone or biz.get("phone", "")).strip()
         anchor_address = (known_address or biz.get("address", "")).strip()
         if getattr(s, "presence_deep_verify_enabled", True) and (anchor_phone or anchor_address):
             from backend.website.deep_verify import deep_verify_site
+
             dv = deep_verify_site(
-                company_name, city=city, state=state, known_phone=anchor_phone,
-                known_address=anchor_address, api_key=api_key, seed_url=site)
+                company_name,
+                city=city,
+                state=state,
+                known_phone=anchor_phone,
+                known_address=anchor_address,
+                api_key=api_key,
+                seed_url=site,
+            )
             if dv.found:  # contact-verified — the site is provably theirs
                 return PresenceVerdict(
-                    False, f"deep-verify [{dv.matched_on}] {dv.reason}",
-                    website=dv.url, matched_name=biz.get("name", ""), business=biz)
+                    False,
+                    f"deep-verify [{dv.matched_on}] {dv.reason}",
+                    website=dv.url,
+                    matched_name=biz.get("name", ""),
+                    business=biz,
+                )
 
         # No contact match — fall back to the conservative web-search verdict
         # (unverified, so it abstains on ambiguous names rather than attribute an
         # impostor). A named site still suppresses a false "you have no website".
         if site:
             return PresenceVerdict(
-                False, f"web search found a site ({site})",
-                website=site, matched_name=biz.get("name", ""), business=biz)
+                False,
+                f"web search found a site ({site})",
+                website=site,
+                matched_name=biz.get("name", ""),
+                business=biz,
+            )
         return PresenceVerdict(
-            True, "no site in Places or web search — buildable",
-            matched_name=biz.get("name", ""), business=biz)
+            True,
+            "no site in Places or web search — buildable",
+            matched_name=biz.get("name", ""),
+            business=biz,
+        )
 
     except Exception as exc:  # noqa: BLE001 — insurance is best-effort, never blocks
         _LOG.warning("presence check failed for %r: %s", company_name, exc)

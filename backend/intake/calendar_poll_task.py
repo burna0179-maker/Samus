@@ -13,6 +13,7 @@ Kill switches:
 * ``SAMUS_CALENDAR_POLL_ENABLED``      — master arm, default ON
 * ``SAMUS_CALENDAR_POLL_INTERVAL_SEC`` — poll cadence, default 300s (5 min)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -52,6 +53,7 @@ def should_poll_now() -> tuple[bool, str]:
 def _run_poll_pass() -> dict[str, Any]:
     try:
         from backend.intake.calendar_poller import poll_calendar_once
+
         result = poll_calendar_once()
         return {
             "enabled": bool(result.enabled),
@@ -66,8 +68,12 @@ def _run_poll_pass() -> dict[str, Any]:
     except Exception as exc:  # noqa: BLE001 — loop must never die
         _LOG.exception("calendar poll pass raised (fail-soft): %s", exc)
         return {
-            "enabled": False, "fetched": 0, "ingested": 0,
-            "scheduled": 0, "completed": 0, "already_seen": 0,
+            "enabled": False,
+            "fetched": 0,
+            "ingested": 0,
+            "scheduled": 0,
+            "completed": 0,
+            "already_seen": 0,
             "samus_owned": 0,
             "connect_error": f"pass_raised: {type(exc).__name__}: {exc}",
         }
@@ -88,9 +94,12 @@ async def _loop(interval: float) -> None:
                         "calendar_poll tick: fetched=%d ingested=%d "
                         "scheduled=%d completed=%d already_seen=%d "
                         "samus_owned=%d connect_error=%r",
-                        summary["fetched"], summary["ingested"],
-                        summary["scheduled"], summary["completed"],
-                        summary["already_seen"], summary["samus_owned"],
+                        summary["fetched"],
+                        summary["ingested"],
+                        summary["scheduled"],
+                        summary["completed"],
+                        summary["already_seen"],
+                        summary["samus_owned"],
                         summary["connect_error"],
                     )
                 else:

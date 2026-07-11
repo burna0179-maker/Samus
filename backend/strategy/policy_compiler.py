@@ -26,9 +26,10 @@ re-exports them as :data:`POLICY_FAMILIES`. The hierarchical bandit in
 :mod:`backend.strategy.portfolio_manager` imports that map rather than
 duplicating the family strings — one source of truth.
 """
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 __all__ = [
     "CloserExecutionProfile",
@@ -98,6 +99,7 @@ def _clamp01(value: float) -> float:
 # ---------------------------------------------------------------------------
 # Vertical base policies — vertical-specific defaults the tier logic adapts.
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class VerticalBasePolicy:
@@ -194,8 +196,7 @@ GENERIC_VERTICAL_POLICY: VerticalBasePolicy = VerticalBasePolicy(
 # Re-export of the per-vertical family names — the bandit references THIS map
 # (see module docstring "Family ownership"). One source of truth, no copies.
 POLICY_FAMILIES: dict[str, tuple[str, ...]] = {
-    vertical: policy.policy_families
-    for vertical, policy in VERTICAL_POLICIES.items()
+    vertical: policy.policy_families for vertical, policy in VERTICAL_POLICIES.items()
 }
 
 
@@ -209,16 +210,16 @@ class CloserExecutionProfile:
     """
 
     vertical: str
-    allocation_weight: float           # 0..1 — portfolio share this vertical earns
-    outreach_intensity: str            # "high" | "medium" | "low"
+    allocation_weight: float  # 0..1 — portfolio share this vertical earns
+    outreach_intensity: str  # "high" | "medium" | "low"
     followup_interval_hours: int
-    escalation_threshold: float        # 0..1
-    max_token_budget_usd: float        # per-vertical LLM ceiling — kept small
-    proposal_depth: str                # "full_audit" | "standard" | "template"
-    channel_priority: list[str]        # ordered channel preference
+    escalation_threshold: float  # 0..1
+    max_token_budget_usd: float  # per-vertical LLM ceiling — kept small
+    proposal_depth: str  # "full_audit" | "standard" | "template"
+    channel_priority: list[str]  # ordered channel preference
     template_family: str
-    retry_policy: str                  # "aggressive" | "standard" | "conservative"
-    confidence_score: float            # 0..1
+    retry_policy: str  # "aggressive" | "standard" | "conservative"
+    confidence_score: float  # 0..1
 
 
 def _tier_fields(reward_density: float) -> tuple[str, int, str]:
@@ -280,9 +281,7 @@ def build_execution_profile(
     """
     base = VERTICAL_POLICIES.get(vertical, GENERIC_VERTICAL_POLICY)
 
-    outreach_intensity, followup_interval_hours, proposal_depth = _tier_fields(
-        reward_density
-    )
+    outreach_intensity, followup_interval_hours, proposal_depth = _tier_fields(reward_density)
 
     confidence_score = _clamp01(
         _clamp01(forecast_score) * CONFIDENCE_FORECAST_WEIGHT
@@ -292,8 +291,7 @@ def build_execution_profile(
     # High regret-per-token raises the escalation bar (don't escalate a
     # vertical the bandit is already wasting budget on).
     escalation_threshold = _clamp01(
-        ESCALATION_BASE
-        + ESCALATION_REGRET_GAIN * _clamp01(regret_per_token)
+        ESCALATION_BASE + ESCALATION_REGRET_GAIN * _clamp01(regret_per_token)
     )
     retry_policy = _retry_policy_for(regret_per_token)
 
@@ -305,9 +303,7 @@ def build_execution_profile(
     # Small per-vertical LLM ceiling — scaled by confidence between the
     # floor and ceiling. The agent's $1/day global cap dominates regardless.
     token_span = MAX_TOKEN_BUDGET_CEILING_USD - MAX_TOKEN_BUDGET_FLOOR_USD
-    max_token_budget_usd = round(
-        MAX_TOKEN_BUDGET_FLOOR_USD + token_span * confidence_score, 4
-    )
+    max_token_budget_usd = round(MAX_TOKEN_BUDGET_FLOOR_USD + token_span * confidence_score, 4)
 
     return CloserExecutionProfile(
         vertical=vertical,

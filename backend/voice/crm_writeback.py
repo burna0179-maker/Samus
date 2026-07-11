@@ -14,12 +14,13 @@ today's journal from a non-pipeline source, the pipeline NEVER overwrites
 it. The operator's manual classification is always authoritative. The
 pipeline only fills in entries for calls the operator hasn't logged yet.
 """
+
 from __future__ import annotations
 
 import json
 import logging
 import os
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
 _LOG = logging.getLogger("samus.voice.crm_writeback")
@@ -27,19 +28,20 @@ _LOG = logging.getLogger("samus.voice.crm_writeback")
 # Map our analyzer outcomes onto the call_outcomes journal vocabulary.
 # Pipeline outcomes that don't map are skipped (no journal entry written).
 _OUTCOME_MAP: dict[str, str] = {
-    "converted":            "booked",
-    "follow_up_scheduled":  "follow_up",
-    "call_back_requested":  "follow_up",
-    "warm_lead":            "follow_up",
+    "converted": "booked",
+    "follow_up_scheduled": "follow_up",
+    "call_back_requested": "follow_up",
+    "warm_lead": "follow_up",
     "objection_unresolved": "follow_up",
-    "not_interested":       "not_interested",
-    "gatekeeper":           "gatekeeper",
-    "voicemail_left":       "voicemail",
-    "no_answer":            "no_answer",
-    "dnc_requested":        "do_not_call",
+    "not_interested": "not_interested",
+    "gatekeeper": "gatekeeper",
+    "voicemail_left": "voicemail",
+    "no_answer": "no_answer",
+    "dnc_requested": "do_not_call",
 }
 
 _SOURCE_TAG = "transcript_pipeline"
+
 
 # Journal location — matches forge-ui's HF_DATA_DIR convention.
 def _journal_path(call_ts: datetime | None = None) -> Path:
@@ -96,7 +98,9 @@ def write_outcome(
             fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
         _LOG.info(
             "crm_writeback: appended %s for %s (mapped from %s)",
-            mapped, company or prospect_id, pipeline_outcome,
+            mapped,
+            company or prospect_id,
+            pipeline_outcome,
         )
         return {"written": True, "mapped_outcome": mapped}
     except OSError as exc:

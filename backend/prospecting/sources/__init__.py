@@ -6,6 +6,7 @@ fail-OPEN on transient errors (network, missing files) — the upstream
 aggregator treats "no signal" as cold-cold by design, so a flaky
 collector must not falsify a warmth verdict.
 """
+
 from __future__ import annotations
 
 __all__: list[str] = []

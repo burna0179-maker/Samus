@@ -8,6 +8,7 @@ Layout on disk::
 Default ``<data_root>`` is the value of ``SAMUS_DATA_ROOT`` (when set) or
 ``/opt/samus/data`` (matching the Samus runtime convention).
 """
+
 from __future__ import annotations
 
 import json

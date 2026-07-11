@@ -9,6 +9,7 @@ checks with zero LLM spend.
 
 Pure-stdlib. No I/O.
 """
+
 from __future__ import annotations
 
 import re
@@ -32,43 +33,85 @@ DIAL_SIGNAL_MAP: list[dict[str, Any]] = [
     {
         "id": "trust_first_regulated",
         "keywords": (
-            "regulated", "public sector", "public-sector", "government", "gov",
-            "healthcare", "finance compliance", "legal", "trust-first", "bank",
+            "regulated",
+            "public sector",
+            "public-sector",
+            "government",
+            "gov",
+            "healthcare",
+            "finance compliance",
+            "legal",
+            "trust-first",
+            "bank",
             "insurance",
         ),
-        "variance": 4, "motion": 2, "density": 5,
+        "variance": 4,
+        "motion": 2,
+        "density": 5,
     },
     {
         "id": "minimalist_editorial",
         "keywords": (
-            "minimalist", "editorial", "linear-style", "linear style", "spare",
-            "understated", "swiss", "magazine",
+            "minimalist",
+            "editorial",
+            "linear-style",
+            "linear style",
+            "spare",
+            "understated",
+            "swiss",
+            "magazine",
         ),
-        "variance": 6, "motion": 3, "density": 3,
+        "variance": 6,
+        "motion": 3,
+        "density": 3,
     },
     {
         "id": "playful_agency_awwwards",
         "keywords": (
-            "playful", "agency", "awwwards", "experimental", "creative studio",
-            "bold", "expressive", "maximalist",
+            "playful",
+            "agency",
+            "awwwards",
+            "experimental",
+            "creative studio",
+            "bold",
+            "expressive",
+            "maximalist",
         ),
-        "variance": 10, "motion": 9, "density": 4,
+        "variance": 10,
+        "motion": 9,
+        "density": 4,
     },
     {
         "id": "premium_consumer",
         "keywords": (
-            "premium", "luxury", "apple", "apple-adjacent", "high-end",
-            "artisan", "wellness", "cookware", "boutique",
+            "premium",
+            "luxury",
+            "apple",
+            "apple-adjacent",
+            "high-end",
+            "artisan",
+            "wellness",
+            "cookware",
+            "boutique",
         ),
-        "variance": 8, "motion": 6, "density": 4,
+        "variance": 8,
+        "motion": 6,
+        "density": 4,
     },
     {
         "id": "landing_mainstream",
         "keywords": (
-            "landing", "saas", "startup", "marketing site", "product page",
-            "waitlist", "signup",
+            "landing",
+            "saas",
+            "startup",
+            "marketing site",
+            "product page",
+            "waitlist",
+            "signup",
         ),
-        "variance": 8, "motion": 7, "density": 4,
+        "variance": 8,
+        "motion": 7,
+        "density": 4,
     },
 ]
 
@@ -84,46 +127,66 @@ TAILWIND_DEFAULT: dict[str, str] = {
 }
 
 DESIGN_SYSTEM_MAP: list[dict[str, Any]] = [
-    {"keywords": ("microsoft", "fluent", "enterprise saas"),
-     "package": "@fluentui/react-components",
-     "install": "npm install @fluentui/react-components",
-     "why": "Official Microsoft tokens for enterprise SaaS."},
-    {"keywords": ("material", "google product", "android"),
-     "package": "@material/web",
-     "install": "npm install @material/web",
-     "why": "Official, theme-able Material 3 tokens."},
-    {"keywords": ("ibm", "carbon", "analytics", "data platform"),
-     "package": "@carbon/react",
-     "install": "npm install @carbon/react @carbon/styles",
-     "why": "Official IBM Carbon — mature data patterns."},
-    {"keywords": ("shopify", "shopify app", "polaris"),
-     "package": "polaris.js",
-     "install": "npm install @shopify/polaris",
-     "why": "Required for Shopify admin apps."},
-    {"keywords": ("atlassian", "jira", "confluence", "atlaskit"),
-     "package": "@atlaskit/*",
-     "install": "yarn add @atlaskit/css-reset @atlaskit/tokens @atlaskit/button",
-     "why": "Official Atlassian design system."},
-    {"keywords": ("github", "primer", "devtool", "developer tool"),
-     "package": "@primer/react-brand",
-     "install": "npm install @primer/react-brand",
-     "why": "Official GitHub Primer (marketing variant)."},
-    {"keywords": ("uk public", "gov.uk", "govuk", "uk government"),
-     "package": "govuk-frontend",
-     "install": "npm install govuk-frontend",
-     "why": "Legally expected for UK public service."},
-    {"keywords": ("us public", "uswds", "us government", "federal"),
-     "package": "uswds",
-     "install": "npm install uswds",
-     "why": "Trust-first requirement for US public sector."},
-    {"keywords": ("accessible react", "radix", "wcag react"),
-     "package": "@radix-ui/themes",
-     "install": "npm install @radix-ui/themes",
-     "why": "Accessible primitives + polished theme."},
-    {"keywords": ("shadcn", "own components", "customizable"),
-     "package": "shadcn/ui",
-     "install": "npx shadcn@latest init",
-     "why": "Customizable — but never ship the default state."},
+    {
+        "keywords": ("microsoft", "fluent", "enterprise saas"),
+        "package": "@fluentui/react-components",
+        "install": "npm install @fluentui/react-components",
+        "why": "Official Microsoft tokens for enterprise SaaS.",
+    },
+    {
+        "keywords": ("material", "google product", "android"),
+        "package": "@material/web",
+        "install": "npm install @material/web",
+        "why": "Official, theme-able Material 3 tokens.",
+    },
+    {
+        "keywords": ("ibm", "carbon", "analytics", "data platform"),
+        "package": "@carbon/react",
+        "install": "npm install @carbon/react @carbon/styles",
+        "why": "Official IBM Carbon — mature data patterns.",
+    },
+    {
+        "keywords": ("shopify", "shopify app", "polaris"),
+        "package": "polaris.js",
+        "install": "npm install @shopify/polaris",
+        "why": "Required for Shopify admin apps.",
+    },
+    {
+        "keywords": ("atlassian", "jira", "confluence", "atlaskit"),
+        "package": "@atlaskit/*",
+        "install": "yarn add @atlaskit/css-reset @atlaskit/tokens @atlaskit/button",
+        "why": "Official Atlassian design system.",
+    },
+    {
+        "keywords": ("github", "primer", "devtool", "developer tool"),
+        "package": "@primer/react-brand",
+        "install": "npm install @primer/react-brand",
+        "why": "Official GitHub Primer (marketing variant).",
+    },
+    {
+        "keywords": ("uk public", "gov.uk", "govuk", "uk government"),
+        "package": "govuk-frontend",
+        "install": "npm install govuk-frontend",
+        "why": "Legally expected for UK public service.",
+    },
+    {
+        "keywords": ("us public", "uswds", "us government", "federal"),
+        "package": "uswds",
+        "install": "npm install uswds",
+        "why": "Trust-first requirement for US public sector.",
+    },
+    {
+        "keywords": ("accessible react", "radix", "wcag react"),
+        "package": "@radix-ui/themes",
+        "install": "npm install @radix-ui/themes",
+        "why": "Accessible primitives + polished theme.",
+    },
+    {
+        "keywords": ("shadcn", "own components", "customizable"),
+        "package": "shadcn/ui",
+        "install": "npx shadcn@latest init",
+        "why": "Customizable — but never ship the default state.",
+    },
 ]
 
 
@@ -140,12 +203,8 @@ BANNED_BACKGROUND_HEX: frozenset[str] = frozenset(
 BANNED_ACCENT_HEX: frozenset[str] = frozenset(
     {"#b08947", "#b6553a", "#9a2436", "#9c6e2a", "#bc7c3a"}
 )
-BANNED_TEXT_HEX: frozenset[str] = frozenset(
-    {"#1a1714", "#1a1814", "#1b1814"}
-)
-BANNED_HEX_ALL: frozenset[str] = (
-    BANNED_BACKGROUND_HEX | BANNED_ACCENT_HEX | BANNED_TEXT_HEX
-)
+BANNED_TEXT_HEX: frozenset[str] = frozenset({"#1a1714", "#1a1814", "#1b1814"})
+BANNED_HEX_ALL: frozenset[str] = BANNED_BACKGROUND_HEX | BANNED_ACCENT_HEX | BANNED_TEXT_HEX
 
 # Default palette families to rotate through instead (never reuse the last one).
 PALETTE_ROTATION_POOL: tuple[str, ...] = (
@@ -169,8 +228,13 @@ BANNED_FONTS: frozenset[str] = frozenset({"fraunces", "instrument_serif", "instr
 DISCOURAGED_DEFAULT_FONTS: frozenset[str] = frozenset({"inter"})
 # Preferred sans display families to reach for first.
 PREFERRED_DISPLAY_FONTS: tuple[str, ...] = (
-    "Geist", "Outfit", "Cabinet Grotesk", "Satoshi", "GT Walsheim",
-    "PP Neue Montreal", "Söhne Breit",
+    "Geist",
+    "Outfit",
+    "Cabinet Grotesk",
+    "Satoshi",
+    "GT Walsheim",
+    "PP Neue Montreal",
+    "Söhne Breit",
 )
 
 
@@ -196,42 +260,62 @@ MIDDLE_DOT = "·"
 
 # Contact-intent CTA labels — two distinct ones on a page = duplicate intent.
 CONTACT_CTA_LABELS: tuple[str, ...] = (
-    "get in touch", "contact us", "start a project", "let's talk", "lets talk",
-    "book a call", "get started", "reach out",
+    "get in touch",
+    "contact us",
+    "start a project",
+    "let's talk",
+    "lets talk",
+    "book a call",
+    "get started",
+    "reach out",
 )
 
 # Marketing-copy / structural tells. Each entry: (check_id, compiled regex,
 # severity, human message). All conservative (warn) to avoid false positives on
 # legitimate copy; the em-dash and banned-palette checks carry the hard fails.
 AI_TELL_PATTERNS: tuple[tuple[str, "re.Pattern[str]", str, str], ...] = (
-    ("tell_quietly_trusted",
-     re.compile(r"quietly\s+(trusted by|in use at|used by)", re.IGNORECASE),
-     "warn",
-     '"Quietly trusted by / in use at" is a tested social-proof tell.'),
-    ("tell_section_number_eyebrow",
-     re.compile(r"\b0\d{1,2}\s*[·/]\s*[A-Za-z]"),
-     "warn",
-     'Section-number eyebrow ("00 / INDEX", "001 . Capabilities") is a tell.'),
-    ("tell_field_notes",
-     re.compile(r"\b(from the field|field notes|on our desks|loose plates)\b", re.IGNORECASE),
-     "warn",
-     "Poetic section label is an AI copy tell."),
-    ("tell_scroll_cue",
-     re.compile(r"(↓\s*scroll|scroll\s*↓|mouse-wheel)", re.IGNORECASE),
-     "warn",
-     "Decorative scroll cue is a tell; a plain arrow is enough."),
-    ("tell_version_footer",
-     re.compile(r"\bv\d+\.\d+\.\d+\b"),
-     "warn",
-     "Version footer (v1.4.2 / Build 0048) on a marketing page is a tell."),
-    ("tell_live_stock_counter",
-     re.compile(r"reservation\s+\d+\s+of\s+\d+", re.IGNORECASE),
-     "warn",
-     "Live-stock / reservation counter as decoration is a tell."),
-    ("tell_invite_only",
-     re.compile(r"\b(invite[- ]only|early access)\b", re.IGNORECASE),
-     "warn",
-     "Hero exclusivity stamp (INVITE-ONLY / EARLY ACCESS) is a tell unless launch."),
+    (
+        "tell_quietly_trusted",
+        re.compile(r"quietly\s+(trusted by|in use at|used by)", re.IGNORECASE),
+        "warn",
+        '"Quietly trusted by / in use at" is a tested social-proof tell.',
+    ),
+    (
+        "tell_section_number_eyebrow",
+        re.compile(r"\b0\d{1,2}\s*[·/]\s*[A-Za-z]"),
+        "warn",
+        'Section-number eyebrow ("00 / INDEX", "001 . Capabilities") is a tell.',
+    ),
+    (
+        "tell_field_notes",
+        re.compile(r"\b(from the field|field notes|on our desks|loose plates)\b", re.IGNORECASE),
+        "warn",
+        "Poetic section label is an AI copy tell.",
+    ),
+    (
+        "tell_scroll_cue",
+        re.compile(r"(↓\s*scroll|scroll\s*↓|mouse-wheel)", re.IGNORECASE),
+        "warn",
+        "Decorative scroll cue is a tell; a plain arrow is enough.",
+    ),
+    (
+        "tell_version_footer",
+        re.compile(r"\bv\d+\.\d+\.\d+\b"),
+        "warn",
+        "Version footer (v1.4.2 / Build 0048) on a marketing page is a tell.",
+    ),
+    (
+        "tell_live_stock_counter",
+        re.compile(r"reservation\s+\d+\s+of\s+\d+", re.IGNORECASE),
+        "warn",
+        "Live-stock / reservation counter as decoration is a tell.",
+    ),
+    (
+        "tell_invite_only",
+        re.compile(r"\b(invite[- ]only|early access)\b", re.IGNORECASE),
+        "warn",
+        "Hero exclusivity stamp (INVITE-ONLY / EARLY ACCESS) is a tell unless launch.",
+    ),
 )
 
 
@@ -239,7 +323,7 @@ AI_TELL_PATTERNS: tuple[tuple[str, "re.Pattern[str]", str, str], ...] = (
 # Canonical GSAP motion skeletons (generation guidance, not audited).
 # ---------------------------------------------------------------------------
 
-_STICKY_STACK = '''"use client";
+_STICKY_STACK = """"use client";
 import { useRef, useEffect } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -277,9 +361,9 @@ export function StickyStack({ cards }: { cards: React.ReactNode[] }) {
     </div>
   );
 }
-'''
+"""
 
-_HORIZONTAL_PAN = '''"use client";
+_HORIZONTAL_PAN = """"use client";
 import { useRef, useEffect } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -308,9 +392,9 @@ export function HorizontalPan({ children }: { children: React.ReactNode }) {
     </section>
   );
 }
-'''
+"""
 
-_REVEAL_STAGGER = '''"use client";
+_REVEAL_STAGGER = """"use client";
 import { motion, useReducedMotion } from "motion/react";
 
 export function RevealStagger({ items }: { items: string[] }) {
@@ -329,7 +413,7 @@ export function RevealStagger({ items }: { items: string[] }) {
     </ul>
   );
 }
-'''
+"""
 
 GSAP_SKELETONS: dict[str, str] = {
     "sticky-stack": _STICKY_STACK,

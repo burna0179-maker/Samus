@@ -32,6 +32,7 @@ malformed record, or a payload that no longer validates against the current
 result model all degrade to a cache MISS, so the caller recomputes normally.
 The cache can never make ``audit_site`` fail — at worst it is a no-op.
 """
+
 from __future__ import annotations
 
 import logging

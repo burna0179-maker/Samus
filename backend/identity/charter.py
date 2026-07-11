@@ -24,6 +24,7 @@ running with a half-loaded charter. This mirrors Major's
 ``src/core/identity.py`` (adapted to Samus's container code layout — the
 charter lives under ``backend/`` which ships in the read-only image).
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -75,9 +76,7 @@ def _coerce_str(raw: Mapping[str, Any], key: str) -> str:
         raise CharterError(f"charter field {key!r} is missing")
     val = raw[key]
     if not isinstance(val, str):
-        raise CharterError(
-            f"charter field {key!r} must be a string, got {type(val).__name__}"
-        )
+        raise CharterError(f"charter field {key!r} must be a string, got {type(val).__name__}")
     val = val.strip()
     if not val:
         raise CharterError(f"charter field {key!r} must be non-empty")
@@ -89,9 +88,7 @@ def _coerce_str_list(raw: Mapping[str, Any], key: str) -> tuple[str, ...]:
         raise CharterError(f"charter field {key!r} is missing")
     val = raw[key]
     if not isinstance(val, list):
-        raise CharterError(
-            f"charter field {key!r} must be a list, got {type(val).__name__}"
-        )
+        raise CharterError(f"charter field {key!r} must be a list, got {type(val).__name__}")
     out: list[str] = []
     for idx, item in enumerate(val):
         if not isinstance(item, str):
@@ -133,12 +130,8 @@ def load_charter(path: Path | None = None) -> Charter:
 def charter_hash(charter: Charter) -> str:
     """Deterministic sha256 fingerprint of a loaded charter (canonical JSON)."""
     if not isinstance(charter, Charter):
-        raise CharterError(
-            f"charter_hash expected Charter, got {type(charter).__name__}"
-        )
-    canonical = json.dumps(
-        asdict(charter), sort_keys=True, separators=(",", ":")
-    ).encode("utf-8")
+        raise CharterError(f"charter_hash expected Charter, got {type(charter).__name__}")
+    canonical = json.dumps(asdict(charter), sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(canonical).hexdigest()
 
 

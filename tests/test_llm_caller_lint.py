@@ -21,30 +21,32 @@ Adding a new allowlist entry is the reviewer chokepoint — touch the
 
 Related: ``project_samus_llm_token_policy`` memory (Lever 2.3).
 """
+
 from __future__ import annotations
 
 import ast
 from pathlib import Path
 
-import pytest
 
 # Modules grandfathered to touch the Anthropic surface directly. Adding here
 # requires a code review pass — see module docstring.
-_ALLOWLIST: frozenset[str] = frozenset({
-    "backend/common/llm_client.py",
-    "backend/prospecting/callsheet.py",
-    "backend/seo/content.py",
-    # Triangulation leg C is BY DESIGN an independent Claude (Anthropic) read
-    # that must NOT share a transport with the local model: llm_client's
-    # anthropic_messages() now targets local LM Studio, so routing leg C
-    # through it would collapse triangulation onto the very model being
-    # audited. Direct Messages-API call, fail-soft to the local auditor.
-    "backend/cognitive/triangulation.py",
-    # Billing telemetry, not an LLM call: hits the Anthropic Admin API
-    # /v1/organizations/cost_report to READ spend. There are no tokens to
-    # budget, so the llm_client 4-layer budget wrapper does not apply.
-    "backend/finance/service_cost_monitor.py",
-})
+_ALLOWLIST: frozenset[str] = frozenset(
+    {
+        "backend/common/llm_client.py",
+        "backend/prospecting/callsheet.py",
+        "backend/seo/content.py",
+        # Triangulation leg C is BY DESIGN an independent Claude (Anthropic) read
+        # that must NOT share a transport with the local model: llm_client's
+        # anthropic_messages() now targets local LM Studio, so routing leg C
+        # through it would collapse triangulation onto the very model being
+        # audited. Direct Messages-API call, fail-soft to the local auditor.
+        "backend/cognitive/triangulation.py",
+        # Billing telemetry, not an LLM call: hits the Anthropic Admin API
+        # /v1/organizations/cost_report to READ spend. There are no tokens to
+        # budget, so the llm_client 4-layer budget wrapper does not apply.
+        "backend/finance/service_cost_monitor.py",
+    }
+)
 
 # String literal that, if present, indicates direct Anthropic API surface use.
 _DIRECT_URL_FRAGMENT = "api.anthropic.com"

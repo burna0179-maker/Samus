@@ -11,6 +11,7 @@ routine successes collapsed to counts.
 Pure reads over the day's ledgers; every source degrades to an error note rather
 than raising, so a report is never blocked.
 """
+
 from __future__ import annotations
 
 import json
@@ -47,6 +48,7 @@ def _same_business_day(ts_iso: str, day_iso: str) -> bool:
     """True if an ISO timestamp falls on the given business (PT) date."""
     try:
         from backend.common.us_timezones import state_to_timezone
+
         s = str(ts_iso).strip().replace("Z", "+00:00")
         dt = datetime.fromisoformat(s)
         if dt.tzinfo is None:
@@ -59,14 +61,24 @@ def _same_business_day(ts_iso: str, day_iso: str) -> bool:
 def compile_voice_interactions(day_iso: str) -> dict[str, Any]:
     """Compress today's voice events to signal: totals + notable items only."""
     from backend.common import storage
+
     try:
         rows = _read_jsonl(storage.root() / "voice" / "voice_events.jsonl")
     except Exception as exc:  # noqa: BLE001
         return {"error": str(exc)}
 
-    today = [r for r in rows if _same_business_day(r.get("ts") or r.get("received_at") or "", day_iso)]
-    out = {"events": len(today), "connected": 0, "voicemail": 0, "no_answer": 0,
-           "high_intent": 0, "objections": [], "notable": []}
+    today = [
+        r for r in rows if _same_business_day(r.get("ts") or r.get("received_at") or "", day_iso)
+    ]
+    out = {
+        "events": len(today),
+        "connected": 0,
+        "voicemail": 0,
+        "no_answer": 0,
+        "high_intent": 0,
+        "objections": [],
+        "notable": [],
+    }
     for r in today:
         outcome = str(r.get("outcome") or r.get("ended_reason") or r.get("kind") or "").lower()
         if "voicemail" in outcome or "machine" in outcome:
@@ -81,7 +93,8 @@ def compile_voice_interactions(day_iso: str) -> dict[str, Any]:
             out["high_intent"] += 1
             out["notable"].append(
                 f"high-intent call ({intent}) {summary.get('tier', '')} "
-                f"rec={summary.get('recommended_action', '')}".strip())
+                f"rec={summary.get('recommended_action', '')}".strip()
+            )
         obj = summary.get("objection") or summary.get("objection_signal")
         if obj:
             out["objections"].append(str(obj)[:120])
@@ -94,6 +107,7 @@ def compile_voice_interactions(day_iso: str) -> dict[str, Any]:
 def compile_email_interactions(day_iso: str) -> dict[str, Any]:
     """Compress today's outreach sends to signal: totals + failures (the signal)."""
     from backend.common import storage
+
     try:
         root = storage.root()
     except Exception as exc:  # noqa: BLE001
@@ -125,6 +139,7 @@ def compile_email_interactions(day_iso: str) -> dict[str, Any]:
 def compile_day_interactions(now_utc: Optional[datetime] = None) -> dict[str, Any]:
     """The day's compressed voice + email interaction signal for the EOD report."""
     from backend.common.us_timezones import business_today
+
     day_iso = business_today().isoformat()
     return {
         "date": day_iso,

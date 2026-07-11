@@ -16,6 +16,7 @@ For a single node this module:
 Dispatch is injected (:class:`Dispatcher` protocol) so it is deterministic in
 tests and always crosses the real trust boundary in production.
 """
+
 from __future__ import annotations
 
 import logging
@@ -36,7 +37,7 @@ from .models import (
     NodeStatus,
     RollbackMode,
 )
-from .registry import LOCAL_WORKCELL, is_high_risk
+from .registry import is_high_risk
 
 _LOG = logging.getLogger("samus.campaigns.executor")
 
@@ -50,8 +51,7 @@ class Dispatcher(Protocol):
 
     def dispatch(
         self, *, node: CampaignNode, payload: dict[str, Any], run: CampaignRun
-    ) -> dict[str, Any]:
-        ...
+    ) -> dict[str, Any]: ...
 
 
 def resolve_inputs(node: CampaignNode, run: CampaignRun) -> dict[str, Any]:
@@ -154,17 +154,25 @@ class NodeExecutor:
         _mark(run.blocked_nodes, node.id)
         metrics.record_node_failure(run.client_id, run.template_id, node.id, "unsafe_unapproved")
         event_id = self._ledger.emit_node_event(
-            campaign_id=run.campaign_id, client_id=run.client_id, node_id=node.id,
-            node_type=node.type, target_workcell=node.target_workcell,
-            capability=node.capability, status="blocked", severity=severity.value,
-            approval_state="missing_required", error_summary=step.error_summary,
+            campaign_id=run.campaign_id,
+            client_id=run.client_id,
+            node_id=node.id,
+            node_type=node.type,
+            target_workcell=node.target_workcell,
+            capability=node.capability,
+            status="blocked",
+            severity=severity.value,
+            approval_state="missing_required",
+            error_summary=step.error_summary,
             trace_id=trace_id,
         )
         run.audit_events.append(event_id)
         _LOG.warning(
             "campaigns.unsafe_node_refused campaign=%s node=%s type=%s — high-risk "
             "with approval_required=none; refusing to auto-run",
-            run.campaign_id, node.id, node.type,
+            run.campaign_id,
+            node.id,
+            node.type,
         )
         return step
 
@@ -172,10 +180,16 @@ class NodeExecutor:
         step.status = NodeStatus.NEEDS_APPROVAL
         _mark(run.needs_approval_nodes, node.id)
         event_id = self._ledger.emit_node_event(
-            campaign_id=run.campaign_id, client_id=run.client_id, node_id=node.id,
-            node_type=node.type, target_workcell=node.target_workcell,
-            capability=node.capability, status="needs_approval", severity=severity.value,
-            approval_state=f"pending:{level.value}", trace_id=trace_id,
+            campaign_id=run.campaign_id,
+            client_id=run.client_id,
+            node_id=node.id,
+            node_type=node.type,
+            target_workcell=node.target_workcell,
+            capability=node.capability,
+            status="needs_approval",
+            severity=severity.value,
+            approval_state=f"pending:{level.value}",
+            trace_id=trace_id,
         )
         run.audit_events.append(event_id)
         return step
@@ -213,13 +227,16 @@ class NodeExecutor:
         metrics.observe_node_duration(run.client_id, run.template_id, node.id, duration_ms / 1000.0)
 
         if result is None:
-            return self._finish_failure(node, run, step, severity, approval_state,
-                                        input_hash, error, trace_id)
-        return self._finish_success(node, run, step, severity, approval_state,
-                                    input_hash, result, trace_id)
+            return self._finish_failure(
+                node, run, step, severity, approval_state, input_hash, error, trace_id
+            )
+        return self._finish_success(
+            node, run, step, severity, approval_state, input_hash, result, trace_id
+        )
 
-    def _finish_success(self, node, run, step, severity, approval_state,
-                        input_hash, result, trace_id) -> CampaignStepResult:
+    def _finish_success(
+        self, node, run, step, severity, approval_state, input_hash, result, trace_id
+    ) -> CampaignStepResult:
         artifact_refs, kpi_refs = self._apply_outputs(node, run, result)
         step.status = NodeStatus.COMPLETED
         step.output_summary = _summarize(result)
@@ -230,28 +247,45 @@ class NodeExecutor:
         _mark(run.completed_nodes, node.id)
         _unmark(run.failed_nodes, node.id)
         event_id = self._ledger.emit_node_event(
-            campaign_id=run.campaign_id, client_id=run.client_id, node_id=node.id,
-            node_type=node.type, target_workcell=node.target_workcell,
-            capability=node.capability, status="completed", severity=severity.value,
-            approval_state=approval_state, input_hash=input_hash,
-            output_hash=step.output_hash, duration_ms=step.duration_ms,
-            artifact_refs=artifact_refs, kpi_refs=kpi_refs, trace_id=trace_id,
+            campaign_id=run.campaign_id,
+            client_id=run.client_id,
+            node_id=node.id,
+            node_type=node.type,
+            target_workcell=node.target_workcell,
+            capability=node.capability,
+            status="completed",
+            severity=severity.value,
+            approval_state=approval_state,
+            input_hash=input_hash,
+            output_hash=step.output_hash,
+            duration_ms=step.duration_ms,
+            artifact_refs=artifact_refs,
+            kpi_refs=kpi_refs,
+            trace_id=trace_id,
         )
         run.audit_events.append(event_id)
         return step
 
-    def _finish_failure(self, node, run, step, severity, approval_state,
-                        input_hash, error, trace_id) -> CampaignStepResult:
+    def _finish_failure(
+        self, node, run, step, severity, approval_state, input_hash, error, trace_id
+    ) -> CampaignStepResult:
         step.status = NodeStatus.FAILED
         step.error_summary = error or "dispatch_failed"
         _mark(run.failed_nodes, node.id)
         metrics.record_node_failure(run.client_id, run.template_id, node.id, "dispatch")
         event_id = self._ledger.emit_node_event(
-            campaign_id=run.campaign_id, client_id=run.client_id, node_id=node.id,
-            node_type=node.type, target_workcell=node.target_workcell,
-            capability=node.capability, status="failed", severity=severity.value,
-            approval_state=approval_state, input_hash=input_hash,
-            duration_ms=step.duration_ms, error_summary=step.error_summary,
+            campaign_id=run.campaign_id,
+            client_id=run.client_id,
+            node_id=node.id,
+            node_type=node.type,
+            target_workcell=node.target_workcell,
+            capability=node.capability,
+            status="failed",
+            severity=severity.value,
+            approval_state=approval_state,
+            input_hash=input_hash,
+            duration_ms=step.duration_ms,
+            error_summary=step.error_summary,
             trace_id=trace_id,
         )
         run.audit_events.append(event_id)
@@ -303,8 +337,12 @@ class NodeExecutor:
         try:
             self._dispatcher.dispatch(
                 node=node.model_copy(update={"capability": cap}),
-                payload={"campaign_id": run.campaign_id, "client_id": run.client_id,
-                         "node_id": node.id, "compensate": True},
+                payload={
+                    "campaign_id": run.campaign_id,
+                    "client_id": run.client_id,
+                    "node_id": node.id,
+                    "compensate": True,
+                },
                 run=run,
             )
         except Exception as exc:  # noqa: BLE001 — compensation is best-effort

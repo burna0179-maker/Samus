@@ -1,4 +1,5 @@
 """Dataclasses for proof assets. Stdlib-only."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

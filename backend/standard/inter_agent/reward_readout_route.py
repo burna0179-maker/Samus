@@ -25,6 +25,7 @@ NOTE: no ``from __future__ import annotations`` — it breaks FastAPI/pydantic
 forward-ref resolution of the ``Request`` parameter type (same caveat as
 agora_contribute_route / Optimus quorum_assess_route).
 """
+
 import hashlib
 import json
 import logging
@@ -72,7 +73,11 @@ def _ensure_security_client_on_path() -> None:
 def is_readout_enabled() -> bool:
     """Read ``SN_REWARD_READOUT_ENABLED`` live. Default OFF (dormant)."""
     return os.environ.get(ENV_READOUT_ENABLED, "").strip().lower() in (
-        "1", "true", "yes", "on", "y",
+        "1",
+        "true",
+        "yes",
+        "on",
+        "y",
     )
 
 
@@ -98,11 +103,15 @@ def _verify_darwin_envelope(body: Any) -> dict[str, Any]:
     _ensure_security_client_on_path()
     try:
         from security_client.agent_envelope import (  # type: ignore
-            AgentEnvelope, EnvelopeError, EnvelopeReplay,
-            EnvelopeSignatureInvalid, EnvelopeStale,
+            AgentEnvelope,
+            EnvelopeError,
+            EnvelopeReplay,
+            EnvelopeSignatureInvalid,
+            EnvelopeStale,
         )
         from security_client.rotating_hmac import (  # type: ignore
-            RotatingHMACKey, RotatingHMACKeyError,
+            RotatingHMACKey,
+            RotatingHMACKeyError,
         )
     except Exception as exc:  # noqa: BLE001 — import failure ⇒ cannot verify ⇒ 503
         _LOG.error("reward_readout: security_client unavailable: %s", exc)
@@ -129,7 +138,8 @@ def _verify_darwin_envelope(body: Any) -> dict[str, Any]:
         env.verify(verifying_key)
     except (EnvelopeSignatureInvalid, EnvelopeStale, EnvelopeReplay) as exc:
         raise _EnvelopeRejected(
-            f"envelope_verification_failed: {type(exc).__name__}", status_code=403) from exc
+            f"envelope_verification_failed: {type(exc).__name__}", status_code=403
+        ) from exc
     except EnvelopeError as exc:
         raise _EnvelopeRejected(f"envelope_verification_failed: {exc}", status_code=403) from exc
 
@@ -146,6 +156,7 @@ def _read_ledger_tail(window: int) -> list[dict[str, Any]]:
     raises (a readout fault must not 500 the gateway)."""
     try:
         from backend.strategy.reward_density import _persist_path
+
         path = _persist_path()
     except Exception:  # noqa: BLE001
         return []
@@ -211,8 +222,8 @@ def _summarize_rewards(window: int) -> dict[str, Any]:
         "mean_reward": mean_reward,
         "min_reward": round(min(rewards), 6) if rewards else 0.0,
         "max_reward": round(max(rewards), 6) if rewards else 0.0,
-        "terminal_paid": terminal_paid,       # # of terminal won+paid outcomes in window
-        "harm": harm,                          # aggregate harm-signal totals
+        "terminal_paid": terminal_paid,  # # of terminal won+paid outcomes in window
+        "harm": harm,  # aggregate harm-signal totals
         "harm_total": sum(harm.values()),
         "last_computed_at": last_at,
     }
@@ -222,8 +233,9 @@ def _summarize_rewards(window: int) -> dict[str, Any]:
 
 
 def _build_readout(payload: dict[str, Any], summary: dict[str, Any]) -> dict[str, Any]:
-    canonical = json.dumps(summary, sort_keys=True, separators=(",", ":"),
-                           default=str).encode("utf-8")
+    canonical = json.dumps(summary, sort_keys=True, separators=(",", ":"), default=str).encode(
+        "utf-8"
+    )
     return {
         "agent": "samus",
         "source_kind": SOURCE_KIND,
@@ -265,17 +277,28 @@ def register(app) -> None:
             return JSONResponse(status_code=503, content={"detail": str(exc)})
 
         if not is_readout_enabled():
-            return _build_readout(payload, {"have_signal": False, "reason": "reward_readout_disabled"})
+            return _build_readout(
+                payload, {"have_signal": False, "reason": "reward_readout_disabled"}
+            )
 
         summary = _summarize_rewards(_clamp_window(payload))
         result = _build_readout(payload, summary)
-        _LOG.info("reward_summary to=darwin n=%s mean=%s harm=%s",
-                  summary.get("window_n"), summary.get("mean_reward"), summary.get("harm_total"))
+        _LOG.info(
+            "reward_summary to=darwin n=%s mean=%s harm=%s",
+            summary.get("window_n"),
+            summary.get("mean_reward"),
+            summary.get("harm_total"),
+        )
         return result
 
 
 __all__ = [
-    "CALLER_AGENT", "SOURCE_KIND", "ENV_READOUT_ENABLED",
-    "is_readout_enabled", "register", "_verify_darwin_envelope",
-    "_summarize_rewards", "_read_ledger_tail",
+    "CALLER_AGENT",
+    "SOURCE_KIND",
+    "ENV_READOUT_ENABLED",
+    "is_readout_enabled",
+    "register",
+    "_verify_darwin_envelope",
+    "_summarize_rewards",
+    "_read_ledger_tail",
 ]

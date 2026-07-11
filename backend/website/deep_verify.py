@@ -26,6 +26,7 @@ name-search fallback (presence_check.web_search_finds_site) supplies the safe
 low-confidence signal separately, so recall never regresses. Fail-soft: any
 error returns not-found.
 """
+
 from __future__ import annotations
 
 import logging
@@ -35,19 +36,21 @@ from urllib.parse import urlparse
 
 _LOG = logging.getLogger("samus.website.deep_verify")
 
-_MAX_CANDIDATES = 8          # cap total fetches per prospect (cost/latency guard)
+_MAX_CANDIDATES = 8  # cap total fetches per prospect (cost/latency guard)
 _FETCH_TIMEOUT = 8.0
 _GEMINI_TIMEOUT = 30.0
-_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-       "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
+_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+)
 
 
 @dataclass
 class DeepVerdict:
     found: bool
     url: str = ""
-    matched_on: str = ""          # "phone" | "address" | ""
-    confidence: str = ""          # "high" (contact match) — only value set on found
+    matched_on: str = ""  # "phone" | "address" | ""
+    confidence: str = ""  # "high" (contact match) — only value set on found
     reason: str = ""
     candidates: list[str] = field(default_factory=list)
 
@@ -100,13 +103,19 @@ def _page_has_address(text: str, address: str) -> bool:
     sn, zc = _address_tokens(address)
     if not (sn and zc):
         return False
-    return bool(re.search(rf"\b{re.escape(zc)}\b", text)
-                and re.search(rf"\b{re.escape(sn)}\b", text))
+    return bool(
+        re.search(rf"\b{re.escape(zc)}\b", text) and re.search(rf"\b{re.escape(sn)}\b", text)
+    )
 
 
-def _gemini_sources(query: str, *, api_key: str, http_client=None,
-                    timeout: float = _GEMINI_TIMEOUT,
-                    model: str = "gemini-2.5-flash") -> list[str]:
+def _gemini_sources(
+    query: str,
+    *,
+    api_key: str,
+    http_client=None,
+    timeout: float = _GEMINI_TIMEOUT,
+    model: str = "gemini-2.5-flash",
+) -> list[str]:
     """Grounded Google search -> candidate source DOMAINS (raw results).
 
     A search-oriented prompt maximizes the grounding SOURCES returned. We use the
@@ -118,14 +127,13 @@ def _gemini_sources(query: str, *, api_key: str, http_client=None,
     impostor, which only a contact match can rule in or out.)"""
     try:
         import httpx
+
         prompt = (
             f"Search Google for the official website of this business: {query}. "
             f"Look at the actual search results and their source websites."
         )
-        body = {"contents": [{"parts": [{"text": prompt}]}],
-                "tools": [{"google_search": {}}]}
-        url = (f"https://generativelanguage.googleapis.com/v1beta/models/"
-               f"{model}:generateContent")
+        body = {"contents": [{"parts": [{"text": prompt}]}], "tools": [{"google_search": {}}]}
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
         own = http_client is None
         client = http_client or httpx.Client(timeout=timeout)
         try:
@@ -146,8 +154,7 @@ def _gemini_sources(query: str, *, api_key: str, http_client=None,
             if "." in title and " " not in title:
                 hosts.append(title)
         # plus any explicit URLs Gemini cited in prose
-        text = "".join(p.get("text", "")
-                       for p in (cand.get("content", {}) or {}).get("parts", []))
+        text = "".join(p.get("text", "") for p in (cand.get("content", {}) or {}).get("parts", []))
         for m in re.findall(r"https?://[^\s)>\]\"']+", text):
             h = _host(m)
             if h:
@@ -172,6 +179,7 @@ def _check_hosts(hosts, *, phone10, address, client, seen, candidates) -> DeepVe
     """Fetch each fresh, non-directory host and test for a contact match. Returns
     a high-confidence DeepVerdict on the first phone/address hit, else None."""
     from backend.website.presence_check import _is_directory
+
     for h in hosts:
         host = _host(h)
         if not host or host in seen:
@@ -189,25 +197,43 @@ def _check_hosts(hosts, *, phone10, address, client, seen, candidates) -> DeepVe
         # Homepage first; if it doesn't carry the contact info, try /contact
         # (small-biz sites often keep the phone/address only on the contact page).
         pages = [home]
-        home_hit = (_page_has_phone(home, phone10)
-                    or (address and _page_has_address(_visible_text(home), address)))
+        home_hit = _page_has_phone(home, phone10) or (
+            address and _page_has_address(_visible_text(home), address)
+        )
         if not home_hit:
             c = _fetch(u + "/contact", client=client)
             if c:
                 pages.append(c)
         for html in pages:
             if _page_has_phone(html, phone10):
-                return DeepVerdict(True, url=u, matched_on="phone", confidence="high",
-                                   reason=f"prospect phone found on {u}")
+                return DeepVerdict(
+                    True,
+                    url=u,
+                    matched_on="phone",
+                    confidence="high",
+                    reason=f"prospect phone found on {u}",
+                )
             if address and _page_has_address(_visible_text(html), address):
-                return DeepVerdict(True, url=u, matched_on="address", confidence="high",
-                                   reason=f"prospect address (street#+ZIP) found on {u}")
+                return DeepVerdict(
+                    True,
+                    url=u,
+                    matched_on="address",
+                    confidence="high",
+                    reason=f"prospect address (street#+ZIP) found on {u}",
+                )
     return None
 
 
-def deep_verify_site(company_name: str, *, city: str = "", state: str = "",
-                     known_phone: str = "", known_address: str = "",
-                     api_key: str | None = None, seed_url: str = "") -> DeepVerdict:
+def deep_verify_site(
+    company_name: str,
+    *,
+    city: str = "",
+    state: str = "",
+    known_phone: str = "",
+    known_address: str = "",
+    api_key: str | None = None,
+    seed_url: str = "",
+) -> DeepVerdict:
     """HIGH-CONFIDENCE ownership confirmation: does ``company_name`` own a live
     site whose page carries the prospect's phone/address? Returns found=True ONLY
     on a contact match (never on a bare name/search guess — that stays the job of
@@ -227,12 +253,20 @@ def deep_verify_site(company_name: str, *, city: str = "", state: str = "",
     candidates: list[str] = []
     try:
         import httpx
-        with httpx.Client(timeout=_FETCH_TIMEOUT, follow_redirects=True,
-                          headers={"User-Agent": _UA}) as client:
+
+        with httpx.Client(
+            timeout=_FETCH_TIMEOUT, follow_redirects=True, headers={"User-Agent": _UA}
+        ) as client:
             # Verify the caller's already-found site FIRST (cheap upgrade path).
             if seed_url:
-                v = _check_hosts([seed_url], phone10=phone10, address=known_address,
-                                 client=client, seen=seen, candidates=candidates)
+                v = _check_hosts(
+                    [seed_url],
+                    phone10=phone10,
+                    address=known_address,
+                    client=client,
+                    seen=seen,
+                    candidates=candidates,
+                )
                 if v:
                     v.candidates = candidates
                     return v
@@ -246,16 +280,23 @@ def deep_verify_site(company_name: str, *, city: str = "", state: str = "",
                     queries.append(known_phone)
                 for q in queries:
                     hosts = _gemini_sources(q, api_key=gkey)
-                    v = _check_hosts(hosts, phone10=phone10, address=known_address,
-                                     client=client, seen=seen, candidates=candidates)
+                    v = _check_hosts(
+                        hosts,
+                        phone10=phone10,
+                        address=known_address,
+                        client=client,
+                        seen=seen,
+                        candidates=candidates,
+                    )
                     if v:
                         v.candidates = candidates
                         return v
     except Exception as exc:  # noqa: BLE001 — best-effort insurance, never blocks
         _LOG.warning("deep verify failed for %r: %s", company_name, exc)
-        return DeepVerdict(False, reason=f"deep verify error ({type(exc).__name__})",
-                           candidates=candidates)
+        return DeepVerdict(
+            False, reason=f"deep verify error ({type(exc).__name__})", candidates=candidates
+        )
 
-    return DeepVerdict(False,
-                       reason="no candidate carried the prospect's phone/address",
-                       candidates=candidates)
+    return DeepVerdict(
+        False, reason="no candidate carried the prospect's phone/address", candidates=candidates
+    )

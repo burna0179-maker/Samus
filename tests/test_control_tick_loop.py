@@ -1,4 +1,5 @@
 """Gateway-internal control-tick loop — start/stop, gating, fault tolerance."""
+
 from __future__ import annotations
 
 import asyncio
@@ -46,8 +47,10 @@ def test_loop_actually_invokes_run_control_tick(monkeypatch):
     calls = []
 
     import backend.gateway.control_tick as ct
+
     monkeypatch.setattr(
-        ct, "run_control_tick",
+        ct,
+        "run_control_tick",
         lambda **kw: calls.append(1) or {"ok": True, "recommendations": {"stale_deals": 0}},
     )
 

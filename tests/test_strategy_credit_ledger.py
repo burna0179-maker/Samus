@@ -3,6 +3,7 @@
 Covers the append-only earn/spend ledger, thread-safety, the
 "correction via new EARN" pattern, and the JSON-serialisable snapshot.
 """
+
 from __future__ import annotations
 
 import json
@@ -157,9 +158,7 @@ def test_correction_pattern_via_earn_with_note() -> None:
     ledger = CreditLedger()
     bad = ledger.earn("agent_a", 100, "report_generation")
     # No revoke API — correct by adding an offsetting EARN with a note.
-    fix = ledger.earn(
-        "agent_a", 25, "report_generation", note=f"correction:{bad.txn_id}"
-    )
+    fix = ledger.earn("agent_a", 25, "report_generation", note=f"correction:{bad.txn_id}")
 
     notes = {t.note for t in ledger.transactions("agent_a")}
     assert f"correction:{bad.txn_id}" in notes

@@ -6,6 +6,7 @@ the guard against a garbled scrape or a gatekeeper's brush-off address. The
 motivating real case (2026-05-21): a receptionist offered ``info@magnolia-.com``
 for *Magnolia Modern Dentistry* — a domain label may not end in a hyphen.
 """
+
 from __future__ import annotations
 
 from backend.prospecting.contact_validation import (
@@ -20,7 +21,7 @@ from backend.prospecting.contact_validation import (
 
 def test_well_formed_addresses_are_valid():
     for ok in (
-        "info@magnolia-modern.com",          # interior hyphen is fine
+        "info@magnolia-modern.com",  # interior hyphen is fine
         "manager@dentistyubacity.com",
         "first.last@sub.domain.org",
         "a@b.co",
@@ -45,16 +46,16 @@ def test_leading_hyphen_label_is_malformed():
 
 def test_other_malformed_addresses_are_rejected():
     for bad in (
-        "",                       # empty
-        "infomagnolia.com",       # no @
-        "info@@magnolia.com",     # two @
-        "@magnolia.com",          # empty local
-        "info@",                  # empty domain
-        "info@magnolia",          # no TLD
-        "info@magnolia..com",     # doubled dot / empty label
-        "info@.com",              # empty leading label
-        "info@magnolia.c",        # TLD too short
-        ".info@magnolia.com",     # leading dot in local
+        "",  # empty
+        "infomagnolia.com",  # no @
+        "info@@magnolia.com",  # two @
+        "@magnolia.com",  # empty local
+        "info@",  # empty domain
+        "info@magnolia",  # no TLD
+        "info@magnolia..com",  # doubled dot / empty label
+        "info@.com",  # empty leading label
+        "info@magnolia.c",  # TLD too short
+        ".info@magnolia.com",  # leading dot in local
     ):
         assert is_valid_email_syntax(bad) is False, bad
         assert email_syntax_error(bad) is not None, bad
@@ -120,8 +121,8 @@ def test_assess_unrelated_domain_is_suspect():
         website_url="https://dentistyubacity.com",
     )
     assert a.verdict == "suspect"
-    assert a.valid_syntax is True            # syntactically fine...
-    assert a.is_trustworthy is False         # ...but not verified
+    assert a.valid_syntax is True  # syntactically fine...
+    assert a.is_trustworthy is False  # ...but not verified
     assert "unrelated" in " ".join(a.reasons).lower()
 
 
@@ -151,7 +152,7 @@ def test_enrichment_drops_malformed_scraped_email():
 
     html = (
         '<a href="mailto:manager@dentistyubacity.com">Email us</a>'
-        '<p>Or reach the admin at info@magnolia-.com today.</p>'
+        "<p>Or reach the admin at info@magnolia-.com today.</p>"
     )
     emails = _extract_emails(html)
     assert "manager@dentistyubacity.com" in emails
@@ -177,29 +178,43 @@ def _run_cli(args):
 
 
 def test_cli_flags_a_malformed_contact_nonzero_exit():
-    code, out = _run_cli([
-        "--email", "info@magnolia-.com", "--company", "Magnolia Modern Dentistry",
-    ])
-    assert code == 1                       # non-zero so the caller can branch
+    code, out = _run_cli(
+        [
+            "--email",
+            "info@magnolia-.com",
+            "--company",
+            "Magnolia Modern Dentistry",
+        ]
+    )
+    assert code == 1  # non-zero so the caller can branch
     assert out["verdict"] == "malformed"
     assert out["valid_syntax"] is False
     assert out["reasons"]
 
 
 def test_cli_passes_a_valid_matching_contact():
-    code, out = _run_cli([
-        "--email", "manager@dentistyubacity.com",
-        "--website", "https://www.dentistyubacity.com/",
-    ])
+    code, out = _run_cli(
+        [
+            "--email",
+            "manager@dentistyubacity.com",
+            "--website",
+            "https://www.dentistyubacity.com/",
+        ]
+    )
     assert code == 0
     assert out["verdict"] == "valid"
 
 
 def test_cli_flags_a_suspect_offdomain_contact():
-    code, out = _run_cli([
-        "--email", "info@randomcorp.com",
-        "--company", "Magnolia Modern Dentistry",
-        "--website", "https://dentistyubacity.com",
-    ])
+    code, out = _run_cli(
+        [
+            "--email",
+            "info@randomcorp.com",
+            "--company",
+            "Magnolia Modern Dentistry",
+            "--website",
+            "https://dentistyubacity.com",
+        ]
+    )
     assert code == 1
     assert out["verdict"] == "suspect"

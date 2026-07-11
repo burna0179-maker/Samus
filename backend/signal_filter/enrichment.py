@@ -22,6 +22,7 @@ and optional** (:func:`firmographic_enrichment`). With no API key configured
 they are graceful no-ops returning neutral defaults — Samus is local-first
 and must not hard-require a paid API.
 """
+
 from __future__ import annotations
 
 import logging

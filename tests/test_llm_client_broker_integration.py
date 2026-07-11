@@ -11,6 +11,7 @@ These verify the wiring inside ``backend.common.llm_client.anthropic_messages``:
   * with the broker disabled (default dev posture), neither reserve nor
     release runs and existing behaviour is preserved.
 """
+
 from __future__ import annotations
 
 import sys
@@ -95,6 +96,7 @@ def _install_fake_anthropic_transport_error(monkeypatch):
 # Reserve is called BEFORE the HTTP call.
 # ---------------------------------------------------------------------------
 
+
 def test_anthropic_messages_calls_broker_before_http(monkeypatch, _broker_enabled_in_test):
     from backend.common import broker_client as bc
     from backend.common import llm_client as _llm
@@ -106,8 +108,11 @@ def test_anthropic_messages_calls_broker_before_http(monkeypatch, _broker_enable
     def _tracking_reserve(*, kind, cost, priority, workcell, timeout_sec=1.0):
         order.append("reserve")
         return bc.Reservation(
-            id="res-int-1", kind=kind, granted_cost=cost,
-            expires_at=9999999999.0, priority=priority,
+            id="res-int-1",
+            kind=kind,
+            granted_cost=cost,
+            expires_at=9999999999.0,
+            priority=priority,
         )
 
     def _tracking_release(reservation, *, actual_cost, outcome):
@@ -152,6 +157,7 @@ def test_anthropic_messages_calls_broker_before_http(monkeypatch, _broker_enable
 # Broker deny → BudgetExceeded.
 # ---------------------------------------------------------------------------
 
+
 def test_broker_denied_translates_to_budget_exceeded(monkeypatch, _broker_enabled_in_test):
     from backend.common import llm_client as _llm
 
@@ -168,8 +174,11 @@ def test_broker_denied_translates_to_budget_exceeded(monkeypatch, _broker_enable
     monkeypatch.setattr(
         _llm,
         "get_shared_client",
-        lambda timeout: http_calls.append("CALLED") or pytest.fail(
-            "HTTP must not run when broker denies",
+        lambda timeout: (
+            http_calls.append("CALLED")
+            or pytest.fail(
+                "HTTP must not run when broker denies",
+            )
         ),
     )
 
@@ -187,6 +196,7 @@ def test_broker_denied_translates_to_budget_exceeded(monkeypatch, _broker_enable
 # Release on success — with usage-derived actual_cost.
 # ---------------------------------------------------------------------------
 
+
 def test_anthropic_messages_releases_on_success_path(monkeypatch, _broker_enabled_in_test):
     from backend.common import broker_client as bc
     from backend.common import llm_client as _llm
@@ -195,19 +205,24 @@ def test_anthropic_messages_releases_on_success_path(monkeypatch, _broker_enable
         _llm._broker_client,  # noqa: SLF001
         "reserve",
         lambda **kw: bc.Reservation(
-            id="res-int-2", kind=kw["kind"], granted_cost=kw["cost"],
-            expires_at=9999999999.0, priority=kw["priority"],
+            id="res-int-2",
+            kind=kw["kind"],
+            granted_cost=kw["cost"],
+            expires_at=9999999999.0,
+            priority=kw["priority"],
         ),
     )
 
     releases: list[dict] = []
 
     def _capture_release(reservation, *, actual_cost, outcome):
-        releases.append({
-            "id": reservation.id,
-            "actual_cost": actual_cost,
-            "outcome": outcome,
-        })
+        releases.append(
+            {
+                "id": reservation.id,
+                "actual_cost": actual_cost,
+                "outcome": outcome,
+            }
+        )
 
     monkeypatch.setattr(_llm._broker_client, "release", _capture_release)  # noqa: SLF001
     _install_fake_anthropic_response(
@@ -236,6 +251,7 @@ def test_anthropic_messages_releases_on_success_path(monkeypatch, _broker_enable
 # Release on HTTP error — outcome=error, cost=0.
 # ---------------------------------------------------------------------------
 
+
 def test_anthropic_messages_releases_on_http_error_path(monkeypatch, _broker_enabled_in_test):
     from backend.common import broker_client as bc
     from backend.common import llm_client as _llm
@@ -244,8 +260,11 @@ def test_anthropic_messages_releases_on_http_error_path(monkeypatch, _broker_ena
         _llm._broker_client,  # noqa: SLF001
         "reserve",
         lambda **kw: bc.Reservation(
-            id="res-int-3", kind=kw["kind"], granted_cost=kw["cost"],
-            expires_at=9999999999.0, priority=kw["priority"],
+            id="res-int-3",
+            kind=kw["kind"],
+            granted_cost=kw["cost"],
+            expires_at=9999999999.0,
+            priority=kw["priority"],
         ),
     )
 
@@ -253,11 +272,13 @@ def test_anthropic_messages_releases_on_http_error_path(monkeypatch, _broker_ena
     monkeypatch.setattr(
         _llm._broker_client,  # noqa: SLF001
         "release",
-        lambda reservation, *, actual_cost, outcome: releases.append({
-            "id": reservation.id,
-            "actual_cost": actual_cost,
-            "outcome": outcome,
-        }),
+        lambda reservation, *, actual_cost, outcome: releases.append(
+            {
+                "id": reservation.id,
+                "actual_cost": actual_cost,
+                "outcome": outcome,
+            }
+        ),
     )
 
     _install_fake_anthropic_transport_error(monkeypatch)
@@ -278,8 +299,10 @@ def test_anthropic_messages_releases_on_http_error_path(monkeypatch, _broker_ena
 # Disabled broker — original behaviour intact.
 # ---------------------------------------------------------------------------
 
+
 def test_when_broker_disabled_anthropic_messages_behaves_as_before(
-    monkeypatch, _broker_disabled,
+    monkeypatch,
+    _broker_disabled,
 ):
     from backend.common import llm_client as _llm
 

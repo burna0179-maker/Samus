@@ -5,6 +5,7 @@ them. HMAC is disabled in the test process (conftest sets
 ``SAMUS_DISABLE_HMAC_MIDDLEWARE=1``) so these tests exercise the body cap +
 header injection directly against a built app.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -29,6 +30,7 @@ def app():
 
 
 # ---------------- S5 security headers ----------------
+
 
 def test_security_headers_present_on_health(app) -> None:
     client = TestClient(app)
@@ -59,6 +61,7 @@ def test_security_headers_setdefault_preserves_handler_value() -> None:
 
 
 # ---------------- S4 body-size limit ----------------
+
 
 def test_small_body_passes(app) -> None:
     client = TestClient(app)

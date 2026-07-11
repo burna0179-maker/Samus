@@ -1,4 +1,5 @@
 """Finance metering — Stripe meter-event push + report_call_minutes contract."""
+
 from __future__ import annotations
 
 import json
@@ -13,11 +14,22 @@ from backend.finance.stripe_client import StripeClient, StripeError
 # seconds_to_billable_minutes — round UP (telecom convention)
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("seconds,expected", [
-    (0, 0), (None, 0), (-5, 0),
-    (1, 1), (59, 1), (60, 1),
-    (61, 2), (119, 2), (120, 2), (181, 4),
-])
+
+@pytest.mark.parametrize(
+    "seconds,expected",
+    [
+        (0, 0),
+        (None, 0),
+        (-5, 0),
+        (1, 1),
+        (59, 1),
+        (60, 1),
+        (61, 2),
+        (119, 2),
+        (120, 2),
+        (181, 4),
+    ],
+)
 def test_seconds_to_billable_minutes_rounds_up(seconds, expected):
     assert seconds_to_billable_minutes(seconds) == expected
 
@@ -25,6 +37,7 @@ def test_seconds_to_billable_minutes_rounds_up(seconds, expected):
 # ---------------------------------------------------------------------------
 # StripeClient.create_meter_event — validation + form encoding
 # ---------------------------------------------------------------------------
+
 
 def _client_capturing(captured: dict) -> StripeClient:
     client = StripeClient(api_key="sk_test_x")
@@ -51,12 +64,15 @@ def test_create_meter_event_builds_form_payload():
     assert captured["data"]["identifier"] == "call_abc"
 
 
-@pytest.mark.parametrize("kwargs", [
-    {"event_name": "", "stripe_customer_id": "cus_1", "value": 1},
-    {"event_name": "m", "stripe_customer_id": "", "value": 1},
-    {"event_name": "m", "stripe_customer_id": "cus_1", "value": 0},
-    {"event_name": "m", "stripe_customer_id": "cus_1", "value": -2},
-])
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"event_name": "", "stripe_customer_id": "cus_1", "value": 1},
+        {"event_name": "m", "stripe_customer_id": "", "value": 1},
+        {"event_name": "m", "stripe_customer_id": "cus_1", "value": 0},
+        {"event_name": "m", "stripe_customer_id": "cus_1", "value": -2},
+    ],
+)
 def test_create_meter_event_rejects_bad_input(kwargs):
     client = StripeClient(api_key="sk_test_x")
     with pytest.raises(ValueError):
@@ -66,6 +82,7 @@ def test_create_meter_event_rejects_bad_input(kwargs):
 # ---------------------------------------------------------------------------
 # report_call_minutes — never raises; logs every outcome
 # ---------------------------------------------------------------------------
+
 
 class _FakeStripe:
     """Records create_meter_event calls; optionally raises."""
@@ -97,12 +114,14 @@ def _log_rows(path) -> list[dict]:
 def test_report_call_minutes_success(meter_log):
     fake = _FakeStripe()
     result = report_call_minutes(
-        stripe_customer_id="cus_1", call_id="call_1",
-        duration_seconds=130, client=fake,
+        stripe_customer_id="cus_1",
+        call_id="call_1",
+        duration_seconds=130,
+        client=fake,
     )
     assert result.ok is True
-    assert result.minutes_reported == 3          # ceil(130/60)
-    assert result.meter_event_id == "call_1"     # Stripe echoes the identifier
+    assert result.minutes_reported == 3  # ceil(130/60)
+    assert result.meter_event_id == "call_1"  # Stripe echoes the identifier
     assert fake.calls[0]["identifier"] == "call_1"
     assert fake.calls[0]["event_name"] == "receptionist_call_minutes"
     rows = _log_rows(meter_log)
@@ -112,17 +131,22 @@ def test_report_call_minutes_success(meter_log):
 def test_report_call_minutes_zero_duration_is_clean_noop(meter_log):
     fake = _FakeStripe()
     result = report_call_minutes(
-        stripe_customer_id="cus_1", call_id="call_0",
-        duration_seconds=0, client=fake,
+        stripe_customer_id="cus_1",
+        call_id="call_0",
+        duration_seconds=0,
+        client=fake,
     )
     assert result.ok is True and result.minutes_reported == 0
-    assert fake.calls == []                       # no Stripe call for a 0s call
+    assert fake.calls == []  # no Stripe call for a 0s call
 
 
 def test_report_call_minutes_unknown_sku(meter_log):
     result = report_call_minutes(
-        stripe_customer_id="cus_1", call_id="c", duration_seconds=60,
-        sku_id="retainer_does_not_exist", client=_FakeStripe(),
+        stripe_customer_id="cus_1",
+        call_id="c",
+        duration_seconds=60,
+        sku_id="retainer_does_not_exist",
+        client=_FakeStripe(),
     )
     assert result.ok is False and "unknown_sku" in result.error
 
@@ -130,15 +154,20 @@ def test_report_call_minutes_unknown_sku(meter_log):
 def test_report_call_minutes_sku_without_meter(meter_log):
     # A flat retainer with no metered price -> can't report usage.
     result = report_call_minutes(
-        stripe_customer_id="cus_1", call_id="c", duration_seconds=60,
-        sku_id="retainer_seo_optimization", client=_FakeStripe(),
+        stripe_customer_id="cus_1",
+        call_id="c",
+        duration_seconds=60,
+        sku_id="retainer_seo_optimization",
+        client=_FakeStripe(),
     )
     assert result.ok is False and "sku_has_no_meter" in result.error
 
 
 def test_report_call_minutes_missing_customer(meter_log):
     result = report_call_minutes(
-        stripe_customer_id="", call_id="c", duration_seconds=60,
+        stripe_customer_id="",
+        call_id="c",
+        duration_seconds=60,
         client=_FakeStripe(),
     )
     assert result.ok is False and result.error == "stripe_customer_id_unset"
@@ -147,8 +176,10 @@ def test_report_call_minutes_missing_customer(meter_log):
 def test_report_call_minutes_never_raises_on_stripe_error(meter_log):
     """A Stripe failure returns ok=False — it must not raise into the webhook."""
     result = report_call_minutes(
-        stripe_customer_id="cus_1", call_id="call_err",
-        duration_seconds=90, client=_FakeStripe(raises=True),
+        stripe_customer_id="cus_1",
+        call_id="call_err",
+        duration_seconds=90,
+        client=_FakeStripe(raises=True),
     )
     assert result.ok is False
     assert "stripe_meter_event_failed" in result.error
@@ -159,6 +190,7 @@ def test_report_call_minutes_never_raises_on_stripe_error(meter_log):
 # ---------------------------------------------------------------------------
 # Finance /meter-event route — wiring smoke test
 # ---------------------------------------------------------------------------
+
 
 def test_meter_event_route_is_wired(meter_log):
     """POST /meter-event parses the request + runs report_call_minutes.
@@ -172,11 +204,14 @@ def test_meter_event_route_is_wired(meter_log):
     from backend.finance.app import app
 
     client = TestClient(app)
-    resp = client.post("/meter-event", json={
-        "stripe_customer_id": "cus_1",
-        "call_id": "call_route_1",
-        "duration_seconds": 120.0,
-    })
+    resp = client.post(
+        "/meter-event",
+        json={
+            "stripe_customer_id": "cus_1",
+            "call_id": "call_route_1",
+            "duration_seconds": 120.0,
+        },
+    )
     assert resp.status_code == 200
     body = resp.json()
     assert body["call_id"] == "call_route_1"

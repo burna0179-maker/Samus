@@ -35,6 +35,7 @@ This middleware is added OUTERMOST in ``create_base_app`` so the cap runs
 before ``VerifyHMACMiddleware`` buffers the body for signature verification.
 ``/health`` and ``/metrics`` are GETs and are skipped by method anyway.
 """
+
 from __future__ import annotations
 
 import json

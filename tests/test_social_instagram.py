@@ -4,6 +4,7 @@ No live network call is ever made. Live-path tests assert fail-closed refusals
 (missing credentials / missing stake sentence / insufficient media) which never
 touch the network. Image generation tests use tmp_path for output.
 """
+
 from __future__ import annotations
 
 import importlib
@@ -204,9 +205,7 @@ class TestParseCarouselText:
         from backend.social.image_gen import parse_carousel_text
 
         raw = (
-            "Slide 1: Why AI visibility matters\n"
-            "Slide 2: Three quick wins\n"
-            "Slide 3: Start today\n"
+            "Slide 1: Why AI visibility matters\nSlide 2: Three quick wins\nSlide 3: Start today\n"
         )
         slides = parse_carousel_text(raw)
         assert len(slides) == 3
@@ -219,10 +218,7 @@ class TestParseCarouselText:
     def test_parse_carousel_text_with_labels(self):
         from backend.social.image_gen import parse_carousel_text
 
-        raw = (
-            "Slide 1 (cover): The Ultimate Guide\n"
-            "Slide 2 (tip): Use structured data\n"
-        )
+        raw = "Slide 1 (cover): The Ultimate Guide\nSlide 2 (tip): Use structured data\n"
         slides = parse_carousel_text(raw)
         assert len(slides) == 2
         assert slides[0]["label"] == "cover"

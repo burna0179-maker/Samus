@@ -1,9 +1,9 @@
 """The Codex Gate — stake-sentence + check_action, both fail-closed."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
 
-import pytest
 
 from backend.cash_engine import gate as gate_mod
 from backend.cash_engine.gate import evaluate_gate
@@ -82,8 +82,8 @@ def test_codex_block_surfaces_rule_and_keeps_stake(monkeypatch):
     monkeypatch.setattr(gate_mod, "check_action", lambda action: blocked)
     outcome = evaluate_gate(_req(), crm=FakeCRM(opp=_opp()))
     assert outcome.allowed is False
-    assert outcome.stake_present is True            # stake was present...
-    assert outcome.violated_rule_id == "VR-G2"      # ...but Codex blocked it
+    assert outcome.stake_present is True  # stake was present...
+    assert outcome.violated_rule_id == "VR-G2"  # ...but Codex blocked it
     assert outcome.drafted_adr_path == "/tmp/ADR-099.draft.md"
 
 

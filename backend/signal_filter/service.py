@@ -8,6 +8,7 @@ One capability: take an inbound prospect, run the deterministic pipeline
 Zero LLM calls — the workcell exists to *reduce* token spend by rejecting
 low-probability prospects before they become real TaskEnvelope jobs.
 """
+
 from __future__ import annotations
 
 import logging
@@ -26,11 +27,7 @@ _LOG = logging.getLogger("samus.signal_filter.service")
 
 def _resolve_task_id(prospect: ProspectInput) -> str:
     """Pick a stable task id: prospect_id, else place_id, else a fresh uuid."""
-    return (
-        prospect.prospect_id.strip()
-        or prospect.place_id.strip()
-        or f"sf-{uuid4().hex[:20]}"
-    )
+    return prospect.prospect_id.strip() or prospect.place_id.strip() or f"sf-{uuid4().hex[:20]}"
 
 
 def evaluate_prospect(prospect: ProspectInput) -> EvaluateResponse:
@@ -50,7 +47,9 @@ def evaluate_prospect(prospect: ProspectInput) -> EvaluateResponse:
     decision_path = "admitted" if admitted else "rejected"
     _LOG.info(
         "signal_filter decision task=%s score=%.4f path=%s",
-        task_id, score, decision_path,
+        task_id,
+        score,
+        decision_path,
     )
 
     # Fail-soft task-state persistence — observability, never on the critical

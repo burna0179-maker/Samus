@@ -1,4 +1,5 @@
 """Pod registration -- wires operator_console into a Samus FastAPI app."""
+
 from __future__ import annotations
 
 import os
@@ -60,17 +61,21 @@ class LMStudioBackend:
         self._timeout = timeout_s
 
     def complete(self, prompt: str) -> str:
-        import json, urllib.request, urllib.error
-        body = json.dumps({
-            "model": self._model,
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.2,
-            "max_tokens": 600,
-            "stream": False,
-        }).encode("utf-8")
+        import json
+        import urllib.request
+        import urllib.error
+
+        body = json.dumps(
+            {
+                "model": self._model,
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.2,
+                "max_tokens": 600,
+                "stream": False,
+            }
+        ).encode("utf-8")
         req = urllib.request.Request(
-            self._endpoint, data=body,
-            headers={"Content-Type": "application/json"}, method="POST"
+            self._endpoint, data=body, headers={"Content-Type": "application/json"}, method="POST"
         )
         try:
             with urllib.request.urlopen(req, timeout=self._timeout) as resp:
@@ -104,7 +109,9 @@ def register(
 
     enrichment_root_path = Path(enrichment_root) if enrichment_root else data_root / "identity"
     prompts_root = enrichment_root_path / "prompts"
-    history_path = Path(history_db_path) if history_db_path else data_root / "operator_console" / "history.db"
+    history_path = (
+        Path(history_db_path) if history_db_path else data_root / "operator_console" / "history.db"
+    )
 
     if personas is None:
         personas = load_persona_manager(enrichment_root_path)
@@ -149,10 +156,13 @@ def register(
         ai_display_name=ai_display_name or DEFAULT_AI_DISPLAY_NAME,
         operator_display_name=operator_display_name or DEFAULT_OPERATOR_DISPLAY_NAME,
         default_persona=default_persona or DEFAULT_PERSONA,
-        api_token=api_token if api_token is not None else os.environ.get("SAMUS_OPERATOR_TOKEN", ""),
+        api_token=api_token
+        if api_token is not None
+        else os.environ.get("SAMUS_OPERATOR_TOKEN", ""),
     )
 
     from .routes import build_api_router, build_console_router  # noqa: PLC0415
+
     console_router = build_console_router(state)
     api_router = build_api_router(state)
 
@@ -176,6 +186,9 @@ def register(
 
 
 __all__ = [
-    "OperatorConsoleState", "register",
-    "DEFAULT_AI_DISPLAY_NAME", "DEFAULT_OPERATOR_DISPLAY_NAME", "DEFAULT_PERSONA",
+    "OperatorConsoleState",
+    "register",
+    "DEFAULT_AI_DISPLAY_NAME",
+    "DEFAULT_OPERATOR_DISPLAY_NAME",
+    "DEFAULT_PERSONA",
 ]

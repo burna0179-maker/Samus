@@ -27,6 +27,7 @@ when the live key is seeded — the parser is deliberately defensive (every
 field defaults to "") so a minor schema drift degrades a single field rather
 than dropping the whole contact.
 """
+
 from __future__ import annotations
 
 import logging
@@ -78,7 +79,7 @@ class ApolloContact(BaseModel):
     name: str = ""
     title: str = ""
     email: str = ""
-    email_status: str = ""        # apollo: verified / guessed / unverified / unavailable
+    email_status: str = ""  # apollo: verified / guessed / unverified / unavailable
     linkedin_url: str = ""
     company: str = ""
     company_domain: str = ""
@@ -153,19 +154,21 @@ def _g11_preflight(endpoint: str, *, units: int = 1, prospect_id: str | None = N
     # Codex audit — surfaces every Apollo call in the validator stream so
     # operator tools can see cost-incurring activity even pre-VR-G11.
     try:
-        check_action(ProposedAction(
-            service="outreach",
-            capability="apollo_source",
-            action_kind="other",
-            payload={
-                "target": "apollo_call",
-                "endpoint": endpoint,
-                "estimated_usd": estimated_usd,
-                "prospect_id": prospect_id,
-            },
-            proposed_by="outreach.apollo_source",
-            correlation_id=None,
-        ))
+        check_action(
+            ProposedAction(
+                service="outreach",
+                capability="apollo_source",
+                action_kind="other",
+                payload={
+                    "target": "apollo_call",
+                    "endpoint": endpoint,
+                    "estimated_usd": estimated_usd,
+                    "prospect_id": prospect_id,
+                },
+                proposed_by="outreach.apollo_source",
+                correlation_id=None,
+            )
+        )
     except CodexUnavailable:
         # Codex contract is fail-closed; re-raise so the caller doesn't
         # silently bypass the audit chain.
@@ -273,7 +276,10 @@ def search_people(
     parsed = [_parse_person(p) for p in people if isinstance(p, dict)]
     _LOG.info(
         "apollo search page=%s per_page=%s -> %d people (%d sendable)",
-        page, per_page, len(parsed), sum(1 for p in parsed if p.sendable),
+        page,
+        per_page,
+        len(parsed),
+        sum(1 for p in parsed if p.sendable),
     )
     return parsed
 
@@ -296,7 +302,9 @@ def enrich_person(
     # email_unlock = 1 credit per match. Cap hit -> raises before the credit
     # is consumed; the campaign caller must catch ApolloBudgetExceeded.
     estimated_usd = _g11_preflight(
-        "email_unlock", units=1, prospect_id=contact.person_id,
+        "email_unlock",
+        units=1,
+        prospect_id=contact.person_id,
     )
 
     body = {"id": contact.person_id, "reveal_personal_emails": False}
@@ -320,14 +328,18 @@ def enrich_person(
         # spend only on success.
         if call_succeeded:
             _g11_postflight(
-                "email_unlock", estimated_usd, prospect_id=contact.person_id,
+                "email_unlock",
+                estimated_usd,
+                prospect_id=contact.person_id,
             )
 
     revealed = _parse_person(person) if person else contact
     # Preserve search-time fields the match might not echo back.
-    return contact.model_copy(update={
-        "email": revealed.email or contact.email,
-        "email_status": revealed.email_status or contact.email_status,
-        "linkedin_url": revealed.linkedin_url or contact.linkedin_url,
-        "phone": revealed.phone or contact.phone,
-    })
+    return contact.model_copy(
+        update={
+            "email": revealed.email or contact.email,
+            "email_status": revealed.email_status or contact.email_status,
+            "linkedin_url": revealed.linkedin_url or contact.linkedin_url,
+            "phone": revealed.phone or contact.phone,
+        }
+    )

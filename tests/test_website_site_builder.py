@@ -1,4 +1,5 @@
 """Headless site generator — taste-governed static frontend."""
+
 from __future__ import annotations
 
 from backend.website.models import WebsiteBrief, WebsitePage
@@ -15,14 +16,30 @@ def _brief(**over):
         address="<street>, <city>, <state> 97624",
         brand_colors=["#0E7C8B", "#5CB544", "#F2EC4F"],
         pages=[
-            WebsitePage(slug="home", title="Home", content={
-                "headline": "If you want a MIGHTY clean, give us a call!",
-                "intro": "Family owned and operated, over 10 years making homes sparkle."}),
-            WebsitePage(slug="about", title="About", content={"body": "We are a family-owned cleaning service."}),
-            WebsitePage(slug="services", title="Services", content={
-                "body": "Regular and one-time deep cleaning for homes and businesses.",
-                "list": "Deep Cleaning | Airbnb Turnovers | Commercial | Residential"}),
-            WebsitePage(slug="contact", title="Contact", content={"body": "Call today for a free quote."}),
+            WebsitePage(
+                slug="home",
+                title="Home",
+                content={
+                    "headline": "If you want a MIGHTY clean, give us a call!",
+                    "intro": "Family owned and operated, over 10 years making homes sparkle.",
+                },
+            ),
+            WebsitePage(
+                slug="about",
+                title="About",
+                content={"body": "We are a family-owned cleaning service."},
+            ),
+            WebsitePage(
+                slug="services",
+                title="Services",
+                content={
+                    "body": "Regular and one-time deep cleaning for homes and businesses.",
+                    "list": "Deep Cleaning | Airbnb Turnovers | Commercial | Residential",
+                },
+            ),
+            WebsitePage(
+                slug="contact", title="Contact", content={"body": "Call today for a free quote."}
+            ),
         ],
     )
     base.update(over)
@@ -55,8 +72,13 @@ def test_terms_governing_law_uses_client_state():
 
 def test_legal_pages_can_be_disabled():
     from types import SimpleNamespace
-    site = build_static_site(_brief(), settings=SimpleNamespace(
-        website_legal_pages_enabled=False, website_design_intelligence_enabled=True))
+
+    site = build_static_site(
+        _brief(),
+        settings=SimpleNamespace(
+            website_legal_pages_enabled=False, website_design_intelligence_enabled=True
+        ),
+    )
     assert "privacy.html" not in site.files and "terms.html" not in site.files
 
 
@@ -70,11 +92,11 @@ def test_html_contains_copy_and_brand_and_jsonld():
     site = build_static_site(_brief())
     html = site.files["index.html"]
     assert "MIGHTY clean" in html
-    assert "#0E7C8B" in html                       # brand accent in CSS vars
-    assert "application/ld+json" in html           # JSON-LD in head
+    assert "#0E7C8B" in html  # brand accent in CSS vars
+    assert "application/ld+json" in html  # JSON-LD in head
     assert "Sample Cleaning" in html
     assert "<phone>" in html
-    assert "Deep Cleaning" in html                 # services list rendered
+    assert "Deep Cleaning" in html  # services list rendered
 
 
 def test_no_em_dash_in_output():
@@ -89,7 +111,7 @@ def test_design_intelligence_applies_industry_fonts():
     assert site.design_system is not None
     di_heading = (site.design_system.get("typography") or {}).get("heading")
     assert di_heading and di_heading in site.files["index.html"]
-    assert di_heading != "Inter"                    # never the discouraged default as heading
+    assert di_heading != "Inter"  # never the discouraged default as heading
 
 
 def test_brand_colors_win_over_di_palette():
@@ -104,16 +126,19 @@ def test_di_palette_used_when_no_brand_colors():
 
 def test_has_glassmorphism_gradients_and_motion():
     html = build_static_site(_brief()).files["index.html"]
-    assert "backdrop-filter:blur" in html           # glassmorphism
+    assert "backdrop-filter:blur" in html  # glassmorphism
     assert "linear-gradient" in html and "radial-gradient" in html  # gradients
-    assert "meshmove" in html                        # animated gradient mesh
-    assert "glass" in html                           # glass utility applied
+    assert "meshmove" in html  # animated gradient mesh
+    assert "glass" in html  # glass utility applied
 
 
 def test_can_disable_design_intelligence():
     from types import SimpleNamespace
-    html = build_static_site(_brief(), settings=SimpleNamespace(website_design_intelligence_enabled=False)).files["index.html"]
-    assert "Outfit" in html                          # falls back to the house font
+
+    html = build_static_site(
+        _brief(), settings=SimpleNamespace(website_design_intelligence_enabled=False)
+    ).files["index.html"]
+    assert "Outfit" in html  # falls back to the house font
 
 
 def test_reveal_safe_without_js():
@@ -137,7 +162,9 @@ def test_no_scroll_listener_uses_intersection_observer():
 
 
 def test_hero_uses_supplied_image():
-    site = build_static_site(_brief(), media={"hero_image": "https://static.wixstatic.com/media/hero.png"})
+    site = build_static_site(
+        _brief(), media={"hero_image": "https://static.wixstatic.com/media/hero.png"}
+    )
     html = site.files["index.html"]
     assert "https://static.wixstatic.com/media/hero.png" in html
     assert not site.warnings  # hero media supplied -> no gradient warning
@@ -156,26 +183,38 @@ def test_warns_when_no_hero_media():
 
 def test_to_dict_omits_file_contents():
     d = build_static_site(_brief()).to_dict()
-    assert isinstance(d["files"]["index.html"], int)   # size, not content
+    assert isinstance(d["files"]["index.html"], int)  # size, not content
     assert d["taste_audit"]["passed"] is True
 
 
 def test_quote_modal_present_with_location_fields():
     html = build_static_site(_brief()).files["index.html"]
     assert 'id="quoteModal"' in html
-    for fld in ('name="name"', 'name="business"', 'name="email"', 'name="phone"',
-                'name="city"', 'name="state"', 'name="country"', 'name="message"'):
+    for fld in (
+        'name="name"',
+        'name="business"',
+        'name="email"',
+        'name="phone"',
+        'name="city"',
+        'name="state"',
+        'name="country"',
+        'name="message"',
+    ):
         assert fld in html, fld
     assert "data-quote" in html  # CTA opens the modal
 
 
 def test_quote_form_posts_to_intake_endpoint():
-    html = build_static_site(_brief(intake_endpoint="https://api.hf.test/intake/onboarding")).files["index.html"]
+    html = build_static_site(_brief(intake_endpoint="https://api.hf.test/intake/onboarding")).files[
+        "index.html"
+    ]
     assert 'data-endpoint="https://api.hf.test/intake/onboarding"' in html
 
 
 def test_schedule_now_button_when_calendar_set():
-    html = build_static_site(_brief(scheduling_url="https://calendar.app.google/abc")).files["index.html"]
+    html = build_static_site(_brief(scheduling_url="https://calendar.app.google/abc")).files[
+        "index.html"
+    ]
     assert "Schedule Now" in html and "https://calendar.app.google/abc" in html
 
 
@@ -197,8 +236,8 @@ def test_3d_animated_name_present():
 def test_phone_click_to_call_in_header_and_hero():
     html = build_static_site(_brief()).files["index.html"]
     header = html.split("</header>")[0]
-    assert 'href="tel:5308404104"' in header           # header click-to-call
-    assert "Call <phone>" in html                  # hero/contact CTA button
+    assert 'href="tel:5308404104"' in header  # header click-to-call
+    assert "Call <phone>" in html  # hero/contact CTA button
 
 
 def test_no_tel_link_without_phone():
@@ -215,7 +254,7 @@ def test_header_nav_reaches_services_about_contact():
 
 def test_promo_band_renders_only_when_supplied():
     plain = build_static_site(_brief()).files["index.html"]
-    assert 'id="promo"' not in plain                    # inert without opt-in
+    assert 'id="promo"' not in plain  # inert without opt-in
     pages = _brief().pages
     pages[0].content["promo"] = "Free estimates - call today"
     promo = build_static_site(_brief(pages=pages)).files["index.html"]
@@ -226,12 +265,14 @@ def test_placeholder_sections_render_only_when_supplied():
     plain = build_static_site(_brief()).files["index.html"]
     assert "Demo preview" not in plain
     pages = _brief().pages
-    pages[0].content.update({
-        "trust_line": "Rated 5★ by 8 customers on Google",
-        "testimonials_placeholder": "Your customer reviews featured here",
-        "credentials_placeholder": "Your license & certifications displayed here",
-        "portfolio_placeholder": "Photos of your completed projects showcased here",
-    })
+    pages[0].content.update(
+        {
+            "trust_line": "Rated 5★ by 8 customers on Google",
+            "testimonials_placeholder": "Your customer reviews featured here",
+            "credentials_placeholder": "Your license & certifications displayed here",
+            "portfolio_placeholder": "Photos of your completed projects showcased here",
+        }
+    )
     html = build_static_site(_brief(pages=pages)).files["index.html"]
     assert "Rated 5★ by 8 customers on Google" in html
     assert html.count("Demo preview") == 3
@@ -240,12 +281,14 @@ def test_placeholder_sections_render_only_when_supplied():
 
 def test_taste_audit_still_passes_with_demo_sections():
     pages = _brief().pages
-    pages[0].content.update({
-        "promo": "Free estimates - call today",
-        "trust_line": "Rated 5★ by 8 customers on Google",
-        "testimonials_placeholder": "Your customer reviews featured here",
-        "credentials_placeholder": "Your license & certifications displayed here",
-        "portfolio_placeholder": "Photos of your completed projects showcased here",
-    })
+    pages[0].content.update(
+        {
+            "promo": "Free estimates - call today",
+            "trust_line": "Rated 5★ by 8 customers on Google",
+            "testimonials_placeholder": "Your customer reviews featured here",
+            "credentials_placeholder": "Your license & certifications displayed here",
+            "portfolio_placeholder": "Photos of your completed projects showcased here",
+        }
+    )
     site = build_static_site(_brief(pages=pages))
     assert site.taste_audit["passed"] is True

@@ -14,6 +14,7 @@ missing precondition like the Stake Sentence, ``violated_rule_id`` for a
 Codex rule) so the caller — and the operator console — sees exactly what to
 fix, never an opaque 4xx.
 """
+
 from __future__ import annotations
 
 from typing import Literal
@@ -37,7 +38,10 @@ from pydantic import BaseModel, ConfigDict, Field
 #                        reviews — relevant for spend attribution and the
 #                        send-ramp accounting.
 TriggerSource = Literal[
-    "signal_decay", "manual_review", "macro_market_shift", "reengagement",
+    "signal_decay",
+    "manual_review",
+    "macro_market_shift",
+    "reengagement",
     "auto_stake_sweep",
 ]
 

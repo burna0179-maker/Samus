@@ -9,6 +9,7 @@ correctly.
 
 Mirrors the fake-httpx-Client pattern in ``test_common_http_client_sync.py``.
 """
+
 from __future__ import annotations
 
 import importlib
@@ -44,9 +45,7 @@ class _FakeClient:
         return False
 
     def post(self, url, *, json=None, data=None, headers=None):
-        self.calls.append(
-            {"url": url, "json": json, "data": data, "headers": dict(headers or {})}
-        )
+        self.calls.append({"url": url, "json": json, "data": data, "headers": dict(headers or {})})
         if self._raise_exc is not None:
             raise self._raise_exc
         if not self._responses:
@@ -97,6 +96,7 @@ def _reload_live(
     monkeypatch.setenv("FACEBOOK_PAGE_TOKEN", facebook_token)
     monkeypatch.setenv("FACEBOOK_PAGE_ID", facebook_page_id)
     import backend.outreach.social_adapter as mod
+
     importlib.reload(mod)
     return mod
 
@@ -104,11 +104,7 @@ def _reload_live(
 def _read_ledger(path: Path) -> list[dict]:
     if not path.exists():
         return []
-    return [
-        json.loads(l)
-        for l in path.read_text(encoding="utf-8").splitlines()
-        if l.strip()
-    ]
+    return [json.loads(l) for l in path.read_text(encoding="utf-8").splitlines() if l.strip()]
 
 
 # A valid operator stake sentence (passes G1; not in the banned-phrase list).
@@ -125,16 +121,17 @@ def test_dry_run_default_makes_no_http_call(monkeypatch, tmp_path):
     and never constructs an httpx client."""
     ledger = tmp_path / "p.jsonl"
     mod = _reload_live(
-        monkeypatch, dry_run="true", ledger=ledger,
-        linkedin_token="tok", linkedin_urn="urn:li:person:x",
+        monkeypatch,
+        dry_run="true",
+        ledger=ledger,
+        linkedin_token="tok",
+        linkedin_urn="urn:li:person:x",
     )
     # If any HTTP is attempted this fake raises (no canned responses).
     fake = _FakeClient(responses=[])
     _patch_client(monkeypatch, mod, fake)
 
-    result = mod.send_post(
-        mod.SocialPost(platform="linkedin", body="hi", stake_sentence=_STAKE)
-    )
+    result = mod.send_post(mod.SocialPost(platform="linkedin", body="hi", stake_sentence=_STAKE))
     assert result.sent is True
     assert result.dry_run is True
     assert fake.calls == []  # no HTTP attempted
@@ -147,15 +144,16 @@ def test_dry_run_default_makes_no_http_call(monkeypatch, tmp_path):
 
 def test_live_missing_linkedin_token_fails_closed_no_http(monkeypatch, tmp_path):
     mod = _reload_live(
-        monkeypatch, dry_run="false", ledger=tmp_path / "p.jsonl",
-        linkedin_token="", linkedin_urn="urn:li:person:x",
+        monkeypatch,
+        dry_run="false",
+        ledger=tmp_path / "p.jsonl",
+        linkedin_token="",
+        linkedin_urn="urn:li:person:x",
     )
     fake = _FakeClient(responses=[])
     _patch_client(monkeypatch, mod, fake)
 
-    result = mod.send_post(
-        mod.SocialPost(platform="linkedin", body="hi", stake_sentence=_STAKE)
-    )
+    result = mod.send_post(mod.SocialPost(platform="linkedin", body="hi", stake_sentence=_STAKE))
     assert result.sent is False
     assert result.error == "linkedin_token_unset"
     assert fake.calls == []
@@ -163,15 +161,16 @@ def test_live_missing_linkedin_token_fails_closed_no_http(monkeypatch, tmp_path)
 
 def test_live_missing_facebook_token_fails_closed_no_http(monkeypatch, tmp_path):
     mod = _reload_live(
-        monkeypatch, dry_run="false", ledger=tmp_path / "p.jsonl",
-        facebook_token="", facebook_page_id="123",
+        monkeypatch,
+        dry_run="false",
+        ledger=tmp_path / "p.jsonl",
+        facebook_token="",
+        facebook_page_id="123",
     )
     fake = _FakeClient(responses=[])
     _patch_client(monkeypatch, mod, fake)
 
-    result = mod.send_post(
-        mod.SocialPost(platform="facebook", body="hi", stake_sentence=_STAKE)
-    )
+    result = mod.send_post(mod.SocialPost(platform="facebook", body="hi", stake_sentence=_STAKE))
     assert result.sent is False
     assert result.error == "facebook_token_unset"
     assert fake.calls == []
@@ -184,15 +183,16 @@ def test_live_missing_facebook_token_fails_closed_no_http(monkeypatch, tmp_path)
 
 def test_live_missing_stake_sentence_refused_no_http(monkeypatch, tmp_path):
     mod = _reload_live(
-        monkeypatch, dry_run="false", ledger=tmp_path / "p.jsonl",
-        linkedin_token="tok", linkedin_urn="urn:li:person:x",
+        monkeypatch,
+        dry_run="false",
+        ledger=tmp_path / "p.jsonl",
+        linkedin_token="tok",
+        linkedin_urn="urn:li:person:x",
     )
     fake = _FakeClient(responses=[])
     _patch_client(monkeypatch, mod, fake)
 
-    result = mod.send_post(
-        mod.SocialPost(platform="linkedin", body="hi", stake_sentence="")
-    )
+    result = mod.send_post(mod.SocialPost(platform="linkedin", body="hi", stake_sentence=""))
     assert result.sent is False
     assert result.error == "stake_sentence_required"
     assert fake.calls == []
@@ -205,8 +205,11 @@ def test_live_missing_stake_sentence_refused_no_http(monkeypatch, tmp_path):
 
 def test_live_moderation_block_banned_phrase_no_http(monkeypatch, tmp_path):
     mod = _reload_live(
-        monkeypatch, dry_run="false", ledger=tmp_path / "p.jsonl",
-        linkedin_token="tok", linkedin_urn="urn:li:person:x",
+        monkeypatch,
+        dry_run="false",
+        ledger=tmp_path / "p.jsonl",
+        linkedin_token="tok",
+        linkedin_urn="urn:li:person:x",
     )
     fake = _FakeClient(responses=[])
     _patch_client(monkeypatch, mod, fake)
@@ -225,8 +228,11 @@ def test_live_moderation_block_banned_phrase_no_http(monkeypatch, tmp_path):
 
 def test_live_moderation_block_prohibited_term_no_http(monkeypatch, tmp_path):
     mod = _reload_live(
-        monkeypatch, dry_run="false", ledger=tmp_path / "p.jsonl",
-        facebook_token="tok", facebook_page_id="123",
+        monkeypatch,
+        dry_run="false",
+        ledger=tmp_path / "p.jsonl",
+        facebook_token="tok",
+        facebook_page_id="123",
     )
     fake = _FakeClient(responses=[])
     _patch_client(monkeypatch, mod, fake)
@@ -246,8 +252,7 @@ def test_moderate_post_accepts_clean_content():
     from backend.outreach.social_adapter import SocialPost, moderate_post
 
     ok, reason = moderate_post(
-        SocialPost(platform="linkedin", body="A clean professional update.",
-                   stake_sentence=_STAKE)
+        SocialPost(platform="linkedin", body="A clean professional update.", stake_sentence=_STAKE)
     )
     assert ok is True
     assert reason == ""
@@ -261,8 +266,11 @@ def test_moderate_post_accepts_clean_content():
 def test_live_linkedin_happy_path_parses_post_id(monkeypatch, tmp_path):
     ledger = tmp_path / "p.jsonl"
     mod = _reload_live(
-        monkeypatch, dry_run="false", ledger=ledger,
-        linkedin_token="tok", linkedin_urn="urn:li:person:abc",
+        monkeypatch,
+        dry_run="false",
+        ledger=ledger,
+        linkedin_token="tok",
+        linkedin_urn="urn:li:person:abc",
     )
     resp = httpx.Response(
         201,
@@ -274,7 +282,9 @@ def test_live_linkedin_happy_path_parses_post_id(monkeypatch, tmp_path):
     _patch_client(monkeypatch, mod, fake)
 
     post = mod.SocialPost(
-        platform="linkedin", body="Real post", link="https://ex.com",
+        platform="linkedin",
+        body="Real post",
+        link="https://ex.com",
         stake_sentence=_STAKE,
     )
     result = mod.send_post(post)
@@ -299,8 +309,11 @@ def test_live_linkedin_happy_path_parses_post_id(monkeypatch, tmp_path):
 
 def test_live_facebook_happy_path_parses_post_id(monkeypatch, tmp_path):
     mod = _reload_live(
-        monkeypatch, dry_run="false", ledger=tmp_path / "p.jsonl",
-        facebook_token="pagetok", facebook_page_id="999",
+        monkeypatch,
+        dry_run="false",
+        ledger=tmp_path / "p.jsonl",
+        facebook_token="pagetok",
+        facebook_page_id="999",
     )
     resp = httpx.Response(
         200,
@@ -328,8 +341,11 @@ def test_live_facebook_happy_path_parses_post_id(monkeypatch, tmp_path):
 
 def test_live_linkedin_429_returns_rate_limited(monkeypatch, tmp_path):
     mod = _reload_live(
-        monkeypatch, dry_run="false", ledger=tmp_path / "p.jsonl",
-        linkedin_token="tok", linkedin_urn="urn:li:person:abc",
+        monkeypatch,
+        dry_run="false",
+        ledger=tmp_path / "p.jsonl",
+        linkedin_token="tok",
+        linkedin_urn="urn:li:person:abc",
     )
     _no_sleep(monkeypatch, mod)
     req = httpx.Request("POST", "https://api.linkedin.com/v2/ugcPosts")
@@ -338,9 +354,7 @@ def test_live_linkedin_429_returns_rate_limited(monkeypatch, tmp_path):
     fake = _FakeClient(responses=[resp])
     _patch_client(monkeypatch, mod, fake)
 
-    result = mod.send_post(
-        mod.SocialPost(platform="linkedin", body="x", stake_sentence=_STAKE)
-    )
+    result = mod.send_post(mod.SocialPost(platform="linkedin", body="x", stake_sentence=_STAKE))
     assert result.sent is False
     assert result.error == "linkedin_rate_limited"
     # Initial attempt + bounded retries (max 2) = 3 calls, capped (no hang).
@@ -349,20 +363,23 @@ def test_live_linkedin_429_returns_rate_limited(monkeypatch, tmp_path):
 
 def test_live_linkedin_429_then_success_retries(monkeypatch, tmp_path):
     mod = _reload_live(
-        monkeypatch, dry_run="false", ledger=tmp_path / "p.jsonl",
-        linkedin_token="tok", linkedin_urn="urn:li:person:abc",
+        monkeypatch,
+        dry_run="false",
+        ledger=tmp_path / "p.jsonl",
+        linkedin_token="tok",
+        linkedin_urn="urn:li:person:abc",
     )
     _no_sleep(monkeypatch, mod)
     req = httpx.Request("POST", "https://api.linkedin.com/v2/ugcPosts")
-    fake = _FakeClient(responses=[
-        httpx.Response(429, text="slow down", request=req),
-        httpx.Response(201, headers={"x-restli-id": "urn:li:share:1"}, request=req),
-    ])
+    fake = _FakeClient(
+        responses=[
+            httpx.Response(429, text="slow down", request=req),
+            httpx.Response(201, headers={"x-restli-id": "urn:li:share:1"}, request=req),
+        ]
+    )
     _patch_client(monkeypatch, mod, fake)
 
-    result = mod.send_post(
-        mod.SocialPost(platform="linkedin", body="x", stake_sentence=_STAKE)
-    )
+    result = mod.send_post(mod.SocialPost(platform="linkedin", body="x", stake_sentence=_STAKE))
     assert result.sent is True
     assert result.post_id == "urn:li:share:1"
     assert len(fake.calls) == 2
@@ -375,21 +392,23 @@ def test_live_linkedin_429_then_success_retries(monkeypatch, tmp_path):
 
 def test_live_facebook_code_613_returns_rate_limited(monkeypatch, tmp_path):
     mod = _reload_live(
-        monkeypatch, dry_run="false", ledger=tmp_path / "p.jsonl",
-        facebook_token="pagetok", facebook_page_id="999",
+        monkeypatch,
+        dry_run="false",
+        ledger=tmp_path / "p.jsonl",
+        facebook_token="pagetok",
+        facebook_page_id="999",
     )
     _no_sleep(monkeypatch, mod)
     req = httpx.Request("POST", "https://graph.facebook.com/v19.0/999/feed")
     resp = httpx.Response(
-        400, json={"error": {"code": 613, "message": "Calls over rate limit"}},
+        400,
+        json={"error": {"code": 613, "message": "Calls over rate limit"}},
         request=req,
     )
     fake = _FakeClient(responses=[resp])
     _patch_client(monkeypatch, mod, fake)
 
-    result = mod.send_post(
-        mod.SocialPost(platform="facebook", body="x", stake_sentence=_STAKE)
-    )
+    result = mod.send_post(mod.SocialPost(platform="facebook", body="x", stake_sentence=_STAKE))
     assert result.sent is False
     assert result.error == "facebook_rate_limited"
     assert len(fake.calls) == mod._RATE_LIMIT_MAX_RETRIES + 1
@@ -397,20 +416,23 @@ def test_live_facebook_code_613_returns_rate_limited(monkeypatch, tmp_path):
 
 def test_live_facebook_code_32_returns_rate_limited(monkeypatch, tmp_path):
     mod = _reload_live(
-        monkeypatch, dry_run="false", ledger=tmp_path / "p.jsonl",
-        facebook_token="pagetok", facebook_page_id="999",
+        monkeypatch,
+        dry_run="false",
+        ledger=tmp_path / "p.jsonl",
+        facebook_token="pagetok",
+        facebook_page_id="999",
     )
     _no_sleep(monkeypatch, mod)
     req = httpx.Request("POST", "https://graph.facebook.com/v19.0/999/feed")
     resp = httpx.Response(
-        200, json={"error": {"code": 32, "message": "Page rate limit"}}, request=req,
+        200,
+        json={"error": {"code": 32, "message": "Page rate limit"}},
+        request=req,
     )
     fake = _FakeClient(responses=[resp])
     _patch_client(monkeypatch, mod, fake)
 
-    result = mod.send_post(
-        mod.SocialPost(platform="facebook", body="x", stake_sentence=_STAKE)
-    )
+    result = mod.send_post(mod.SocialPost(platform="facebook", body="x", stake_sentence=_STAKE))
     assert result.sent is False
     assert result.error == "facebook_rate_limited"
 
@@ -422,15 +444,16 @@ def test_live_facebook_code_32_returns_rate_limited(monkeypatch, tmp_path):
 
 def test_live_linkedin_transport_error_no_raise(monkeypatch, tmp_path):
     mod = _reload_live(
-        monkeypatch, dry_run="false", ledger=tmp_path / "p.jsonl",
-        linkedin_token="tok", linkedin_urn="urn:li:person:abc",
+        monkeypatch,
+        dry_run="false",
+        ledger=tmp_path / "p.jsonl",
+        linkedin_token="tok",
+        linkedin_urn="urn:li:person:abc",
     )
     fake = _FakeClient(raise_exc=httpx.ConnectError("boom"))
     _patch_client(monkeypatch, mod, fake)
 
-    result = mod.send_post(
-        mod.SocialPost(platform="linkedin", body="x", stake_sentence=_STAKE)
-    )
+    result = mod.send_post(mod.SocialPost(platform="linkedin", body="x", stake_sentence=_STAKE))
     assert result.sent is False
     assert result.error.startswith("linkedin_send_failed:")
 
@@ -442,16 +465,17 @@ def test_live_linkedin_transport_error_no_raise(monkeypatch, tmp_path):
 
 def test_live_linkedin_500_returns_http_error(monkeypatch, tmp_path):
     mod = _reload_live(
-        monkeypatch, dry_run="false", ledger=tmp_path / "p.jsonl",
-        linkedin_token="tok", linkedin_urn="urn:li:person:abc",
+        monkeypatch,
+        dry_run="false",
+        ledger=tmp_path / "p.jsonl",
+        linkedin_token="tok",
+        linkedin_urn="urn:li:person:abc",
     )
     req = httpx.Request("POST", "https://api.linkedin.com/v2/ugcPosts")
     fake = _FakeClient(responses=[httpx.Response(500, text="oops", request=req)])
     _patch_client(monkeypatch, mod, fake)
 
-    result = mod.send_post(
-        mod.SocialPost(platform="linkedin", body="x", stake_sentence=_STAKE)
-    )
+    result = mod.send_post(mod.SocialPost(platform="linkedin", body="x", stake_sentence=_STAKE))
     assert result.sent is False
     assert result.error == "linkedin_http_500"
 
@@ -465,7 +489,10 @@ def test_build_authorize_url_linkedin():
     from backend.outreach.social_oauth import build_authorize_url
 
     url = build_authorize_url(
-        "linkedin", "client123", "https://app/cb", "state-xyz",
+        "linkedin",
+        "client123",
+        "https://app/cb",
+        "state-xyz",
     )
     assert url.startswith("https://www.linkedin.com/oauth/v2/authorization?")
     assert "response_type=code" in url
@@ -480,7 +507,10 @@ def test_build_authorize_url_facebook():
     from backend.outreach.social_oauth import build_authorize_url
 
     url = build_authorize_url(
-        "facebook", "fbclient", "https://app/cb", "st",
+        "facebook",
+        "fbclient",
+        "https://app/cb",
+        "st",
         scope="pages_manage_posts",
     )
     assert url.startswith("https://www.facebook.com/v19.0/dialog/oauth?")
@@ -542,7 +572,11 @@ def test_exchange_code_parses_tokens(monkeypatch):
     )
     mod = _patch_oauth_client(monkeypatch, resp)
     out = mod.exchange_code(
-        "linkedin", "code1", "cid", "secret", "https://app/cb",
+        "linkedin",
+        "code1",
+        "cid",
+        "secret",
+        "https://app/cb",
     )
     assert out["access_token"] == "AT123"
     assert out["refresh_token"] == "RT"
@@ -562,7 +596,8 @@ def test_exchange_code_http_error_raises(monkeypatch):
 
 def test_exchange_code_missing_access_token_raises(monkeypatch):
     resp = httpx.Response(
-        200, json={"token_type": "Bearer"},
+        200,
+        json={"token_type": "Bearer"},
         request=httpx.Request("POST", "https://x/token"),
     )
     mod = _patch_oauth_client(monkeypatch, resp)
@@ -573,7 +608,8 @@ def test_exchange_code_missing_access_token_raises(monkeypatch):
 
 def test_refresh_linkedin_token_parses(monkeypatch):
     resp = httpx.Response(
-        200, json={"access_token": "newAT", "expires_in": 5184000},
+        200,
+        json={"access_token": "newAT", "expires_in": 5184000},
         request=httpx.Request("POST", "https://x/token"),
     )
     mod = _patch_oauth_client(monkeypatch, resp)

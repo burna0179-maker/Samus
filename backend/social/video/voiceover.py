@@ -10,6 +10,7 @@ versions.
 :func:`synthesize` requires it, and it fails closed with :class:`VoiceoverError`
 when the package is missing or the network call fails.
 """
+
 from __future__ import annotations
 
 import asyncio

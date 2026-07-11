@@ -9,6 +9,7 @@ Prometheus text format.
 All instruments live here so callers never instantiate
 ``prometheus_client.Counter`` directly (per the brief's hard rule).
 """
+
 from __future__ import annotations
 
 from prometheus_client import (
@@ -74,8 +75,7 @@ SAMUS_LLM_CALLS_TOTAL = Counter(
 
 SAMUS_LLM_BUDGET_QUOTA = Gauge(
     "samus_llm_budget_quota_tokens",
-    "Current adaptive daily quota by workcell (base * efficiency_factor, "
-    "clamped to floor).",
+    "Current adaptive daily quota by workcell (base * efficiency_factor, clamped to floor).",
     labelnames=("workcell",),
     registry=REGISTRY,
 )

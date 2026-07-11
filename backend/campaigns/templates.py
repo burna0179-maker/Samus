@@ -22,6 +22,7 @@ Both the ``campaign_template:`` / ``campaign_instance:`` wrapper key and a bare
 top-level mapping are accepted, so a fixture can hand either shape. Validation
 delegates to the Pydantic models plus a graph integrity pass.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -114,9 +115,7 @@ def load_template_by_id(template_id: str) -> CampaignTemplate:
     files = discover_template_files()
     path = files.get(template_id)
     if path is None:
-        raise TemplateError(
-            f"unknown template_id {template_id!r}; known: {sorted(files)}"
-        )
+        raise TemplateError(f"unknown template_id {template_id!r}; known: {sorted(files)}")
     template = load_template(path)
     if template.template_id != template_id:
         # The file stem is the lookup key; keep it consistent with the declared
@@ -158,9 +157,7 @@ def validate_graph_integrity(template: CampaignTemplate) -> None:
             raise TemplateError(str(exc)) from exc
         for kpi in node.kpis:
             if kpi not in declared_kpis:
-                raise TemplateError(
-                    f"node {node.id!r} references undeclared KPI {kpi!r}"
-                )
+                raise TemplateError(f"node {node.id!r} references undeclared KPI {kpi!r}")
 
 
 def kpi_definitions(template: CampaignTemplate) -> dict[str, CampaignKPI]:

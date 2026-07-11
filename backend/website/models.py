@@ -12,6 +12,7 @@ a structured intake questionnaire (the attachment point is documented on
 it settles (a paid invoice, or a barter against a logged liability) — so the
 final ``settle`` stage can record the right financial event.
 """
+
 from __future__ import annotations
 
 from typing import Literal
@@ -31,7 +32,7 @@ class WebsitePage(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    slug: str = Field(min_length=1)        # url-ish key: "home", "about", "services"
+    slug: str = Field(min_length=1)  # url-ish key: "home", "about", "services"
     title: str = Field(min_length=1)
     # Free-form content the stage maps into the template (copy, section text).
     # Kept as a dict so it can carry headings/body/cta without a rigid schema

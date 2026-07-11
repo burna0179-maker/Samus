@@ -4,6 +4,7 @@ Covers the registry surface (publish / withdraw / list_providers /
 all_capabilities), the weighted `compose_score` formula, and the
 `select_best` constraint-filtering + tie-breaking rules.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -120,12 +121,8 @@ def test_select_best_two_candidates_picks_higher_performance_default_weights() -
 
 def test_select_best_honors_max_cost_filter() -> None:
     mp = CapabilityMarketplace()
-    cheap_low_perf = _listing(
-        provider_agent="p_cheap", cost=5, performance_score=0.3
-    )
-    pricey_top_perf = _listing(
-        provider_agent="p_pricey", cost=100, performance_score=0.99
-    )
+    cheap_low_perf = _listing(provider_agent="p_cheap", cost=5, performance_score=0.3)
+    pricey_top_perf = _listing(provider_agent="p_pricey", cost=100, performance_score=0.99)
     mp.publish(cheap_low_perf)
     mp.publish(pricey_top_perf)
 
@@ -136,12 +133,8 @@ def test_select_best_honors_max_cost_filter() -> None:
 
 def test_select_best_honors_max_latency_filter() -> None:
     mp = CapabilityMarketplace()
-    fast_low_perf = _listing(
-        provider_agent="p_fast", latency_ms=100, performance_score=0.4
-    )
-    slow_top_perf = _listing(
-        provider_agent="p_slow", latency_ms=5000, performance_score=0.99
-    )
+    fast_low_perf = _listing(provider_agent="p_fast", latency_ms=100, performance_score=0.4)
+    slow_top_perf = _listing(provider_agent="p_slow", latency_ms=5000, performance_score=0.99)
     mp.publish(fast_low_perf)
     mp.publish(slow_top_perf)
 
@@ -175,9 +168,7 @@ def test_select_best_required_tags_is_score_term_not_filter() -> None:
     mp.publish(with_tags)
     mp.publish(without_tags)
 
-    chosen = mp.select_best(
-        "trend_forecasting", required_tags=("realtime", "vetted")
-    )
+    chosen = mp.select_best("trend_forecasting", required_tags=("realtime", "vetted"))
     # Both candidates are considered; tagged listing wins on tag_fit.
     assert chosen == with_tags
 
@@ -185,8 +176,7 @@ def test_select_best_required_tags_is_score_term_not_filter() -> None:
     # required_tags does not exclude it.
     mp2 = CapabilityMarketplace()
     mp2.publish(without_tags)
-    assert mp2.select_best("trend_forecasting", required_tags=("realtime",)) \
-        == without_tags
+    assert mp2.select_best("trend_forecasting", required_tags=("realtime",)) == without_tags
 
 
 # ---------------------------------------------------------------------------
@@ -222,9 +212,7 @@ def test_compose_score_required_tags_empty_yields_full_tag_fit_weight() -> None:
     )
     # Tag-fit term should be exactly weights.tag_fit when no tags required.
     # (Other inverted terms are also 1.0 since cost/latency are 0.)
-    assert score == pytest.approx(
-        weights.cost + weights.latency + weights.tag_fit
-    )
+    assert score == pytest.approx(weights.cost + weights.latency + weights.tag_fit)
 
 
 def test_compose_score_returns_value_in_unit_interval() -> None:

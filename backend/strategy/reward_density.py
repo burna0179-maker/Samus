@@ -22,12 +22,13 @@ not yet exist". The fields below are tagged real vs neutral-default:
   - NEUTRAL-DEFAULT pending telemetry: ``estimated_close_probability``,
     ``latency_to_resolution_sec``, ``token_cost_usd``.
 """
+
 from __future__ import annotations
 
 import json
 import logging
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Protocol
@@ -87,16 +88,16 @@ class RewardSignal:
     omitted entirely and the density score stays well-defined.
     """
 
-    outcome: float                                  # real — 1.0 conversion / 0.0 no-response
-    owner_email: bool                               # real — enrichment found an owner email
-    social_facebook: bool                           # real — enrichment found a Facebook handle
-    social_instagram: bool                          # real — enrichment found an Instagram handle
-    seo_score: float                                # real — seo audit score, expected [0,1]
-    contactability: float                           # derived — caller blends enrichment reach, [0,1]
-    infrastructure_health: float                    # derived — caller blends site/infra health, [0,1]
-    estimated_close_probability: float = 0.5        # neutral-default pending CRM conversion telemetry
-    latency_to_resolution_sec: float = 0.0          # neutral-default pending resolution-time telemetry
-    token_cost_usd: float = 0.01                    # neutral-default pending reliable per-arm cost telemetry
+    outcome: float  # real — 1.0 conversion / 0.0 no-response
+    owner_email: bool  # real — enrichment found an owner email
+    social_facebook: bool  # real — enrichment found a Facebook handle
+    social_instagram: bool  # real — enrichment found an Instagram handle
+    seo_score: float  # real — seo audit score, expected [0,1]
+    contactability: float  # derived — caller blends enrichment reach, [0,1]
+    infrastructure_health: float  # derived — caller blends site/infra health, [0,1]
+    estimated_close_probability: float = 0.5  # neutral-default pending CRM conversion telemetry
+    latency_to_resolution_sec: float = 0.0  # neutral-default pending resolution-time telemetry
+    token_cost_usd: float = 0.01  # neutral-default pending reliable per-arm cost telemetry
 
 
 def _clamp01(value: float) -> float:
@@ -141,9 +142,7 @@ def compute_reward_density(signal: RewardSignal) -> float:
     token_cost = max(signal.token_cost_usd, MIN_TOKEN_COST_USD)
     efficiency_weight = (signal.estimated_close_probability / token_cost) * EFFICIENCY_WEIGHT
 
-    latency_fraction = min(
-        signal.latency_to_resolution_sec / LATENCY_SATURATION_SEC, 1.0
-    )
+    latency_fraction = min(signal.latency_to_resolution_sec / LATENCY_SATURATION_SEC, 1.0)
     latency_penalty = latency_fraction * LATENCY_PENALTY_WEIGHT
 
     return (
@@ -270,6 +269,7 @@ class DefaultRewardComputationStore:
 
     def opportunity(self, opportunity_id: str) -> dict[str, Any] | None:
         from backend.crm import service as crm_service
+
         opp = crm_service.get_opportunity(opportunity_id)
         return opp.model_dump() if opp is not None else None
 
@@ -285,12 +285,15 @@ class DefaultRewardComputationStore:
 
     def stripe_payment_succeeded(self, opportunity_id: str) -> bool:
         from backend.finance import webhook as finance_webhook
+
         marker = f"op_{opportunity_id}"
         try:
             events = finance_webhook.load_recent_events(self._STRIPE_LOOKBACK_DAYS)
         except Exception as exc:  # noqa: BLE001 — fail-OPEN at the store
             _LOG.warning(
-                "stripe event scan failed opp=%s: %s", opportunity_id, exc,
+                "stripe event scan failed opp=%s: %s",
+                opportunity_id,
+                exc,
             )
             return False
         for ev in events:
@@ -313,6 +316,7 @@ class DefaultRewardComputationStore:
 
     def harm_signal_store(self) -> Any:
         from backend.strategy.harm_signals import DefaultHarmSignalStore
+
         return DefaultHarmSignalStore()
 
 
@@ -324,7 +328,10 @@ def _coef_from_env(name: str, default: float) -> float:
         return float(raw)
     except ValueError:
         _LOG.warning(
-            "ignoring malformed %s=%r; using default %s", name, raw, default,
+            "ignoring malformed %s=%r; using default %s",
+            name,
+            raw,
+            default,
         )
         return default
 
@@ -397,6 +404,7 @@ def _build_proposed_action(comp: RewardComputation) -> Any:
     test/CI processes where the codex registry may not yet be primed).
     """
     from backend.common.codex import ProposedAction
+
     return ProposedAction(
         service="strategy",
         capability="reward_density",
@@ -441,7 +449,8 @@ def compute_reward(
     cost_weight = _coef_from_env(LLM_COST_WEIGHT_ENV, DEFAULT_LLM_COST_WEIGHT)
     harm_k = _coef_from_env(HARM_K_ENV, DEFAULT_HARM_K)
     terminal_mult = _coef_from_env(
-        TERMINAL_MULTIPLIER_ENV, DEFAULT_TERMINAL_MULTIPLIER,
+        TERMINAL_MULTIPLIER_ENV,
+        DEFAULT_TERMINAL_MULTIPLIER,
     )
 
     stage_advanced = _stage_advanced(opp)
@@ -528,16 +537,14 @@ def compute_reward(
     # blocking flip of VW-G7 -> VR-G7) raises CodexViolation; the caller
     # decides how to surface that — we never silently swallow it.
     from backend.common.codex import CodexViolation, check_action
+
     action = _build_proposed_action(comp)
     verdict = check_action(action)
     if not verdict.allowed:
         raise CodexViolation(
             verdict.violated_rule_id or "VR-UNKNOWN",
             verdict.reason or "codex blocked reward_function_update",
-            drafted_adr_path=(
-                Path(verdict.drafted_adr_path)
-                if verdict.drafted_adr_path else None
-            ),
+            drafted_adr_path=(Path(verdict.drafted_adr_path) if verdict.drafted_adr_path else None),
         )
 
     return comp

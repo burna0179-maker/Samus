@@ -1,4 +1,5 @@
 """Worker — staged sequence walk, codex halts, dormancy, re-engagement, drain."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -25,8 +26,10 @@ def _isolate_state(tmp_path, monkeypatch):
 
 def _opp(stake=VALID_STAKE, opportunity_id="op-1", prospect_id="pr-1", stage="proposal"):
     return Opportunity(
-        opportunity_id=opportunity_id, prospect_id=prospect_id,
-        stage=stage, stake_sentence=stake,
+        opportunity_id=opportunity_id,
+        prospect_id=prospect_id,
+        stage=stage,
+        stake_sentence=stake,
     )
 
 
@@ -35,10 +38,14 @@ def _prospect(prospect_id="pr-1"):
     # self-contained leaves read. owner_email is mandatory for the
     # outreach-compose stage's cold-sendable gate (OUTREACH_COMPOSE_BLOCKED).
     from backend.crm.models import Prospect
+
     return Prospect(
-        prospect_id=prospect_id, company_name="Acme Plumbing",
-        website_url="https://acme.test", industry="plumbing",
-        zipcode="95901", phone="555-0100",
+        prospect_id=prospect_id,
+        company_name="Acme Plumbing",
+        website_url="https://acme.test",
+        industry="plumbing",
+        zipcode="95901",
+        phone="555-0100",
         owner_email="founder@acme.test",
     )
 
@@ -75,10 +82,14 @@ class FakeCRM:
 
 
 def _job(opportunity_id="op-1", prospect_id="pr-1"):
-    return {"payload": {
-        "opportunity_id": opportunity_id, "prospect_id": prospect_id,
-        "trigger_source": "manual_review", "task_id": "ce-test",
-    }}
+    return {
+        "payload": {
+            "opportunity_id": opportunity_id,
+            "prospect_id": prospect_id,
+            "trigger_source": "manual_review",
+            "task_id": "ce-test",
+        }
+    }
 
 
 def _ok_handlers(calls):
@@ -86,12 +97,16 @@ def _ok_handlers(calls):
         def h(ctx):
             calls.append(name)
             return StageResult(ok=True, detail=detail)
+
         return h
+
     return {
         "audit": mk("audit", {"gap_report_artifact_id": "g1"}),
         "proposal": mk("proposal", {"proposal_ref": "p1"}),
         "contact": mk("contact", {"callsheet_artifact_id": "c1", "voicemail_artifact_id": "v1"}),
-        "outreach": mk("outreach", {"outreach_ref": "o1", "outreach_scheduled_for": "2026-06-04T00:00:00Z"}),
+        "outreach": mk(
+            "outreach", {"outreach_ref": "o1", "outreach_scheduled_for": "2026-06-04T00:00:00Z"}
+        ),
         "deliver": mk("deliver", {"website_order_id": "wb1"}),
     }
 
@@ -99,6 +114,7 @@ def _ok_handlers(calls):
 # --------------------------------------------------------------------------
 # Walk
 # --------------------------------------------------------------------------
+
 
 def test_full_traverse_reaches_dormant():
     calls = []
@@ -128,8 +144,9 @@ def test_codex_block_halts_and_escalates():
 
     def blocked(ctx):
         calls.append("outreach")
-        return StageResult(ok=False, codex_blocked=True,
-                           violated_rule_id="VR-G8", reason="no warmth signal")
+        return StageResult(
+            ok=False, codex_blocked=True, violated_rule_id="VR-G8", reason="no warmth signal"
+        )
 
     handlers["outreach"] = blocked
     st = process_job(_job(), handlers=handlers, crm=FakeCRM(opp=_opp()))
@@ -165,11 +182,15 @@ def test_missing_opportunity_drops():
 # Default (real) stage handlers
 # --------------------------------------------------------------------------
 
+
 def _ctx(crm, *, state=None, prospect=None, opp=None):
     state = state or CashEngineState(opportunity_id="op-1", prospect_id="pr-1")
     return StageContext(
-        state=state, opportunity=opp or _opp(), prospect=prospect,
-        stake_sentence=VALID_STAKE, crm=crm,
+        state=state,
+        opportunity=opp or _opp(),
+        prospect=prospect,
+        stake_sentence=VALID_STAKE,
+        crm=crm,
     )
 
 
@@ -177,8 +198,12 @@ def test_audit_stage_real_codex_and_artifact(monkeypatch):
     from backend.seo.models import AuditResult
 
     fake_audit = AuditResult(
-        url="https://acme.test", seo_score=37, issues=[], findings={},
-        evidence_sources={}, ts="2026-06-01T00:00:00Z",
+        url="https://acme.test",
+        seo_score=37,
+        issues=[],
+        findings={},
+        evidence_sources={},
+        ts="2026-06-01T00:00:00Z",
     )
     monkeypatch.setattr("backend.seo.audit.audit_url", lambda url, industry="": fake_audit)
 
@@ -212,7 +237,7 @@ def test_proposal_stage_generates_and_records():
     crm = FakeCRM(opp=_opp(), prospect=_prospect())
     res = stages_mod._proposal_stage(_ctx(crm, prospect=_prospect()))
     assert res.ok is True
-    assert res.detail["proposal_ref"] == "art-1"       # registered in-process
+    assert res.detail["proposal_ref"] == "art-1"  # registered in-process
     assert res.detail["proposal_status"] in ("approved", "needs_review", "out_of_scope")
     assert crm.artifacts[0].kind == "proposal"
 
@@ -220,7 +245,7 @@ def test_proposal_stage_generates_and_records():
 def test_outreach_stage_composes_drafts_and_schedules():
     crm = FakeCRM(opp=_opp(), prospect=_prospect())
     res = stages_mod._outreach_stage(_ctx(crm, prospect=_prospect()))
-    assert res.ok is True                          # stake + legitimacy clear G1/G8
+    assert res.ok is True  # stake + legitimacy clear G1/G8
     assert res.detail["outreach_scheduled_for"]
     assert len(crm.call_states) == 1
     assert crm.call_states[0].state == "outreach_sent"
@@ -258,8 +283,12 @@ def test_full_sequence_with_real_handlers_parks_at_deliver_until_won(monkeypatch
     from backend.seo.models import AuditResult
 
     fake_audit = AuditResult(
-        url="https://acme.test", seo_score=40, issues=[], findings={},
-        evidence_sources={}, ts="2026-06-01T00:00:00Z",
+        url="https://acme.test",
+        seo_score=40,
+        issues=[],
+        findings={},
+        evidence_sources={},
+        ts="2026-06-01T00:00:00Z",
     )
     monkeypatch.setattr("backend.seo.audit.audit_url", lambda url, industry="": fake_audit)
 
@@ -283,8 +312,12 @@ def test_deliver_stage_bridges_won_deal_to_website_builder(monkeypatch):
     from backend.seo.models import AuditResult
 
     fake_audit = AuditResult(
-        url="https://acme.test", seo_score=40, issues=[], findings={},
-        evidence_sources={}, ts="2026-06-01T00:00:00Z",
+        url="https://acme.test",
+        seo_score=40,
+        issues=[],
+        findings={},
+        evidence_sources={},
+        ts="2026-06-01T00:00:00Z",
     )
     monkeypatch.setattr("backend.seo.audit.audit_url", lambda url, industry="": fake_audit)
 
@@ -296,7 +329,8 @@ def test_deliver_stage_bridges_won_deal_to_website_builder(monkeypatch):
         order_id = "wb-test-1"
 
     monkeypatch.setattr(
-        website_service, "from_cash_engine_deal",
+        website_service,
+        "from_cash_engine_deal",
         lambda **kw: _Build(),
     )
 
@@ -312,8 +346,12 @@ def test_deliver_stage_parks_when_builder_disabled(monkeypatch):
     from backend.seo.models import AuditResult
 
     fake_audit = AuditResult(
-        url="https://acme.test", seo_score=40, issues=[], findings={},
-        evidence_sources={}, ts="2026-06-01T00:00:00Z",
+        url="https://acme.test",
+        seo_score=40,
+        issues=[],
+        findings={},
+        evidence_sources={},
+        ts="2026-06-01T00:00:00Z",
     )
     monkeypatch.setattr("backend.seo.audit.audit_url", lambda url, industry="": fake_audit)
 
@@ -335,17 +373,22 @@ def test_deliver_stage_parks_when_builder_disabled(monkeypatch):
 # Re-engagement + drain
 # --------------------------------------------------------------------------
 
+
 def test_reengage_drafts_voicemail_and_task():
-    save_state(CashEngineState(
-        opportunity_id="op-1", prospect_id="pr-1", status="dormant",
-        gap_report_artifact_id="g1",
-    ))
+    save_state(
+        CashEngineState(
+            opportunity_id="op-1",
+            prospect_id="pr-1",
+            status="dormant",
+            gap_report_artifact_id="g1",
+        )
+    )
     crm = FakeCRM(opp=_opp(), prospect=_prospect())
     out = reengage(opportunity_id="op-1", event="reply", crm=crm)
     assert out["ok"] is True
     assert out["voicemail_artifact_id"]
     assert out["operator_task_id"] == "task-1"
-    assert load_state("op-1").status == "running"   # re-opened by the signal
+    assert load_state("op-1").status == "running"  # re-opened by the signal
 
 
 def test_reengage_without_state_is_noop():
@@ -357,8 +400,11 @@ def test_reengage_without_state_is_noop():
 def test_drain_processes_enqueued_jobs():
     cash_queue.enqueue_cash_job(
         task_id="ce-1",
-        payload={"opportunity_id": "op-1", "prospect_id": "pr-1",
-                 "trigger_source": "manual_review"},
+        payload={
+            "opportunity_id": "op-1",
+            "prospect_id": "pr-1",
+            "trigger_source": "manual_review",
+        },
     )
     summary = drain(handlers=_ok_handlers([]), crm=FakeCRM(opp=_opp()))
     assert summary["processed"] == 1

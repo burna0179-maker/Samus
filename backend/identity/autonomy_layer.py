@@ -39,6 +39,7 @@ DORMANT BY DEFAULT: nothing here changes runtime behaviour until the operator
 posture is 'present' AND ``SAMUS_AUTONOMY_LAYER_ENABLED`` is set. With the flag
 unset (the default) the gateway lifespan does not even build the contract.
 """
+
 from __future__ import annotations
 
 import logging
@@ -91,7 +92,8 @@ def _run(cycle_input: Any) -> dict[str, Any]:
 
 
 def resolve_samus_mode(
-    *, env: Mapping[str, str] | None = None,
+    *,
+    env: Mapping[str, str] | None = None,
     quorum_available: Optional[bool] = None,
 ):
     """Resolve Samus's autonomy MODE through the shared double/triple gate.
@@ -106,13 +108,15 @@ def resolve_samus_mode(
     from _shared.autonomy.modes import resolve_band_mode  # noqa: PLC0415
 
     return resolve_band_mode(
-        _AGENT, env=dict(env) if env is not None else None,
+        _AGENT,
+        env=dict(env) if env is not None else None,
         quorum_available=quorum_available,
     )
 
 
 def build_samus_autonomy(
-    *, env: Mapping[str, str] | None = None,
+    *,
+    env: Mapping[str, str] | None = None,
     telemetry_sink: Any = None,
 ) -> Optional[Any]:
     """Build Samus's shared ``AutonomyContract`` (or None — never raises).

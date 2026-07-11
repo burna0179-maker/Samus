@@ -14,6 +14,7 @@ well-known anchors rather than dragging BeautifulSoup into the runtime
 image. If CA SOS substantially restructures the page the parser returns
 None (miss) and we degrade to "no signal" — which is the safe direction.
 """
+
 from __future__ import annotations
 
 import logging
@@ -32,16 +33,16 @@ _TIMEOUT = 2.0
 # so a missing optional field (e.g., filing date) does not invalidate the
 # whole row.
 _RE_SOS_NUMBER = re.compile(
-    r'(?:Entity\s*Number|SOS\s*Number)[^A-Za-z0-9-]{0,8}([A-Z0-9-]{6,16})',
+    r"(?:Entity\s*Number|SOS\s*Number)[^A-Za-z0-9-]{0,8}([A-Z0-9-]{6,16})",
     re.IGNORECASE,
 )
 _RE_STATUS = re.compile(
-    r'(?:Entity\s*Status|Status)[^A-Za-z]{0,8}([A-Za-z][A-Za-z /-]{2,40})',
+    r"(?:Entity\s*Status|Status)[^A-Za-z]{0,8}([A-Za-z][A-Za-z /-]{2,40})",
     re.IGNORECASE,
 )
 _RE_FILING_DATE = re.compile(
-    r'(?:Registration\s*Date|Initial\s*Filing\s*Date|Filing\s*Date)[^0-9]{0,8}'
-    r'(\d{1,2}/\d{1,2}/\d{2,4}|\d{4}-\d{2}-\d{2})',
+    r"(?:Registration\s*Date|Initial\s*Filing\s*Date|Filing\s*Date)[^0-9]{0,8}"
+    r"(\d{1,2}/\d{1,2}/\d{2,4}|\d{4}-\d{2}-\d{2})",
     re.IGNORECASE,
 )
 
@@ -56,8 +57,11 @@ def _fetch(http: Any | None, business_name: str) -> str | None:
             resp = http.get(_SEARCH_URL, params={"q": name}, timeout=_TIMEOUT)
         else:
             import httpx
+
             resp = httpx.get(
-                _SEARCH_URL, params={"q": name}, timeout=_TIMEOUT,
+                _SEARCH_URL,
+                params={"q": name},
+                timeout=_TIMEOUT,
             )
         if getattr(resp, "status_code", 0) != 200:
             return None

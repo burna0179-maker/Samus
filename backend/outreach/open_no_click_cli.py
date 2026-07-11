@@ -16,6 +16,7 @@ Subcommands::
     python -m backend.outreach.open_no_click_cli close \\
         --prospect-id pr_... --reason closed_won
 """
+
 from __future__ import annotations
 
 import argparse
@@ -27,8 +28,7 @@ from backend.outreach import open_no_click_watch as watch
 
 
 def _cmd_tick(args: argparse.Namespace) -> int:
-    now_iso = (args.now
-               or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
+    now_iso = args.now or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     dry = True if args.dry_run else (False if args.force_fire else None)
     out = watch.tick(now_iso=now_iso, dry_run=dry)
     sys.stdout.write(json.dumps({"now": now_iso, "results": out}) + "\n")
@@ -52,7 +52,8 @@ def _cmd_register(args: argparse.Namespace) -> int:
 
 def _cmd_close(args: argparse.Namespace) -> int:
     n = watch.mark_closed(
-        prospect_id=args.prospect_id, reason=args.reason,
+        prospect_id=args.prospect_id,
+        reason=args.reason,
         message_id=args.message_id or "",
     )
     sys.stdout.write(json.dumps({"closed_count": n}) + "\n")
@@ -66,19 +67,17 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     t = sub.add_parser("tick", help="Run one watcher pass.")
-    t.add_argument("--now", default=None,
-                   help="Override 'now' (ISO Z, for tests).")
-    t.add_argument("--dry-run", action="store_true",
-                   help="Plan only — never send.")
-    t.add_argument("--force-fire", action="store_true",
-                   help="Send regardless of the flag (operator override).")
+    t.add_argument("--now", default=None, help="Override 'now' (ISO Z, for tests).")
+    t.add_argument("--dry-run", action="store_true", help="Plan only — never send.")
+    t.add_argument(
+        "--force-fire", action="store_true", help="Send regardless of the flag (operator override)."
+    )
     t.set_defaults(func=_cmd_tick)
 
     r = sub.add_parser("register", help="Add a watch record.")
     r.add_argument("--prospect-id", required=True)
     r.add_argument("--email", required=True)
-    r.add_argument("--sent-at", required=True,
-                   help='Send timestamp, "YYYY-MM-DDTHH:MM:SSZ"')
+    r.add_argument("--sent-at", required=True, help='Send timestamp, "YYYY-MM-DDTHH:MM:SSZ"')
     r.add_argument("--subject", required=True)
     r.add_argument("--buy-url", required=True)
     r.add_argument("--message-id", default="")
@@ -88,8 +87,7 @@ def main(argv: list[str] | None = None) -> int:
 
     c = sub.add_parser("close", help="Close a watch record (e.g. closed_won).")
     c.add_argument("--prospect-id", required=True)
-    c.add_argument("--reason", required=True,
-                   help='e.g. "closed_won", "manual", "stale".')
+    c.add_argument("--reason", required=True, help='e.g. "closed_won", "manual", "stale".')
     c.add_argument("--message-id", default="")
     c.set_defaults(func=_cmd_close)
 

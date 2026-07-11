@@ -49,6 +49,7 @@ Sort key (per the prior production behavior):
 
 Lines are CRLF on disk; readers on Windows/Linux/macOS all handle that.
 """
+
 from __future__ import annotations
 
 from datetime import date
@@ -101,10 +102,17 @@ _BLOCK_RULE = "-" * 60
 # Outcomes that mark a prospect as warm — operator already engaged, so they
 # don't belong on tomorrow's cold morning_call_list. Active buying_signal
 # enrollments are checked separately (see _excluded_warm_prospects).
-_WARM_OUTCOMES: frozenset[str] = frozenset({
-    "booked", "interested", "interested_warm", "closed_won",
-    "quote_pending", "warm_call_held", "negotiating",
-})
+_WARM_OUTCOMES: frozenset[str] = frozenset(
+    {
+        "booked",
+        "interested",
+        "interested_warm",
+        "closed_won",
+        "quote_pending",
+        "warm_call_held",
+        "negotiating",
+    }
+)
 
 
 def _active_warm_prospect_ids() -> set[str]:
@@ -118,6 +126,7 @@ def _active_warm_prospect_ids() -> set[str]:
         from backend.outreach.buying_signal_route import (  # noqa: PLC0415
             active_warm_prospect_ids,
         )
+
         return active_warm_prospect_ids()
     except Exception:  # noqa: BLE001
         return set()
@@ -196,8 +205,13 @@ def _days_since_contact(p: Prospect) -> int | None:
     if not raw:
         return None
     from datetime import datetime, timezone  # noqa: PLC0415 — local import
-    for fmt in ("%Y-%m-%dT%H:%M:%S.%fZ", "%Y-%m-%dT%H:%M:%SZ",
-                "%Y-%m-%dT%H:%M:%S.%f%z", "%Y-%m-%dT%H:%M:%S%z"):
+
+    for fmt in (
+        "%Y-%m-%dT%H:%M:%S.%fZ",
+        "%Y-%m-%dT%H:%M:%SZ",
+        "%Y-%m-%dT%H:%M:%S.%f%z",
+        "%Y-%m-%dT%H:%M:%S%z",
+    ):
         try:
             ts = datetime.strptime(raw, fmt)
             break
@@ -338,10 +352,10 @@ def _format_block(index: int, p: Prospect) -> str:
 
     lines.append("   CALL SCRIPT:")
     lines.append("   OPENER:")
-    lines.append(f"   \"{p.callsheet_opener or ''}\"")
+    lines.append(f'   "{p.callsheet_opener or ""}"')
     lines.append("")
     lines.append("   VOICEMAIL:")
-    lines.append(f"   \"{p.callsheet_voicemail or ''}\"")
+    lines.append(f'   "{p.callsheet_voicemail or ""}"')
     lines.append("")
     lines.append("   OBJECTION HANDLERS:")
     if objections:

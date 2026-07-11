@@ -7,6 +7,7 @@ Co-exists with backend.prospecting.callsheet (the static-template path);
 not a replacement.  Caller chooses based on whether prospecting.intelligence
 has been run on the prospect.
 """
+
 from __future__ import annotations
 
 from typing import Any, Final
@@ -33,17 +34,13 @@ ANGLE_HOOKS: Final[dict[str, str]] = {
         "I saw your site loads but the booking flow drops users at step 2 — "
         "that's leaving money on the table..."
     ),
-    "time_leak": (
-        "How much of your week goes to scheduling + follow-ups you could "
-        "automate away?"
-    ),
+    "time_leak": ("How much of your week goes to scheduling + follow-ups you could automate away?"),
     "visibility_gap": (
         "When I searched for [keyword] in [region], you weren't on page 1 — "
         "that's traffic competitors are eating..."
     ),
     "general_growth": (
-        "Quick question — what's the bottleneck slowing your next 12 months "
-        "of growth?"
+        "Quick question — what's the bottleneck slowing your next 12 months of growth?"
     ),
 }
 
@@ -72,10 +69,10 @@ PRODUCT_PITCH: Final[dict[str, str]] = {
 }
 
 PRODUCT_CLOSE: Final[dict[str, str]] = {
-    "website_build":        "Worth a 20-minute deep-dive on your current funnel?",
-    "seo_package":          "Want the full audit before we talk further?",
-    "ads_management":       "Open to a quick look at your current ad spend?",
-    "workflow_automation":  "Open to mapping just one of those workflows so you can see the savings?",
+    "website_build": "Worth a 20-minute deep-dive on your current funnel?",
+    "seo_package": "Want the full audit before we talk further?",
+    "ads_management": "Open to a quick look at your current ad spend?",
+    "workflow_automation": "Open to mapping just one of those workflows so you can see the savings?",
     "reputation_management": "Want a quick look at your current review velocity vs. local competitors?",
 }
 
@@ -107,8 +104,8 @@ VOICEMAIL_TEMPLATES: Final[dict[str, str]] = {
 }
 
 # Default substitution values when intel signals are absent.
-_DEFAULT_SIGNAL  = "your industry"
-_DEFAULT_REGION  = "your area"
+_DEFAULT_SIGNAL = "your industry"
+_DEFAULT_REGION = "your area"
 _DEFAULT_KEYWORD = "your services"
 
 _ALL_ANGLES: Final[tuple[str, ...]] = (
@@ -119,7 +116,7 @@ _ALL_ANGLES: Final[tuple[str, ...]] = (
     "general_growth",
 )
 
-_DEFAULT_ANGLE   = "general_growth"
+_DEFAULT_ANGLE = "general_growth"
 _DEFAULT_PRODUCT = "workflow_automation"
 
 
@@ -148,10 +145,10 @@ def _extract_products(intel: dict[str, Any]) -> tuple[str, str | None]:
     """
     products_block = intel.get("products")
     if isinstance(products_block, dict):
-        primary   = _get_str(products_block, "primary",   _DEFAULT_PRODUCT)
+        primary = _get_str(products_block, "primary", _DEFAULT_PRODUCT)
         secondary = products_block.get("secondary") or None
     else:
-        primary   = _get_str(intel, "primary_product",   _DEFAULT_PRODUCT)
+        primary = _get_str(intel, "primary_product", _DEFAULT_PRODUCT)
         secondary = intel.get("secondary_product") or None
 
     if primary not in PRODUCT_PITCH:
@@ -173,8 +170,8 @@ def _extract_substitutions(intel: dict[str, Any]) -> tuple[str, str, str]:
     if not isinstance(signals_block, dict):
         signals_block = {}
 
-    signal  = _get_str(signals_block, "signal",  _DEFAULT_SIGNAL)
-    region  = _get_str(signals_block, "region",  _DEFAULT_REGION)
+    signal = _get_str(signals_block, "signal", _DEFAULT_SIGNAL)
+    region = _get_str(signals_block, "region", _DEFAULT_REGION)
     keyword = _get_str(signals_block, "keyword", _DEFAULT_KEYWORD)
 
     # Extra fallback: use competitor_count context as signal text when present.
@@ -194,10 +191,7 @@ def _apply_substitutions(
 ) -> str:
     """Replace [signal], [region], [keyword] placeholders in text."""
     return (
-        text
-        .replace("[signal]",  signal)
-        .replace("[region]",  region)
-        .replace("[keyword]", keyword)
+        text.replace("[signal]", signal).replace("[region]", region).replace("[keyword]", keyword)
     )
 
 
@@ -226,24 +220,24 @@ def generate_script(company_name: str, intel: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(intel, dict):
         intel = {}
 
-    angle             = _extract_angle(intel)
+    angle = _extract_angle(intel)
     primary, secondary = _extract_products(intel)
     signal, region, keyword = _extract_substitutions(intel)
 
-    hook       = _apply_substitutions(ANGLE_HOOKS[angle], signal, region, keyword)
+    hook = _apply_substitutions(ANGLE_HOOKS[angle], signal, region, keyword)
     pitch_body = _apply_substitutions(PRODUCT_PITCH[primary], signal, region, keyword)
     close_line = PRODUCT_CLOSE[primary]
-    voicemail  = VOICEMAIL_TEMPLATES[angle].replace("{company}", company_name)
+    voicemail = VOICEMAIL_TEMPLATES[angle].replace("{company}", company_name)
 
     opener = f"Hi, this is [NAME] calling for {company_name}. {hook}"
 
     return {
-        "opener":           opener,
-        "pitch":            pitch_body,
-        "close":            close_line,
-        "voicemail":        voicemail,
-        "pitch_angle":      angle,
-        "primary_product":  primary,
+        "opener": opener,
+        "pitch": pitch_body,
+        "close": close_line,
+        "voicemail": voicemail,
+        "pitch_angle": angle,
+        "primary_product": primary,
         "secondary_product": secondary,
     }
 
@@ -274,13 +268,9 @@ def generate_script_with_pivot(
 
     secondary = result["secondary_product"]
     if secondary and secondary in PRODUCT_PITCH:
-        _, _, _, keyword = (
-            _extract_substitutions(intel) + ("",)
-        )[:4]
+        _, _, _, keyword = (_extract_substitutions(intel) + ("",))[:4]
         _signal, _region, _keyword = _extract_substitutions(intel)
-        pivot_pitch = _apply_substitutions(
-            PRODUCT_PITCH[secondary], _signal, _region, _keyword
-        )
+        pivot_pitch = _apply_substitutions(PRODUCT_PITCH[secondary], _signal, _region, _keyword)
         pivot_close = PRODUCT_CLOSE[secondary]
         result["pivot"] = f"{pivot_pitch} — {pivot_close}"
     else:

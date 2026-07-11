@@ -9,6 +9,7 @@ No write path yet — creating new links requires a Stripe key with
 payment_link write scope; the current restricted-read key cannot. Adding
 the write side is a separate decision (and a new Stripe key).
 """
+
 from __future__ import annotations
 
 import logging
@@ -68,9 +69,14 @@ def fetch_rollup(ts: str, *, active: bool = True) -> PaymentLinksRollup:
     key = (settings.stripe_api_key or "").strip()
     if not key:
         return PaymentLinksRollup(
-            links=[], count_total=0, count_subscription=0, count_one_time=0,
-            livemode_count=0, stripe_reachable=False,
-            stripe_error="stripe_api_key_unset", ts=ts,
+            links=[],
+            count_total=0,
+            count_subscription=0,
+            count_one_time=0,
+            livemode_count=0,
+            stripe_reachable=False,
+            stripe_error="stripe_api_key_unset",
+            ts=ts,
         )
 
     client = StripeClient(api_key=key)
@@ -79,8 +85,13 @@ def fetch_rollup(ts: str, *, active: bool = True) -> PaymentLinksRollup:
     except StripeError as exc:
         _LOG.warning("payment_links fetch failed: %s", exc)
         return PaymentLinksRollup(
-            links=[], count_total=0, count_subscription=0, count_one_time=0,
-            livemode_count=0, stripe_reachable=False, stripe_error=str(exc),
+            links=[],
+            count_total=0,
+            count_subscription=0,
+            count_one_time=0,
+            livemode_count=0,
+            stripe_reachable=False,
+            stripe_error=str(exc),
             ts=ts,
         )
 

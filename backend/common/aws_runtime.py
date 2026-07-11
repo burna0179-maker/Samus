@@ -4,6 +4,7 @@ Per doc §3.24. Used by BaseSqsWorker to keep boto3 client management out of
 each workcell. ``AwsWorkerSettings.from_env`` produces the typed config from
 env vars; ``AwsRuntime`` owns lazy-init AWS clients + helper methods.
 """
+
 from __future__ import annotations
 
 import json

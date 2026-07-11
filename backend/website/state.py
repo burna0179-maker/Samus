@@ -19,6 +19,7 @@ surfaces that make supervised-now == autonomous-later:
 Stage logic lives in :mod:`backend.website.stages`; orchestration in
 :mod:`backend.website.service`.
 """
+
 from __future__ import annotations
 
 import json
@@ -48,8 +49,17 @@ _LOG = logging.getLogger("samus.website.state")
 #   deliver       — hand the live URL to the customer, record delivery (OUTWARD)
 #   settle        — record the financial event (invoice / barter repayment)
 STAGE_SEQUENCE: tuple[str, ...] = (
-    "brief", "generate", "provision", "business_info", "content",
-    "media", "seo", "qa", "publish", "deliver", "settle",
+    "brief",
+    "generate",
+    "provision",
+    "business_info",
+    "content",
+    "media",
+    "seo",
+    "qa",
+    "publish",
+    "deliver",
+    "settle",
 )
 # Stages that take an irreversible, outward action — gated additionally by
 # ``website_live_publish_enabled`` so the build runs end-to-end (drafting the
@@ -87,11 +97,11 @@ class WebsiteBuildState(BaseModel):
     approved_stages: list[str] = Field(default_factory=list)
 
     # Per-stage outputs.
-    site_id: str = ""            # the provisioned Wix metaSiteId
-    site_url: str = ""           # the live URL (set at publish/deliver)
+    site_id: str = ""  # the provisioned Wix metaSiteId
+    site_url: str = ""  # the live URL (set at publish/deliver)
     content_item_ids: list[str] = Field(default_factory=list)
     preview_checklist: dict[str, Any] | None = None
-    settlement_ref: str = ""     # liabilities repayment marker / invoice id
+    settlement_ref: str = ""  # liabilities repayment marker / invoice id
     # Taste-governed generation report (set at the generate stage): the resolved
     # TasteProfile, the fail-closed copy audit, and which path produced it.
     generation_report: dict[str, Any] | None = None

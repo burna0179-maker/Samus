@@ -24,6 +24,7 @@ the static capability-set check and nothing else. That is the live-stack
 safety valve — deploying this file changes no behaviour until the operator
 opts in.
 """
+
 from __future__ import annotations
 
 import logging
@@ -38,12 +39,26 @@ _LOG = logging.getLogger("samus.authz")
 
 
 SERVICE_CAPABILITIES: Final[dict[str, set[str]]] = {
-    "gateway":     {"dispatch", "dlq_read", "autonomy_plan", "budget_admin",
-                    "list_tasks", "control_tick", "crm_stats", "journey_read"},
-    "leadgen":     {"score", "qualify"},
-    "prospecting": {"discover", "build_call_sheet", "analyze_business", "score_deal",
-                    "generate_dynamic_script", "generate_dynamic_script_with_pivot"},
-    "scaffold":    {"generate_assets"},
+    "gateway": {
+        "dispatch",
+        "dlq_read",
+        "autonomy_plan",
+        "budget_admin",
+        "list_tasks",
+        "control_tick",
+        "crm_stats",
+        "journey_read",
+    },
+    "leadgen": {"score", "qualify"},
+    "prospecting": {
+        "discover",
+        "build_call_sheet",
+        "analyze_business",
+        "score_deal",
+        "generate_dynamic_script",
+        "generate_dynamic_script_with_pivot",
+    },
+    "scaffold": {"generate_assets"},
     "fulfillment": {
         "plan_execution",
         "validate_plan",
@@ -52,59 +67,133 @@ SERVICE_CAPABILITIES: Final[dict[str, set[str]]] = {
         "resume_plan",
         "finalize_plan",
     },
-    "memory":      {"read", "write", "query", "delete", "stats", "graph", "customers",
-                    "ingest_knowledge"},
-    "feedback":    {"ingest"},
-    "outreach":    {"advance_call", "log_outcome", "send_message", "handle_objection",
-                    "advance_call_state", "send_social_post", "compose_and_send_social_post",
-                    # Growth-enrichment Phase D/E (dormant: DRY-RUN / plan-only).
-                    "repurpose_blog_post", "plan_social_calendar",
-                    "dispatch_social_calendar", "plan_nurture"},
-    "optimizer":   {"select_arm", "update_arm", "optimize_portfolio"},
-    "proposal":    {"generate_proposal", "validate_proposal"},
-    "seo":         {"audit_site", "optimize_page", "generate_content", "audit_and_report",
-                    # Growth-enrichment Phase B/C (GEO formatting + AIO measurement;
-                    # aio_probe is itself flag-gated default-OFF — no token spend).
-                    "geo_format", "aio_analyze", "aio_probe"},
-    "finance":     {"snapshot", "codb_summary", "runway", "liabilities", "declines",
-                    "debts", "actions", "info_gaps", "hardship", "payment_links",
-                    "stripe_webhook", "recent_payments", "customer_summary",
-                    "report_meter_event", "customer_exists"},
-    "voice":       {"initiate_call", "fetch_call", "list_calls", "handle_webhook",
-                    "adapt_call", "handle_inbound", "send_call_summary"},
-    "intake":      {"submit_lead", "list_leads", "poll_inbox"},
-    "crm":         {"read_prospects", "read_contacts", "read_conversations",
-                    "read_call_state", "read_opportunities", "read_tasks",
-                    "read_artifacts", "convert_lead",
-                    "write_conversation", "write_call_state",
-                    "write_task", "update_task",
-                    "write_opportunity", "advance_opportunity",
-                    "write_artifact", "find_opportunity_for_email",
-                    "log_feedback", "get_feedback_snapshot",
-                    "auto_create_opportunity",
-                    # Growth-enrichment Phase F (proof + referral; generation /
-                    # local-ledger only — no outward send, no payout).
-                    "generate_case_study", "build_proof_wall",
-                    "referral_code", "referral_record", "referral_qualify"},
-    "strategy":    {"evaluate", "dispatch_strategy_action", "record_outcome", "build_context",
-                    "rank_portfolio", "propose_allocation", "update_bandit_arm",
-                    "forecast_allocation", "compile_policy"},
+    "memory": {
+        "read",
+        "write",
+        "query",
+        "delete",
+        "stats",
+        "graph",
+        "customers",
+        "ingest_knowledge",
+    },
+    "feedback": {"ingest"},
+    "outreach": {
+        "advance_call",
+        "log_outcome",
+        "send_message",
+        "handle_objection",
+        "advance_call_state",
+        "send_social_post",
+        "compose_and_send_social_post",
+        # Growth-enrichment Phase D/E (dormant: DRY-RUN / plan-only).
+        "repurpose_blog_post",
+        "plan_social_calendar",
+        "dispatch_social_calendar",
+        "plan_nurture",
+    },
+    "optimizer": {"select_arm", "update_arm", "optimize_portfolio"},
+    "proposal": {"generate_proposal", "validate_proposal"},
+    "seo": {
+        "audit_site",
+        "optimize_page",
+        "generate_content",
+        "audit_and_report",
+        # Growth-enrichment Phase B/C (GEO formatting + AIO measurement;
+        # aio_probe is itself flag-gated default-OFF — no token spend).
+        "geo_format",
+        "aio_analyze",
+        "aio_probe",
+    },
+    "finance": {
+        "snapshot",
+        "codb_summary",
+        "runway",
+        "liabilities",
+        "declines",
+        "debts",
+        "actions",
+        "info_gaps",
+        "hardship",
+        "payment_links",
+        "stripe_webhook",
+        "recent_payments",
+        "customer_summary",
+        "report_meter_event",
+        "customer_exists",
+    },
+    "voice": {
+        "initiate_call",
+        "fetch_call",
+        "list_calls",
+        "handle_webhook",
+        "adapt_call",
+        "handle_inbound",
+        "send_call_summary",
+    },
+    "intake": {"submit_lead", "list_leads", "poll_inbox"},
+    "crm": {
+        "read_prospects",
+        "read_contacts",
+        "read_conversations",
+        "read_call_state",
+        "read_opportunities",
+        "read_tasks",
+        "read_artifacts",
+        "convert_lead",
+        "write_conversation",
+        "write_call_state",
+        "write_task",
+        "update_task",
+        "write_opportunity",
+        "advance_opportunity",
+        "write_artifact",
+        "find_opportunity_for_email",
+        "log_feedback",
+        "get_feedback_snapshot",
+        "auto_create_opportunity",
+        # Growth-enrichment Phase F (proof + referral; generation /
+        # local-ledger only — no outward send, no payout).
+        "generate_case_study",
+        "build_proof_wall",
+        "referral_code",
+        "referral_record",
+        "referral_qualify",
+    },
+    "strategy": {
+        "evaluate",
+        "dispatch_strategy_action",
+        "record_outcome",
+        "build_context",
+        "rank_portfolio",
+        "propose_allocation",
+        "update_bandit_arm",
+        "forecast_allocation",
+        "compile_policy",
+    },
     # Campaign Orchestrator — composes existing workcells from a declarative
     # graph. It exposes its own run-lifecycle + KPI + reporting capabilities;
     # the outward node work is dispatched THROUGH the gateway (see CALLER_GRANTS
     # below), never by reaching peer workcells directly.
-    "campaigns":   {"create_campaign", "start_campaign", "advance_campaign",
-                    "approve_node", "update_kpis", "ingest_kpi",
-                    "generate_report", "read_status"},
+    "campaigns": {
+        "create_campaign",
+        "start_campaign",
+        "advance_campaign",
+        "approve_node",
+        "update_kpis",
+        "ingest_kpi",
+        "generate_report",
+        "read_status",
+    },
     # Autonomous workcell expansion — observe/decide/recover/coordinate layer.
     # All five register the single capability ``plan_execution`` (namespaced
     # per-service; reuse of the string the fulfillment workcell also owns is
     # intentional and collision-free).
-    "signal_filter":        {"plan_execution"},
-    "path_optimizer":       {"plan_execution"},
-    "template_recovery":    {"plan_execution"},
+    "signal_filter": {"plan_execution"},
+    "path_optimizer": {"plan_execution"},
+    "template_recovery": {"plan_execution"},
     "portfolio_controller": {"plan_execution"},
-    "entropy":              {"plan_execution"},
+    "entropy": {"plan_execution"},
 }
 
 
@@ -185,31 +274,48 @@ CALLER_GRANTS: Final[dict[str, dict[str, frozenset[str]]]] = {
     },
     # The CRM workcell calls strategy to get a per-prospect decision.
     "crm": {
-        "strategy": frozenset({"evaluate", "dispatch_strategy_action",
-                               "record_outcome", "build_context"}),
+        "strategy": frozenset(
+            {"evaluate", "dispatch_strategy_action", "record_outcome", "build_context"}
+        ),
     },
     # Outreach writes call outcomes / conversations / tasks back to CRM.
     "outreach": {
-        "crm": frozenset({
-            "read_prospects", "read_contacts", "read_call_state",
-            "read_opportunities", "read_conversations",
-            "write_conversation", "write_call_state",
-            "write_task", "update_task",
-            "advance_opportunity", "find_opportunity_for_email",
-        }),
+        "crm": frozenset(
+            {
+                "read_prospects",
+                "read_contacts",
+                "read_call_state",
+                "read_opportunities",
+                "read_conversations",
+                "write_conversation",
+                "write_call_state",
+                "write_task",
+                "update_task",
+                "advance_opportunity",
+                "find_opportunity_for_email",
+            }
+        ),
     },
     # Voice writes transcripts to memory, conversations / call-state / tasks
     # to CRM, and meter events to finance. It also confirms a receptionist's
     # stripe_customer_id with finance (customer_exists) before metering (FIN-08).
     "voice": {
         "memory": frozenset({"write", "read", "query"}),
-        "crm": frozenset({
-            "read_prospects", "read_call_state", "read_conversations",
-            "read_opportunities",
-            "write_conversation", "write_call_state",
-            "write_task", "update_task", "write_artifact",
-            "advance_opportunity", "find_opportunity_for_email",
-        }),
+        "crm": frozenset(
+            {
+                "read_prospects",
+                "read_call_state",
+                "read_conversations",
+                "read_opportunities",
+                "write_conversation",
+                "write_call_state",
+                "write_task",
+                "update_task",
+                "write_artifact",
+                "advance_opportunity",
+                "find_opportunity_for_email",
+            }
+        ),
         "finance": frozenset({"report_meter_event", "customer_exists"}),
     },
     # Finance dispatches CRM close-the-loop work THROUGH the gateway, and
@@ -229,8 +335,7 @@ CALLER_GRANTS: Final[dict[str, dict[str, frozenset[str]]]] = {
     # prospect records straight from CRM via crm_client.
     "strategy": {
         "gateway": frozenset({"dispatch"}),
-        "crm": frozenset({"read_prospects", "read_opportunities",
-                          "read_conversations"}),
+        "crm": frozenset({"read_prospects", "read_opportunities", "read_conversations"}),
     },
     # The retainer subsystem enrolls opportunities + files operator tasks in
     # CRM. It runs inside the finance/crm worker processes; treat it as its
@@ -238,8 +343,7 @@ CALLER_GRANTS: Final[dict[str, dict[str, frozenset[str]]]] = {
     # whatever SAMUS_SERVICE its host process carries; this grant is here so
     # that if/when retainer ever runs standalone it is already covered.)
     "retainer": {
-        "crm": frozenset({"write_opportunity", "advance_opportunity",
-                          "write_task", "update_task"}),
+        "crm": frozenset({"write_opportunity", "advance_opportunity", "write_task", "update_task"}),
     },
     # Prospecting reads CRM state to enrich its own pipeline output:
     # _backfill_recent_contact (call-state -> last_contact_* on the call
@@ -248,8 +352,7 @@ CALLER_GRANTS: Final[dict[str, dict[str, frozenset[str]]]] = {
     # call-state -> follow-up context on returning prospects). READ-ONLY —
     # prospect persistence goes through crm.persistence (DDB), not this seam.
     "prospecting": {
-        "crm": frozenset({"read_prospects", "read_call_state",
-                          "read_conversations"}),
+        "crm": frozenset({"read_prospects", "read_call_state", "read_conversations"}),
     },
     # The five autonomous workcells are coordinated by the gateway/portfolio
     # controller; they do not originate cross-workcell calls today. No grants
@@ -421,15 +524,18 @@ def authorize_caller_to_callee(
         _LOG.warning(
             "samus.authz.would_deny mode=audit scope=callee caller=%s "
             "callee=%s path=%s — ALLOWED (audit mode)",
-            caller_id, callee, path or "-",
+            caller_id,
+            callee,
+            path or "-",
         )
         return True
 
     # enforce
     _LOG.warning(
-        "samus.authz.denied mode=enforce scope=callee caller=%s callee=%s "
-        "path=%s",
-        caller_id, callee, path or "-",
+        "samus.authz.denied mode=enforce scope=callee caller=%s callee=%s path=%s",
+        caller_id,
+        callee,
+        path or "-",
     )
     return False
 
@@ -477,15 +583,20 @@ def authorize(
         _LOG.warning(
             "samus.authz.would_deny mode=audit caller=%s callee=%s "
             "capability=%s path=%s — ALLOWED (audit mode)",
-            caller_id, callee, capability, path or "-",
+            caller_id,
+            callee,
+            capability,
+            path or "-",
         )
         return
 
     # enforce
     _LOG.warning(
-        "samus.authz.denied mode=enforce caller=%s callee=%s "
-        "capability=%s path=%s",
-        caller_id, callee, capability, path or "-",
+        "samus.authz.denied mode=enforce caller=%s callee=%s capability=%s path=%s",
+        caller_id,
+        callee,
+        capability,
+        path or "-",
     )
     raise HTTPException(
         status_code=403,

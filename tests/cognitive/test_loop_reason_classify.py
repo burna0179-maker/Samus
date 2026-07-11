@@ -7,6 +7,7 @@ backend nor the real EFH (no axiom YAML load, no veto-record disk write). The
 drift test drives a real ``PersonaMemory`` (explicitly enabled, per-test tmp
 path) + the ``PersonaSystem`` frame compute-only.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -55,7 +56,10 @@ class _GlobalDeniedReasoner:
 
         raise GlobalBudgetExceeded(
             GlobalDecision(
-                allowed=False, estimated_usd=9.9, used_usd=1.0, cap_usd=1.0,
+                allowed=False,
+                estimated_usd=9.9,
+                used_usd=1.0,
+                cap_usd=1.0,
                 reason="global_cap",
             )
         )
@@ -227,6 +231,7 @@ def test_persona_frame_derives_nonzero_drift_from_real_memory(monkeypatch, tmp_p
     real PersonaMemory snapshot (previously always 0 -> the bug)."""
     monkeypatch.setenv("SAMUS_PERSONA_FRAME_ENABLED", "true")
     from backend.common.settings import reload_settings
+
     reload_settings()
 
     from backend.cognitive.persona_frame import PersonaSystem
@@ -234,7 +239,9 @@ def test_persona_frame_derives_nonzero_drift_from_real_memory(monkeypatch, tmp_p
 
     mem = PersonaMemory(path=str(tmp_path / "m.json"), enabled=True, async_flush=False)
     for _ in range(4):
-        mem.log_event("reflection", {"text": "high drift", "tags": {"status": "struggle", "drift": 0.9}})
+        mem.log_event(
+            "reflection", {"text": "high drift", "tags": {"status": "struggle", "drift": 0.9}}
+        )
 
     sys_ = PersonaSystem(persona_memory=mem, enabled=True)
     frame = sys_.transform({"user_text": "hi"})[PersonaSystem.FRAME_KEY]

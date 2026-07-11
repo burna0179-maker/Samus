@@ -13,6 +13,7 @@ Covers:
   - Disabled (enabled=False) jobs are not ticked.
   - Future run_at jobs are not ticked until due.
 """
+
 from __future__ import annotations
 
 import os
@@ -27,7 +28,6 @@ from backend.growth.scheduler import (
     GrowthSchedulerDisabledError,
     GrowthSchedulerError,
 )
-from backend.growth.schema_registry import GROWTH_SCHEMA_REGISTRY, get_schema
 import backend.growth.dispatch_policy as _dispatch_policy_mod
 import backend.growth.schema_registry as _schema_registry_mod
 
@@ -259,9 +259,7 @@ def test_tick_recurring_job_stays_pending_after_tick():
     scheduler = _make_scheduler()
     env = {_FLAG: "true", _SEO_FLAG: "true"}
     with patch.dict(os.environ, env, clear=False):
-        job_id = scheduler.schedule(
-            _make_spec(enabled=True, run_at=None, recurrence="0 9 * * 1")
-        )
+        job_id = scheduler.schedule(_make_spec(enabled=True, run_at=None, recurrence="0 9 * * 1"))
     scheduler._tick()
     ids = {j.job_id for j in scheduler.list_pending()}
     assert job_id in ids
@@ -325,9 +323,7 @@ def test_tick_invokes_route_growth_action_when_available():
         job_id = scheduler.schedule(_make_spec(enabled=True, run_at=None))
 
     scheduler._tick()
-    mock_policy.route_growth_action.assert_called_once_with(
-        _VALID_ACTION, _VALID_PAYLOAD
-    )
+    mock_policy.route_growth_action.assert_called_once_with(_VALID_ACTION, _VALID_PAYLOAD)
 
 
 def test_tick_handler_exception_does_not_propagate():
@@ -355,18 +351,21 @@ def test_tick_handler_exception_does_not_propagate():
 
 def test_dispatch_policy_validate_payload_known_action():
     from backend.growth.dispatch_policy import validate_payload
+
     missing = validate_payload("geo_format", {"query": "x", "location": "y"})
     assert missing == []
 
 
 def test_dispatch_policy_validate_payload_missing_field():
     from backend.growth.dispatch_policy import validate_payload
+
     missing = validate_payload("geo_format", {"query": "x"})
     assert "location" in missing
 
 
 def test_dispatch_policy_validate_payload_unknown_action():
     from backend.growth.dispatch_policy import validate_payload
+
     result = validate_payload("no_such_action", {"x": 1})
     assert result == ["<unknown action>"]
 
@@ -378,6 +377,7 @@ def test_dispatch_policy_validate_payload_unknown_action():
 
 def test_dispatch_entry_schema_property_returns_correct_schema():
     from backend.growth.dispatch_policy import get_entry
+
     entry = get_entry("geo_format")
     assert entry is not None
     schema = entry.schema
@@ -387,9 +387,8 @@ def test_dispatch_entry_schema_property_returns_correct_schema():
 
 def test_dispatch_entry_schema_property_all_12_actions():
     from backend.growth.dispatch_policy import GROWTH_DISPATCH_TABLE
+
     for entry in GROWTH_DISPATCH_TABLE:
         schema = entry.schema
-        assert schema is not None, (
-            f"entry.schema is None for action={entry.action!r}"
-        )
+        assert schema is not None, f"entry.schema is None for action={entry.action!r}"
         assert schema.action == entry.action

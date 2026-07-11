@@ -2,6 +2,7 @@
 
 Patterns mirror the doc's leadgen normalizer (§5.normalizer.py).
 """
+
 from __future__ import annotations
 
 from urllib.parse import urlparse

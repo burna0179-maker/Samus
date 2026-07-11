@@ -3,6 +3,7 @@
 DecisionRecords ride the unified business-event stream as decision.made
 metadata, so isolation is the same SAMUS_BUSINESS_EVENTS_PATH tmpfile pattern.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -19,9 +20,11 @@ def stream(tmp_path, monkeypatch):
 
 # --- minting (pure) --------------------------------------------------------
 
+
 def test_make_decision_record_fills_fields():
     rec = dr.make_decision_record(
-        "arbiter", "picked call over email",
+        "arbiter",
+        "picked call over email",
         alternatives_considered=["email (lower EV)"],
         data_used=["ev=$500", "connect_rate=0.2"],
         expected_outcome="book a meeting",
@@ -51,10 +54,15 @@ def test_make_decision_record_defaults_are_safe():
 
 # --- record + emit round-trip ----------------------------------------------
 
+
 def test_record_decision_emits_to_stream(stream):
     rec = dr.record_decision(
-        "planner", "generated plan", workcell="planning",
-        ev_usd=1000.0, confidence=0.6, prospect_id="p1",
+        "planner",
+        "generated plan",
+        workcell="planning",
+        ev_usd=1000.0,
+        confidence=0.6,
+        prospect_id="p1",
     )
     # a decision.made event landed
     events = business_events.read_events(event_types=["decision.made"])
@@ -85,13 +93,14 @@ def test_record_decision_never_raises_on_bad_event(stream, monkeypatch):
 
 # --- listing + drill-down --------------------------------------------------
 
+
 def test_list_decisions_newest_first(stream):
     dr.record_decision("planner", "first")
     dr.record_decision("arbiter", "second")
     dr.record_decision("planner", "third")
     rows = dr.list_decisions(limit=10)
     assert len(rows) == 3
-    assert rows[0]["why"] == "third"   # newest first
+    assert rows[0]["why"] == "third"  # newest first
     assert rows[-1]["why"] == "first"
 
 
@@ -114,7 +123,8 @@ def test_list_decisions_prospect_filter(stream):
 
 def test_get_decision_by_id(stream):
     rec = dr.record_decision(
-        "arbiter", "picked call",
+        "arbiter",
+        "picked call",
         alternatives_considered=["email"],
         data_used=["ev=$500"],
         expected_outcome="meeting booked",
@@ -137,9 +147,9 @@ def test_synthesises_thin_record_from_bare_decision_event(stream):
     # A decision.made event WITHOUT an embedded record (e.g. an approval
     # lifecycle event) still appears in the decision log, synthesised.
     business_events.emit_business_event(
-        "decision.made", workcell="governance",
-        metadata={"decision": "approval.requested", "approval_id": "abc",
-                  "risk_level": "high"},
+        "decision.made",
+        workcell="governance",
+        metadata={"decision": "approval.requested", "approval_id": "abc", "risk_level": "high"},
     )
     rows = dr.list_decisions(limit=10)
     assert len(rows) == 1
@@ -154,20 +164,28 @@ def test_list_decisions_empty_stream(stream):
 
 # --- validation_performed + memories_retrieved (G3 / G5 enrichment) --------
 
+
 def test_make_decision_record_accepts_validation_and_memories():
     """G3 + G5: new optional fields round-trip through the dataclass."""
     rec = dr.make_decision_record(
-        "planner", "picked plan A",
+        "planner",
+        "picked plan A",
         validation_performed=[
             "schema_validate:proposal_v2",
             "budget_gate:passed",
             "adversarial_verify:2of3",
         ],
         memories_retrieved=[
-            {"source": "guidance_ledger", "id": "G-042",
-             "why": "prior outreach on same ICP converted"},
-            {"source": "precedent", "id": "opp/17",
-             "why": "same objection resolved with SEO audit offer"},
+            {
+                "source": "guidance_ledger",
+                "id": "G-042",
+                "why": "prior outreach on same ICP converted",
+            },
+            {
+                "source": "precedent",
+                "id": "opp/17",
+                "why": "same objection resolved with SEO audit offer",
+            },
         ],
     )
     assert rec.validation_performed == [
@@ -196,11 +214,15 @@ def test_make_decision_record_defaults_new_fields_to_empty_lists():
 def test_record_decision_emits_new_fields_on_stream(stream):
     """G3 + G5: fields survive the emit → read_events → _extract_record round-trip."""
     rec = dr.record_decision(
-        "arbiter", "picked call over email",
+        "arbiter",
+        "picked call over email",
         validation_performed=["budget_gate:passed", "dnc_gate:clean"],
         memories_retrieved=[
-            {"source": "calibration", "id": "cal/dial_hour_of_day",
-             "why": "10a PT lifts connect rate 1.6x"},
+            {
+                "source": "calibration",
+                "id": "cal/dial_hour_of_day",
+                "why": "10a PT lifts connect rate 1.6x",
+            },
         ],
         prospect_id="p1",
     )
@@ -210,8 +232,11 @@ def test_record_decision_emits_new_fields_on_stream(stream):
     assert row["decision_id"] == rec.decision_id
     assert row["validation_performed"] == ["budget_gate:passed", "dnc_gate:clean"]
     assert row["memories_retrieved"] == [
-        {"source": "calibration", "id": "cal/dial_hour_of_day",
-         "why": "10a PT lifts connect rate 1.6x"},
+        {
+            "source": "calibration",
+            "id": "cal/dial_hour_of_day",
+            "why": "10a PT lifts connect rate 1.6x",
+        },
     ]
 
 

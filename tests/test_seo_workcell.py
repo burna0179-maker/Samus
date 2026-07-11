@@ -1,4 +1,5 @@
 """Smoke tests for the seo workcell — audit + recommendations + content."""
+
 from __future__ import annotations
 
 import httpx
@@ -16,10 +17,10 @@ _GOOD_HTML = (
     "<meta property='og:description' content='24/7 plumbing in Yuba City'>"
     "<meta property='og:image' content='https://acme.example.com/og.jpg'>"
     "<script type='application/ld+json'>"
-    "{\"@context\":\"https://schema.org\",\"@type\":\"Plumber\","
-    "\"name\":\"Acme Plumbing\",\"telephone\":\"+1-530-555-0102\","
-    "\"address\":{\"@type\":\"PostalAddress\",\"streetAddress\":\"123 Main\","
-    "\"addressLocality\":\"Yuba City\",\"addressRegion\":\"CA\"}}"
+    '{"@context":"https://schema.org","@type":"Plumber",'
+    '"name":"Acme Plumbing","telephone":"+1-530-555-0102",'
+    '"address":{"@type":"PostalAddress","streetAddress":"123 Main",'
+    '"addressLocality":"Yuba City","addressRegion":"CA"}}'
     "</script>"
     "<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-ABC12345');</script>"
     "</head><body><h1>24/7 Emergency Plumbing in Yuba City</h1>"
@@ -44,9 +45,11 @@ _BAD_HTML = (
 def _reset_idempotency(monkeypatch):
     from backend.common.idempotency import IdempotencyStore
     import backend.common.idempotency as idem_mod
+
     fresh = IdempotencyStore()
     monkeypatch.setattr(idem_mod, "GLOBAL_IDEMPOTENCY_STORE", fresh)
     import backend.seo.service as svc_mod
+
     monkeypatch.setattr(svc_mod, "GLOBAL_IDEMPOTENCY_STORE", fresh)
 
 
@@ -75,14 +78,17 @@ def _patch_fetch(monkeypatch, html: str, status: int = 200):
             return _Resp()
 
     import backend.seo.audit as audit_mod
+
     monkeypatch.setattr(audit_mod.httpx, "Client", _Client)
 
 
 def test_audit_clean_page(monkeypatch):
     _patch_fetch(monkeypatch, _GOOD_HTML)
     from backend.seo.audit import audit_url
-    result = audit_url("https://acme.example.com",
-                       keywords=["plumbing yuba city"], industry="plumbing")
+
+    result = audit_url(
+        "https://acme.example.com", keywords=["plumbing yuba city"], industry="plumbing"
+    )
     assert result.seo_score >= 90
     assert result.findings["fetched"] is True
 
@@ -90,6 +96,7 @@ def test_audit_clean_page(monkeypatch):
 def test_audit_bad_page_flags_issues(monkeypatch):
     _patch_fetch(monkeypatch, _BAD_HTML)
     from backend.seo.audit import audit_url
+
     result = audit_url("https://bad.example.com")
     issue_ids = {i.id for i in result.issues}
     assert "missing_title" in issue_ids
@@ -102,13 +109,16 @@ def test_audit_bad_page_flags_issues(monkeypatch):
 def test_recommendations_for_each_issue():
     from backend.seo.models import AuditResult, SeoIssue
     from backend.seo.recommendations import build_recommendations
+
     audit = AuditResult(
-        url="https://x.example", seo_score=50,
+        url="https://x.example",
+        seo_score=50,
         issues=[
             SeoIssue(id="missing_title", severity="high", category="content", message="x"),
             SeoIssue(id="mixed_content", severity="critical", category="technical", message="x"),
         ],
-        findings={"industry": "plumbing"}, ts="2026-05-15T00:00:00Z",
+        findings={"industry": "plumbing"},
+        ts="2026-05-15T00:00:00Z",
     )
     recs, on_page = build_recommendations(audit, ["emergency plumbing"])
     assert len(recs) == 2
@@ -119,19 +129,27 @@ def test_recommendations_for_each_issue():
 
 def _raise_llm_unavailable(**kw):
     from backend.common.llm_client import LlmCallError
+
     raise LlmCallError("unavailable")
 
 
 def test_content_fallback_no_llm(monkeypatch):
     import backend.seo.content as content_mod
+
     monkeypatch.setattr(content_mod, "anthropic_messages", _raise_llm_unavailable)
     from backend.seo.content import generate_content_drafts
     from backend.seo.models import OptimizeResult
+
     drafts, wc, used, _cost = generate_content_drafts(
         "https://x.example",
-        OptimizeResult(url="https://x.example", recommendations=[],
-                       on_page_changes={"title": "X"}, ts="2026-05-15T00:00:00Z"),
-        ["plumbing"], "professional",
+        OptimizeResult(
+            url="https://x.example",
+            recommendations=[],
+            on_page_changes={"title": "X"},
+            ts="2026-05-15T00:00:00Z",
+        ),
+        ["plumbing"],
+        "professional",
         anthropic_api_key=None,
     )
     assert used is False
@@ -144,6 +162,7 @@ def test_service_full_pipeline(tmp_path, monkeypatch):
     _patch_fetch(monkeypatch, _BAD_HTML)
     monkeypatch.setenv("SAMUS_SEO_AUDIT_PATH", str(tmp_path / "audit.jsonl"))
     import backend.seo.content as content_mod
+
     monkeypatch.setattr(content_mod, "anthropic_messages", _raise_llm_unavailable)
     from backend.seo.models import AuditRequest, ContentRequest, OptimizeRequest
     from backend.seo.service import audit_site, generate_content, optimize_page
@@ -151,14 +170,22 @@ def test_service_full_pipeline(tmp_path, monkeypatch):
     audit = audit_site(AuditRequest(url="https://bad.example.com"))
     assert audit.seo_score < 100
 
-    opt = optimize_page(OptimizeRequest(
-        url=audit.url, audit_data=audit, target_keywords=["foo"],
-    ))
+    opt = optimize_page(
+        OptimizeRequest(
+            url=audit.url,
+            audit_data=audit,
+            target_keywords=["foo"],
+        )
+    )
     assert len(opt.recommendations) >= 1
 
-    content = generate_content(ContentRequest(
-        url=opt.url, optimization_data=opt,
-        target_keywords=["foo"], tone="professional",
-    ))
+    content = generate_content(
+        ContentRequest(
+            url=opt.url,
+            optimization_data=opt,
+            target_keywords=["foo"],
+            tone="professional",
+        )
+    )
     assert content.used_llm is False
     assert content.word_count > 0

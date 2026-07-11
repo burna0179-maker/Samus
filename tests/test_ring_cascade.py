@@ -1,18 +1,15 @@
 """Ring cascade -- email-exhausted prospects advance to the next channel."""
+
 from __future__ import annotations
 
 import csv
-import json
-import os
 from datetime import date
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
 
 from backend.cash_engine.ring_cascade import (
-    RING_LADDER,
     Ring,
     RingTransition,
     cascade_from_email,
@@ -20,7 +17,7 @@ from backend.cash_engine.ring_cascade import (
     is_email_cap_reached,
     select_next_ring,
 )
-from backend.cash_engine.stages import StageContext, StageResult, _outreach_stage
+from backend.cash_engine.stages import StageContext, _outreach_stage
 from backend.cash_engine.state import CashEngineState
 from backend.prospecting.csv_export import CSV_COLUMNS
 
@@ -46,6 +43,7 @@ def _prospect(
     social_facebook="",
 ):
     from backend.crm.models import Prospect
+
     return Prospect(
         prospect_id=prospect_id,
         company_name="Acme Plumbing",
@@ -61,6 +59,7 @@ def _prospect(
 
 def _opp(opportunity_id="op-1", prospect_id="pr-1", stake=VALID_STAKE):
     from backend.crm.models import Opportunity
+
     return Opportunity(
         opportunity_id=opportunity_id,
         prospect_id=prospect_id,
@@ -101,6 +100,7 @@ class FakeCRM:
 # Ring reachability
 # ---------------------------------------------------------------------------
 
+
 class TestRingReachability:
     def test_voice_reachable_with_phone(self):
         p = _prospect(phone="(916) 555-0100")
@@ -137,6 +137,7 @@ class TestRingReachability:
 # Ring selection
 # ---------------------------------------------------------------------------
 
+
 class TestSelectNextRing:
     def test_selects_voice_after_email_exhausted(self):
         p = _prospect(phone="(916) 555-0100")
@@ -149,7 +150,9 @@ class TestSelectNextRing:
         p = _prospect(phone="(916) 555-0100")
         o = _opp()
         ring = select_next_ring(
-            p, o, exhausted_channels=("personal_email", "voice"),
+            p,
+            o,
+            exhausted_channels=("personal_email", "voice"),
         )
         assert ring is not None
         assert ring.channel == "voicemail_drop"
@@ -164,7 +167,9 @@ class TestSelectNextRing:
         p = _prospect(phone="", social_linkedin="https://linkedin.com/in/x")
         o = _opp()
         ring = select_next_ring(
-            p, o, exhausted_channels=("personal_email", "voice", "voicemail_drop"),
+            p,
+            o,
+            exhausted_channels=("personal_email", "voice", "voicemail_drop"),
         )
         assert ring is not None
         assert ring.channel == "social_dm"
@@ -173,6 +178,7 @@ class TestSelectNextRing:
 # ---------------------------------------------------------------------------
 # Voice enrollment
 # ---------------------------------------------------------------------------
+
 
 class TestVoiceEnrollment:
     def test_appends_to_call_list_csv(self, tmp_path, monkeypatch):
@@ -183,7 +189,11 @@ class TestVoiceEnrollment:
         ring = Ring(channel="voice", static_rank=1)
 
         result = enroll_in_ring(
-            ring, p, o, stake_sentence=VALID_STAKE, crm=crm,
+            ring,
+            p,
+            o,
+            stake_sentence=VALID_STAKE,
+            crm=crm,
         )
         assert result["enrolled"] is True
         assert result["channel"] == "voice"
@@ -215,7 +225,11 @@ class TestVoiceEnrollment:
         ring = Ring(channel="voice", static_rank=1)
 
         result = enroll_in_ring(
-            ring, p, o, stake_sentence=VALID_STAKE, crm=crm,
+            ring,
+            p,
+            o,
+            stake_sentence=VALID_STAKE,
+            crm=crm,
         )
         assert result["enrolled"] is True
         assert result["already_on_list"] is True
@@ -242,6 +256,7 @@ class TestVoiceEnrollment:
 # Voicemail enrollment
 # ---------------------------------------------------------------------------
 
+
 class TestVoicemailEnrollment:
     def test_creates_voicemail_artifact(self):
         p = _prospect()
@@ -250,7 +265,11 @@ class TestVoicemailEnrollment:
         ring = Ring(channel="voicemail_drop", static_rank=2)
 
         result = enroll_in_ring(
-            ring, p, o, stake_sentence=VALID_STAKE, crm=crm,
+            ring,
+            p,
+            o,
+            stake_sentence=VALID_STAKE,
+            crm=crm,
         )
         assert result["enrolled"] is True
         assert result["channel"] == "voicemail_drop"
@@ -263,6 +282,7 @@ class TestVoicemailEnrollment:
 # Social enrollment
 # ---------------------------------------------------------------------------
 
+
 class TestSocialEnrollment:
     def test_creates_social_dm_draft(self):
         p = _prospect(social_linkedin="https://linkedin.com/in/acme")
@@ -271,7 +291,11 @@ class TestSocialEnrollment:
         ring = Ring(channel="social_dm", static_rank=4)
 
         result = enroll_in_ring(
-            ring, p, o, stake_sentence=VALID_STAKE, crm=crm,
+            ring,
+            p,
+            o,
+            stake_sentence=VALID_STAKE,
+            crm=crm,
         )
         assert result["enrolled"] is True
         assert result["channel"] == "social_dm"
@@ -284,7 +308,11 @@ class TestSocialEnrollment:
         ring = Ring(channel="social_dm", static_rank=4)
 
         result = enroll_in_ring(
-            ring, p, o, stake_sentence=VALID_STAKE, crm=crm,
+            ring,
+            p,
+            o,
+            stake_sentence=VALID_STAKE,
+            crm=crm,
         )
         assert result["enrolled"] is False
 
@@ -292,6 +320,7 @@ class TestSocialEnrollment:
 # ---------------------------------------------------------------------------
 # Email cap detection
 # ---------------------------------------------------------------------------
+
 
 class TestEmailCapReached:
     def test_false_when_under_cap(self, monkeypatch):
@@ -309,6 +338,7 @@ class TestEmailCapReached:
 # Full cascade
 # ---------------------------------------------------------------------------
 
+
 class TestCascadeFromEmail:
     def test_cascades_to_voice_on_compose_block(self, tmp_path, monkeypatch):
         monkeypatch.setenv("SAMUS_ARTIFACT_ROOT", str(tmp_path))
@@ -317,7 +347,8 @@ class TestCascadeFromEmail:
         crm = FakeCRM()
 
         result = cascade_from_email(
-            p, o,
+            p,
+            o,
             stake_sentence=VALID_STAKE,
             crm=crm,
             reason="email_compose_blocked: no cold-sendable email",
@@ -334,7 +365,8 @@ class TestCascadeFromEmail:
         crm = FakeCRM()
 
         result = cascade_from_email(
-            p, o,
+            p,
+            o,
             stake_sentence=VALID_STAKE,
             crm=crm,
             reason="test",
@@ -349,7 +381,8 @@ class TestCascadeFromEmail:
         crm = FakeCRM()
 
         result = cascade_from_email(
-            p, o,
+            p,
+            o,
             stake_sentence=VALID_STAKE,
             crm=crm,
             reason="test",
@@ -362,9 +395,11 @@ class TestCascadeFromEmail:
 # Outreach stage integration
 # ---------------------------------------------------------------------------
 
+
 class TestOutreachStageCascade:
     def _ctx(self, prospect=None, opportunity=None, crm=None, settings=None):
         from backend.common.settings import get_settings
+
         return StageContext(
             state=CashEngineState(opportunity_id="op-1", prospect_id="pr-1"),
             opportunity=opportunity or _opp(),
@@ -449,6 +484,7 @@ class TestOutreachStageCascade:
 # Ring transition events
 # ---------------------------------------------------------------------------
 
+
 class TestRingTransitionEvents:
     def test_transition_has_required_fields(self):
         t = RingTransition(
@@ -480,16 +516,15 @@ class TestRingTransitionEvents:
         crm = FakeCRM()
 
         cascade_from_email(
-            p, o,
+            p,
+            o,
             stake_sentence=VALID_STAKE,
             crm=crm,
             reason="test_event",
         )
 
         assert len(events) >= 1
-        decision_events = [
-            e for e in events if e.get("event_type") == "decision.made"
-        ]
+        decision_events = [e for e in events if e.get("event_type") == "decision.made"]
         assert len(decision_events) >= 1
         meta = decision_events[0].get("metadata", {})
         assert meta.get("decision_kind") == "ring_cascade_transition"
@@ -500,6 +535,7 @@ class TestRingTransitionEvents:
 # ---------------------------------------------------------------------------
 # Worker integration -- cascade does not park the opportunity
 # ---------------------------------------------------------------------------
+
 
 class TestWorkerIntegration:
     def test_compose_blocked_prospect_reaches_dormant(self, tmp_path, monkeypatch):

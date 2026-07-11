@@ -7,11 +7,9 @@ template_recovery.recover is actually invoked, that the returned ProspectRecord
 still carries the canonical templated callsheet_* fields, and that a missing /
 faulting template_recovery degrades silently to the plain templated fallback.
 """
+
 from __future__ import annotations
 
-import json
-
-import pytest
 
 from backend.common import llm_client
 from backend.prospecting import callsheet as cs
@@ -42,14 +40,17 @@ def _capture_recover(monkeypatch):
     calls: list[dict] = []
 
     def _spy(req, *, task_id=None):
-        calls.append({
-            "task_kind": req.task_kind,
-            "context": dict(req.context),
-            "failure_reason": req.failure_reason,
-            "task_id": task_id,
-        })
+        calls.append(
+            {
+                "task_kind": req.task_kind,
+                "context": dict(req.context),
+                "failure_reason": req.failure_reason,
+                "task_id": task_id,
+            }
+        )
         # Return a minimal recovery-response-shaped object.
         from backend.template_recovery.models import RecoveryResponse
+
         return RecoveryResponse(
             task_kind=req.task_kind,
             scaffold="# Call Sheet — recovered",
@@ -72,7 +73,8 @@ def test_llm_call_error_routes_to_template_recovery(monkeypatch):
     monkeypatch.setattr(cs, "anthropic_messages", _boom)
 
     sheet, cost = cs.build_call_sheet_with_llm_costed(
-        _prospect(), anthropic_api_key="sk-test",
+        _prospect(),
+        anthropic_api_key="sk-test",
     )
     # template_recovery.recover invoked exactly once with task_kind="callsheet".
     assert len(calls) == 1
@@ -100,7 +102,8 @@ def test_budget_exceeded_routes_to_template_recovery(monkeypatch):
     monkeypatch.setattr(cs, "anthropic_messages", _denied)
 
     sheet, cost = cs.build_call_sheet_with_llm_costed(
-        _prospect(), anthropic_api_key="sk-test",
+        _prospect(),
+        anthropic_api_key="sk-test",
     )
     assert len(calls) == 1
     assert calls[0]["task_kind"] == "callsheet"
@@ -120,7 +123,8 @@ def test_unparseable_response_routes_to_template_recovery(monkeypatch):
     monkeypatch.setattr(cs, "record_outcome", lambda *a, **k: None)
 
     sheet, cost = cs.build_call_sheet_with_llm_costed(
-        _prospect(), anthropic_api_key="sk-test",
+        _prospect(),
+        anthropic_api_key="sk-test",
     )
     assert len(calls) == 1
     assert calls[0]["task_kind"] == "callsheet"
@@ -147,7 +151,8 @@ def test_recover_helper_degrades_when_template_recovery_import_fails(monkeypatch
     monkeypatch.setattr(builtins, "__import__", _blocked_import)
 
     sheet = cs._recover_callsheet_via_template_recovery(
-        _prospect(), failure_reason="some failure",
+        _prospect(),
+        failure_reason="some failure",
     )
     # Still a fully-populated templated callsheet — recovery wiring never tanks.
     assert sheet.callsheet_opener
@@ -157,13 +162,15 @@ def test_recover_helper_degrades_when_template_recovery_import_fails(monkeypatch
 
 def test_recover_helper_degrades_when_recover_raises(monkeypatch):
     """A fault inside template_recovery.recover degrades to the templated sheet."""
+
     def _boom(_req, *, task_id=None):
         raise RuntimeError("recovery store blew up")
 
     monkeypatch.setattr("backend.template_recovery.service.recover", _boom)
 
     sheet = cs._recover_callsheet_via_template_recovery(
-        _prospect(), failure_reason="some failure",
+        _prospect(),
+        failure_reason="some failure",
     )
     assert sheet.callsheet_pitch
     assert sheet.callsheet_voicemail
@@ -172,10 +179,12 @@ def test_recover_helper_degrades_when_recover_raises(monkeypatch):
 def test_recover_helper_produces_real_recovery_when_wired(monkeypatch, tmp_path):
     """End-to-end through the real template_recovery workcell (no LLM, free)."""
     from backend.template_recovery.fallback import clear_cache
+
     clear_cache()
 
     sheet = cs._recover_callsheet_via_template_recovery(
-        _prospect(), failure_reason="llm timeout",
+        _prospect(),
+        failure_reason="llm timeout",
     )
     # The real recover() ran: returned record is the canonical templated sheet.
     assert sheet.callsheet_opener

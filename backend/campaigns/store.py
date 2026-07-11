@@ -6,6 +6,7 @@ an always-mirrored JSON-file fallback under the state root so a dev box / test
 run needs no AWS. Writes never raise — a persistence fault degrades to the JSON
 mirror and logs, it does not sink the orchestrator.
 """
+
 from __future__ import annotations
 
 import json

@@ -21,6 +21,7 @@ Wired-DORMANT — two-key posture mirroring the rest of the outreach surface:
     report but the wrapper never raises. ``enforce``: the wrapper raises
     :class:`SendLintBlocked` when ``report.aligned`` is False.
 """
+
 from __future__ import annotations
 
 import re
@@ -43,30 +44,47 @@ class SendLintBlocked(RuntimeError):
 _SKU_KEYWORDS: dict[str, tuple[str, ...]] = {
     "seo_audit": ("seo audit", "seo report", "audit"),
     "service_seo_implementation": (
-        "seo implementation", "seo fixes", "implementation",
+        "seo implementation",
+        "seo fixes",
+        "implementation",
     ),
     "retainer_seo_optimization": (
-        "seo optimization", "seo retainer", "ongoing seo",
+        "seo optimization",
+        "seo retainer",
+        "ongoing seo",
     ),
     "service_workflow_rescue": (
-        "48-hour", "48 hour", "workflow rescue", "rescue",
+        "48-hour",
+        "48 hour",
+        "workflow rescue",
+        "rescue",
     ),
     "service_workflow_buildout": (
-        "workflow buildout", "workflow system buildout", "system buildout",
-        "receptionist build", "buildout",
+        "workflow buildout",
+        "workflow system buildout",
+        "system buildout",
+        "receptionist build",
+        "buildout",
     ),
     "service_website_build": ("website build", "site build"),
     "service_ai_ops_partner_build": (
-        "ai ops partner", "ai ops build", "ops partner build",
+        "ai ops partner",
+        "ai ops build",
+        "ops partner build",
     ),
     "retainer_ai_ops_partner_entry": (
-        "ai ops partner", "ops partner", "ai ops retainer",
+        "ai ops partner",
+        "ops partner",
+        "ai ops retainer",
     ),
     "retainer_ai_ops_partner_premium": (
-        "ai ops premium", "ops partner premium",
+        "ai ops premium",
+        "ops partner premium",
     ),
     "retainer_ai_receptionist": (
-        "ai receptionist", "ai digital receptionist", "receptionist subscription",
+        "ai receptionist",
+        "ai digital receptionist",
+        "receptionist subscription",
     ),
     "playbook_lead_qual": ("lead qualification", "lead qual playbook"),
     "playbook_client_onboarding": ("client onboarding playbook", "onboarding playbook"),
@@ -87,6 +105,7 @@ class LintReport:
     appears in the subject keyword bag (or there are no buttons at all —
     a transactional message with no buy URL is trivially aligned).
     """
+
     extracted_buy_urls: list[str] = field(default_factory=list)
     button_skus: list[str] = field(default_factory=list)
     subject_implied_skus: list[str] = field(default_factory=list)
@@ -99,6 +118,7 @@ class LintReport:
 # ---------------------------------------------------------------------------
 # Internals
 # ---------------------------------------------------------------------------
+
 
 def _strip_html(html: str) -> str:
     """Best-effort tag strip for keyword scanning. Not a full HTML parser —
@@ -175,6 +195,7 @@ def _detect_sku_keywords(text: str) -> list[str]:
 # Public API
 # ---------------------------------------------------------------------------
 
+
 def lint_send(
     *,
     subject: str,
@@ -190,9 +211,8 @@ def lint_send(
     consistency.
     """
     from backend.common.config import get_settings
-    mode = str(
-        getattr(get_settings(), "outreach_send_lint_mode", "off") or "off"
-    ).strip().lower()
+
+    mode = str(getattr(get_settings(), "outreach_send_lint_mode", "off") or "off").strip().lower()
     if mode == "off":
         return LintReport(skipped=True, aligned=True)
 
@@ -209,9 +229,7 @@ def lint_send(
     )
 
     for url in unmapped:
-        report.warnings.append(
-            f"buy.stripe.com URL not in catalog (cannot lint): {url}"
-        )
+        report.warnings.append(f"buy.stripe.com URL not in catalog (cannot lint): {url}")
 
     # Aligned iff every button SKU is implied by the subject. A subject that
     # mentions SKUs the buttons don't sell is a warning, not a block — the
@@ -235,8 +253,7 @@ def lint_send(
         report.aligned = False
         for sku in subject_only:
             report.warnings.append(
-                f"subject implies SKU {sku!r} but no button sells it "
-                f"(buttons sell: {button_skus})"
+                f"subject implies SKU {sku!r} but no button sells it (buttons sell: {button_skus})"
             )
 
     if claimed_sku:
@@ -247,9 +264,7 @@ def lint_send(
             )
         if claimed_sku not in subject_skus:
             report.aligned = False
-            report.warnings.append(
-                f"claimed_sku {claimed_sku!r} not implied by subject"
-            )
+            report.warnings.append(f"claimed_sku {claimed_sku!r} not implied by subject")
 
     return report
 
@@ -269,17 +284,18 @@ def send_promotional(
     and the send proceeds; in OFF mode the lint is skipped entirely.
     """
     import logging
+
     log = logging.getLogger("samus.outreach.send_lint")
 
     from backend.common.config import get_settings
     from backend.common.email_backend import send_email
 
-    mode = str(
-        getattr(get_settings(), "outreach_send_lint_mode", "off") or "off"
-    ).strip().lower()
+    mode = str(getattr(get_settings(), "outreach_send_lint_mode", "off") or "off").strip().lower()
 
     report = lint_send(
-        subject=subject, html_body=html_body or "", text_body=body,
+        subject=subject,
+        html_body=html_body or "",
+        text_body=body,
         claimed_sku=claimed_sku,
     )
     if not report.skipped and report.warnings:
@@ -287,19 +303,25 @@ def send_promotional(
             log.warning("send_lint warning to=%s: %s", to, w)
     if mode == "enforce" and not report.aligned:
         raise SendLintBlocked(
-            f"send blocked by send_lint (subject={subject!r}, "
-            f"warnings={report.warnings})"
+            f"send blocked by send_lint (subject={subject!r}, warnings={report.warnings})"
         )
     resp = send_email(
-        to=to, subject=subject, body=body, html_body=html_body, **send_kwargs,
+        to=to,
+        subject=subject,
+        body=body,
+        html_body=html_body,
+        **send_kwargs,
     )
     if isinstance(resp, dict):
         resp = dict(resp)
-        resp.setdefault("lint", {
-            "aligned": report.aligned,
-            "warnings": report.warnings,
-            "button_skus": report.button_skus,
-            "subject_implied_skus": report.subject_implied_skus,
-            "mode": mode,
-        })
+        resp.setdefault(
+            "lint",
+            {
+                "aligned": report.aligned,
+                "warnings": report.warnings,
+                "button_skus": report.button_skus,
+                "subject_implied_skus": report.subject_implied_skus,
+                "mode": mode,
+            },
+        )
     return resp

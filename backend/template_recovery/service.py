@@ -7,6 +7,7 @@ and returns a :class:`RecoveryResponse`.
 The whole path is deterministic and consumes ZERO LLM calls — no LLM client
 is imported here or anywhere downstream.
 """
+
 from __future__ import annotations
 
 import logging

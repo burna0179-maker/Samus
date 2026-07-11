@@ -1,4 +1,5 @@
 """Deliberation router — value-of-computation depth decision (backend/common/deliberation.py)."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -22,7 +23,9 @@ def test_high_value_high_uncertainty_is_debate():
 
 def test_high_stakes_irreversible_uncertain_escalates():
     depth, _, rationale = d.decide_depth(
-        value=0.9, uncertainty=0.6, reversibility=0.1,
+        value=0.9,
+        uncertainty=0.6,
+        reversibility=0.1,
     )
     assert depth == d.ESCALATE
     assert "escalate" in rationale
@@ -31,7 +34,10 @@ def test_high_stakes_irreversible_uncertain_escalates():
 def test_urgency_caps_slow_paths():
     # Would be DEBATE, but hard urgency caps it to STANDARD.
     depth, _, rationale = d.decide_depth(
-        value=1.0, uncertainty=1.0, reversibility=1.0, urgency=0.9,
+        value=1.0,
+        uncertainty=1.0,
+        reversibility=1.0,
+        urgency=0.9,
     )
     assert depth == d.STANDARD
     assert "urgency" in rationale
@@ -39,7 +45,10 @@ def test_urgency_caps_slow_paths():
 
 def test_urgency_soft_cap_to_deep():
     depth, _, _ = d.decide_depth(
-        value=1.0, uncertainty=1.0, reversibility=1.0, urgency=0.65,
+        value=1.0,
+        uncertainty=1.0,
+        reversibility=1.0,
+        urgency=0.65,
     )
     assert depth == d.DEEP
 
@@ -75,6 +84,7 @@ class _FakeStore:
 
 def test_affordable_depth_downgrades_when_broke(monkeypatch):
     import backend.common.llm_budget as budget
+
     # Only ~FAST (0.25*4000=1000) is affordable.
     monkeypatch.setattr(budget, "get_store", lambda: _FakeStore(max_ok=1000))
     assert d.affordable_depth("prospecting", 4000) == d.FAST
@@ -92,11 +102,15 @@ def test_affordable_depth_no_store_does_not_cap(monkeypatch):
 
 def test_deliberate_applies_budget_cap(monkeypatch):
     import backend.common.llm_budget as budget
+
     monkeypatch.setattr(budget, "get_store", lambda: _FakeStore(max_ok=1000))
     # Would be DEBATE by VOC, but budget only affords FAST.
     decision = d.deliberate(
-        value=1.0, uncertainty=1.0, reversibility=1.0,
-        workcell="prospecting", base_tokens=4000,
+        value=1.0,
+        uncertainty=1.0,
+        reversibility=1.0,
+        workcell="prospecting",
+        base_tokens=4000,
     )
     assert decision.depth == d.FAST
     assert "budget caps" in decision.rationale
@@ -104,10 +118,14 @@ def test_deliberate_applies_budget_cap(monkeypatch):
 
 def test_deliberate_escalate_ignores_budget(monkeypatch):
     import backend.common.llm_budget as budget
+
     monkeypatch.setattr(budget, "get_store", lambda: _FakeStore(max_ok=1))
     decision = d.deliberate(
-        value=0.9, uncertainty=0.6, reversibility=0.1,
-        workcell="prospecting", base_tokens=4000,
+        value=0.9,
+        uncertainty=0.6,
+        reversibility=0.1,
+        workcell="prospecting",
+        base_tokens=4000,
     )
     assert decision.depth == d.ESCALATE  # a human hand-off is not a budget outcome
     assert decision.escalate is True

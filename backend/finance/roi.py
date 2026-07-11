@@ -37,6 +37,7 @@ day, PK ``bucket_day = "roi_rollup::<YYYY-MM-DD>"`` in the SAME DDB table
 (``row_kind="roi_rollup"`` attribute; DDB is schemaless beyond the PK so no
 schema change), JSON-file fallback at ``SAMUS_ROI_ROLLUP_PATH``.
 """
+
 from __future__ import annotations
 
 import datetime as _dt
@@ -45,7 +46,6 @@ import logging
 import os
 import threading
 from dataclasses import asdict, dataclass, field
-from pathlib import Path
 from typing import Any
 
 from backend.common.business_events_shim import emit_business_event, read_events
@@ -73,6 +73,7 @@ _json_lock = threading.Lock()
 # Data shape
 # ---------------------------------------------------------------------------
 
+
 def _empty_bucket() -> dict[str, float]:
     return {"revenue_usd": 0.0, "cost_usd": 0.0, "net_usd": 0.0}
 
@@ -81,7 +82,7 @@ def _empty_bucket() -> dict[str, float]:
 class RoiRollup:
     """One UTC day's pre-aggregated ROI."""
 
-    day: str                                       # YYYY-MM-DD
+    day: str  # YYYY-MM-DD
     generated_at: str = ""
     revenue_usd: float = 0.0
     cost_usd: float = 0.0
@@ -111,8 +112,11 @@ def _round_all(rollup: RoiRollup) -> RoiRollup:
     rollup.cost_usd = round(rollup.cost_usd, 4)
     rollup.net_usd = round(rollup.revenue_usd - rollup.cost_usd, 4)
     for table in (
-        rollup.by_campaign, rollup.by_channel, rollup.by_lead_source,
-        rollup.by_workcell, rollup.by_variant_arm,
+        rollup.by_campaign,
+        rollup.by_channel,
+        rollup.by_lead_source,
+        rollup.by_workcell,
+        rollup.by_variant_arm,
     ):
         for row in table.values():
             row["revenue_usd"] = round(row["revenue_usd"], 4)
@@ -125,16 +129,17 @@ def _round_all(rollup: RoiRollup) -> RoiRollup:
 # Revenue item model — normalised across the three revenue sources
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class _RevenueItem:
     amount_usd: float
     prospect_id: str = ""
-    workcell: str = "finance"      # recording workcell (100% fallback)
+    workcell: str = "finance"  # recording workcell (100% fallback)
     channel: str = ""
     lead_source: str = ""
     campaign_id: str = ""
     variant_arm_id: str = ""
-    event_id: str = ""             # Stripe event id for cross-source dedup
+    event_id: str = ""  # Stripe event id for cross-source dedup
 
 
 def _journey_workcells(prospect_id: str) -> list[str]:
@@ -176,9 +181,11 @@ def _apply_revenue(rollup: RoiRollup, item: _RevenueItem) -> None:
 # Concrete-ledger readers (best-effort, each degrades to empty/zero)
 # ---------------------------------------------------------------------------
 
+
 def _revenue_from_outreach_conversions(day: str) -> list[_RevenueItem]:
     try:
         from backend.finance.outreach_attribution import load_conversions
+
         conversions = load_conversions()
     except Exception as exc:  # noqa: BLE001
         _LOG.debug("roi: outreach conversions unavailable: %s", exc)
@@ -187,14 +194,16 @@ def _revenue_from_outreach_conversions(day: str) -> list[_RevenueItem]:
     for c in conversions:
         if str(c.attributed_at or "")[:10] != day:
             continue
-        items.append(_RevenueItem(
-            amount_usd=float(c.amount_usd or 0.0),
-            prospect_id=c.prospect_id,
-            workcell="outreach",
-            channel="email",
-            lead_source="outreach",
-            event_id=c.event_id or "",
-        ))
+        items.append(
+            _RevenueItem(
+                amount_usd=float(c.amount_usd or 0.0),
+                prospect_id=c.prospect_id,
+                workcell="outreach",
+                channel="email",
+                lead_source="outreach",
+                event_id=c.event_id or "",
+            )
+        )
     return items
 
 
@@ -202,6 +211,7 @@ def _revenue_from_webhook_ledger(day: str, *, skip_event_ids: set[str]) -> list[
     """Paid Stripe checkout events on ``day`` not already attributed."""
     try:
         from backend.finance import webhook as fw
+
         today = _dt.date.today()
         target = _dt.date.fromisoformat(day)
         window = max(1, (today - target).days + 2)
@@ -220,13 +230,15 @@ def _revenue_from_webhook_ledger(day: str, *, skip_event_ids: set[str]) -> list[
             continue
         if ev.payment_status and ev.payment_status not in ("paid", "no_payment_required"):
             continue
-        items.append(_RevenueItem(
-            amount_usd=amount,
-            workcell="finance",
-            channel="direct",
-            lead_source=ev.hf_offer_code or "stripe",
-            event_id=ev.event_id or "",
-        ))
+        items.append(
+            _RevenueItem(
+                amount_usd=amount,
+                workcell="finance",
+                channel="direct",
+                lead_source=ev.hf_offer_code or "stripe",
+                event_id=ev.event_id or "",
+            )
+        )
     return items
 
 
@@ -243,16 +255,18 @@ def _revenue_from_event_stream(day: str, *, skip_event_ids: set[str]) -> list[_R
         amount = float(ev.get("revenue_usd") or 0.0)
         if amount <= 0:
             continue
-        items.append(_RevenueItem(
-            amount_usd=amount,
-            prospect_id=str(ev.get("prospect_id") or ""),
-            workcell=str(ev.get("workcell") or "finance"),
-            channel=str(meta.get("channel") or ""),
-            lead_source=str(meta.get("lead_source") or ""),
-            campaign_id=str(ev.get("campaign_id") or ""),
-            variant_arm_id=str(ev.get("variant_arm_id") or ""),
-            event_id=stripe_id,
-        ))
+        items.append(
+            _RevenueItem(
+                amount_usd=amount,
+                prospect_id=str(ev.get("prospect_id") or ""),
+                workcell=str(ev.get("workcell") or "finance"),
+                channel=str(meta.get("channel") or ""),
+                lead_source=str(meta.get("lead_source") or ""),
+                campaign_id=str(ev.get("campaign_id") or ""),
+                variant_arm_id=str(ev.get("variant_arm_id") or ""),
+                event_id=stripe_id,
+            )
+        )
     return items
 
 
@@ -296,6 +310,7 @@ def _voice_cost_for_day(day: str) -> float:
     """Sum Vapi end-of-call costs recorded on ``day`` from voice_events.jsonl."""
     try:
         from backend.voice.voice_cost_tracker import _events_path
+
         path = _events_path()
     except Exception:  # noqa: BLE001
         return 0.0
@@ -347,6 +362,7 @@ def _apply_event_stream_costs(rollup: RoiRollup, day: str) -> None:
 # Roll-up computation
 # ---------------------------------------------------------------------------
 
+
 def compute_daily_rollup(day: str | None = None) -> RoiRollup:
     """Compute the ROI roll-up for one UTC ``day`` (default: today).
 
@@ -358,6 +374,7 @@ def compute_daily_rollup(day: str | None = None) -> RoiRollup:
     rollup = RoiRollup(day=day, generated_at=iso_now())
 
     from backend.common.business_events_shim import events_available
+
     rollup.events_stream_available = events_available()
 
     # -- revenue ------------------------------------------------------------
@@ -395,6 +412,7 @@ def compute_daily_rollup(day: str | None = None) -> RoiRollup:
 # Persistence — samus_portfolio_snapshots-pattern store (DDB + JSON fallback)
 # ---------------------------------------------------------------------------
 
+
 def rollup_store_path() -> str:
     """JSON fallback path (``SAMUS_ROI_ROLLUP_PATH`` overrides)."""
     return os.environ.get("SAMUS_ROI_ROLLUP_PATH", _DEFAULT_JSON_PATH)
@@ -431,13 +449,15 @@ def _save_ddb(rollup: RoiRollup) -> bool:
     snapshot reader (which loads plain ``<day>`` keys) never collides.
     """
     table_name = os.environ.get(
-        "DDB_PORTFOLIO_SNAPSHOTS_TABLE", "samus_portfolio_snapshots",
+        "DDB_PORTFOLIO_SNAPSHOTS_TABLE",
+        "samus_portfolio_snapshots",
     )
     if not table_name:
         return False
     try:
         from backend.common import aws
         from backend.common.config import get_settings
+
         region = get_settings().aws_region
         item = {
             "bucket_day": f"{_ROLLUP_PK_PREFIX}{rollup.day}",
@@ -494,6 +514,7 @@ def get_rollup(day: str | None = None, *, recompute: bool = False) -> dict[str, 
 # Nightly entry point (scheduler-callable)
 # ---------------------------------------------------------------------------
 
+
 def run_nightly_rollup(*, day: str | None = None) -> RoiRollup:
     """Compute + persist the roll-up for ``day`` (default: yesterday UTC).
 
@@ -503,9 +524,7 @@ def run_nightly_rollup(*, day: str | None = None) -> RoiRollup:
     audit trail via the unified stream (no-op pre-merge).
     """
     if day is None:
-        day = (
-            _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(days=1)
-        ).strftime("%Y-%m-%d")
+        day = (_dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(days=1)).strftime("%Y-%m-%d")
     rollup = compute_daily_rollup(day)
     save_rollup(rollup)
     emit_business_event(
@@ -522,7 +541,10 @@ def run_nightly_rollup(*, day: str | None = None) -> RoiRollup:
     )
     _LOG.info(
         "roi nightly rollup day=%s revenue=$%.2f cost=$%.2f net=$%.2f",
-        rollup.day, rollup.revenue_usd, rollup.cost_usd, rollup.net_usd,
+        rollup.day,
+        rollup.revenue_usd,
+        rollup.cost_usd,
+        rollup.net_usd,
     )
     return rollup
 
@@ -530,6 +552,7 @@ def run_nightly_rollup(*, day: str | None = None) -> RoiRollup:
 # ---------------------------------------------------------------------------
 # Gateway route registration (single call-site line in gateway/app.py)
 # ---------------------------------------------------------------------------
+
 
 def register_economics_admin_routes(app: Any) -> None:
     """Attach ``GET /admin/roi`` + ``GET /admin/arbitration`` to a FastAPI app.
@@ -558,6 +581,7 @@ def register_economics_admin_routes(app: Any) -> None:
         """
         try:
             from backend.strategy import arbiter
+
             if refresh:
                 return {"ok": True, "arbitration": arbiter.arbitrate_daily().to_record()}
             latest = arbiter.latest_arbitration()

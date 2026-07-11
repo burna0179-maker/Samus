@@ -1,4 +1,5 @@
 """Tests for the ``client_correspondence`` prong of email_classifier.classify."""
+
 from __future__ import annotations
 
 from unittest.mock import patch
@@ -49,7 +50,9 @@ def test_known_client_wins_over_business():
 def test_known_client_wins_over_billing_keywords():
     # subject that would otherwise trip the bill classifier — a signed client
     # emailing about their invoice is a customer-service issue, not a bill to us
-    email = _mk_email("<client-email>@example.com", "Question about my invoice", "invoice 1234 $3550")
+    email = _mk_email(
+        "<client-email>@example.com", "Question about my invoice", "invoice 1234 $3550"
+    )
     with patch("backend.crm.client_directory.lookup_client", return_value=_KERRY):
         cls = classify(email)
     assert cls.category == "client_correspondence"
@@ -210,21 +213,22 @@ def test_non_operator_sender_does_not_use_outbound_path_even_with_forward():
 
 # --- content-based association -----------------------------------------------
 
+
 def test_operator_forward_to_unknown_recipient_but_body_mentions_client():
     """The 'Back to School Brigade' scenario: operator forwarded an
     outbound email whose direct To: is a third party (Beale AFB) but
     the content is clearly about Conquerors."""
     body = (
-        '<div>HustleForge Marketing &amp; Technology Partner for Conquerors '
-        'Christian School</div>'
-        '<div>---------- Forwarded message --------- '
-        'From: Alex &lt;ahartman@hustleforge.tech&gt; '
-        'Subject: Sample School – Back to School Brigade '
-        'Date: Jul 10 2026, at 8:20 am '
-        'To: <recipient>@example.com, contact@sample-school.example '
-        'Good afternoon Ms. Goodly, My name is Alex Hartman, Founder of '
-        'HustleForge, and I am assisting Sample School...'
-        '</div>'
+        "<div>HustleForge Marketing &amp; Technology Partner for Conquerors "
+        "Christian School</div>"
+        "<div>---------- Forwarded message --------- "
+        "From: Alex &lt;ahartman@hustleforge.tech&gt; "
+        "Subject: Sample School – Back to School Brigade "
+        "Date: Jul 10 2026, at 8:20 am "
+        "To: <recipient>@example.com, contact@sample-school.example "
+        "Good afternoon Ms. Goodly, My name is Alex Hartman, Founder of "
+        "HustleForge, and I am assisting Sample School..."
+        "</div>"
     )
     email = _mk_email(
         "ahartman@hustleforge.tech",
@@ -269,13 +273,14 @@ def test_inbound_third_party_email_mentioning_known_client():
         cls = classify(email)
     assert cls.category == "client_correspondence"
     assert cls.direction == "inbound"
-    assert cls.confidence < 1.0   # content match is less certain than address match
+    assert cls.confidence < 1.0  # content match is less certain than address match
     assert "content_match" in cls.tags
 
 
 def test_operator_forward_recipient_in_all_to_addrs_but_not_first():
     """The direct To: is a stranger but a KNOWN client is CC'd/second To:."""
     from backend.crm.client_directory import KnownClient
+
     kc = _KERRY
     other = KnownClient(
         email="contact@sample-school.example",
@@ -287,21 +292,23 @@ def test_operator_forward_recipient_in_all_to_addrs_but_not_first():
         docuseal_slug="",
     )
     body = (
-        '<div>---------- Forwarded message --------- '
-        'From: Alex &lt;ahartman@hustleforge.tech&gt; '
-        'Subject: Coordination '
-        'To: <recipient>@example.com, contact@sample-school.example '
-        'Hi Ms. Goodly...</div>'
+        "<div>---------- Forwarded message --------- "
+        "From: Alex &lt;ahartman@hustleforge.tech&gt; "
+        "Subject: Coordination "
+        "To: <recipient>@example.com, contact@sample-school.example "
+        "Hi Ms. Goodly...</div>"
     )
     email = _mk_email(
         "ahartman@hustleforge.tech",
         subject="Fwd: Coordination",
         body=body,
     )
+
     def _lookup(addr):
         if addr.lower() == "contact@sample-school.example":
             return other
         return None
+
     with (
         patch("backend.crm.client_directory.is_operator_address", return_value=True),
         patch("backend.crm.client_directory.lookup_client", side_effect=_lookup),

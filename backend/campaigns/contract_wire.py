@@ -13,6 +13,7 @@ Trial posture: approval gates are entirely controlled by the campaign.yaml —
 for Conquerors the YAML sets approval_contact + authorized_signatory, so every
 high-risk node lands in the operator queue instead of auto-running.
 """
+
 from __future__ import annotations
 
 import logging
@@ -66,7 +67,8 @@ def trigger_campaign_on_signing(
             "contract_wire: no campaign.yaml matches slug=%s sub=%s — "
             "no campaign started (configure docuseal_slug in clients/<id>/campaign.yaml "
             "to arm auto-start)",
-            slug, submission_id,
+            slug,
+            submission_id,
         )
         return {"ok": False, "reason": "no_campaign_for_slug"}
 
@@ -81,7 +83,8 @@ def trigger_campaign_on_signing(
         if existing is not None:
             _LOG.info(
                 "contract_wire: campaign %s already exists (state=%s); skipping re-create",
-                instance.campaign_id, existing.state,
+                instance.campaign_id,
+                existing.state,
             )
             return {
                 "ok": True,
@@ -96,7 +99,11 @@ def trigger_campaign_on_signing(
         run = orchestrator.start(run.campaign_id)
         _LOG.info(
             "contract_wire: campaign %s STARTED (state=%s slug=%s sub=%s email=%s)",
-            run.campaign_id, run.state, slug, submission_id, email,
+            run.campaign_id,
+            run.state,
+            slug,
+            submission_id,
+            email,
         )
         return {
             "ok": True,
@@ -107,7 +114,5 @@ def trigger_campaign_on_signing(
             "submission_id": submission_id,
         }
     except Exception as exc:  # noqa: BLE001 — fail-soft; webhook must 200
-        _LOG.exception(
-            "contract_wire: ERROR starting campaign for slug=%s: %s", slug, exc
-        )
+        _LOG.exception("contract_wire: ERROR starting campaign for slug=%s: %s", slug, exc)
         return {"ok": False, "reason": f"orchestrator_error: {exc}"}

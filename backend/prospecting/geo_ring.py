@@ -31,6 +31,7 @@ Pure + unit-testable: the catalog and the composition/advancement helpers have
 no I/O; the loader/saver take an explicit path so tests point them at a temp
 dir. Nothing here makes any network call or runs any worker.
 """
+
 from __future__ import annotations
 
 import json
@@ -72,13 +73,11 @@ class Ring:
 # when the field changes.
 RING_CATALOG: tuple[Ring, ...] = (
     Ring("yuba_city_core", ("95991", "95993", "95901", "95961", "95692")),
-    Ring("yuba_sutter_outer",
-         ("95953", "95919", "95941", "95918", "95659", "95957", "95668")),
+    Ring("yuba_sutter_outer", ("95953", "95919", "95941", "95918", "95659", "95957", "95668")),
     Ring("placer_lincoln_auburn", ("95648", "95603", "95746", "95765", "95650")),
     Ring("roseville_corridor", ("95661", "95678", "95747")),
     Ring("folsom_elk_grove", ("95630", "95758", "95624", "95757")),
-    Ring("sacramento_metro",
-         ("95814", "95816", "95818", "95820", "95822", "95823", "95825")),
+    Ring("sacramento_metro", ("95814", "95816", "95818", "95820", "95822", "95823", "95825")),
 )
 
 
@@ -191,9 +190,7 @@ class GeoRingState:
             last_run_date = None
         history_raw = raw.get("history")
         history: list[dict[str, Any]] = (
-            [h for h in history_raw if isinstance(h, dict)]
-            if isinstance(history_raw, list)
-            else []
+            [h for h in history_raw if isinstance(h, dict)] if isinstance(history_raw, list) else []
         )
         return cls(
             current_ring=current_ring,
@@ -225,7 +222,8 @@ def load_state(path: Path | None = None) -> GeoRingState:
     if not target.exists():
         _LOG.info(
             "geo-ring state absent at %s; initialising at ring 0 (%s)",
-            target, ring_name(0),
+            target,
+            ring_name(0),
         )
         return GeoRingState()
     try:
@@ -236,14 +234,16 @@ def load_state(path: Path | None = None) -> GeoRingState:
         try:
             target.replace(backup)
             _LOG.warning(
-                "geo-ring state unreadable (%s) — quarantined to %s, "
-                "reinitialising at ring 0", exc, backup,
+                "geo-ring state unreadable (%s) — quarantined to %s, reinitialising at ring 0",
+                exc,
+                backup,
             )
         except OSError as move_exc:  # noqa: PERF203 — quarantine is best-effort
             _LOG.warning(
                 "geo-ring state unreadable (%s) and quarantine failed (%s); "
                 "reinitialising at ring 0 without moving the bad file",
-                exc, move_exc,
+                exc,
+                move_exc,
             )
         return GeoRingState()
     return GeoRingState.from_dict(raw)
@@ -258,7 +258,8 @@ def save_state(state: GeoRingState, path: Path | None = None) -> Path:
     target = path or default_state_path()
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(
-        json.dumps(state.to_dict(), indent=2), encoding="utf-8",
+        json.dumps(state.to_dict(), indent=2),
+        encoding="utf-8",
     )
     return target
 
@@ -276,7 +277,8 @@ def advance_ring(state: GeoRingState) -> tuple[GeoRingState, bool]:
         _LOG.warning(
             "already at top ring '%s' (index %d) — no further rings "
             "configured; advance is a no-op. Extend RING_CATALOG to expand.",
-            state.current_ring_name(), clamp_ring_index(state.current_ring),
+            state.current_ring_name(),
+            clamp_ring_index(state.current_ring),
         )
         return state, False
     old_name = state.current_ring_name()
@@ -284,7 +286,9 @@ def advance_ring(state: GeoRingState) -> tuple[GeoRingState, bool]:
     state.days_at_ring = 0
     _LOG.info(
         "advanced from ring '%s' to ring '%s' (ring index now %d)",
-        old_name, state.current_ring_name(), state.current_ring,
+        old_name,
+        state.current_ring_name(),
+        state.current_ring,
     )
     return state, True
 
@@ -308,18 +312,17 @@ def record_run(
     run_date = run_date or date.today()
     state.days_at_ring = int(state.days_at_ring) + 1
     state.last_run_date = run_date.isoformat()
-    zip_count = (
-        zipcodes_count if zipcodes_count is not None
-        else len(state.active_zipcodes())
+    zip_count = zipcodes_count if zipcodes_count is not None else len(state.active_zipcodes())
+    state.history.append(
+        {
+            "date": state.last_run_date,
+            "ring_index": clamp_ring_index(state.current_ring),
+            "ring_name": state.current_ring_name(),
+            "zipcodes_count": int(zip_count),
+            "day_at_ring": int(state.days_at_ring),
+            "exit_code": int(exit_code),
+        }
     )
-    state.history.append({
-        "date": state.last_run_date,
-        "ring_index": clamp_ring_index(state.current_ring),
-        "ring_name": state.current_ring_name(),
-        "zipcodes_count": int(zip_count),
-        "day_at_ring": int(state.days_at_ring),
-        "exit_code": int(exit_code),
-    })
     if len(state.history) > _HISTORY_LIMIT:
         state.history = state.history[-_HISTORY_LIMIT:]
     return state

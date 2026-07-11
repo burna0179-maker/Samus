@@ -26,13 +26,13 @@ CLI::
 
     python -m backend.outreach.sendgrid_suppression_sync [--path P] [--dry-run]
 """
+
 from __future__ import annotations
 
 import argparse
 import logging
 import os
 from dataclasses import dataclass, field
-from typing import Any
 
 import httpx
 
@@ -122,8 +122,7 @@ def _collect_endpoint(
         if len(rows) < _PAGE_LIMIT:
             return
         offset += _PAGE_LIMIT
-    _LOG.warning("suppression %s hit page cap (%d) — list may be truncated",
-                 path, _MAX_PAGES)
+    _LOG.warning("suppression %s hit page cap (%d) — list may be truncated", path, _MAX_PAGES)
 
 
 @dataclass
@@ -156,7 +155,8 @@ def sync(
     settings = get_settings()
     key = api_key if api_key is not None else settings.sendgrid_api_key
     resolved_base = (
-        base_url if base_url is not None
+        base_url
+        if base_url is not None
         else (getattr(settings, "sendgrid_base_url", "") or "https://api.sendgrid.com")
     )
     target = path or _default_path()
@@ -166,7 +166,9 @@ def sync(
         return SyncResult(path=target)
 
     supp = fetch_suppressed_emails(
-        key, base_url=resolved_base, http_client=http_client,
+        key,
+        base_url=resolved_base,
+        http_client=http_client,
     )
     emails = set(supp.keys())
     by_reason: dict[str, int] = {}
@@ -207,20 +209,23 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="backend.outreach.sendgrid_suppression_sync",
         description="Sync SendGrid suppression lists into the outreach "
-                    "suppression file (read-only pull; idempotent append).",
+        "suppression file (read-only pull; idempotent append).",
     )
     parser.add_argument("--path", help="Suppression file (default: the batch's).")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Fetch + report; write nothing.")
+    parser.add_argument("--dry-run", action="store_true", help="Fetch + report; write nothing.")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
     r = sync(path=args.path, dry_run=args.dry_run)
     print("=== SendGrid suppression sync ===")
     print(f"file      : {r.path}")
-    print(f"fetched   : {r.fetched}  ({', '.join(f'{k}={v}' for k, v in sorted(r.by_reason.items())) or 'none'})")
+    print(
+        f"fetched   : {r.fetched}  ({', '.join(f'{k}={v}' for k, v in sorted(r.by_reason.items())) or 'none'})"
+    )
     print(f"already   : {r.already_present}")
-    print(f"{'would add' if args.dry_run else 'added'} : {len(r.emails - campaign.load_suppression(r.path)) if args.dry_run else r.added}")
+    print(
+        f"{'would add' if args.dry_run else 'added'} : {len(r.emails - campaign.load_suppression(r.path)) if args.dry_run else r.added}"
+    )
     return 0
 
 

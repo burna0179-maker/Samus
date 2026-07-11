@@ -1,4 +1,5 @@
 """Pydantic models for the fulfillment workcell (doc §7)."""
+
 from __future__ import annotations
 
 from typing import Any

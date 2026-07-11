@@ -5,6 +5,7 @@ this module is a defensive wrapper around it. The reasoning is a simple
 predicate but the operator's day depends on it firing once (and only once)
 inside the morning window, so pin every branch.
 """
+
 from __future__ import annotations
 
 import json
@@ -17,6 +18,7 @@ from backend.gateway import morning_ritual_task as mrt
 # ---------------------------------------------------------------------------
 # should_fire_now -- pure reasoning
 # ---------------------------------------------------------------------------
+
 
 def _clear_env(monkeypatch):
     for k in (mrt.ENV_ENABLED, mrt.ENV_HOUR, mrt.ENV_LATEST):
@@ -74,6 +76,7 @@ def test_skips_when_already_fired_today(monkeypatch, isolated_ledger):
     """A ledger record for today means "already handled, do not double-send"."""
     _clear_env(monkeypatch)
     from backend.common import storage
+
     d = storage.root() / "cognition"
     d.mkdir(parents=True, exist_ok=True)
     (d / "morning_ritual_fired_2026-07-07.json").write_text(
@@ -88,6 +91,7 @@ def test_yesterdays_ledger_does_not_block_today(monkeypatch, isolated_ledger):
     """A leftover ledger from a prior business date must NOT gate today's fire."""
     _clear_env(monkeypatch)
     from backend.common import storage
+
     d = storage.root() / "cognition"
     d.mkdir(parents=True, exist_ok=True)
     (d / "morning_ritual_fired_2026-07-06.json").write_text(
@@ -104,11 +108,10 @@ def test_corrupt_ledger_is_fail_closed(monkeypatch, isolated_ledger):
     """
     _clear_env(monkeypatch)
     from backend.common import storage
+
     d = storage.root() / "cognition"
     d.mkdir(parents=True, exist_ok=True)
-    (d / "morning_ritual_fired_2026-07-07.json").write_text(
-        "not-json-at-all{{{{", encoding="utf-8"
-    )
+    (d / "morning_ritual_fired_2026-07-07.json").write_text("not-json-at-all{{{{", encoding="utf-8")
     fire, reason = mrt.should_fire_now("2026-07-07", 7)
     assert fire is False
     assert "already fired" in reason
@@ -118,12 +121,19 @@ def test_corrupt_ledger_is_fail_closed(monkeypatch, isolated_ledger):
 # _mark_fired -- ledger write
 # ---------------------------------------------------------------------------
 
+
 def test_mark_fired_writes_ledger(monkeypatch, isolated_ledger):
     _clear_env(monkeypatch)
-    mrt._mark_fired("2026-07-07", {
-        "briefing_id": "b-123", "ingested": 2, "send_rc": 0,
-    })
+    mrt._mark_fired(
+        "2026-07-07",
+        {
+            "briefing_id": "b-123",
+            "ingested": 2,
+            "send_rc": 0,
+        },
+    )
     from backend.common import storage
+
     path = storage.root() / "cognition" / "morning_ritual_fired_2026-07-07.json"
     assert path.is_file()
     row = json.loads(path.read_text(encoding="utf-8"))
@@ -152,18 +162,21 @@ def test_full_cycle_ledger_gates_second_fire(monkeypatch, isolated_ledger):
 # _do_send -- SAMUS_BRIEF_EMAIL_TO default
 # ---------------------------------------------------------------------------
 
+
 def test_do_send_defaults_email_to(monkeypatch, isolated_ledger):
     """Empty SAMUS_BRIEF_EMAIL_TO gets the operator's default so morning_send
     does not treat email as disabled inside the container."""
     monkeypatch.delenv(mrt.ENV_EMAIL_TO, raising=False)
 
     called = {}
+
     class _FakeMorningSend:
         @staticmethod
         def main(argv):
             called["email_to"] = __import__("os").environ.get(mrt.ENV_EMAIL_TO)
             called["argv"] = argv
             return 0
+
     monkeypatch.setitem(__import__("sys").modules, "backend.morning_send", _FakeMorningSend)
 
     result = mrt._do_send()
@@ -187,13 +200,20 @@ def test_do_attest_respects_attest_disabled(monkeypatch, isolated_ledger):
 # _fire -- atomic attest + send + stamp
 # ---------------------------------------------------------------------------
 
+
 def test_fire_stamps_ledger_atomically(monkeypatch, isolated_ledger):
     """_fire must stamp the ledger itself so an out-of-band manual invocation
     (docker exec ... _fire()) cannot be double-fired by a later auto-tick."""
     _clear_env(monkeypatch)
-    monkeypatch.setattr(mrt, "_do_attest", lambda: {
-        "attested": True, "briefing_id": "b-atomic", "ingested": 3,
-    })
+    monkeypatch.setattr(
+        mrt,
+        "_do_attest",
+        lambda: {
+            "attested": True,
+            "briefing_id": "b-atomic",
+            "ingested": 3,
+        },
+    )
     monkeypatch.setattr(mrt, "_do_send", lambda: {"sent": True, "send_rc": 0})
 
     result = mrt._fire()
@@ -205,6 +225,7 @@ def test_fire_stamps_ledger_atomically(monkeypatch, isolated_ledger):
 
     business_date, _ = mrt._now_pt()
     from backend.common import storage
+
     path = storage.root() / "cognition" / f"morning_ritual_fired_{business_date}.json"
     assert path.is_file(), "ledger must be stamped by _fire itself"
     row = json.loads(path.read_text(encoding="utf-8"))

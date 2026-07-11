@@ -30,6 +30,7 @@ CLI::
     python -m backend.intake.wp_onboarding_page            # plan only
     python -m backend.intake.wp_onboarding_page --apply     # enact (if armed)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -54,7 +55,10 @@ _ASSET_PATH = Path(__file__).with_name("onboarding_fallback.html")
 def _publish_armed() -> bool:
     """WIRE vs ARM: WordPress writes are off unless the operator arms them."""
     return os.getenv("SAMUS_WP_ONBOARDING_PUBLISH_ENABLED", "").strip().lower() in (
-        "1", "true", "yes", "on",
+        "1",
+        "true",
+        "yes",
+        "on",
     )
 
 
@@ -67,17 +71,18 @@ def load_fallback_html() -> str:
 @dataclass(frozen=True)
 class PublishPlan:
     """What publishing would do, computed read-only before any write."""
-    action: str            # "create" | "update" | "noop" | "blocked"
+
+    action: str  # "create" | "update" | "noop" | "blocked"
     slug: str
     page_id: Optional[int]
-    status: str            # existing page status, or "" when absent
+    status: str  # existing page status, or "" when absent
     reason: str
     content_len: int
 
 
 @dataclass
 class PublishResult:
-    action: str = ""       # what was actually done: "create" | "update" | ""
+    action: str = ""  # what was actually done: "create" | "update" | ""
     page_id: Optional[int] = None
     skipped_reason: str = ""
     error: str = ""
@@ -98,14 +103,22 @@ def plan_publish(*, html: Optional[str] = None) -> PublishPlan:
         existing = wp.get_page_any_status(ONBOARDING_SLUG)
     except Exception as exc:  # noqa: BLE001 — inconclusive check, not a crash
         return PublishPlan(
-            action="blocked", slug=ONBOARDING_SLUG, page_id=None, status="",
-            reason=(f"existence check failed ({exc}) — refusing to create to "
-                    f"avoid a duplicate; fix creds/permissions and retry"),
+            action="blocked",
+            slug=ONBOARDING_SLUG,
+            page_id=None,
+            status="",
+            reason=(
+                f"existence check failed ({exc}) — refusing to create to "
+                f"avoid a duplicate; fix creds/permissions and retry"
+            ),
             content_len=len(body),
         )
     if not existing:
         return PublishPlan(
-            action="create", slug=ONBOARDING_SLUG, page_id=None, status="",
+            action="create",
+            slug=ONBOARDING_SLUG,
+            page_id=None,
+            status="",
             reason="no publish/draft page at this slug — will create a draft",
             content_len=len(body),
         )
@@ -115,12 +128,18 @@ def plan_publish(*, html: Optional[str] = None) -> PublishPlan:
     raw = ((existing.get("content") or {}).get("raw", "")) or ""
     if raw == body:
         return PublishPlan(
-            action="noop", slug=ONBOARDING_SLUG, page_id=page_id, status=status,
+            action="noop",
+            slug=ONBOARDING_SLUG,
+            page_id=page_id,
+            status=status,
             reason="live page content already matches the asset — nothing to do",
             content_len=len(body),
         )
     return PublishPlan(
-        action="update", slug=ONBOARDING_SLUG, page_id=page_id, status=status,
+        action="update",
+        slug=ONBOARDING_SLUG,
+        page_id=page_id,
+        status=status,
         reason=f"page exists ({status}) with differing content — will update in place",
         content_len=len(body),
     )
@@ -163,7 +182,9 @@ def apply_publish(
     try:
         if plan.action == "create":
             page = wp.create_draft_page(
-                title=ONBOARDING_TITLE, content=body, slug=ONBOARDING_SLUG,
+                title=ONBOARDING_TITLE,
+                content=body,
+                slug=ONBOARDING_SLUG,
             )
             result.action = "create"
             result.page_id = page.get("id")
@@ -192,69 +213,93 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m backend.intake.wp_onboarding_page",
         description="Publish the hustleforge.tech/onboarding fallback page. "
-                    "Plan-only by default; --apply enacts (requires "
-                    "SAMUS_WP_ONBOARDING_PUBLISH_ENABLED=1).",
+        "Plan-only by default; --apply enacts (requires "
+        "SAMUS_WP_ONBOARDING_PUBLISH_ENABLED=1).",
     )
-    parser.add_argument("--apply", action="store_true",
-                        help="Enact the publish (armed installs only).")
-    parser.add_argument("--whoami", action="store_true",
-                        help="Print the WP user the current credential "
-                             "authenticates as (roles included), then exit. "
-                             "Use this to diagnose a write 401: invalid "
-                             "password vs a role lacking page-create rights.")
+    parser.add_argument(
+        "--apply", action="store_true", help="Enact the publish (armed installs only)."
+    )
+    parser.add_argument(
+        "--whoami",
+        action="store_true",
+        help="Print the WP user the current credential "
+        "authenticates as (roles included), then exit. "
+        "Use this to diagnose a write 401: invalid "
+        "password vs a role lacking page-create rights.",
+    )
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
     if args.whoami:
         from backend.common import wordpress_client as wp
+
         info = wp.whoami()
         if info.get("ok"):
             roles = ", ".join(info.get("roles") or []) or "(none)"
-            print(f"authenticated as: {info.get('slug')} "
-                  f"(id={info.get('id')}, name={info.get('name')!r})")
-            print(f"  roles: {roles}")
-            can_pages = any(
-                r in ("administrator", "editor") for r in (info.get("roles") or [])
+            print(
+                f"authenticated as: {info.get('slug')} "
+                f"(id={info.get('id')}, name={info.get('name')!r})"
             )
+            print(f"  roles: {roles}")
+            can_pages = any(r in ("administrator", "editor") for r in (info.get("roles") or []))
             if can_pages:
-                print("  -> role can create/edit pages. A write 401 now points "
-                      "elsewhere (recheck the app password value).")
+                print(
+                    "  -> role can create/edit pages. A write 401 now points "
+                    "elsewhere (recheck the app password value)."
+                )
             else:
-                print("  -> role CANNOT create/edit pages (needs editor or "
-                      "administrator). This is the write-401 cause — raise the "
-                      "Samus user's role in wp-admin.")
+                print(
+                    "  -> role CANNOT create/edit pages (needs editor or "
+                    "administrator). This is the write-401 cause — raise the "
+                    "Samus user's role in wp-admin."
+                )
             return 0
         status = info.get("status")
         code = (info.get("code") or "").lower()
-        print(f"whoami FAILED: HTTP {status} "
-              f"{info.get('code')} — {info.get('message')}")
+        print(f"whoami FAILED: HTTP {status} {info.get('code')} — {info.get('message')}")
         # Cause-specific guidance — a 401 has several distinct causes and only
         # some of them are the app password. Don't blame the password blindly.
         if status == 429:
-            print("  -> RATE-LIMITED, not an auth failure. Wait a few minutes "
-                  "and retry; nothing to change.")
+            print(
+                "  -> RATE-LIMITED, not an auth failure. Wait a few minutes "
+                "and retry; nothing to change."
+            )
         elif status == 0 or code == "transport":
-            print("  -> network/transport error reaching WordPress — not an "
-                  "auth verdict. Check connectivity and retry.")
+            print(
+                "  -> network/transport error reaching WordPress — not an "
+                "auth verdict. Check connectivity and retry."
+            )
         elif "incorrect_password" in code or "application_password" in code:
-            print("  -> WordPress received the app password and REJECTED it: "
-                  "it's wrong/revoked, or app passwords are disabled for this "
-                  "user. Regenerate at wp-admin -> Profile -> Application "
-                  "Passwords and reseal (Set-HfSecret -Scope Samus -Name "
-                  "WordPressAppPassword).")
+            print(
+                "  -> WordPress received the app password and REJECTED it: "
+                "it's wrong/revoked, or app passwords are disabled for this "
+                "user. Regenerate at wp-admin -> Profile -> Application "
+                "Passwords and reseal (Set-HfSecret -Scope Samus -Name "
+                "WordPressAppPassword)."
+            )
         elif code == "rest_not_logged_in" or status == 401:
-            print("  -> WordPress saw NO valid credentials. This is usually one "
-                  "of, in order of likelihood:")
-            print("     1. USERNAME mismatch — WORDPRESS_USERNAME must be the WP "
-                  "*login*, not the display name. Confirm the exact login in "
-                  "wp-admin -> Users, then reseal WordPressUsername.")
-            print("     2. Stale/malformed app password — regenerate it and "
-                  "reseal WordPressAppPassword.")
-            print("     3. The server is stripping the Authorization header "
-                  "(managed-WP quirk) — only if 1 & 2 are confirmed good.")
+            print(
+                "  -> WordPress saw NO valid credentials. This is usually one "
+                "of, in order of likelihood:"
+            )
+            print(
+                "     1. USERNAME mismatch — WORDPRESS_USERNAME must be the WP "
+                "*login*, not the display name. Confirm the exact login in "
+                "wp-admin -> Users, then reseal WordPressUsername."
+            )
+            print(
+                "     2. Stale/malformed app password — regenerate it and "
+                "reseal WordPressAppPassword."
+            )
+            print(
+                "     3. The server is stripping the Authorization header "
+                "(managed-WP quirk) — only if 1 & 2 are confirmed good."
+            )
         else:
-            print("  -> the credential did not authenticate. Verify the WP "
-                  "username + app password, then reseal into DPAPI.")
+            print(
+                "  -> the credential did not authenticate. Verify the WP "
+                "username + app password, then reseal into DPAPI."
+            )
         return 1
 
     try:
@@ -264,8 +309,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         return 1
 
     plan = plan_publish(html=body)
-    print(f"wp onboarding page plan: {plan.action} "
-          f"(slug={plan.slug}, {plan.content_len} bytes)")
+    print(f"wp onboarding page plan: {plan.action} (slug={plan.slug}, {plan.content_len} bytes)")
     print(f"  {plan.reason}")
 
     # A blocked plan means the existence check itself failed (bad creds, WP
@@ -276,8 +320,9 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     if not args.apply:
         if plan.action != "noop":
-            print("  (plan only — pass --apply with "
-                  "SAMUS_WP_ONBOARDING_PUBLISH_ENABLED=1 to enact)")
+            print(
+                "  (plan only — pass --apply with SAMUS_WP_ONBOARDING_PUBLISH_ENABLED=1 to enact)"
+            )
         return 0
 
     result = apply_publish(plan, html=body, dry_run=False)

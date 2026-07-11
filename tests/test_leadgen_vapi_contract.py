@@ -12,6 +12,7 @@ against the literal Vapi Node 4 payload so the contract can't silently rot:
 Deploying the Vapi agent config itself is an operator step (external to this
 repo); these tests prove the Samus side is ready to receive it.
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -34,9 +35,11 @@ _VAPI_NODE4_PAYLOAD = {
 def _reset_idempotency(monkeypatch):
     from backend.common.idempotency import IdempotencyStore
     import backend.common.idempotency as idem_mod
+
     fresh = IdempotencyStore()
     monkeypatch.setattr(idem_mod, "GLOBAL_IDEMPOTENCY_STORE", fresh)
     import backend.leadgen.service as svc_mod
+
     monkeypatch.setattr(svc_mod, "GLOBAL_IDEMPOTENCY_STORE", fresh)
 
 
@@ -47,8 +50,10 @@ def test_worker_handles_score_lead_envelope(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_LEADGEN_AUDIT_PATH", str(tmp_path / "audit.jsonl"))
 
     from backend.leadgen.worker import LeadgenWorker
+
     envelope = SimpleNamespace(
-        action="score_lead", payload=dict(_VAPI_NODE4_PAYLOAD),
+        action="score_lead",
+        payload=dict(_VAPI_NODE4_PAYLOAD),
         task_id="call_abc123",
     )
     # handle() does not touch self — exercise it without an AwsRuntime.
@@ -57,7 +62,7 @@ def test_worker_handles_score_lead_envelope(tmp_path, monkeypatch):
     assert result["company"] == "Riverside Plumbing"
     assert result["tier"] in ("low", "medium", "high", "priority")
     assert 0 <= result["score"] <= 100
-    assert result["segment"] == "micro"   # 5 employees / $0 revenue
+    assert result["segment"] == "micro"  # 5 employees / $0 revenue
 
 
 def test_worker_default_action_is_score_lead(tmp_path, monkeypatch):
@@ -66,8 +71,11 @@ def test_worker_default_action_is_score_lead(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_LEADGEN_AUDIT_PATH", str(tmp_path / "audit.jsonl"))
 
     from backend.leadgen.worker import LeadgenWorker
+
     envelope = SimpleNamespace(
-        action="", payload=dict(_VAPI_NODE4_PAYLOAD), task_id="call_x",
+        action="",
+        payload=dict(_VAPI_NODE4_PAYLOAD),
+        task_id="call_x",
     )
     result = LeadgenWorker.handle(object(), envelope)
     assert result["company"] == "Riverside Plumbing"
@@ -80,8 +88,11 @@ def test_worker_rejects_unknown_action(tmp_path, monkeypatch):
 
     import pytest
     from backend.leadgen.worker import LeadgenWorker
+
     envelope = SimpleNamespace(
-        action="frobnicate", payload=dict(_VAPI_NODE4_PAYLOAD), task_id="t",
+        action="frobnicate",
+        payload=dict(_VAPI_NODE4_PAYLOAD),
+        task_id="t",
     )
     with pytest.raises(ValueError, match="unknown_action"):
         LeadgenWorker.handle(object(), envelope)
@@ -97,11 +108,14 @@ def test_work_endpoint_accepts_vapi_node4_envelope(tmp_path, monkeypatch):
     from backend.leadgen.app import app
 
     client = TestClient(app)
-    r = client.post("/work", json={
-        "task_id": "call_abc123",
-        "payload": dict(_VAPI_NODE4_PAYLOAD),
-        "metadata": {"action": "score_lead"},
-    })
+    r = client.post(
+        "/work",
+        json={
+            "task_id": "call_abc123",
+            "payload": dict(_VAPI_NODE4_PAYLOAD),
+            "metadata": {"action": "score_lead"},
+        },
+    )
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["company"] == "Riverside Plumbing"
@@ -113,6 +127,7 @@ def test_vapi_node4_payload_is_a_valid_lead_request():
     """The Vapi Node 4 payload validates against leadgen's own LeadRequest —
     the external contract and the model stay pinned together."""
     from backend.leadgen.models import LeadRequest
+
     req = LeadRequest.model_validate(_VAPI_NODE4_PAYLOAD)
     assert req.company == "Riverside Plumbing"
     assert req.signals == ["manual_ops", "slow_reporting", "fragmented_tooling"]

@@ -1,4 +1,5 @@
 """Tests for backend.intake.email_forwarder — categorized forward + trash."""
+
 from __future__ import annotations
 
 from email import message_from_bytes, policy as email_policy
@@ -7,6 +8,8 @@ from email import message_from_bytes, policy as email_policy
 def _parse_msg(b: bytes):
     """Parse with the default policy so .get_content() is available."""
     return message_from_bytes(b, policy=email_policy.default)
+
+
 from unittest.mock import MagicMock
 
 import pytest
@@ -24,6 +27,7 @@ from backend.intake.gmail_poller import ParsedInboundEmail
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
+
 
 def _mk_parsed(**over) -> ParsedInboundEmail:
     base = {
@@ -52,6 +56,7 @@ def _env(monkeypatch, **kv):
 # ---------------------------------------------------------------------------
 # choose_category
 # ---------------------------------------------------------------------------
+
 
 def test_intent_action_prefix_wins_when_provided():
     cat = choose_category(
@@ -136,6 +141,7 @@ def test_missing_category_falls_to_urgent():
 # build_forward_mime
 # ---------------------------------------------------------------------------
 
+
 def test_build_mime_subject_carries_prefix():
     parsed = _mk_parsed(subject="Re: Question about the plan")
     cat = ForwardCategory(prefix="[CLIENT/COUNTER]", is_urgent=False)
@@ -159,7 +165,10 @@ def test_build_mime_body_carries_intent_summary():
     parsed = _mk_parsed()
     cat = ForwardCategory(prefix="[CLIENT/COUNTER]", is_urgent=False)
     b = build_forward_mime(
-        from_email="from@x", to_email="to@y", parsed=parsed, category=cat,
+        from_email="from@x",
+        to_email="to@y",
+        parsed=parsed,
+        category=cat,
         intent_summary="counter_offered -- Client counter-offers $300/mo.",
     )
     body = _parse_msg(b).get_content()
@@ -171,7 +180,10 @@ def test_build_mime_handles_no_body():
     parsed = _mk_parsed(body_text="")
     cat = ForwardCategory(prefix="[SOCIAL]", is_urgent=False)
     b = build_forward_mime(
-        from_email="a@b", to_email="c@d", parsed=parsed, category=cat,
+        from_email="a@b",
+        to_email="c@d",
+        parsed=parsed,
+        category=cat,
     )
     body = _parse_msg(b).get_content()
     assert "(no body)" in body
@@ -182,7 +194,10 @@ def test_build_mime_truncates_long_subject():
     parsed = _mk_parsed(subject=long_subject)
     cat = ForwardCategory(prefix="[SOCIAL]", is_urgent=False)
     b = build_forward_mime(
-        from_email="a@b", to_email="c@d", parsed=parsed, category=cat,
+        from_email="a@b",
+        to_email="c@d",
+        parsed=parsed,
+        category=cat,
     )
     subj = str(_parse_msg(b)["Subject"])
     # Long subjects get Q-encoded across multiple lines but the decoded
@@ -195,6 +210,7 @@ def test_build_mime_truncates_long_subject():
 # ---------------------------------------------------------------------------
 # is_configured
 # ---------------------------------------------------------------------------
+
 
 def test_is_configured_requires_target_and_from(monkeypatch):
     _env(
@@ -230,6 +246,7 @@ def test_is_configured_false_when_target_missing(monkeypatch):
 # forward_and_cleanup — orchestration + fail-soft
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture()
 def _configured(monkeypatch):
     _env(
@@ -241,8 +258,12 @@ def _configured(monkeypatch):
 
 
 def test_forward_short_circuits_when_not_configured(monkeypatch):
-    _env(monkeypatch, SAMUS_FORWARD_ENABLED="0", SAMUS_FORWARD_TO_EMAIL="",
-         SAMUS_GMAIL_INBOX_EMAIL="samushustleforge@gmail.com")
+    _env(
+        monkeypatch,
+        SAMUS_FORWARD_ENABLED="0",
+        SAMUS_FORWARD_TO_EMAIL="",
+        SAMUS_GMAIL_INBOX_EMAIL="samushustleforge@gmail.com",
+    )
     result = forward_and_cleanup(
         gmail_client=MagicMock(),
         original_gmail_id="abc",
@@ -409,11 +430,7 @@ def test_forward_strips_html_from_body(_configured):
     """A Titan-style HTML body should arrive at the operator as clean text."""
     client = MagicMock()
     client.send_raw.return_value = "sent-1"
-    html_body = (
-        '<div style="color:red">'
-        'Hi Alex, we need to discuss the timeline.'
-        '</div>'
-    )
+    html_body = '<div style="color:red">Hi Alex, we need to discuss the timeline.</div>'
     forward_and_cleanup(
         gmail_client=client,
         original_gmail_id="gmail-x",

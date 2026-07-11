@@ -1,4 +1,5 @@
 """Tests for backend.workflow.validate — structural checks on a workflow."""
+
 from __future__ import annotations
 
 from backend.services.scope_planner import TaskPlan
@@ -8,8 +9,12 @@ from backend.workflow.validate import is_valid, validate_workflow
 
 
 def _good() -> N8nWorkflow:
-    plan = TaskPlan(triggers=["form_submission"], actions=["post_to_slack"],
-                    notifications=["discord_webhook"], tools=["slack", "discord"])
+    plan = TaskPlan(
+        triggers=["form_submission"],
+        actions=["post_to_slack"],
+        notifications=["discord_webhook"],
+        tools=["slack", "discord"],
+    )
     return compile_workflow(plan, name="Good")
 
 
@@ -33,33 +38,44 @@ def test_no_trigger_is_error():
 
 
 def test_multiple_triggers_is_error():
-    wf = N8nWorkflow(name="X", nodes=[
-        N8nNode(name="T1", type="n8n-nodes-base.webhook", kind="trigger"),
-        N8nNode(name="T2", type="n8n-nodes-base.scheduleTrigger", kind="trigger"),
-    ])
+    wf = N8nWorkflow(
+        name="X",
+        nodes=[
+            N8nNode(name="T1", type="n8n-nodes-base.webhook", kind="trigger"),
+            N8nNode(name="T2", type="n8n-nodes-base.scheduleTrigger", kind="trigger"),
+        ],
+    )
     assert any(i.code == "multiple_triggers" for i in validate_workflow(wf))
 
 
 def test_duplicate_names_is_error():
-    wf = N8nWorkflow(name="X", nodes=[
-        N8nNode(name="T", type="n8n-nodes-base.webhook", kind="trigger"),
-        N8nNode(name="Dup", type="n8n-nodes-base.set", kind="action"),
-        N8nNode(name="Dup", type="n8n-nodes-base.set", kind="action"),
-    ])
+    wf = N8nWorkflow(
+        name="X",
+        nodes=[
+            N8nNode(name="T", type="n8n-nodes-base.webhook", kind="trigger"),
+            N8nNode(name="Dup", type="n8n-nodes-base.set", kind="action"),
+            N8nNode(name="Dup", type="n8n-nodes-base.set", kind="action"),
+        ],
+    )
     assert any(i.code == "duplicate_node_name" for i in validate_workflow(wf))
 
 
 def test_dangling_connection_target_is_error():
-    wf = N8nWorkflow(name="X", nodes=[N8nNode(name="T", type="n8n-nodes-base.webhook", kind="trigger")])
+    wf = N8nWorkflow(
+        name="X", nodes=[N8nNode(name="T", type="n8n-nodes-base.webhook", kind="trigger")]
+    )
     wf.connect("T", "Ghost")  # target doesn't exist
     assert any(i.code == "dangling_target" for i in validate_workflow(wf))
 
 
 def test_orphan_action_is_warning():
-    wf = N8nWorkflow(name="X", nodes=[
-        N8nNode(name="T", type="n8n-nodes-base.webhook", kind="trigger"),
-        N8nNode(name="Island", type="n8n-nodes-base.set", kind="action"),  # never connected
-    ])
+    wf = N8nWorkflow(
+        name="X",
+        nodes=[
+            N8nNode(name="T", type="n8n-nodes-base.webhook", kind="trigger"),
+            N8nNode(name="Island", type="n8n-nodes-base.set", kind="action"),  # never connected
+        ],
+    )
     issues = validate_workflow(wf)
     assert any(i.code == "orphan_node" for i in issues)
     assert is_valid(issues)  # orphan is a warning, not an error

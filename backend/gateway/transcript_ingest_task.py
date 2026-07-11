@@ -34,6 +34,7 @@ Kill switches / knobs:
   * ``SAMUS_TRANSCRIPT_INGEST_INTERVAL_SEC``— cadence (default 1200 = 20 min)
   * ``SAMUS_TRANSCRIPT_INGEST_MAX_PER_PASS``— cap per pass (default 20)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -61,6 +62,7 @@ _DEFAULT_MAX_PER_PASS = 20
 # Env helpers (same idiom as cold_dial_task / control_tick_task)
 # ---------------------------------------------------------------------------
 
+
 def _flag_on(name: str, default_on: bool = True) -> bool:
     raw = (os.environ.get(name) or "").strip().lower()
     if not raw:
@@ -86,10 +88,12 @@ def _float_env(name: str, default: float) -> float:
 # Vapi call fetch (injectable for tests)
 # ---------------------------------------------------------------------------
 
+
 def _default_fetch_call(call_id: str) -> dict[str, Any] | None:
     """Fetch a single Vapi call by id. Returns None on any error."""
     try:
         from backend.common.config import get_settings
+
         api_key = (get_settings().vapi_api_key or "").strip()
     except Exception:  # noqa: BLE001
         return None
@@ -97,6 +101,7 @@ def _default_fetch_call(call_id: str) -> dict[str, Any] | None:
         return None
     try:
         import httpx
+
         resp = httpx.get(
             f"https://api.vapi.ai/call/{call_id}",
             headers={"Authorization": f"Bearer {api_key}"},
@@ -115,6 +120,7 @@ def _default_fetch_call(call_id: str) -> dict[str, Any] | None:
 # Core: find completed calls, analyze their transcripts, flow reward
 # ---------------------------------------------------------------------------
 
+
 def _utc_today() -> date:
     """Today's calendar date in UTC.
 
@@ -131,10 +137,12 @@ def _utc_today() -> date:
 
 def _read_today_end_of_call_ids() -> dict[str, dict[str, Any]]:
     """Return {call_id: event_dict} for today's end_of_call events."""
-    events_path = Path(os.getenv(
-        "SAMUS_VOICE_EVENTS_PATH",
-        "/opt/samus/data/voice/voice_events.jsonl",
-    ))
+    events_path = Path(
+        os.getenv(
+            "SAMUS_VOICE_EVENTS_PATH",
+            "/opt/samus/data/voice/voice_events.jsonl",
+        )
+    )
     if not events_path.exists():
         return {}
     today = _utc_today().isoformat()
@@ -164,6 +172,7 @@ def _read_today_dial_run_call_ids() -> dict[str, dict[str, Any]]:
     """Return {call_id: {prospect_id, company, phone}} from today's dial runs."""
     try:
         from backend.common import storage
+
         runs_dir = storage.root() / "voice" / "dial_runs"
     except Exception:  # noqa: BLE001
         return {}
@@ -180,7 +189,7 @@ def _read_today_dial_run_call_ids() -> dict[str, dict[str, Any]]:
             data = json.loads(fp.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
-        for att in (data.get("attempts") or []):
+        for att in data.get("attempts") or []:
             if not isinstance(att, dict):
                 continue
             if att.get("outcome") != "initiated":
@@ -199,6 +208,7 @@ def _already_analyzed_hashes() -> set[str]:
     """File hashes of already-persisted transcript analyses."""
     try:
         from backend.common import storage
+
         analyses_dir = storage.root() / "voice" / "analyses"
     except Exception:  # noqa: BLE001
         return set()
@@ -218,6 +228,7 @@ def _update_manifest() -> None:
     try:
         from backend.common import storage
         from backend.common.dates import iso_now
+
         manifest_dir = storage.root() / "voice"
         manifest_dir.mkdir(parents=True, exist_ok=True)
         manifest = manifest_dir / "transcript_manifest.json"
@@ -230,7 +241,8 @@ def _update_manifest() -> None:
         data["last_ingest_pass"] = iso_now()
         data["source"] = "transcript_ingest_task"
         manifest.write_text(
-            json.dumps(data, indent=2), encoding="utf-8",
+            json.dumps(data, indent=2),
+            encoding="utf-8",
         )
     except OSError as exc:
         _LOG.warning("transcript_ingest: manifest update failed: %s", exc)
@@ -266,6 +278,7 @@ def run_ingest_pass(
     if not skip_reconcile:
         try:
             from backend.voice.reconcile import reconcile_recent_calls
+
             rec_result = reconcile_recent_calls(fetch_call=fetch)
             summary["reconciled"] = rec_result.get("reconciled", 0)
         except Exception as exc:  # noqa: BLE001
@@ -329,6 +342,7 @@ def run_ingest_pass(
 
             # Build a RawTranscript from the Vapi call data
             from backend.voice.transcript_ingest import RawTranscript
+
             raw = RawTranscript(
                 source_file=f"vapi_{cid}",
                 file_hash=file_hash,
@@ -349,15 +363,14 @@ def run_ingest_pass(
             )
 
             from backend.voice.transcript_analyzer import analyze_transcript
+
             analysis = analyze_transcript(raw, prospect=prospect)
 
             summary["analyzed"] += 1
             analyzed.add(file_hash)
 
             if analysis.llm_error:
-                summary["errors"].append(
-                    f"llm_error [{cid}]: {analysis.llm_error}"
-                )
+                summary["errors"].append(f"llm_error [{cid}]: {analysis.llm_error}")
             else:
                 # _flow_reward_to_bandit runs inside analyze_transcript;
                 # check if it credited an arm by looking at the reward
@@ -372,6 +385,7 @@ def run_ingest_pass(
 
     try:
         from backend.common.business_events import emit_business_event
+
         emit_business_event(
             "TRANSCRIPT_INGEST_PASS",
             workcell="voice",
@@ -401,15 +415,25 @@ def _parse_vapi_ts(value: Any) -> datetime:
 
 class _MinimalProspect:
     """Lightweight prospect stand-in for the transcript analyzer."""
+
     __slots__ = (
-        "prospect_id", "company_name", "phone", "industry", "city", "state",
-        "call_priority", "lead_score", "seo_score", "callsheet_opener",
-        "callsheet_pitch", "callsheet_offer", "callsheet_voicemail",
+        "prospect_id",
+        "company_name",
+        "phone",
+        "industry",
+        "city",
+        "state",
+        "call_priority",
+        "lead_score",
+        "seo_score",
+        "callsheet_opener",
+        "callsheet_pitch",
+        "callsheet_offer",
+        "callsheet_voicemail",
         "callsheet_objections",
     )
 
-    def __init__(self, *, prospect_id: str = "", company_name: str = "",
-                 phone: str = ""):
+    def __init__(self, *, prospect_id: str = "", company_name: str = "", phone: str = ""):
         self.prospect_id = prospect_id
         self.company_name = company_name
         self.phone = phone
@@ -430,6 +454,7 @@ class _MinimalProspect:
 # The asyncio loop + lifespan hooks (same shape as cold_dial_task)
 # ---------------------------------------------------------------------------
 
+
 async def _transcript_ingest_loop(interval: float) -> None:
     """Poll every ``interval`` seconds; run one ingest pass per tick."""
     try:
@@ -445,7 +470,8 @@ async def _transcript_ingest_loop(interval: float) -> None:
                 _LOG.info(
                     "transcript_ingest pass: analyzed=%d reward_flowed=%d "
                     "reconciled=%d candidates=%d errors=%d",
-                    analyzed, reward,
+                    analyzed,
+                    reward,
                     result.get("reconciled", 0),
                     result.get("candidates", 0),
                     len(result.get("errors", [])),
@@ -478,7 +504,8 @@ async def start_transcript_ingest_loop(app: Any) -> Optional[asyncio.Task]:
         return existing
     interval = _float_env(ENV_INTERVAL, _DEFAULT_INTERVAL_SEC)
     task = asyncio.create_task(
-        _transcript_ingest_loop(interval), name="samus.transcript_ingest_loop",
+        _transcript_ingest_loop(interval),
+        name="samus.transcript_ingest_loop",
     )
     app.state.transcript_ingest_task = task
     _LOG.info("transcript_ingest loop started (interval=%.0fs)", interval)

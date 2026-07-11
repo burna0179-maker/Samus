@@ -17,12 +17,12 @@ Reload semantics:
 Enable / disable: env `SAMUS_CODEX_AUTO_RELOAD` (default `"1"`). Set to
 `"0"` to skip watcher startup entirely.
 """
+
 from __future__ import annotations
 
 import logging
 import os
 import threading
-import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
@@ -102,7 +102,8 @@ def _attempt_reload(
         _LOG.error(
             "samus.codex.watchdog.reload_failed: dir=%s err=%s — keeping "
             "previously-loaded registry in place (fail-OPEN)",
-            codex_dir, exc,
+            codex_dir,
+            exc,
         )
         return
     with handle._lock:
@@ -135,13 +136,15 @@ def _polling_loop(
         except Exception as exc:  # noqa: BLE001
             _LOG.warning(
                 "samus.codex.watchdog.snapshot_failed: dir=%s err=%s",
-                codex_dir, exc,
+                codex_dir,
+                exc,
             )
             current = last
         if current != last:
             _LOG.info(
-                "samus.codex.watchdog.change_detected: dir=%s "
-                "tracked_files=%d", codex_dir, len(current),
+                "samus.codex.watchdog.change_detected: dir=%s tracked_files=%d",
+                codex_dir,
+                len(current),
             )
             _attempt_reload(handle, registry, codex_dir)
             last = current
@@ -193,7 +196,9 @@ def start_codex_watcher(
     thread.start()
     _LOG.info(
         "samus.codex.watchdog.started: dir=%s interval=%.2fs backend=%s",
-        target_dir, interval, handle.backend,
+        target_dir,
+        interval,
+        handle.backend,
     )
     return handle
 
@@ -211,7 +216,8 @@ def stop_codex_watcher(handle: WatcherHandle | None, timeout: float = 5.0) -> No
     else:
         _LOG.info(
             "samus.codex.watchdog.stopped: reload_count=%d last_error=%s",
-            handle.reload_count, handle.last_error,
+            handle.reload_count,
+            handle.last_error,
         )
 
 

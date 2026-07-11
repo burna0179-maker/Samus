@@ -3,6 +3,7 @@
 Pure functions — no Stripe, no settings. ``liabilities.yaml`` is re-read on
 every call so operator edits land without a service restart.
 """
+
 from __future__ import annotations
 
 import logging
@@ -81,16 +82,18 @@ def per_lender_balances(registry: LiabilitiesRegistry) -> list[LenderBalance]:
             relationship = lender.relationship
         loans_sum = round(sum(loans_by.get(lid, [])), 2)
         repays_sum = round(sum(repays_by.get(lid, [])), 2)
-        out.append(LenderBalance(
-            lender_id=lid,
-            lender_name=name,
-            relationship=relationship,
-            loans_total_usd=loans_sum,
-            repayments_total_usd=repays_sum,
-            outstanding_usd=round(loans_sum - repays_sum, 2),
-            loan_count=len(loans_by.get(lid, [])),
-            repayment_count=len(repays_by.get(lid, [])),
-        ))
+        out.append(
+            LenderBalance(
+                lender_id=lid,
+                lender_name=name,
+                relationship=relationship,
+                loans_total_usd=loans_sum,
+                repayments_total_usd=repays_sum,
+                outstanding_usd=round(loans_sum - repays_sum, 2),
+                loan_count=len(loans_by.get(lid, [])),
+                repayment_count=len(repays_by.get(lid, [])),
+            )
+        )
 
     out.sort(key=lambda b: b.outstanding_usd, reverse=True)
     return out

@@ -14,6 +14,7 @@ Both the entropy + portfolio_controller ``write_task_state`` persistence
 calls are monkeypatched so tests stay deterministic and offline (mirrors the
 per-workcell test fixtures).
 """
+
 from __future__ import annotations
 
 import pytest
@@ -181,7 +182,8 @@ def test_tick_survives_both_failures(monkeypatch):
         entropy_svc, "scan", lambda *_a, **_kw: (_ for _ in ()).throw(RuntimeError("e"))
     )
     monkeypatch.setattr(
-        pc_svc, "run_rebalance",
+        pc_svc,
+        "run_rebalance",
         lambda *_a, **_kw: (_ for _ in ()).throw(RuntimeError("p")),
     )
     result = run_control_tick()
@@ -241,8 +243,8 @@ def test_enforcement_applies_quota_cuts_to_store(monkeypatch):
 
     result = run_control_tick(
         workcells=[
-            {"workcell": "prospecting", "error_velocity": 0.9},   # -> quota_cut
-            {"workcell": "seo", "throughput_efficiency": 0.95},   # -> priority boost only
+            {"workcell": "prospecting", "error_velocity": 0.9},  # -> quota_cut
+            {"workcell": "seo", "throughput_efficiency": 0.95},  # -> priority boost only
         ]
     )
 
@@ -266,9 +268,7 @@ def test_enforcement_disabled_is_noop(monkeypatch):
     store = _FakeStore()
     monkeypatch.setattr(budget, "get_store", lambda: store)
 
-    result = run_control_tick(
-        workcells=[{"workcell": "prospecting", "error_velocity": 0.9}]
-    )
+    result = run_control_tick(workcells=[{"workcell": "prospecting", "error_velocity": 0.9}])
     assert result["enforcement"]["enabled"] is False
     assert result["enforcement"]["applied"] == 0
     assert store.calls == []
@@ -283,9 +283,7 @@ def test_enforcement_survives_store_failure(monkeypatch):
     store = _FakeStore(raises=True)
     monkeypatch.setattr(budget, "get_store", lambda: store)
 
-    result = run_control_tick(
-        workcells=[{"workcell": "prospecting", "error_velocity": 0.9}]
-    )
+    result = run_control_tick(workcells=[{"workcell": "prospecting", "error_velocity": 0.9}])
     assert result["enforcement"]["ok"] is False
     assert "enforcement_failed" in result["enforcement"]["error"]
     # The rebalance recommendation itself is unaffected.
@@ -311,8 +309,12 @@ def test_route_control_tick_with_signals():
         "/admin/control-tick",
         json={
             "task_id": "http-tick",
-            "entropy_inputs": {"error_velocity": 1.0, "queue_variance": 1.0,
-                               "task_retry_rate": 1.0, "llm_failure_ratio": 1.0},
+            "entropy_inputs": {
+                "error_velocity": 1.0,
+                "queue_variance": 1.0,
+                "task_retry_rate": 1.0,
+                "llm_failure_ratio": 1.0,
+            },
             "workcells": [{"workcell": "prospecting", "error_velocity": 0.9}],
         },
     )

@@ -5,6 +5,7 @@ HMAC-verified Darwin AgentEnvelope, fail-closed on a non-Darwin sender / missing
 envelope, and an honest no-signal readout when the flag is off. Uses the real
 shared security_client envelope (wire-compatible with Darwin's HMAC client).
 """
+
 import json
 import sys
 from pathlib import Path
@@ -54,7 +55,8 @@ def _darwin_envelope(*, window=100, request_id="r-1"):
     thumbprint.init_thumbprint("darwin")
     key = RotatingHMACKey.for_agent("darwin")
     env = AgentEnvelope.create(
-        from_agent="darwin", to_agent="samus",
+        from_agent="darwin",
+        to_agent="samus",
         payload={"window": window, "request_id": request_id},
         signing_key=key,
     )
@@ -70,20 +72,32 @@ def _seed_ledger(monkeypatch, tmp_path, rows):
 
 
 def _row(reward, *, terminal_paid=0, retracted=0, unsubs=0, complaints=0, at="2026-06-04T10:00:00"):
-    return {"opportunity_id": "op1", "reward": reward, "correlation_id": "c",
-            "computed_at": at,
-            "components": {"terminal_paid": terminal_paid, "retracted_claims": retracted,
-                           "unsubscribes": unsubs, "complaints": complaints,
-                           "harm_count": retracted + unsubs + complaints}}
+    return {
+        "opportunity_id": "op1",
+        "reward": reward,
+        "correlation_id": "c",
+        "computed_at": at,
+        "components": {
+            "terminal_paid": terminal_paid,
+            "retracted_claims": retracted,
+            "unsubscribes": unsubs,
+            "complaints": complaints,
+            "harm_count": retracted + unsubs + complaints,
+        },
+    }
 
 
 def test_enabled_returns_aggregate_summary(monkeypatch, tmp_path):
     monkeypatch.setenv("SN_REWARD_READOUT_ENABLED", "true")
-    _seed_ledger(monkeypatch, tmp_path, [
-        _row(1.0, terminal_paid=1, at="2026-06-04T09:00:00"),
-        _row(0.0, unsubs=2, at="2026-06-04T11:00:00"),
-        _row(0.5, complaints=1, at="2026-06-04T10:00:00"),
-    ])
+    _seed_ledger(
+        monkeypatch,
+        tmp_path,
+        [
+            _row(1.0, terminal_paid=1, at="2026-06-04T09:00:00"),
+            _row(0.0, unsubs=2, at="2026-06-04T11:00:00"),
+            _row(0.5, complaints=1, at="2026-06-04T10:00:00"),
+        ],
+    )
     r = _client().post("/inter_agent/reward-summary", json=_darwin_envelope())
     assert r.status_code == 200, r.text
     body = r.json()
@@ -91,11 +105,11 @@ def test_enabled_returns_aggregate_summary(monkeypatch, tmp_path):
     s = body["summary"]
     assert s["have_signal"] is True
     assert s["window_n"] == 3
-    assert s["mean_reward"] == pytest.approx(0.5)        # (1.0+0.0+0.5)/3
+    assert s["mean_reward"] == pytest.approx(0.5)  # (1.0+0.0+0.5)/3
     assert s["min_reward"] == 0.0 and s["max_reward"] == 1.0
     assert s["terminal_paid"] == 1
     assert s["harm"]["unsubscribes"] == 2 and s["harm"]["complaints"] == 1
-    assert s["harm_total"] == 2 + 1 + (2 + 1)            # unsubs + complaints + harm_count
+    assert s["harm_total"] == 2 + 1 + (2 + 1)  # unsubs + complaints + harm_count
     assert s["last_computed_at"] == "2026-06-04T11:00:00"
     assert len(body["summary_hash"]) == 64
 
@@ -124,8 +138,9 @@ def test_non_darwin_sender_is_403(monkeypatch):
     thumbprint.reset_thumbprint_for_testing()
     thumbprint.init_thumbprint("major")
     key = RotatingHMACKey.for_agent("major")
-    env = AgentEnvelope.create(from_agent="major", to_agent="samus",
-                               payload={"window": 10}, signing_key=key)
+    env = AgentEnvelope.create(
+        from_agent="major", to_agent="samus", payload={"window": 10}, signing_key=key
+    )
     r = _client().post("/inter_agent/reward-summary", json=env.to_wire())
     assert r.status_code == 403
 
@@ -139,6 +154,6 @@ def test_missing_envelope_is_401(monkeypatch):
 def test_tampered_payload_is_rejected(monkeypatch):
     monkeypatch.setenv("SN_REWARD_READOUT_ENABLED", "true")
     wire = _darwin_envelope()
-    wire["payload"] = {"window": 9999}        # break the HMAC-covered body
+    wire["payload"] = {"window": 9999}  # break the HMAC-covered body
     r = _client().post("/inter_agent/reward-summary", json=wire)
     assert r.status_code in (400, 403)

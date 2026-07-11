@@ -4,15 +4,12 @@ All tests run in dry-run mode — no real API calls are ever made. The
 dry-run default is enforced by the module itself (SAMUS_SOCIAL_DRY_RUN
 defaults to "true") and re-asserted in the helpers below.
 """
+
 from __future__ import annotations
 
 import importlib
 import json
-import os
-from dataclasses import asdict
 from pathlib import Path
-
-import pytest
 
 
 # ---------------------------------------------------------------------------
@@ -27,6 +24,7 @@ def _reload_adapter(monkeypatch, *, dry_run: str = "true", ledger: Path | None =
         monkeypatch.setenv("SAMUS_SOCIAL_LEDGER_PATH", str(ledger))
     # Force module-level constants to be re-evaluated by re-importing
     import backend.outreach.social_adapter as mod
+
     importlib.reload(mod)
     return mod
 
@@ -61,9 +59,7 @@ def test_socialpost_dataclass_defaults():
 # ---------------------------------------------------------------------------
 
 
-def test_send_post_dry_run_default_returns_sent_true_dry_run_true(
-    monkeypatch, tmp_path
-):
+def test_send_post_dry_run_default_returns_sent_true_dry_run_true(monkeypatch, tmp_path):
     """Default dry-run: send_post returns sent=True, dry_run=True."""
     mod = _reload_adapter(monkeypatch, dry_run="true", ledger=tmp_path / "posts.jsonl")
 
@@ -144,17 +140,13 @@ def test_send_post_live_mode_no_token_returns_error(monkeypatch, tmp_path):
 
     stake = "Met Dana at the Yuba City chamber mixer last Tuesday — promised a follow-up."
 
-    post_li = mod.SocialPost(
-        platform="linkedin", body="LinkedIn no token", stake_sentence=stake
-    )
+    post_li = mod.SocialPost(platform="linkedin", body="LinkedIn no token", stake_sentence=stake)
     result_li = mod.send_post(post_li)
     assert result_li.sent is False
     assert result_li.error == "linkedin_token_unset"
     assert result_li.dry_run is False
 
-    post_fb = mod.SocialPost(
-        platform="facebook", body="Facebook no token", stake_sentence=stake
-    )
+    post_fb = mod.SocialPost(platform="facebook", body="Facebook no token", stake_sentence=stake)
     result_fb = mod.send_post(post_fb)
     assert result_fb.sent is False
     assert result_fb.error == "facebook_token_unset"
@@ -215,9 +207,7 @@ def test_audit_send_appends_to_ledger(monkeypatch, tmp_path):
     mod = _reload_adapter(monkeypatch, dry_run="true", ledger=ledger)
 
     post = mod.SocialPost(platform="linkedin", body="Audit test")
-    result = mod.SocialSendResult(
-        sent=True, platform="linkedin", post_id="dry-001", dry_run=True
-    )
+    result = mod.SocialSendResult(sent=True, platform="linkedin", post_id="dry-001", dry_run=True)
     mod._audit_send(post, result)
     mod._audit_send(post, result)
 

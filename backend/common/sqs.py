@@ -3,6 +3,7 @@
 Per doc §3.21. Queue URL lookup goes through ``settings.sqs_queue_urls``.
 Receive defaults: max_messages=5, visibility_timeout=60, wait_time=20.
 """
+
 from __future__ import annotations
 
 import json
@@ -12,9 +13,12 @@ from typing import Any
 try:
     from botocore.exceptions import ClientError
 except ImportError:
+
     class ClientError(Exception):  # type: ignore[no-redef]
         """Stub so module imports succeed without boto3."""
+
         response: dict = {}
+
 
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential_jitter
 
@@ -146,14 +150,17 @@ def ensure_queue_with_dlq(
         Attributes={"MessageRetentionPeriod": str(message_retention_seconds)},
     )["QueueUrl"]
     dlq_arn = cli.get_queue_attributes(
-        QueueUrl=dlq, AttributeNames=["QueueArn"],
+        QueueUrl=dlq,
+        AttributeNames=["QueueArn"],
     )["Attributes"]["QueueArn"]
 
     # 2) Main queue, then set its redrive policy + dispatch-shaped attributes.
-    redrive_policy = json.dumps({
-        "deadLetterTargetArn": dlq_arn,
-        "maxReceiveCount": int(max_receive_count),
-    })
+    redrive_policy = json.dumps(
+        {
+            "deadLetterTargetArn": dlq_arn,
+            "maxReceiveCount": int(max_receive_count),
+        }
+    )
     main = cli.create_queue(QueueName=queue_name)["QueueUrl"]
     cli.set_queue_attributes(
         QueueUrl=main,
@@ -164,12 +171,15 @@ def ensure_queue_with_dlq(
         },
     )
     main_arn = cli.get_queue_attributes(
-        QueueUrl=main, AttributeNames=["QueueArn"],
+        QueueUrl=main,
+        AttributeNames=["QueueArn"],
     )["Attributes"]["QueueArn"]
 
     _LOG.info(
         "ensure_queue_with_dlq: queue=%s dlq=%s maxReceiveCount=%s",
-        queue_name, dlq_name, max_receive_count,
+        queue_name,
+        dlq_name,
+        max_receive_count,
     )
     return {
         "queue_name": queue_name,

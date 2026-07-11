@@ -20,6 +20,7 @@ Event shape (matches ``_shared/quorum_hub/hub.py:QuorumEvent.to_dict``)::
       "reason": "<str>",
     }
 """
+
 from __future__ import annotations
 
 import logging

@@ -22,6 +22,7 @@ Operator pending-review workflow:
 Run standalone:
   python -m backend.voice.ingest_pipeline [--dry-run] [--skip-sync] [--skip-transcribe]
 """
+
 from __future__ import annotations
 
 import logging
@@ -60,6 +61,7 @@ def run_ingest_pipeline(
 
     if not skip_sync:
         from .transcript_sync import sync_transcripts
+
         sync_result = sync_transcripts(
             device_name=device_name,
             phone_sub_path=phone_sub_path,
@@ -77,20 +79,21 @@ def run_ingest_pipeline(
         try:
             from .audio_transcribe import transcribe_pending
             from .transcript_sync import staging_dir
+
             transcribe_summary = transcribe_pending(staging_dir())
-            errors.extend(
-                f"transcribe: {e}" for e in (transcribe_summary.get("errors") or [])
-            )
+            errors.extend(f"transcribe: {e}" for e in (transcribe_summary.get("errors") or []))
         except Exception as exc:  # noqa: BLE001
             _LOG.warning("ingest_pipeline: transcription stage failed: %s", exc)
             errors.append(f"transcribe_stage_failed: {exc}")
 
     # ── 3. Build prospect phone index (local CSVs only, no network) ─
     from .prospect_lookup import build_phone_index
+
     phone_index = build_phone_index()
 
     # ── 4. Collect staged transcripts ──────────────────────────────
     from .transcript_sync import list_staged_text
+
     staged = list_staged_text()
 
     analyses_dir = storage.root() / "voice" / "analyses"
@@ -153,6 +156,7 @@ def run_ingest_pipeline(
     crm_skipped: dict[str, int] = {}
     if not dry_run:
         from .crm_writeback import write_outcome
+
         for fpath, raw, prospect in to_analyze:
             analysis = next(
                 (a for a in new_analyses if a.file_hash == raw.file_hash),
@@ -197,6 +201,7 @@ def run_ingest_pipeline(
     if pattern_report is not None:
         try:
             from .call_strategy_reasoner import reason as reason_strategy
+
             strategy_brief = reason_strategy(today_report=pattern_report)
             if strategy_brief and strategy_brief.llm_error:
                 strategy_error = strategy_brief.llm_error
@@ -210,6 +215,7 @@ def run_ingest_pipeline(
     if not dry_run and pattern_report is not None:
         try:
             from .callsheet_updater import update_callsheet_intel
+
             update_callsheet_intel(report=pattern_report, strategy=strategy_brief)
             callsheet_updated = True
         except Exception as exc:  # noqa: BLE001

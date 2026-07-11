@@ -21,6 +21,7 @@ Surface:
 Fail-soft downstream: the poller catches :class:`CalendarApiError` so a
 Calendar hiccup never breaks a drain.
 """
+
 from __future__ import annotations
 
 import logging
@@ -128,8 +129,11 @@ class CalendarApiClient:
         try:
             with httpx.Client(timeout=self._timeout) as client:
                 resp = client.request(
-                    method, url, headers=headers,
-                    params=params or {}, json=json_body,
+                    method,
+                    url,
+                    headers=headers,
+                    params=params or {},
+                    json=json_body,
                 )
         except httpx.HTTPError as exc:
             raise CalendarApiError(f"calendar_transport_error: {exc}") from exc
@@ -137,7 +141,10 @@ class CalendarApiClient:
         if resp.status_code == 401 and retry_on_401:
             self._refresh_now()
             return self._request(
-                method, path, params=params, json_body=json_body,
+                method,
+                path,
+                params=params,
+                json_body=json_body,
                 retry_on_401=False,
             )
         if resp.status_code >= 400:
@@ -146,8 +153,7 @@ class CalendarApiClient:
             except ValueError:
                 err = {}
             raise CalendarApiError(
-                f"calendar_http_{resp.status_code}: "
-                f"{err.get('message') or resp.text[:200]}",
+                f"calendar_http_{resp.status_code}: {err.get('message') or resp.text[:200]}",
             )
         try:
             return resp.json() if resp.content else {}
@@ -201,7 +207,9 @@ class CalendarApiClient:
             # httpx accepts a list for a query key -> repeats the param.
             params["privateExtendedProperty"] = list(private_extended_property)
         body = self._request(
-            "GET", f"/calendars/{calendar_id}/events", params=params,
+            "GET",
+            f"/calendars/{calendar_id}/events",
+            params=params,
         )
         return list(body.get("items") or [])
 
@@ -228,7 +236,9 @@ class CalendarApiClient:
             "orderBy": "startTime" if single_events else "updated",
         }
         body = self._request(
-            "GET", f"/calendars/{calendar_id}/events", params=params,
+            "GET",
+            f"/calendars/{calendar_id}/events",
+            params=params,
         )
         return list(body.get("items") or [])
 

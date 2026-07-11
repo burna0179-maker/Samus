@@ -14,10 +14,10 @@ the webhook.
 DynamoDB table: samus_callback_lookup (us-west-1)
   PK: phone (S)  — E.164 e.g. +15005550006
 """
+
 from __future__ import annotations
 
 import logging
-import os
 from decimal import Decimal
 from typing import Any
 
@@ -26,7 +26,9 @@ _LOG = logging.getLogger("samus.voice.callback_lookup")
 
 def _attr(name: str):
     from boto3.dynamodb.conditions import Attr
+
     return Attr(name)
+
 
 _TABLE_NAME = "samus_callback_lookup"
 _TABLE_REGION = "us-west-1"
@@ -38,6 +40,7 @@ def _get_table():
     if _table is None:
         try:
             import boto3
+
             _table = boto3.resource("dynamodb", region_name=_TABLE_REGION).Table(_TABLE_NAME)
         except Exception as exc:  # noqa: BLE001
             _LOG.warning("callback_lookup: boto3 init failed: %s", exc)
@@ -96,8 +99,12 @@ def index_outbound_call(
 
     try:
         table.put_item(Item=item)
-        _LOG.info("callback_lookup: indexed %s -> prospect=%s company=%s",
-                  phone, prospect_id, company_name)
+        _LOG.info(
+            "callback_lookup: indexed %s -> prospect=%s company=%s",
+            phone,
+            prospect_id,
+            company_name,
+        )
         return True
     except Exception as exc:  # noqa: BLE001
         _LOG.warning("callback_lookup: DynamoDB write failed for %s: %s", phone, exc)
@@ -143,7 +150,11 @@ def enrich_after_call(
         return True
     except Exception as exc:  # noqa: BLE001
         from botocore.exceptions import ClientError
-        if isinstance(exc, ClientError) and exc.response["Error"]["Code"] == "ConditionalCheckFailedException":
+
+        if (
+            isinstance(exc, ClientError)
+            and exc.response["Error"]["Code"] == "ConditionalCheckFailedException"
+        ):
             _LOG.debug(
                 "callback_lookup.enrich_after_call: item not found for %s "
                 "(race with index write), skipping",

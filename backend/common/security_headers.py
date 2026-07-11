@@ -28,6 +28,7 @@ inline allowances the SPA shell needs, scoped tight enough to still block
 cross-origin script/object injection. The non-console JSON workcells don't
 render HTML so the CSP is irrelevant to them.
 """
+
 from __future__ import annotations
 
 from typing import Mapping

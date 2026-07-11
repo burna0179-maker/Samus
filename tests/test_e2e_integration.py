@@ -5,6 +5,7 @@ The tests exercise the in-process orchestration through each workcell's
 ``service`` / ``logic`` module so the wiring (idempotency, audit, response
 shape) is verified end-to-end without leaving the process.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -284,9 +285,7 @@ def test_gateway_dispatch_falls_back_to_http_when_no_queue(monkeypatch):
         "metadata": {},
     }
     status, body = asyncio.run(
-        gateway_service.dispatch_to_target(
-            "https://leadgen.example", "leadgen", envelope
-        )
+        gateway_service.dispatch_to_target("https://leadgen.example", "leadgen", envelope)
     )
 
     assert status == 200
@@ -311,9 +310,7 @@ def test_feedback_bounce_writes_suppression(monkeypatch):
     fake_feedback_events.put_item = MagicMock(return_value={})
 
     monkeypatch.setattr(handlers, "_suppression_table", lambda: fake_suppression)
-    monkeypatch.setattr(
-        handlers, "_feedback_events_table", lambda: fake_feedback_events
-    )
+    monkeypatch.setattr(handlers, "_feedback_events_table", lambda: fake_feedback_events)
 
     ses_payload = {
         "notificationType": "Bounce",
@@ -342,7 +339,5 @@ def test_feedback_bounce_writes_suppression(monkeypatch):
     assert result.recipient_count == 2
     assert sorted(result.suppressed) == ["a@example.com", "b@example.com"]
     assert fake_suppression.put_item.call_count == 2
-    written = {
-        call.kwargs["Item"]["email"] for call in fake_suppression.put_item.call_args_list
-    }
+    written = {call.kwargs["Item"]["email"] for call in fake_suppression.put_item.call_args_list}
     assert written == {"a@example.com", "b@example.com"}

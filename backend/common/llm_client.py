@@ -44,6 +44,7 @@ Surface:
 Why sync: every existing caller in Samus is sync, and FastAPI gladly runs
 sync handlers in its threadpool.
 """
+
 from __future__ import annotations
 
 import json
@@ -84,7 +85,8 @@ if _USING_OPENAI:
     _DEFAULT_TIMEOUT = float(os.environ.get("SAMUS_OPENAI_TIMEOUT_S", "60"))
     _LOG.info(
         "llm_client: using OpenAI backend model=%s url=%s",
-        _DEFAULT_MODEL, _COMPLETIONS_URL.split("/v1")[0] + "/v1/...",
+        _DEFAULT_MODEL,
+        _COMPLETIONS_URL.split("/v1")[0] + "/v1/...",
     )
 else:
     _COMPLETIONS_URL = os.environ.get(
@@ -202,8 +204,10 @@ def _extract_usage(response_json: dict[str, Any]) -> dict[str, int]:
     if not isinstance(usage, dict):
         _LOG.warning("llm response usage is not a dict: %r", usage)
         return {
-            "input_tokens": 0, "output_tokens": 0,
-            "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 0,
         }
     return {
         "input_tokens": int(usage.get("prompt_tokens", 0) or 0),
@@ -217,6 +221,7 @@ def _publish_cache_counters(workcell: str, usage: dict[str, int]) -> None:
     """Emit Control D's cache-hit / cache-creation counters."""
     try:
         from . import metrics as _metrics
+
         creation = int(usage.get("cache_creation_input_tokens", 0) or 0)
         read = int(usage.get("cache_read_input_tokens", 0) or 0)
         if creation:
@@ -231,6 +236,7 @@ def _publish_workcell_dollar_gauge(workcell: str, dollars_today: float, cap: flo
     """Emit per-workcell dollar gauge (best-effort)."""
     try:
         from . import metrics as _metrics
+
         _metrics.SAMUS_LLM_DOLLAR_USED_TODAY.labels(scope=workcell).set(dollars_today)
         _metrics.SAMUS_LLM_DOLLAR_CAP.labels(scope=workcell).set(cap)
     except Exception as exc:  # noqa: BLE001
@@ -279,8 +285,9 @@ def _is_free_workcell(workcell: str) -> bool:
 def _lm_studio_completions_url() -> str:
     """The LM Studio chat-completions endpoint, normalised. SAMUS_LM_STUDIO_URL
     may be a bare base (…/v1) or a full completions URL; accept either."""
-    raw = (os.environ.get("SAMUS_LM_STUDIO_URL", "")
-           or "http://127.0.0.1:1234/v1/chat/completions").rstrip("/")
+    raw = (
+        os.environ.get("SAMUS_LM_STUDIO_URL", "") or "http://127.0.0.1:1234/v1/chat/completions"
+    ).rstrip("/")
     if raw.endswith("/chat/completions"):
         return raw
     if raw.endswith("/v1"):
@@ -289,8 +296,13 @@ def _lm_studio_completions_url() -> str:
 
 
 def _complete_free_local(
-    *, workcell: str, system: str | None, prompt: str,
-    max_tokens: int, timeout: float, est: int,
+    *,
+    workcell: str,
+    system: str | None,
+    prompt: str,
+    max_tokens: int,
+    timeout: float,
+    est: int,
 ) -> tuple[str, dict[str, int]]:
     """UNMETERED local completion (LM Studio). Bypasses every paid budget gate +
     the broker — local inference has no marginal cost, so a free-routed workcell
@@ -309,9 +321,12 @@ def _complete_free_local(
     def _telemetry(**kw: Any) -> None:
         try:
             _llm_telemetry.record_llm_call(
-                workcell=workcell, backend=_llm_telemetry.BACKEND_LOCAL,
-                model="local", est_tokens=est,
-                latency_ms=(time.monotonic() - _t0) * 1000.0, **kw,
+                workcell=workcell,
+                backend=_llm_telemetry.BACKEND_LOCAL,
+                model="local",
+                est_tokens=est,
+                latency_ms=(time.monotonic() - _t0) * 1000.0,
+                **kw,
             )
         except Exception:  # noqa: BLE001 — telemetry never breaks the call
             pass
@@ -320,16 +335,16 @@ def _complete_free_local(
         client = get_shared_client(timeout=timeout)
         resp = client.post(url, headers={"content-type": "application/json"}, json=body)
     except httpx.HTTPError as exc:
-        _telemetry(decision=_llm_telemetry.ROUTED, outcome="error",
-                   reason=f"transport:{exc}")
+        _telemetry(decision=_llm_telemetry.ROUTED, outcome="error", reason=f"transport:{exc}")
         raise LlmCallError(f"llm_transport_error: {exc}") from exc
     try:
         check_httpx_size(resp, max_bytes=LLM_MAX_BYTES, source="llm")
     except ResponseTooLarge as exc:
         raise LlmCallError(f"llm_response_too_large: {exc}") from exc
     if resp.status_code >= 400:
-        _telemetry(decision=_llm_telemetry.ROUTED, outcome="error",
-                   reason=f"http_{resp.status_code}")
+        _telemetry(
+            decision=_llm_telemetry.ROUTED, outcome="error", reason=f"http_{resp.status_code}"
+        )
         raise LlmCallError(f"llm_http_{resp.status_code}: {(resp.text or '')[:200]}")
     try:
         payload = resp.json()
@@ -338,7 +353,9 @@ def _complete_free_local(
     except (ValueError, json.JSONDecodeError, LlmCallError) as exc:
         raise LlmCallError(f"llm_invalid_json: {exc}") from exc
     _telemetry(
-        decision=_llm_telemetry.ROUTED, outcome="success", actual_cost_usd=0.0,
+        decision=_llm_telemetry.ROUTED,
+        outcome="success",
+        actual_cost_usd=0.0,
         used_tokens=int(usage.get("input_tokens", 0) or 0)
         + int(usage.get("output_tokens", 0) or 0),
     )
@@ -398,7 +415,9 @@ def anthropic_messages(
     # INV-9: every LLM call must carry a sensitivity label for audit/routing.
     _LOG.debug(
         "llm_call workcell=%s model=%s security_label=%s",
-        workcell, model, security_label,
+        workcell,
+        model,
+        security_label,
     )
 
     # Control B: model floor. Cheap to evaluate; runs first so an Opus
@@ -409,11 +428,17 @@ def anthropic_messages(
     global_budget = global_store or get_global_store()
 
     # Estimates feed both gates.
-    est = estimated_tokens if estimated_tokens is not None else estimate_tokens(
-        prompt_text=(system or "") + prompt, max_tokens=max_tokens,
+    est = (
+        estimated_tokens
+        if estimated_tokens is not None
+        else estimate_tokens(
+            prompt_text=(system or "") + prompt,
+            max_tokens=max_tokens,
+        )
     )
     est_input, est_output = _estimate_input_output_split(
-        (system or "") + prompt, max_tokens,
+        (system or "") + prompt,
+        max_tokens,
     )
 
     # Free-local routing (2026-07-08): a free-listed workcell (or an explicit
@@ -423,24 +448,35 @@ def anthropic_messages(
     # run free. Paid callers fall through to the gates below unchanged.
     if prefer_local or _is_free_workcell(workcell):
         return _complete_free_local(
-            workcell=workcell, system=system, prompt=prompt,
-            max_tokens=max_tokens, timeout=timeout, est=est,
+            workcell=workcell,
+            system=system,
+            prompt=prompt,
+            max_tokens=max_tokens,
+            timeout=timeout,
+            est=est,
         )
 
     # Control A: global $-cap. Runs BEFORE per-workcell because a global
     # cap breach blocks every workcell — fail fast and loudly.
     global_decision = global_budget.can_spend_global(
-        model, est_input, est_output,
+        model,
+        est_input,
+        est_output,
     )
     if not global_decision.allowed:
         _LOG.warning(
             "llm global cap denied workcell=%s model=%s est=$%.4f used=$%.4f cap=$%.2f",
-            workcell, model, global_decision.estimated_usd,
-            global_decision.used_usd, global_decision.cap_usd,
+            workcell,
+            model,
+            global_decision.estimated_usd,
+            global_decision.used_usd,
+            global_decision.cap_usd,
         )
         _llm_telemetry.record_llm_call(
-            workcell=workcell, backend=_backend_name(),
-            decision=_llm_telemetry.DENIED, model=model,
+            workcell=workcell,
+            backend=_backend_name(),
+            decision=_llm_telemetry.DENIED,
+            model=model,
             control=_llm_telemetry.CONTROL_GLOBAL_CAP,
             reason=global_decision.reason or "global_cap_exceeded",
             est_tokens=est,
@@ -452,13 +488,20 @@ def anthropic_messages(
     if not decision.allowed:
         _LOG.info(
             "llm budget denied workcell=%s est=%s used=%s quota=%s reason=%s",
-            workcell, est, decision.used, decision.quota, decision.reason,
+            workcell,
+            est,
+            decision.used,
+            decision.quota,
+            decision.reason,
         )
         _llm_telemetry.record_llm_call(
-            workcell=workcell, backend=_backend_name(),
-            decision=_llm_telemetry.DENIED, model=model,
+            workcell=workcell,
+            backend=_backend_name(),
+            decision=_llm_telemetry.DENIED,
+            model=model,
             control=_llm_telemetry.classify_deny_control(decision.reason or ""),
-            reason=decision.reason or "", est_tokens=est,
+            reason=decision.reason or "",
+            est_tokens=est,
             used_tokens=int(getattr(decision, "used", 0) or 0),
             quota_tokens=int(getattr(decision, "quota", 0) or 0),
         )
@@ -481,7 +524,9 @@ def anthropic_messages(
     except _broker_client.BrokerDenied as exc:
         _LOG.warning(
             "llm broker denied workcell=%s est=$%.4f reason=%s retry_after=%s",
-            workcell, global_decision.estimated_usd, exc.reason,
+            workcell,
+            global_decision.estimated_usd,
+            exc.reason,
             exc.retry_after_sec,
         )
         # Synthesise a QuotaDecision so the existing BudgetExceeded contract
@@ -494,10 +539,13 @@ def anthropic_messages(
             reason=f"broker:{exc.reason}",
         )
         _llm_telemetry.record_llm_call(
-            workcell=workcell, backend=_backend_name(),
-            decision=_llm_telemetry.DENIED, model=model,
+            workcell=workcell,
+            backend=_backend_name(),
+            decision=_llm_telemetry.DENIED,
+            model=model,
             control=_llm_telemetry.CONTROL_BROKER,
-            reason=f"broker:{exc.reason}", est_tokens=est,
+            reason=f"broker:{exc.reason}",
+            est_tokens=est,
             used_tokens=int(getattr(decision, "used", 0) or 0),
             quota_tokens=int(getattr(decision, "quota", 0) or 0),
         )
@@ -525,12 +573,18 @@ def anthropic_messages(
     except httpx.HTTPError as exc:
         budget.record_spend(workcell, input_tokens=0, output_tokens=0, outcome="error")
         _broker_client.release(
-            _reservation, actual_cost=0.0, outcome="error",
+            _reservation,
+            actual_cost=0.0,
+            outcome="error",
         )
         _llm_telemetry.record_llm_call(
-            workcell=workcell, backend=_backend_name(),
-            decision=_llm_telemetry.ROUTED, model=model, est_tokens=est,
-            outcome="error", reason=f"transport:{exc}",
+            workcell=workcell,
+            backend=_backend_name(),
+            decision=_llm_telemetry.ROUTED,
+            model=model,
+            est_tokens=est,
+            outcome="error",
+            reason=f"transport:{exc}",
             latency_ms=(time.monotonic() - _t0) * 1000.0,
         )
         raise LlmCallError(f"llm_transport_error: {exc}") from exc
@@ -550,12 +604,18 @@ def anthropic_messages(
     if resp.status_code >= 400:
         budget.record_spend(workcell, input_tokens=0, output_tokens=0, outcome="error")
         _broker_client.release(
-            _reservation, actual_cost=0.0, outcome="error",
+            _reservation,
+            actual_cost=0.0,
+            outcome="error",
         )
         _llm_telemetry.record_llm_call(
-            workcell=workcell, backend=_backend_name(),
-            decision=_llm_telemetry.ROUTED, model=model, est_tokens=est,
-            outcome="error", reason=f"http_{resp.status_code}",
+            workcell=workcell,
+            backend=_backend_name(),
+            decision=_llm_telemetry.ROUTED,
+            model=model,
+            est_tokens=est,
+            outcome="error",
+            reason=f"http_{resp.status_code}",
             latency_ms=(time.monotonic() - _t0) * 1000.0,
         )
         snippet = (resp.text or "")[:200]
@@ -566,7 +626,9 @@ def anthropic_messages(
     except (ValueError, json.JSONDecodeError) as exc:
         budget.record_spend(workcell, input_tokens=0, output_tokens=0, outcome="error")
         _broker_client.release(
-            _reservation, actual_cost=0.0, outcome="error",
+            _reservation,
+            actual_cost=0.0,
+            outcome="error",
         )
         raise LlmCallError(f"llm_invalid_json: {exc}") from exc
 
@@ -576,7 +638,9 @@ def anthropic_messages(
     except LlmCallError:
         budget.record_spend(workcell, input_tokens=0, output_tokens=0, outcome="error")
         _broker_client.release(
-            _reservation, actual_cost=0.0, outcome="error",
+            _reservation,
+            actual_cost=0.0,
+            outcome="error",
         )
         raise
 
@@ -595,11 +659,14 @@ def anthropic_messages(
     # Local inference is free; OpenAI has real per-token costs.
     if _USING_OPENAI:
         from .llm_pricing import cost_from_usage as _cost_fn
+
         _actual_cost = _cost_fn(model, usage)
     else:
         _actual_cost = 0.0
     _broker_client.release(
-        _reservation, actual_cost=_actual_cost, outcome="ok",
+        _reservation,
+        actual_cost=_actual_cost,
+        outcome="ok",
     )
 
     # Control A: record actual $ on the global store. Cache tokens are
@@ -613,7 +680,9 @@ def anthropic_messages(
             cache_read_tokens=usage.get("cache_read_input_tokens", 0),
         )
         _publish_workcell_dollar_gauge(
-            workcell, g.dollars_today, global_budget.daily_dollar_cap,
+            workcell,
+            g.dollars_today,
+            global_budget.daily_dollar_cap,
         )
     except Exception as exc:  # noqa: BLE001
         _LOG.warning("llm global spend recording failed: %s", exc)
@@ -625,12 +694,16 @@ def anthropic_messages(
     # -- which backend it billed (paid vs free), its actual cost and latency.
     # Fail-soft; never alters the return contract.
     _llm_telemetry.record_llm_call(
-        workcell=workcell, backend=_backend_name(),
-        decision=_llm_telemetry.ROUTED, model=model, est_tokens=est,
+        workcell=workcell,
+        backend=_backend_name(),
+        decision=_llm_telemetry.ROUTED,
+        model=model,
+        est_tokens=est,
         used_tokens=int(usage.get("input_tokens", 0) or 0)
         + int(usage.get("output_tokens", 0) or 0),
         quota_tokens=int(getattr(decision, "quota", 0) or 0),
-        actual_cost_usd=_actual_cost, outcome="success",
+        actual_cost_usd=_actual_cost,
+        outcome="success",
         latency_ms=(time.monotonic() - _t0) * 1000.0,
     )
 
@@ -638,7 +711,9 @@ def anthropic_messages(
 
 
 def record_outcome(
-    workcell: str, *, outcome: str,
+    workcell: str,
+    *,
+    outcome: str,
     store: LlmBudgetStore | None = None,
 ) -> None:
     """Adjust the efficiency EMA after the caller validates the LLM output.

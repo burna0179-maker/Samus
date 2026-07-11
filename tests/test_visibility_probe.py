@@ -1,8 +1,8 @@
 """Tests for backend.visibility.probe — orchestration (network seam stubbed)."""
+
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import backend.visibility.probe as probe_mod
 from backend.visibility.probe import run_probes
@@ -10,8 +10,10 @@ from backend.visibility.probe import run_probes
 
 def _stub_query(monkeypatch, answers: dict[tuple[str, str], tuple[str | None, str]]):
     """Stub query_platform with a {(platform, question): (text, error)} map."""
+
     def fake(platform, question, *, workcell="visibility"):
         return answers.get((platform, question), (None, "claude_not_configured"))
+
     monkeypatch.setattr(probe_mod, "query_platform", fake)
 
 
@@ -50,9 +52,7 @@ def test_run_probes_aggregates(monkeypatch, tmp_path):
 def test_run_probes_unanswered_excluded(monkeypatch, tmp_path):
     q = "some question"
     _stub_query(monkeypatch, {("claude", q): (None, "claude_not_configured")})
-    report = run_probes(
-        [q], ["Hustleforge"], [], ["claude"], ledger_path=tmp_path / "p.jsonl"
-    )
+    report = run_probes([q], ["Hustleforge"], [], ["claude"], ledger_path=tmp_path / "p.jsonl")
     assert len(report.probes) == 1
     assert report.probes[0].answered is False
     assert report.probes[0].error == "claude_not_configured"
@@ -75,7 +75,8 @@ def test_query_platform_unconfigured_no_network(monkeypatch):
     for key in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "PERPLEXITY_API_KEY"):
         monkeypatch.delenv(key, raising=False)
     monkeypatch.setattr(
-        probe_mod, "_query_claude",
+        probe_mod,
+        "_query_claude",
         lambda question, workcell="visibility": (None, "claude_not_configured"),
     )
     for platform in ("claude", "openai", "perplexity"):

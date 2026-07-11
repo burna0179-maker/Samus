@@ -6,6 +6,7 @@ Covers the four hard operational limits:
   * call-volume cap in voice.service.initiate_call
   * infinite-loop retry ceiling in common/worker_base.py
 """
+
 from __future__ import annotations
 
 import datetime as _dt
@@ -17,6 +18,7 @@ import pytest
 # ---------------------------------------------------------------------------
 # daily_counter — durable per-key day tally
 # ---------------------------------------------------------------------------
+
 
 def test_daily_counter_increment_and_count(tmp_path, monkeypatch):
     ledger = tmp_path / "coordination" / "daily_counters.jsonl"
@@ -47,7 +49,8 @@ def test_daily_counter_increment_survives_write_error(tmp_path, monkeypatch):
     from backend.common import daily_counter
 
     monkeypatch.setattr(
-        daily_counter.Path, "mkdir",
+        daily_counter.Path,
+        "mkdir",
         lambda *a, **k: (_ for _ in ()).throw(OSError("read-only")),
     )
     assert daily_counter.increment("k") == 1  # no raise, count advanced
@@ -57,12 +60,19 @@ def test_daily_counter_increment_survives_write_error(tmp_path, monkeypatch):
 # outreach send cap
 # ---------------------------------------------------------------------------
 
+
 def _email_req(**over):
     from backend.outreach.models import OutreachMessageRequest
+
     base = dict(
-        prospect_id="pr_acme", channel="email", template_id="cash_engine_initial",
-        body="hello", to="owner@acme.com", subject="Quick question",
-        company="Acme HVAC", phone="555-0100",
+        prospect_id="pr_acme",
+        channel="email",
+        template_id="cash_engine_initial",
+        body="hello",
+        to="owner@acme.com",
+        subject="Quick question",
+        company="Acme HVAC",
+        phone="555-0100",
     )
     base.update(over)
     return OutreachMessageRequest(**base)
@@ -75,8 +85,12 @@ def _wire_fake_email(monkeypatch, tmp_path, sent_calls):
 
     def _fake_send_email(to, subject, body, **kwargs):
         sent_calls.append(to)
-        return {"message_id": f"m_{len(sent_calls)}", "channel": "email", "to": to,
-                "ts": "2026-07-01T09:00:00Z"}
+        return {
+            "message_id": f"m_{len(sent_calls)}",
+            "channel": "email",
+            "to": to,
+            "ts": "2026-07-01T09:00:00Z",
+        }
 
     monkeypatch.setattr(email_backend, "send_email", _fake_send_email)
     monkeypatch.setattr(svc, "_dispatch_outreach_to_crm", lambda *a, **k: None)
@@ -115,6 +129,7 @@ def test_send_cap_blocks_over_ceiling(tmp_path, monkeypatch):
 def _raise_capped(req, *, sent_today, cap):
     # Slim stand-in for _block_capped_send that skips CRM/event side effects.
     import backend.outreach.service as svc
+
     raise svc.SendCapExceeded("capped", sent_today=sent_today, cap=cap)
 
 
@@ -146,6 +161,7 @@ def test_send_cap_emits_event_and_operator_task(tmp_path, monkeypatch):
 
     tasks: list = []
     import backend.crm.service as crm
+
     monkeypatch.setattr(crm, "create_operator_task", lambda req: tasks.append(req))
 
     svc.send_message(_email_req(prospect_id="pr_0"))  # 1st ok
@@ -156,6 +172,7 @@ def test_send_cap_emits_event_and_operator_task(tmp_path, monkeypatch):
     assert "send cap" in tasks[0].title.lower()
 
     from backend.common.business_events import DECISION_MADE, read_events
+
     evs = read_events(event_types=[DECISION_MADE])
     caps = [e for e in evs if (e.get("metadata") or {}).get("decision") == "send_cap_blocked"]
     assert len(caps) == 1
@@ -166,11 +183,15 @@ def test_send_cap_emits_event_and_operator_task(tmp_path, monkeypatch):
 # voice call cap
 # ---------------------------------------------------------------------------
 
+
 def _call_req(**over):
     from backend.voice.models import InitiateCallRequest
+
     base = dict(
-        assistant_id="asst_1", phone_number_id="pn_1",
-        customer_number="+15550100", customer_name="Acme",
+        assistant_id="asst_1",
+        phone_number_id="pn_1",
+        customer_number="+15550100",
+        customer_name="Acme",
         metadata={"prospect_id": "pr_acme", "source": "test"},
     )
     base.update(over)
@@ -183,6 +204,7 @@ def test_call_cap_blocks_over_ceiling(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_VOICE_AUDIT_PATH", str(tmp_path / "vaudit.jsonl"))
     monkeypatch.setenv("VAPI_API_KEY", "vk_test")
     from backend.common.settings import reload_settings
+
     reload_settings()
 
     import backend.voice.service as vsvc
@@ -218,21 +240,25 @@ def test_call_cap_does_not_count_degraded(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_MAX_CALLS_PER_DAY", "1")
     monkeypatch.setenv("SAMUS_VOICE_AUDIT_PATH", str(tmp_path / "vaudit.jsonl"))
     from backend.common.settings import reload_settings
+
     reload_settings()
 
     import backend.voice.service as vsvc
+
     monkeypatch.setattr(vsvc, "_new_vapi_client", lambda: None)  # unconfigured
 
     out = vsvc.initiate_call(_call_req())
     assert out.vapi_error == "vapi_api_key_unset"
 
     from backend.common import daily_counter
+
     assert daily_counter.count_today("voice.calls") == 0  # degraded didn't tick
 
 
 # ---------------------------------------------------------------------------
 # worker retry ceiling
 # ---------------------------------------------------------------------------
+
 
 def test_worker_retry_ceiling_sheds_to_dlq(tmp_path, monkeypatch):
     """A message received >= MAX_HANDLER_ATTEMPTS times is force-shed + deleted."""
@@ -279,6 +305,7 @@ def test_worker_retry_ceiling_sheds_to_dlq(tmp_path, monkeypatch):
     # Deleted (shed) rather than left for another redrive.
     assert deleted == ["rh1"]
     from backend.common import dlq
+
     pending = dlq.read_pending("seo", limit=10)
     assert any(p.get("task_id") == "t1" for p in pending)
     assert any("retry ceiling" in str(p.get("error", "")) for p in pending)

@@ -4,6 +4,7 @@ JsonlLedger-backed per-service failure store + a single global
 ``replayed_archive.jsonl`` for status transitions. All DLQ data lives under
 ``SAMUS_DLQ_ROOT`` (default ``/opt/samus/data/dlq/``).
 """
+
 from __future__ import annotations
 
 import json
@@ -69,18 +70,20 @@ def enqueue_failure(
 ) -> str:
     """Append a failure record. Returns the ``event_id``."""
     event_id = str(uuid.uuid4())
-    JsonlLedger(_failures_path(service)).append({
-        "event_id": event_id,
-        "ts": iso_now(),
-        "trace_id": correlation.get_trace_id(),
-        "service": service,
-        "task_id": task_id,
-        "target": target,
-        "payload": payload,
-        "error": error,
-        "attempt": attempt,
-        "status": "pending_retry",
-    })
+    JsonlLedger(_failures_path(service)).append(
+        {
+            "event_id": event_id,
+            "ts": iso_now(),
+            "trace_id": correlation.get_trace_id(),
+            "service": service,
+            "task_id": task_id,
+            "target": target,
+            "payload": payload,
+            "error": error,
+            "attempt": attempt,
+            "status": "pending_retry",
+        }
+    )
     return event_id
 
 

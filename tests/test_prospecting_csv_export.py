@@ -1,4 +1,5 @@
 """CSV exporter writes the canonical 37-column schema."""
+
 from __future__ import annotations
 
 import csv
@@ -9,6 +10,7 @@ def test_csv_round_trip(tmp_path, monkeypatch):
     # Patch both the module attribute and the env var so all storage code paths
     # resolve to the same tmp_path regardless of which mechanism a module uses.
     import backend.common.storage as storage
+
     monkeypatch.setattr(storage, "_ROOT", tmp_path)
     monkeypatch.setenv("SAMUS_ARTIFACT_ROOT", str(tmp_path))
 
@@ -51,24 +53,49 @@ def test_csv_round_trip(tmp_path, monkeypatch):
 
 def test_csv_columns_count_and_order():
     from backend.prospecting import csv_export
+
     expected = (
-        "prospect_id", "account_id", "company_name", "phone", "website_url",
+        "prospect_id",
+        "account_id",
+        "company_name",
+        "phone",
+        "website_url",
         "website_status",
-        "city", "state", "zipcode", "industry",
-        "call_priority", "lead_score", "policy_family", "llm_cost_usd",
-        "seo_score", "security_grade",
-        "owner_name", "owner_email", "owner_title", "owner_linkedin_url",
+        "city",
+        "state",
+        "zipcode",
+        "industry",
+        "call_priority",
+        "lead_score",
+        "policy_family",
+        "llm_cost_usd",
+        "seo_score",
+        "security_grade",
+        "owner_name",
+        "owner_email",
+        "owner_title",
+        "owner_linkedin_url",
         "contact_emails",
-        "review_rating", "review_count",
-        "business_description", "business_hours", "business_categories",
-        "social_facebook", "social_instagram", "social_linkedin",
+        "review_rating",
+        "review_count",
+        "business_description",
+        "business_hours",
+        "business_categories",
+        "social_facebook",
+        "social_instagram",
+        "social_linkedin",
         "negative_review_snippets",
-        "callsheet_issues", "callsheet_offer", "callsheet_pitch",
-        "callsheet_opener", "callsheet_voicemail", "callsheet_objections",
+        "callsheet_issues",
+        "callsheet_offer",
+        "callsheet_pitch",
+        "callsheet_opener",
+        "callsheet_voicemail",
+        "callsheet_objections",
         "callsheet_finding",
         # Recycle-pass context (2026-07-03): returning prospects carry the
         # follow-up flag + prior-touch digest into every downstream composer.
-        "recycled", "prior_touch_summary",
+        "recycled",
+        "prior_touch_summary",
     )
     assert csv_export.CSV_COLUMNS == expected
     assert len(csv_export.CSV_COLUMNS) == 39
@@ -77,6 +104,7 @@ def test_csv_columns_count_and_order():
 def test_csv_policy_family_column_round_trips(tmp_path, monkeypatch):
     """The new policy_family column is written and reads back unchanged."""
     import backend.common.storage as storage
+
     monkeypatch.setattr(storage, "_ROOT", tmp_path)
     monkeypatch.setenv("SAMUS_ARTIFACT_ROOT", str(tmp_path))
 

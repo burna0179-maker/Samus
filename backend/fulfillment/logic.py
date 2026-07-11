@@ -15,6 +15,7 @@ v2 plan opt-in:
     ``FulfillmentPlan`` built by ``build_execution_graph_v2``.  All other
     callers receive the legacy shape unchanged — no ``plan`` key is added.
 """
+
 from __future__ import annotations
 
 import inspect
@@ -43,6 +44,7 @@ def _audit_ledger() -> persistence.JsonlLedger:
 
 # --- governance shim ------------------------------------------------------
 
+
 @dataclass(frozen=True, slots=True)
 class _LocalApprovalDecision:
     approved: bool
@@ -59,8 +61,7 @@ _RISK_KEYWORDS = {
 
 def _local_classify_risk(objective: str, actions: list[dict[str, Any]]) -> tuple[str, list[str]]:
     blob = " ".join(
-        [objective or ""]
-        + [str(a.get("action") or a.get("type") or a) for a in (actions or [])]
+        [objective or ""] + [str(a.get("action") or a.get("type") or a) for a in (actions or [])]
     ).lower()
     reasons: list[str] = []
     for kw in _RISK_KEYWORDS["critical"]:
@@ -125,6 +126,7 @@ def _call_approval_decision(
 
 # --- planning primitives --------------------------------------------------
 
+
 def risk_score_from_level(level: str) -> int:
     """Map a risk level string to a numeric score."""
     return {"normal": 10, "high": 45, "critical": 80}.get((level or "").lower(), 10)
@@ -154,27 +156,31 @@ def build_execution_graph(objective: str, actions: list[dict[str, Any]]) -> list
     last_action_id = prev_id
     for idx, action in enumerate(actions_list, start=1):
         action_id = f"action_{idx}"
-        graph.append({
-            "id": action_id,
-            "blocking": False,
-            "depends_on": [prev_id],
-            "description": str(
-                action.get("description")
-                or action.get("action")
-                or action.get("type")
-                or f"action {idx}"
-            ),
-            "action": action,
-        })
+        graph.append(
+            {
+                "id": action_id,
+                "blocking": False,
+                "depends_on": [prev_id],
+                "description": str(
+                    action.get("description")
+                    or action.get("action")
+                    or action.get("type")
+                    or f"action {idx}"
+                ),
+                "action": action,
+            }
+        )
         prev_id = action_id
         last_action_id = action_id
 
-    graph.append({
-        "id": "verify_output",
-        "blocking": True,
-        "depends_on": [last_action_id],
-        "description": "Verify outputs against acceptance criteria.",
-    })
+    graph.append(
+        {
+            "id": "verify_output",
+            "blocking": True,
+            "depends_on": [last_action_id],
+            "description": "Verify outputs against acceptance criteria.",
+        }
+    )
     return graph
 
 
@@ -241,7 +247,10 @@ def plan_fulfillment(
 
     # --- v2 structured plan (opt-in; legacy callers are unaffected) ----------
     if (metadata or {}).get("plan_format") == "v2":
-        from .dag import build_execution_graph_v2, plan_to_dict  # lazy import avoids circular dep risk
+        from .dag import (
+            build_execution_graph_v2,
+            plan_to_dict,
+        )  # lazy import avoids circular dep risk
 
         try:
             v2_plan = build_execution_graph_v2(task_id, payload, metadata)

@@ -7,6 +7,7 @@ forge-ui HUD ``reengagement_queued_today`` field. Mirrors the in-memory
 table-shim pattern from ``test_crm_follow_ups.py`` so the sweep is testable
 in-process with no AWS and no real cash_engine queue.
 """
+
 from __future__ import annotations
 
 import datetime as _dt
@@ -48,8 +49,7 @@ class _FakeTable:
             attr = names.get("#f")
             target = vals.get(":v")
             if attr is not None:
-                out = [it for it in out
-                       if str(it.get(attr, "")) == str(target or "")]
+                out = [it for it in out if str(it.get(attr, "")) == str(target or "")]
         return {"Items": out[: kwargs.get("Limit", 50)]}
 
 
@@ -75,11 +75,13 @@ class _FakeCrm:
         self.by_prospect: dict[str, _FakeOpp] = {}
         self.lookup_calls: list[str] = []
 
-    def add_opportunity_for(self, prospect_id: str, *, opp_id: str = None,
-                            stage: str = "qualified") -> None:
+    def add_opportunity_for(
+        self, prospect_id: str, *, opp_id: str = None, stage: str = "qualified"
+    ) -> None:
         opp = _FakeOpp(
             opportunity_id=opp_id or f"op_{prospect_id}",
-            prospect_id=prospect_id, stage=stage,
+            prospect_id=prospect_id,
+            stage=stage,
         )
         self.by_prospect[prospect_id] = opp
 
@@ -117,6 +119,7 @@ def armed(monkeypatch):
     monkeypatch.setenv("SAMUS_REENGAGEMENT_MAX_PER_RUN", "25")
     # Drop the Settings cache so the env-bind picks up the new vars.
     from backend.common.config import reload_settings
+
     reload_settings()
     yield
     reload_settings()
@@ -152,18 +155,22 @@ def _stamp(days_ago: float) -> str:
 
 
 def _put_call_state(
-    table: _FakeTable, prospect_id: str, *,
+    table: _FakeTable,
+    prospect_id: str,
+    *,
     last_outcome: str = "not_interested",
     state: str = "completed",
     days_ago: float = 60,
 ) -> None:
-    table.put_item({
-        "prospect_id": prospect_id,
-        "state": state,
-        "last_outcome": last_outcome,
-        "updated_at": _stamp(days_ago),
-        "attempt_count": 1,
-    })
+    table.put_item(
+        {
+            "prospect_id": prospect_id,
+            "state": state,
+            "last_outcome": last_outcome,
+            "updated_at": _stamp(days_ago),
+            "attempt_count": 1,
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -172,13 +179,17 @@ def _put_call_state(
 
 
 def test_sweep_is_dormant_by_default(
-    monkeypatch, fake_state_root, fake_call_state_table, fake_crm,
+    monkeypatch,
+    fake_state_root,
+    fake_call_state_table,
+    fake_crm,
 ):
     """SAMUS_REENGAGEMENT_ENABLED unset → sweep returns an empty result and
     never touches the table scan."""
     # Ensure the env-var is NOT set (the conftest doesn't set it).
     monkeypatch.delenv("SAMUS_REENGAGEMENT_ENABLED", raising=False)
     from backend.common.config import reload_settings
+
     reload_settings()
 
     _put_call_state(fake_call_state_table, "pr_dormant", days_ago=120)
@@ -188,7 +199,8 @@ def test_sweep_is_dormant_by_default(
 
     captured = []
     result = scan_for_reengagement_triggers(
-        crm=fake_crm, review=_accepting_review_stub(captured),
+        crm=fake_crm,
+        review=_accepting_review_stub(captured),
     )
 
     assert result.scanned == 0
@@ -198,13 +210,18 @@ def test_sweep_is_dormant_by_default(
 
 
 def test_sweep_short_circuits_when_cash_engine_disabled(
-    armed, monkeypatch, fake_state_root, fake_call_state_table, fake_crm,
+    armed,
+    monkeypatch,
+    fake_state_root,
+    fake_call_state_table,
+    fake_crm,
 ):
     """cash_engine_enabled=False → sweep is also a no-op (the front door
     would refuse anyway; saving the scan + ledger pressure is the right call).
     """
     monkeypatch.setenv("SAMUS_CASH_ENGINE_ENABLED", "false")
     from backend.common.config import reload_settings
+
     reload_settings()
 
     _put_call_state(fake_call_state_table, "pr_offline", days_ago=120)
@@ -214,7 +231,8 @@ def test_sweep_short_circuits_when_cash_engine_disabled(
 
     captured = []
     result = scan_for_reengagement_triggers(
-        crm=fake_crm, review=_accepting_review_stub(captured),
+        crm=fake_crm,
+        review=_accepting_review_stub(captured),
     )
 
     assert result.scanned == 0
@@ -227,7 +245,10 @@ def test_sweep_short_circuits_when_cash_engine_disabled(
 
 
 def test_sweep_resurfaces_aged_not_interested_prospect(
-    armed, fake_state_root, fake_call_state_table, fake_crm,
+    armed,
+    fake_state_root,
+    fake_call_state_table,
+    fake_crm,
 ):
     """A not_interested CallState past the cooldown with an Opportunity
     fires exactly one review with trigger_source='reengagement'."""
@@ -238,7 +259,8 @@ def test_sweep_resurfaces_aged_not_interested_prospect(
 
     captured = []
     result = scan_for_reengagement_triggers(
-        now=_NOW, crm=fake_crm,
+        now=_NOW,
+        crm=fake_crm,
         review=_accepting_review_stub(captured),
     )
 
@@ -256,7 +278,10 @@ def test_sweep_resurfaces_aged_not_interested_prospect(
 
 
 def test_sweep_writes_counter_ledger_and_count_queued_today_ticks(
-    armed, fake_state_root, fake_call_state_table, fake_crm,
+    armed,
+    fake_state_root,
+    fake_call_state_table,
+    fake_crm,
 ):
     """A successful enqueue appends to the daily-counter ledger so the
     forge-ui HUD ``reengagement_queued_today`` field is non-zero."""
@@ -270,7 +295,8 @@ def test_sweep_writes_counter_ledger_and_count_queued_today_ticks(
 
     captured = []
     scan_for_reengagement_triggers(
-        now=_NOW, crm=fake_crm,
+        now=_NOW,
+        crm=fake_crm,
         review=_accepting_review_stub(captured),
     )
 
@@ -281,9 +307,7 @@ def test_sweep_writes_counter_ledger_and_count_queued_today_ticks(
     assert count_queued_today(today=today) == 1
 
     # Yesterday's bucket is empty (records belong to today only).
-    yesterday = (
-        _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(days=1)
-    ).strftime("%Y-%m-%d")
+    yesterday = (_dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(days=1)).strftime("%Y-%m-%d")
     assert count_queued_today(today=yesterday) == 0
 
 
@@ -300,7 +324,10 @@ def test_count_queued_today_returns_zero_on_missing_ledger(fake_state_root):
 
 
 def test_sweep_skips_within_cooldown(
-    armed, fake_state_root, fake_call_state_table, fake_crm,
+    armed,
+    fake_state_root,
+    fake_call_state_table,
+    fake_crm,
 ):
     """A not_interested row whose updated_at is INSIDE the cooldown is
     counted as ``skipped_within_cooldown`` and NOT enqueued."""
@@ -312,7 +339,8 @@ def test_sweep_skips_within_cooldown(
 
     captured = []
     result = scan_for_reengagement_triggers(
-        now=_NOW, crm=fake_crm,
+        now=_NOW,
+        crm=fake_crm,
         review=_accepting_review_stub(captured),
     )
 
@@ -323,18 +351,29 @@ def test_sweep_skips_within_cooldown(
     assert captured == []
 
 
-@pytest.mark.parametrize("in_flight_state", [
-    "outreach_sent", "queued", "dialing", "in_progress",
-])
+@pytest.mark.parametrize(
+    "in_flight_state",
+    [
+        "outreach_sent",
+        "queued",
+        "dialing",
+        "in_progress",
+    ],
+)
 def test_sweep_skips_in_flight_prospects(
-    armed, fake_state_root, fake_call_state_table, fake_crm,
+    armed,
+    fake_state_root,
+    fake_call_state_table,
+    fake_crm,
     in_flight_state,
 ):
     """A not_interested row whose CURRENT state is mid-flight (e.g. Kelly's
     parked outreach_sent) is skipped so we don't double-message."""
     _put_call_state(
-        fake_call_state_table, "pr_inflight",
-        days_ago=60, state=in_flight_state,
+        fake_call_state_table,
+        "pr_inflight",
+        days_ago=60,
+        state=in_flight_state,
     )
     fake_crm.add_opportunity_for("pr_inflight")
 
@@ -342,7 +381,8 @@ def test_sweep_skips_in_flight_prospects(
 
     captured = []
     result = scan_for_reengagement_triggers(
-        now=_NOW, crm=fake_crm,
+        now=_NOW,
+        crm=fake_crm,
         review=_accepting_review_stub(captured),
     )
 
@@ -355,7 +395,10 @@ def test_sweep_skips_in_flight_prospects(
 
 @pytest.mark.parametrize("hard_no_outcome", ["do_not_call", "disqualified"])
 def test_sweep_skips_hard_no_outcomes_defense_in_depth(
-    armed, fake_state_root, fake_call_state_table, fake_crm,
+    armed,
+    fake_state_root,
+    fake_call_state_table,
+    fake_crm,
     hard_no_outcome,
 ):
     """The scan filter is `last_outcome=="not_interested"`, but the
@@ -371,24 +414,28 @@ def test_sweep_skips_hard_no_outcomes_defense_in_depth(
     # bypass the filter by stamping the right value at scan time. Simplest:
     # put a row tagged with the hard-no AND a row tagged with the soft-no,
     # then confirm the hard-no never enqueues regardless of how filter works.
-    fake_call_state_table.put_item({
-        "prospect_id": "pr_hard_no",
-        "state": "completed",
-        "last_outcome": hard_no_outcome,
-        "updated_at": _stamp(60),
-        "attempt_count": 1,
-    })
+    fake_call_state_table.put_item(
+        {
+            "prospect_id": "pr_hard_no",
+            "state": "completed",
+            "last_outcome": hard_no_outcome,
+            "updated_at": _stamp(60),
+            "attempt_count": 1,
+        }
+    )
     # ALSO seed the eligibility check: a hard-no row that somehow tags itself
     # with last_outcome="not_interested" up top would leak into the loop;
     # simulate THAT by directly invoking the defence skip:
-    fake_call_state_table.put_item({
-        "prospect_id": "pr_soft_no",
-        "state": "completed",
-        # The scan filter sees "not_interested" and lets this row in...
-        "last_outcome": "not_interested",
-        "updated_at": _stamp(60),
-        "attempt_count": 1,
-    })
+    fake_call_state_table.put_item(
+        {
+            "prospect_id": "pr_soft_no",
+            "state": "completed",
+            # The scan filter sees "not_interested" and lets this row in...
+            "last_outcome": "not_interested",
+            "updated_at": _stamp(60),
+            "attempt_count": 1,
+        }
+    )
     fake_crm.add_opportunity_for("pr_hard_no")
     fake_crm.add_opportunity_for("pr_soft_no")
 
@@ -396,7 +443,8 @@ def test_sweep_skips_hard_no_outcomes_defense_in_depth(
 
     captured = []
     result = scan_for_reengagement_triggers(
-        now=_NOW, crm=fake_crm,
+        now=_NOW,
+        crm=fake_crm,
         review=_accepting_review_stub(captured),
     )
 
@@ -412,7 +460,10 @@ def test_sweep_skips_hard_no_outcomes_defense_in_depth(
 
 
 def test_sweep_defence_in_depth_skips_hard_no_even_if_filter_leaks(
-    armed, fake_state_root, monkeypatch, fake_crm,
+    armed,
+    fake_state_root,
+    monkeypatch,
+    fake_crm,
 ):
     """Simulate a malformed scan that leaks a hard-no row anyway (schema
     drift; bad filter expression). The in-loop defence pass must still
@@ -437,7 +488,8 @@ def test_sweep_defence_in_depth_skips_hard_no_even_if_filter_leaks(
 
     captured = []
     result = scan_for_reengagement_triggers(
-        now=_NOW, crm=fake_crm,
+        now=_NOW,
+        crm=fake_crm,
         review=_accepting_review_stub(captured),
     )
 
@@ -448,7 +500,10 @@ def test_sweep_defence_in_depth_skips_hard_no_even_if_filter_leaks(
 
 
 def test_sweep_skips_no_opportunity_prospects(
-    armed, fake_state_root, fake_call_state_table, fake_crm,
+    armed,
+    fake_state_root,
+    fake_call_state_table,
+    fake_crm,
 ):
     """A qualifying CallState whose prospect has no Opportunity is counted
     as ``skipped_no_opportunity`` — nothing to resurface."""
@@ -459,7 +514,8 @@ def test_sweep_skips_no_opportunity_prospects(
 
     captured = []
     result = scan_for_reengagement_triggers(
-        now=_NOW, crm=fake_crm,
+        now=_NOW,
+        crm=fake_crm,
         review=_accepting_review_stub(captured),
     )
 
@@ -476,7 +532,10 @@ def test_sweep_skips_no_opportunity_prospects(
 
 
 def test_sweep_honors_per_run_cap(
-    armed, fake_state_root, fake_call_state_table, fake_crm,
+    armed,
+    fake_state_root,
+    fake_call_state_table,
+    fake_crm,
 ):
     """When eligible candidates exceed max_per_run, the surplus is counted
     as ``capped`` and not enqueued."""
@@ -489,7 +548,9 @@ def test_sweep_honors_per_run_cap(
 
     captured = []
     result = scan_for_reengagement_triggers(
-        now=_NOW, crm=fake_crm, max_per_run=2,
+        now=_NOW,
+        crm=fake_crm,
+        max_per_run=2,
         review=_accepting_review_stub(captured),
     )
 
@@ -501,7 +562,10 @@ def test_sweep_honors_per_run_cap(
 
 
 def test_sweep_cooldown_override_lets_fresher_rows_through(
-    armed, fake_state_root, fake_call_state_table, fake_crm,
+    armed,
+    fake_state_root,
+    fake_call_state_table,
+    fake_crm,
 ):
     """An explicit shorter cooldown_days argument bypasses the default
     30-day window — useful for tests + operator-triggered ad-hoc runs."""
@@ -513,7 +577,9 @@ def test_sweep_cooldown_override_lets_fresher_rows_through(
 
     captured = []
     result = scan_for_reengagement_triggers(
-        now=_NOW, crm=fake_crm, cooldown_days=7,
+        now=_NOW,
+        crm=fake_crm,
+        cooldown_days=7,
         review=_accepting_review_stub(captured),
     )
 
@@ -530,7 +596,10 @@ def test_sweep_cooldown_override_lets_fresher_rows_through(
 
 
 def test_integration_log_not_interested_then_sweep_enqueues(
-    armed, fake_state_root, fake_call_state_table, fake_crm,
+    armed,
+    fake_state_root,
+    fake_call_state_table,
+    fake_crm,
 ):
     """End-to-end: an outcome upsert that lands ``last_outcome='not_interested'``
     into the (faked) call-state table, then a sweep run with the clock
@@ -543,14 +612,16 @@ def test_integration_log_not_interested_then_sweep_enqueues(
     # Step 1 — emulate ``backend.crm.service.upsert_call_state``: the only
     # field the sweep cares about is last_outcome + updated_at + state, so
     # we put the row directly through the persistence table.
-    fake_call_state_table.put_item({
-        "prospect_id": "pr_integration",
-        "state": "completed",
-        "last_outcome": "not_interested",
-        # Initially: 1 day ago (well inside the 30-day cooldown).
-        "updated_at": _stamp(1),
-        "attempt_count": 1,
-    })
+    fake_call_state_table.put_item(
+        {
+            "prospect_id": "pr_integration",
+            "state": "completed",
+            "last_outcome": "not_interested",
+            # Initially: 1 day ago (well inside the 30-day cooldown).
+            "updated_at": _stamp(1),
+            "attempt_count": 1,
+        }
+    )
     fake_crm.add_opportunity_for("pr_integration")
 
     from backend.crm.reengagement_sweep import scan_for_reengagement_triggers
@@ -559,7 +630,8 @@ def test_integration_log_not_interested_then_sweep_enqueues(
 
     # Step 2 — run the sweep AT THE LOG TIME: row is fresh -> skipped.
     result_now = scan_for_reengagement_triggers(
-        now=_NOW, crm=fake_crm,
+        now=_NOW,
+        crm=fake_crm,
         review=_accepting_review_stub(captured),
     )
     assert result_now.skipped_within_cooldown == 1
@@ -571,7 +643,8 @@ def test_integration_log_not_interested_then_sweep_enqueues(
     # ``now`` to the sweep).
     future = _NOW + _dt.timedelta(days=45)
     result_later = scan_for_reengagement_triggers(
-        now=future, crm=fake_crm,
+        now=future,
+        crm=fake_crm,
         review=_accepting_review_stub(captured),
     )
 

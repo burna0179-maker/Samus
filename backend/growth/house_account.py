@@ -23,6 +23,7 @@ Graceful: a missing / malformed profile file degrades to a minimal hardcoded
 default + a logged warning; this module never raises on load, so the loop still
 runs against the live domain.
 """
+
 from __future__ import annotations
 
 import logging
@@ -135,7 +136,8 @@ def _profile_from_dict(data: dict[str, Any]) -> BrandProfile:
         account_id=str(data.get("account_id", HOUSE_ACCOUNT_ID)) or HOUSE_ACCOUNT_ID,
         display_name=str(data.get("display_name", "HustleForge")) or "HustleForge",
         domain=str(data.get("domain", _DEFAULT_DOMAIN)) or _DEFAULT_DOMAIN,
-        wordpress_site=str(data.get("wordpress_site", _DEFAULT_WORDPRESS_SITE)) or _DEFAULT_WORDPRESS_SITE,
+        wordpress_site=str(data.get("wordpress_site", _DEFAULT_WORDPRESS_SITE))
+        or _DEFAULT_WORDPRESS_SITE,
         positioning=str(data.get("positioning", "")).strip(),
         origin_story=str(data.get("origin_story", "")).strip(),
         icp=str(data.get("icp", "")).strip(),

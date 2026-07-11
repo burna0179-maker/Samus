@@ -1,4 +1,5 @@
 """Service-tier fulfillment orchestrator. Mirrors backend/fulfill.py shape; handles scope-confirmation chain."""
+
 from __future__ import annotations
 
 import logging
@@ -67,6 +68,7 @@ class FulfillmentResult(BaseModel):
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -94,7 +96,9 @@ def _read_delivery_template(sku: ServiceSku) -> str:
         return ""
 
 
-def _email_body_for_scope(sku: ServiceSku, scope_markdown: str, customer_name: str = "") -> tuple[str, str]:
+def _email_body_for_scope(
+    sku: ServiceSku, scope_markdown: str, customer_name: str = ""
+) -> tuple[str, str]:
     """Plain-text + HTML body for the scope-confirmation email."""
     greeting = f"Hi {customer_name}," if customer_name else "Hi,"
     intro = (
@@ -106,12 +110,7 @@ def _email_body_for_scope(sku: ServiceSku, scope_markdown: str, customer_name: s
     )
     text = intro + scope_markdown + "\n\n-- Hustleforge\n"
     # Minimal HTML wrapper — pre-formatted so the markdown renders readable.
-    safe = (
-        scope_markdown
-        .replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-    )
+    safe = scope_markdown.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     html = (
         "<html><body>"
         f"<p>{greeting}</p>"
@@ -119,7 +118,7 @@ def _email_body_for_scope(sku: ServiceSku, scope_markdown: str, customer_name: s
         f"Below is the scope of work — please review and reply <strong>'confirm'</strong> "
         f"to start the SLA clock.</p>"
         "<pre style=\"font-family: Consolas, 'Courier New', monospace; "
-        "font-size: 13px; line-height: 1.45; white-space: pre-wrap;\">"
+        'font-size: 13px; line-height: 1.45; white-space: pre-wrap;">'
         f"{safe}"
         "</pre>"
         "<p>— Hustleforge</p>"
@@ -131,6 +130,7 @@ def _email_body_for_scope(sku: ServiceSku, scope_markdown: str, customer_name: s
 # ---------------------------------------------------------------------------
 # Orchestrator
 # ---------------------------------------------------------------------------
+
 
 def fulfill_service(
     *,
@@ -166,19 +166,32 @@ def fulfill_service(
 
     def _step(name: StepName, status: StepStatus, detail: str, t0: float) -> None:
         steps.append(FulfillStep(name=name, status=status, detail=detail, elapsed_ms=_ms_since(t0)))
-        _LOG.info("fulfill_service_step", extra={
-            "step": name, "status": status, "detail": detail,
-            "sku_id": sku_id, "email": email,
-        })
+        _LOG.info(
+            "fulfill_service_step",
+            extra={
+                "step": name,
+                "status": status,
+                "detail": detail,
+                "sku_id": sku_id,
+                "email": email,
+            },
+        )
 
     def _result(ok: bool) -> FulfillmentResult:
         return FulfillmentResult(
-            sku_id=sku_id, email=email, customer_id=customer_id,
-            prior_state=prior_state, final_state=final_state,
-            scope_path=scope_path, workflow_path=workflow_path,
+            sku_id=sku_id,
+            email=email,
+            customer_id=customer_id,
+            prior_state=prior_state,
+            final_state=final_state,
+            scope_path=scope_path,
+            workflow_path=workflow_path,
             email_message_id=email_message_id,
-            sla_deadline=sla_deadline, out_of_scope_reason=out_of_scope_reason,
-            ok=ok, steps=steps, ts=started,
+            sla_deadline=sla_deadline,
+            out_of_scope_reason=out_of_scope_reason,
+            ok=ok,
+            steps=steps,
+            ts=started,
         )
 
     # ---- 1. lookup sku ---------------------------------------------------
@@ -193,10 +206,12 @@ def fulfill_service(
     # ---- 2. find or create customer --------------------------------------
     if customer_store is None:
         from backend.memory.customers import CustomerStore
+
         customer_store = CustomerStore()
     if send_email_fn is None:
         from functools import partial
         from backend.common.email_backend import send_email as _real_send
+
         # Product fulfillment delivery is CAN-SPAM transactional/relationship
         # mail — tag it so the ComplianceGuard exempts it from the unsubscribe
         # + postal-address rules (suppression check still applies).
@@ -207,14 +222,25 @@ def fulfill_service(
         existing = customer_store.get_by_email(email)
         if existing is not None:
             customer = existing
-            _step("find_or_create_customer", "ok",
-                  f"found existing {customer.id} (state={customer.current_state})", t0)
+            _step(
+                "find_or_create_customer",
+                "ok",
+                f"found existing {customer.id} (state={customer.current_state})",
+                t0,
+            )
         else:
             customer = customer_store.create_customer(
-                email=email, name=name, company=company, source="fulfill_service",
+                email=email,
+                name=name,
+                company=company,
+                source="fulfill_service",
             )
-            _step("find_or_create_customer", "ok",
-                  f"created {customer.id} in state={customer.current_state}", t0)
+            _step(
+                "find_or_create_customer",
+                "ok",
+                f"created {customer.id} in state={customer.current_state}",
+                t0,
+            )
         customer_id = customer.id
         prior_state = customer.current_state
         final_state = customer.current_state
@@ -225,8 +251,12 @@ def fulfill_service(
     # ---- 3. advance to in_delivery --------------------------------------
     t0 = time.monotonic()
     if customer.current_state in ("delivered", "renewed", "churned"):
-        _step("advance_to_in_delivery", "skipped",
-              f"current_state={customer.current_state} already past in_delivery", t0)
+        _step(
+            "advance_to_in_delivery",
+            "skipped",
+            f"current_state={customer.current_state} already past in_delivery",
+            t0,
+        )
     elif customer.current_state == "in_delivery":
         _step("advance_to_in_delivery", "skipped", "already in_delivery", t0)
     else:
@@ -265,8 +295,12 @@ def fulfill_service(
         intake = dict(intake_payload or {})
         intake.setdefault("email", email)
         artifact = scope_planner.generate_scope(intake, sku.sku_id)
-        _step("generate_scope", "ok",
-              f"steps={artifact.estimated_steps} templates={artifact.estimated_templates}", t0)
+        _step(
+            "generate_scope",
+            "ok",
+            f"steps={artifact.estimated_steps} templates={artifact.estimated_templates}",
+            t0,
+        )
     except Exception as exc:
         _step("generate_scope", "failed", str(exc), t0)
         return _result(ok=False)
@@ -288,15 +322,24 @@ def fulfill_service(
         if reason:
             artifact.out_of_scope_reason = reason
             out_of_scope_reason = reason
-            _step("validate_scope_gates", "ok",
-                  f"OUT_OF_SCOPE: {reason} (continuing — scope doc flags it for operator review)", t0)
+            _step(
+                "validate_scope_gates",
+                "ok",
+                f"OUT_OF_SCOPE: {reason} (continuing — scope doc flags it for operator review)",
+                t0,
+            )
         else:
-            _step("validate_scope_gates", "ok",
-                  f"in_scope (steps={artifact.estimated_steps}, tools={len(artifact.plan.tools)}, "
-                  f"templates={artifact.estimated_templates})", t0)
+            _step(
+                "validate_scope_gates",
+                "ok",
+                f"in_scope (steps={artifact.estimated_steps}, tools={len(artifact.plan.tools)}, "
+                f"templates={artifact.estimated_templates})",
+                t0,
+            )
     else:
-        _step("validate_scope_gates", "skipped",
-              f"sku {sku.sku_id} does not enforce scope gates", t0)
+        _step(
+            "validate_scope_gates", "skipped", f"sku {sku.sku_id} does not enforce scope gates", t0
+        )
 
     # ---- 7. write scope artifact to disk --------------------------------
     t0 = time.monotonic()
@@ -336,18 +379,29 @@ def fulfill_service(
 
             settings = get_settings()
             if not bool(getattr(settings, "workflow_n8n_deliverable_enabled", True)):
-                _step("write_workflow_artifact", "skipped", "workflow_n8n_deliverable_enabled is off", t0)
+                _step(
+                    "write_workflow_artifact",
+                    "skipped",
+                    "workflow_n8n_deliverable_enabled is off",
+                    t0,
+                )
             else:
                 report = generate_workflow_deliverable(
                     artifact,
-                    out_dir=Path(scope_path).parent if scope_path else _scope_artifact_path(customer.id, sku.sku_id).parent,
+                    out_dir=Path(scope_path).parent
+                    if scope_path
+                    else _scope_artifact_path(customer.id, sku.sku_id).parent,
                     settings=settings,
                     sku=sku,
                 )
                 workflow_path = report.get("workflow_path")
-                _step("write_workflow_artifact", "ok",
-                      f"nodes={report.get('node_count')} valid={report.get('valid')} "
-                      f"deploy={report.get('deploy', {}).get('status')}", t0)
+                _step(
+                    "write_workflow_artifact",
+                    "ok",
+                    f"nodes={report.get('node_count')} valid={report.get('valid')} "
+                    f"deploy={report.get('deploy', {}).get('status')}",
+                    t0,
+                )
         except Exception as exc:  # noqa: BLE001 — additive deliverable, never fatal
             _step("write_workflow_artifact", "failed", f"{type(exc).__name__}: {exc}", t0)
     else:
@@ -360,7 +414,9 @@ def fulfill_service(
         try:
             # Customer-facing email contains scope_markdown only (no operator playbook).
             customer_md = scope_planner.render_scope_markdown(artifact, sku=sku)
-            text_body, html_body = _email_body_for_scope(sku, customer_md, customer_name=customer.name)
+            text_body, html_body = _email_body_for_scope(
+                sku, customer_md, customer_name=customer.name
+            )
             subject = f"Scope confirmation — {sku.display_name}"
             send_result = send_email_fn(
                 to=customer.email,
@@ -381,18 +437,14 @@ def fulfill_service(
     # ---- 9. advance to scope_confirmed ----------------------------------
     t0 = time.monotonic()
     try:
-        reason = (
-            f"fulfill_service[{sku_id}] scope email sent "
-            f"(msg_id={email_message_id or 'n/a'})"
-        )
+        reason = f"fulfill_service[{sku_id}] scope email sent (msg_id={email_message_id or 'n/a'})"
         event = customer_store.advance_state(
             customer_id=customer.id,
             to_state="scope_confirmed",
             reason=reason,
         )
         final_state = event.to_state
-        _step("advance_to_scope_confirmed", "ok",
-              f"{event.from_state} -> scope_confirmed", t0)
+        _step("advance_to_scope_confirmed", "ok", f"{event.from_state} -> scope_confirmed", t0)
     except Exception as exc:
         _step("advance_to_scope_confirmed", "failed", str(exc), t0)
         return _result(ok=False)

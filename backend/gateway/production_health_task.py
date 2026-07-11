@@ -37,6 +37,7 @@ in the ledger the notifier owns, so a duplicate driver at most produces
 a duplicate 'unchanged' log line), but the autonomous tripwire no longer
 depends on host-side scheduling or an interactive login.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -94,12 +95,15 @@ async def _production_health_loop(interval: float) -> None:
             elif action in ("alerted", "recovered"):
                 _LOG.info(
                     "production_health tick: %s (fp=%s to=%s)",
-                    action, fp, result.get("to"),
+                    action,
+                    fp,
+                    result.get("to"),
                 )
             elif action == "send_failed":
                 _LOG.warning(
                     "production_health tick: send_failed (fp=%s error=%s)",
-                    fp, result.get("error"),
+                    fp,
+                    result.get("error"),
                 )
             else:
                 # disabled | no_recipient | anything unexpected
@@ -123,7 +127,8 @@ async def start_production_health_loop(app: Any) -> Optional[asyncio.Task]:
         return existing
     interval = _interval_sec()
     task = asyncio.create_task(
-        _production_health_loop(interval), name="samus.production_health_loop",
+        _production_health_loop(interval),
+        name="samus.production_health_loop",
     )
     app.state.production_health_task = task
     _LOG.info("production_health loop started (interval=%.0fs)", interval)

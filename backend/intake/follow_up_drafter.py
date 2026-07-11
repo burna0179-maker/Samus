@@ -7,6 +7,7 @@ the List-Unsubscribe headers it would carry, and so a commercial follow-up
 already includes the postal address + unsubscribe footer. This pod returns a
 draft only; the decision to actually send stays with the operator.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -70,11 +71,18 @@ def draft_follow_up(
     ``unknown`` produce no outbound draft (send_recommended False). Never sends.
     """
     settings = get_settings()
-    subject = original_subject if original_subject.lower().startswith("re:") else f"Re: {original_subject}".strip()
+    subject = (
+        original_subject
+        if original_subject.lower().startswith("re:")
+        else f"Re: {original_subject}".strip()
+    )
 
     if intent == INTENT_OPT_OUT:
         return FollowUpDraft(
-            intent=intent, subject="", body="", send_recommended=False,
+            intent=intent,
+            subject="",
+            body="",
+            send_recommended=False,
             note="Honor opt-out — suppress the address and do not reply.",
         )
 
@@ -103,14 +111,16 @@ def draft_follow_up(
         body = (
             f"{_greeting(first_name)}\n\n"
             "Totally understand — thanks for letting me know. I'll close the "
-            "loop here. If anything changes down the road, the door's open.\n"
-            + _footer(settings)
+            "loop here. If anything changes down the road, the door's open.\n" + _footer(settings)
         )
         recommend = False  # low-priority courtesy; operator decides
         note = "Soft no — a courtesy close is optional; prospect stays re-approachable later."
     else:  # unknown
         return FollowUpDraft(
-            intent=intent, subject="", body="", send_recommended=False,
+            intent=intent,
+            subject="",
+            body="",
+            send_recommended=False,
             note="Intent unclear — manual review.",
         )
 

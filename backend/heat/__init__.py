@@ -21,6 +21,7 @@ the per-deal halt fan-out always run (they extend the existing SES halt loop to
 the actual SendGrid backend) — that is observability + opt-out hygiene, not an
 autonomous behavior change.
 """
+
 from __future__ import annotations
 
 __all__: list[str] = []

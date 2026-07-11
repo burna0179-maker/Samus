@@ -5,6 +5,7 @@ payload dict defensively (no raise on missing fields — sensible defaults) and
 returns a JSON-serializable dict. Dispatch stays DRY-RUN (it routes through
 ``adapters.dispatch_plan``, which honours ``SAMUS_SOCIAL_DRY_RUN``).
 """
+
 from __future__ import annotations
 
 from dataclasses import asdict

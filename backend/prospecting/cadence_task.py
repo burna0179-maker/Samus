@@ -40,6 +40,7 @@ convention so they are tunable without a settings field):
   * ``SAMUS_PROSPECTING_CADENCE_MAX_PER_ZIP`` — per-zip Places cap (default 25,
     the PS1 default).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -60,8 +61,13 @@ _DEFAULT_MAX_PER_ZIP = 25
 # (Tier A+B verticals derived from the workflow_rescue + ai_ops_partner
 # example docs). Operator override via SAMUS_PROSPECTING_CADENCE_INDUSTRIES.
 _DEFAULT_INDUSTRIES: tuple[str, ...] = (
-    "real estate agency", "dentist", "hvac contractor", "plumber",
-    "roofing contractor", "accounting firm", "car dealer",
+    "real estate agency",
+    "dentist",
+    "hvac contractor",
+    "plumber",
+    "roofing contractor",
+    "accounting firm",
+    "car dealer",
 )
 
 ENV_INTERVAL = "SAMUS_PROSPECTING_CADENCE_INTERVAL_SEC"
@@ -93,6 +99,7 @@ def _max_reticks() -> int:
         return max(0, int(os.environ.get(ENV_MAX_RETICKS, "") or _DEFAULT_MAX_RETICKS))
     except ValueError:
         return _DEFAULT_MAX_RETICKS
+
 
 # The flag this loop gates on. Name + binding live in
 # backend/common/config.py (Settings field) + settings.py (env) + the
@@ -127,9 +134,7 @@ def _interval_sec() -> float:
 
 def _initial_delay_sec() -> float:
     try:
-        return float(
-            os.environ.get(ENV_INITIAL_DELAY, "") or _DEFAULT_INITIAL_DELAY_SEC
-        )
+        return float(os.environ.get(ENV_INITIAL_DELAY, "") or _DEFAULT_INITIAL_DELAY_SEC)
     except ValueError:
         return _DEFAULT_INITIAL_DELAY_SEC
 
@@ -179,10 +184,12 @@ def _run_single_fire() -> dict[str, Any]:
     ring_label = state.current_ring_name()
 
     _LOG.info(
-        "prospecting cadence tick: ring='%s' (index %d/%d) zipcodes=%d "
-        "industries=%d",
-        ring_label, ring_idx, geo_ring.top_ring_index(),
-        len(zipcodes), len(industries),
+        "prospecting cadence tick: ring='%s' (index %d/%d) zipcodes=%d industries=%d",
+        ring_label,
+        ring_idx,
+        geo_ring.top_ring_index(),
+        len(zipcodes),
+        len(industries),
     )
 
     req = DiscoveryRequest(
@@ -207,7 +214,9 @@ def _run_single_fire() -> dict[str, Any]:
     # Stamp the run onto the geo-state + persist (ring/day/history), mirroring
     # the PS1 state-update tail. exit_code 0 == a completed fire.
     geo_ring.record_run(
-        state, exit_code=0, zipcodes_count=len(zipcodes),
+        state,
+        exit_code=0,
+        zipcodes_count=len(zipcodes),
     )
 
     # Ring exhaustion check: low FRESH yield means this territory has been
@@ -234,7 +243,8 @@ def _run_single_fire() -> dict[str, Any]:
                 "ring '%s' fire returned no businesses (prospect_count=0, "
                 "fresh=%d) — INCONCLUSIVE (quota/transport/empty); holding ring "
                 "instead of advancing to avoid burning rings via reticks",
-                ring_label, fresh,
+                ring_label,
+                fresh,
             )
         elif state.at_top_ring():
             state.current_ring = 0
@@ -243,14 +253,19 @@ def _run_single_fire() -> dict[str, Any]:
             _LOG.info(
                 "ring '%s' exhausted (fresh=%d < %d) at TOP ring — wrapped to "
                 "ring 0; recycle-cooldown expiry now drives re-qualification",
-                ring_label, fresh, _min_new_yield(),
+                ring_label,
+                fresh,
+                _min_new_yield(),
             )
         else:
             geo_ring.advance_ring(state)
             ring_action = f"advanced_to_{state.current_ring_name()}"
             _LOG.info(
                 "ring '%s' exhausted (fresh=%d < %d) — auto-advanced to '%s'",
-                ring_label, fresh, _min_new_yield(), state.current_ring_name(),
+                ring_label,
+                fresh,
+                _min_new_yield(),
+                state.current_ring_name(),
             )
     state_path = geo_ring.save_state(state)
 
@@ -270,10 +285,11 @@ def _run_single_fire() -> dict[str, Any]:
         "day_at_ring": state.days_at_ring,
     }
     _LOG.info(
-        "prospecting cadence fire complete: prospects=%d persisted=%d "
-        "csv=%s day_at_ring=%d",
-        result.prospect_count, result.persisted_count,
-        result.csv_path, state.days_at_ring,
+        "prospecting cadence fire complete: prospects=%d persisted=%d csv=%s day_at_ring=%d",
+        result.prospect_count,
+        result.persisted_count,
+        result.csv_path,
+        state.days_at_ring,
     )
     return summary
 
@@ -308,7 +324,9 @@ def run_prospecting_tick() -> dict[str, Any]:
         retick_count += 1
         _LOG.info(
             "prospecting re-tick %d/%d against '%s' (prior ring exhausted: %s)",
-            retick_count, _max_reticks(), _current_ring_label(),
+            retick_count,
+            _max_reticks(),
+            _current_ring_label(),
             summary["ring_action"],
         )
         try:
@@ -335,6 +353,7 @@ def _current_ring_label() -> str:
     """
     try:
         from . import geo_ring
+
         return geo_ring.load_state().current_ring_name()
     except Exception:  # noqa: BLE001
         return "?"
@@ -384,7 +403,8 @@ async def start_cadence_loop(app: Any) -> Optional[asyncio.Task]:
     app.state.prospecting_cadence_task = task
     _LOG.info(
         "prospecting cadence loop started (interval=%.0fs initial_delay=%.0fs)",
-        interval, initial_delay,
+        interval,
+        initial_delay,
     )
     return task
 

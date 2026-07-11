@@ -3,6 +3,7 @@
 Exposes the campaign config, orchestrator, and brand monitor for use by
 routes, cron hooks, and tests.
 """
+
 from __future__ import annotations
 
 from backend.marketing.brand_brief import (

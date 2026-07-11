@@ -11,6 +11,7 @@ Three concrete failure modes:
 * `CodexViolation` — a checked action was rejected. Carries the violated
   rule id, the human reason, and the path to the auto-drafted ADR stub.
 """
+
 from __future__ import annotations
 
 from pathlib import Path

@@ -4,6 +4,7 @@ Covers the operator-reported failure: the cumulative geo-ring re-promoted the
 same businesses as "new prospects" every day because nothing remembered who
 had already entered the pipeline.
 """
+
 from __future__ import annotations
 
 import json
@@ -43,9 +44,10 @@ def test_cooldown_expiry_requalifies(state_root):
     path = state_root / "daily_calls" / "promoted_prospects.jsonl"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
-        json.dumps({"ts": old_ts, "prospect_id": "aged"}) + "\n"
-        + json.dumps({"ts": datetime.now(timezone.utc).isoformat(),
-                      "prospect_id": "recent"}) + "\n",
+        json.dumps({"ts": old_ts, "prospect_id": "aged"})
+        + "\n"
+        + json.dumps({"ts": datetime.now(timezone.utc).isoformat(), "prospect_id": "recent"})
+        + "\n",
         encoding="utf-8",
     )
     assert recently_promoted_ids(within_days=30) == {"recent"}
@@ -57,8 +59,7 @@ def test_env_recycle_days(monkeypatch, state_root):
     ts8 = (datetime.now(timezone.utc) - timedelta(days=8)).isoformat()
     path = state_root / "daily_calls" / "promoted_prospects.jsonl"
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"ts": ts8, "prospect_id": "p8"}) + "\n",
-                    encoding="utf-8")
+    path.write_text(json.dumps({"ts": ts8, "prospect_id": "p8"}) + "\n", encoding="utf-8")
     assert recently_promoted_ids() == set()  # 8 days old > 7-day window
 
 
@@ -66,8 +67,7 @@ def test_garbage_rows_and_missing_file_degrade_to_empty(state_root):
     assert recently_promoted_ids() == set()
     path = state_root / "daily_calls" / "promoted_prospects.jsonl"
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("not-json\n{\"ts\": \"garbage\", \"prospect_id\": \"x\"}\n",
-                    encoding="utf-8")
+    path.write_text('not-json\n{"ts": "garbage", "prospect_id": "x"}\n', encoding="utf-8")
     assert recently_promoted_ids() == set()
 
 
@@ -83,8 +83,7 @@ def test_ever_promoted_ids_ignores_cooldown(state_root):
     old_ts = (datetime.now(timezone.utc) - timedelta(days=90)).isoformat()
     path = state_root / "daily_calls" / "promoted_prospects.jsonl"
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"ts": old_ts, "prospect_id": "ancient"}) + "\n",
-                    encoding="utf-8")
+    path.write_text(json.dumps({"ts": old_ts, "prospect_id": "ancient"}) + "\n", encoding="utf-8")
     from backend.prospecting.promotion_ledger import ever_promoted_ids
 
     assert ever_promoted_ids() == {"ancient"}
@@ -104,16 +103,29 @@ def test_touch_summary_digest_shape(monkeypatch):
 
     def fake_get(base, path, timeout=0):
         if "/crm/conversations" in path:
-            return _Resp(200, {"conversations": [
-                {"channel": "email", "ended_at": "2026-06-15T10:00:00Z",
-                 "outcome": "no_reply", "summary": "Sent SEO audit note"},
-                {"channel": "call", "ended_at": "2026-06-20T18:00:00Z",
-                 "outcome": "voicemail", "summary": ""},
-            ]})
-        return _Resp(200, {"last_outcome": "follow_up",
-                           "updated_at": "2026-06-21T09:00:00Z"})
+            return _Resp(
+                200,
+                {
+                    "conversations": [
+                        {
+                            "channel": "email",
+                            "ended_at": "2026-06-15T10:00:00Z",
+                            "outcome": "no_reply",
+                            "summary": "Sent SEO audit note",
+                        },
+                        {
+                            "channel": "call",
+                            "ended_at": "2026-06-20T18:00:00Z",
+                            "outcome": "voicemail",
+                            "summary": "",
+                        },
+                    ]
+                },
+            )
+        return _Resp(200, {"last_outcome": "follow_up", "updated_at": "2026-06-21T09:00:00Z"})
 
     import backend.common.http_client as hc
+
     monkeypatch.setattr(tc, "_crm_url", lambda: "http://x")
     monkeypatch.setattr(hc, "signed_get_json_sync", fake_get)
     out = tc.build_touch_summary("p1")
@@ -141,16 +153,18 @@ def test_recycled_voicemail_gets_followup_weave():
     from types import SimpleNamespace
 
     from backend.cash_engine.production_actuator import _default_draft_voicemail
+
     # Direct template text on the prospect so no callsheet import is needed.
     p = SimpleNamespace(
-        prospect_id="pr_x", recycled="true",
+        prospect_id="pr_x",
+        recycled="true",
         prior_touch_summary="prior touches: email 6/15 no_reply",
         callsheet_voicemail="Hi, this is [NAME] from HustleForge. Your site grades an F.",
     )
-    import backend.cash_engine.production_actuator as pa
     import backend.common.storage as storage
     import tempfile
     from pathlib import Path
+
     root = Path(tempfile.mkdtemp())
     old_root = storage.root
     storage.root = lambda: root
@@ -168,9 +182,13 @@ def test_recycled_voicemail_gets_followup_weave():
 def test_recycled_stake_sentence_is_followup_framed():
     from backend.outreach.morning_batch import _stake_sentence
 
-    row = {"company_name": "Acme Dental", "city": "Yuba City",
-           "recycled": "true", "last_contact_at": "2026-06-15T10:00:00Z",
-           "security_grade": "F"}
+    row = {
+        "company_name": "Acme Dental",
+        "city": "Yuba City",
+        "recycled": "true",
+        "last_contact_at": "2026-06-15T10:00:00Z",
+        "security_grade": "F",
+    }
     s = _stake_sentence(row)
     assert "follow up" in s.lower()
     assert "2026-06-15" in s

@@ -5,6 +5,7 @@ The FAQ LLM path fires the free local backend (LM Studio) whenever
 deterministic path or stub the LLM entrypoint (raise) so nothing here
 depends on a real LM Studio being reachable at test time.
 """
+
 from __future__ import annotations
 
 from backend.seo.geo_format import (

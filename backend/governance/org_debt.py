@@ -16,6 +16,7 @@ NOTE (single-agent reality): Samus is one agent of ~25 deterministically-
 orchestrated workcells, not a fleet with competing incentives, so this is an
 internal management signal, not an inter-agent trust market.
 """
+
 from __future__ import annotations
 
 import logging
@@ -34,7 +35,13 @@ __all__ = ["workcell_debt", "org_debt_report", "DEFAULT_WORKCELLS"]
 # The workcells the portfolio controller tracks by default — kept local so this
 # module does not hard-depend on the controller's import graph.
 DEFAULT_WORKCELLS = (
-    "prospecting", "outreach", "seo", "proposal", "crm", "finance", "voice",
+    "prospecting",
+    "outreach",
+    "seo",
+    "proposal",
+    "crm",
+    "finance",
+    "voice",
 )
 
 
@@ -44,6 +51,7 @@ def _karma_health(workcell: str, karma_store: Any | None) -> float:
         store = karma_store
         if store is None:
             from backend.governance.karma.store import get_store
+
             store = get_store()
         vec = store.load(workcell)
         dims = vec.dims()
@@ -59,6 +67,7 @@ def _budget_signals(workcell: str, budget_store: Any | None) -> tuple[float, flo
         store = budget_store
         if store is None:
             from backend.common.llm_budget import get_store
+
             store = get_store()
         b = store.snapshot(workcell)
         eff = float(getattr(b, "efficiency_ema", 1.0))
@@ -104,10 +113,7 @@ def org_debt_report(
 ) -> dict[str, Any]:
     """Debt score for each workcell, ranked most-indebted first."""
     cells = list(workcells) if workcells is not None else list(DEFAULT_WORKCELLS)
-    rows = [
-        workcell_debt(w, karma_store=karma_store, budget_store=budget_store)
-        for w in cells
-    ]
+    rows = [workcell_debt(w, karma_store=karma_store, budget_store=budget_store) for w in cells]
     rows.sort(key=lambda r: r["org_debt"], reverse=True)
     total = round(sum(r["org_debt"] for r in rows), 4)
     return {

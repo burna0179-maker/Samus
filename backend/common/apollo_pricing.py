@@ -25,6 +25,7 @@ Apollo endpoint that hasn't been classified.
 
 Sparse comments by design — the table itself is the spec.
 """
+
 from __future__ import annotations
 
 import logging
@@ -62,13 +63,15 @@ def usd_per_credit() -> float:
     except ValueError:
         _LOG.warning(
             "SAMUS_APOLLO_USD_PER_CREDIT not numeric (%r); using default $%.4f",
-            raw, _DEFAULT_USD_PER_CREDIT,
+            raw,
+            _DEFAULT_USD_PER_CREDIT,
         )
         return _DEFAULT_USD_PER_CREDIT
     if rate < 0:
         _LOG.warning(
             "SAMUS_APOLLO_USD_PER_CREDIT negative (%s); using default $%.4f",
-            rate, _DEFAULT_USD_PER_CREDIT,
+            rate,
+            _DEFAULT_USD_PER_CREDIT,
         )
         return _DEFAULT_USD_PER_CREDIT
     return rate

@@ -15,6 +15,7 @@ Every revenue-critical handoff re-validates through the Codex
 (:func:`backend.common.codex.validator.check_action`) — a blocked verdict
 halts that job and escalates, exactly like the front door.
 """
+
 from __future__ import annotations
 
 import logging
@@ -41,10 +42,10 @@ class StageContext:
     """Everything a stage handler needs to do its work."""
 
     state: CashEngineState
-    opportunity: Any           # crm Opportunity
-    prospect: Any              # crm Prospect | None
+    opportunity: Any  # crm Opportunity
+    prospect: Any  # crm Prospect | None
     stake_sentence: str
-    crm: Any                   # crm service module
+    crm: Any  # crm service module
     settings: Any = None
     # SIMULATE mode (HOTL T5): when True the external-effect stages
     # (outreach, deliver) return their PREDICTED effect + cost instead of
@@ -94,7 +95,9 @@ def codex_gate(
 
 def _blocked_result(stage: str, verdict: Verdict) -> StageResult:
     _LOG.info(
-        "cash_engine stage %s BLOCKED by Codex rule=%s", stage, verdict.violated_rule_id,
+        "cash_engine stage %s BLOCKED by Codex rule=%s",
+        stage,
+        verdict.violated_rule_id,
     )
     return StageResult(
         ok=False,
@@ -108,6 +111,7 @@ def _blocked_result(stage: str, verdict: Verdict) -> StageResult:
 # --------------------------------------------------------------------------
 # Default stage handlers
 # --------------------------------------------------------------------------
+
 
 def _audit_stage(ctx: StageContext) -> StageResult:
     """Gap Report — real, self-contained SEO audit on the prospect's site."""
@@ -128,24 +132,29 @@ def _audit_stage(ctx: StageContext) -> StageResult:
     if not verdict.allowed:
         return _blocked_result("audit", verdict)
 
-    artifact = ctx.crm.create_artifact(CreateArtifactRequest(
-        kind="seo_audit",
-        owner_entity_kind="opportunity",
-        owner_entity_id=ctx.opportunity.opportunity_id,
-        title=f"Gap Report: {url}",
-        inline_data={
-            "url": url,
+    artifact = ctx.crm.create_artifact(
+        CreateArtifactRequest(
+            kind="seo_audit",
+            owner_entity_kind="opportunity",
+            owner_entity_id=ctx.opportunity.opportunity_id,
+            title=f"Gap Report: {url}",
+            inline_data={
+                "url": url,
+                "seo_score": audit.seo_score,
+                "issue_count": len(audit.issues),
+                "evidence_sources": evidence,
+            },
+            source="cash_engine",
+            created_by="cash_engine",
+        )
+    )
+    return StageResult(
+        ok=True,
+        detail={
+            "gap_report_artifact_id": artifact.artifact_id,
             "seo_score": audit.seo_score,
-            "issue_count": len(audit.issues),
-            "evidence_sources": evidence,
         },
-        source="cash_engine",
-        created_by="cash_engine",
-    ))
-    return StageResult(ok=True, detail={
-        "gap_report_artifact_id": artifact.artifact_id,
-        "seo_score": audit.seo_score,
-    })
+    )
 
 
 def _proposal_stage(ctx: StageContext) -> StageResult:
@@ -171,31 +180,34 @@ def _proposal_stage(ctx: StageContext) -> StageResult:
     from backend.proposal.service import generate_proposal
 
     intake = synthesize_intake(
-        company_name=str(getattr(ctx.prospect, "company_name", "") or "")
-        or ctx.state.prospect_id,
+        company_name=str(getattr(ctx.prospect, "company_name", "") or "") or ctx.state.prospect_id,
         industry=str(getattr(ctx.prospect, "industry", "") or ""),
         business_description=str(getattr(ctx.prospect, "business_description", "") or ""),
         stake_sentence=ctx.stake_sentence,
     )
-    result = generate_proposal(ProposalRequest(
-        task_id=f"{ctx.state.task_id or ctx.opportunity.opportunity_id}-proposal",
-        intake=intake,
-    ))
+    result = generate_proposal(
+        ProposalRequest(
+            task_id=f"{ctx.state.task_id or ctx.opportunity.opportunity_id}-proposal",
+            intake=intake,
+        )
+    )
     total_steps = result.workflow.total_steps if result.workflow else 0
-    artifact = ctx.crm.create_artifact(CreateArtifactRequest(
-        kind="proposal",
-        owner_entity_kind="opportunity",
-        owner_entity_id=ctx.opportunity.opportunity_id,
-        title=f"Proposal: {intake.client_name}",
-        inline_data={
-            "status": result.status,
-            "stage": getattr(result.stage, "value", str(result.stage)),
-            "total_steps": total_steps,
-            "client_name": intake.client_name,
-        },
-        source="cash_engine",
-        created_by="cash_engine",
-    ))
+    artifact = ctx.crm.create_artifact(
+        CreateArtifactRequest(
+            kind="proposal",
+            owner_entity_kind="opportunity",
+            owner_entity_id=ctx.opportunity.opportunity_id,
+            title=f"Proposal: {intake.client_name}",
+            inline_data={
+                "status": result.status,
+                "stage": getattr(result.stage, "value", str(result.stage)),
+                "total_steps": total_steps,
+                "client_name": intake.client_name,
+            },
+            source="cash_engine",
+            created_by="cash_engine",
+        )
+    )
     # G-REC-001 (Gamma) / Beta-VALIDATED gate-1 2026-07-08: the proposal artifact
     # was created but the opportunity stage was never advanced, so the funnel
     # `proposal` counter + PROPOSAL_SENT event never fired (funnel showed
@@ -205,22 +217,29 @@ def _proposal_stage(ctx: StageContext) -> StageResult:
     # validate_transition('proposal','proposal') -> invalid_transition and
     # returns before the funnel emit (no double-count). Non-"advanced" outcomes
     # are logged, not raised — the artifact still stands and the stage is honest.
-    advance = ctx.crm.advance_opportunity(AdvanceOpportunityRequest(
-        opportunity_id=ctx.opportunity.opportunity_id,
-        target_stage="proposal",
-    ))
+    advance = ctx.crm.advance_opportunity(
+        AdvanceOpportunityRequest(
+            opportunity_id=ctx.opportunity.opportunity_id,
+            target_stage="proposal",
+        )
+    )
     if advance.status != "advanced":
         _LOG.info(
             "cash_engine proposal: opp %s not advanced to 'proposal' "
             "(status=%s prior=%s) — artifact %s still created",
-            ctx.opportunity.opportunity_id, advance.status,
-            getattr(advance, "prior_stage", ""), artifact.artifact_id,
+            ctx.opportunity.opportunity_id,
+            advance.status,
+            getattr(advance, "prior_stage", ""),
+            artifact.artifact_id,
         )
-    return StageResult(ok=True, detail={
-        "proposal_ref": artifact.artifact_id,
-        "proposal_status": result.status,
-        "opp_advanced": advance.status == "advanced",
-    })
+    return StageResult(
+        ok=True,
+        detail={
+            "proposal_ref": artifact.artifact_id,
+            "proposal_status": result.status,
+            "opp_advanced": advance.status == "advanced",
+        },
+    )
 
 
 def _contact_stage(ctx: StageContext) -> StageResult:
@@ -232,7 +251,9 @@ def _contact_stage(ctx: StageContext) -> StageResult:
 
     opp_id = ctx.opportunity.opportunity_id
     sheet = build_call_sheet(
-        ctx.prospect, stake_sentence=ctx.stake_sentence, opportunity_id=opp_id,
+        ctx.prospect,
+        stake_sentence=ctx.stake_sentence,
+        opportunity_id=opp_id,
     )
     voicemail = _voicemail(ctx.prospect, ctx.stake_sentence)
 
@@ -247,31 +268,39 @@ def _contact_stage(ctx: StageContext) -> StageResult:
         return _blocked_result("contact", verdict)
 
     sheet_fields = {
-        k: v for k, v in sheet.model_dump().items()
+        k: v
+        for k, v in sheet.model_dump().items()
         if k.startswith("callsheet") or k in ("company_name", "phone", "website_url")
     }
-    callsheet_art = ctx.crm.create_artifact(CreateArtifactRequest(
-        kind="call_sheet",
-        owner_entity_kind="opportunity",
-        owner_entity_id=opp_id,
-        title="Callsheet",
-        inline_data=sheet_fields,
-        source="cash_engine",
-        created_by="cash_engine",
-    ))
-    voicemail_art = ctx.crm.create_artifact(CreateArtifactRequest(
-        kind="voicemail",
-        owner_entity_kind="opportunity",
-        owner_entity_id=opp_id,
-        title="Voicemail script draft",
-        inline_data={"script": voicemail, "stake_sentence": ctx.stake_sentence},
-        source="cash_engine",
-        created_by="cash_engine",
-    ))
-    return StageResult(ok=True, detail={
-        "callsheet_artifact_id": callsheet_art.artifact_id,
-        "voicemail_artifact_id": voicemail_art.artifact_id,
-    })
+    callsheet_art = ctx.crm.create_artifact(
+        CreateArtifactRequest(
+            kind="call_sheet",
+            owner_entity_kind="opportunity",
+            owner_entity_id=opp_id,
+            title="Callsheet",
+            inline_data=sheet_fields,
+            source="cash_engine",
+            created_by="cash_engine",
+        )
+    )
+    voicemail_art = ctx.crm.create_artifact(
+        CreateArtifactRequest(
+            kind="voicemail",
+            owner_entity_kind="opportunity",
+            owner_entity_id=opp_id,
+            title="Voicemail script draft",
+            inline_data={"script": voicemail, "stake_sentence": ctx.stake_sentence},
+            source="cash_engine",
+            created_by="cash_engine",
+        )
+    )
+    return StageResult(
+        ok=True,
+        detail={
+            "callsheet_artifact_id": callsheet_art.artifact_id,
+            "voicemail_artifact_id": voicemail_art.artifact_id,
+        },
+    )
 
 
 def _outreach_stage(ctx: StageContext) -> StageResult:
@@ -299,13 +328,16 @@ def _outreach_stage(ctx: StageContext) -> StageResult:
     if ctx.dry_run:
         to = str(getattr(ctx.prospect, "email", "") or "").strip()
         would_send = bool(to)
-        return StageResult(ok=True, detail={
-            "dry_run": True,
-            "predicted_action": "outreach_send",
-            "would_send": would_send,
-            "recipient_present": would_send,
-            "predicted_cost_usd": 0.0001 if would_send else 0.0,
-        })
+        return StageResult(
+            ok=True,
+            detail={
+                "dry_run": True,
+                "predicted_action": "outreach_send",
+                "would_send": would_send,
+                "recipient_present": would_send,
+                "predicted_cost_usd": 0.0001 if would_send else 0.0,
+            },
+        )
 
     from backend.cash_engine.ring_cascade import cascade_from_email, is_email_cap_reached
 
@@ -315,19 +347,24 @@ def _outreach_stage(ctx: StageContext) -> StageResult:
     if is_email_cap_reached():
         _LOG.info("cash_engine outreach: daily email cap reached, cascading")
         cascade = cascade_from_email(
-            ctx.prospect, ctx.opportunity,
+            ctx.prospect,
+            ctx.opportunity,
             stake_sentence=ctx.stake_sentence,
             crm=ctx.crm,
             reason="email_daily_cap_reached",
         )
         if cascade.get("cascaded"):
-            return StageResult(ok=True, detail={
-                "ring_cascade": True,
-                "ring_cascade_reason": "email_daily_cap_reached",
-                **cascade.get("enrollment", {}),
-            })
+            return StageResult(
+                ok=True,
+                detail={
+                    "ring_cascade": True,
+                    "ring_cascade_reason": "email_daily_cap_reached",
+                    **cascade.get("enrollment", {}),
+                },
+            )
         return StageResult(
-            ok=False, parked=True,
+            ok=False,
+            parked=True,
             park_reason="all_outreach_rings_exhausted",
         )
 
@@ -339,7 +376,7 @@ def _outreach_stage(ctx: StageContext) -> StageResult:
     # this prospect after the cooldown. Route compose through the promotional
     # template so the recipient doesn't get a duplicate of the cold opener
     # they already declined.
-    is_reengagement = (ctx.state.trigger_source == "reengagement")
+    is_reengagement = ctx.state.trigger_source == "reengagement"
 
     from backend.outreach.cash_engine_entry import (
         OutreachStakeMissing,
@@ -363,37 +400,44 @@ def _outreach_stage(ctx: StageContext) -> StageResult:
     except OutreachStakeMissing as exc:
         _LOG.info("cash_engine outreach compose blocked: %s", exc)
         cascade = cascade_from_email(
-            ctx.prospect, ctx.opportunity,
+            ctx.prospect,
+            ctx.opportunity,
             stake_sentence=ctx.stake_sentence,
             crm=ctx.crm,
             reason=f"email_compose_blocked: {exc}",
         )
         if cascade.get("cascaded"):
-            return StageResult(ok=True, detail={
-                "ring_cascade": True,
-                "ring_cascade_reason": "email_compose_blocked",
-                **cascade.get("enrollment", {}),
-            })
+            return StageResult(
+                ok=True,
+                detail={
+                    "ring_cascade": True,
+                    "ring_cascade_reason": "email_compose_blocked",
+                    **cascade.get("enrollment", {}),
+                },
+            )
         return StageResult(
-            ok=False, parked=True,
+            ok=False,
+            parked=True,
             park_reason="all_outreach_rings_exhausted",
         )
 
     opp_id = ctx.opportunity.opportunity_id
-    draft = ctx.crm.create_artifact(CreateArtifactRequest(
-        kind="content_draft",
-        owner_entity_kind="opportunity",
-        owner_entity_id=opp_id,
-        title="Initial outreach draft",
-        inline_data={
-            "subject": packet["subject"],
-            "body": packet["body"],
-            "to": packet["to"],
-            "legitimacy_signal": legitimacy,
-        },
-        source="cash_engine",
-        created_by="cash_engine",
-    ))
+    draft = ctx.crm.create_artifact(
+        CreateArtifactRequest(
+            kind="content_draft",
+            owner_entity_kind="opportunity",
+            owner_entity_id=opp_id,
+            title="Initial outreach draft",
+            inline_data={
+                "subject": packet["subject"],
+                "body": packet["body"],
+                "to": packet["to"],
+                "legitimacy_signal": legitimacy,
+            },
+            source="cash_engine",
+            created_by="cash_engine",
+        )
+    )
 
     # Index this recipient so a future SES bounce/complaint on this address
     # resolves back to the deal (feedback -> halt). Best-effort; never blocks
@@ -401,6 +445,7 @@ def _outreach_stage(ctx: StageContext) -> StageResult:
     if packet.get("to"):
         try:
             from backend.common.recipient_index import record_recipient
+
             record_recipient(
                 email=packet["to"],
                 prospect_id=ctx.state.prospect_id,
@@ -418,14 +463,16 @@ def _outreach_stage(ctx: StageContext) -> StageResult:
     except Exception:  # noqa: BLE001 — optional prior state
         prior = None
     attempts = (getattr(prior, "attempt_count", 0) or 0) + 1
-    ctx.crm.upsert_call_state(CallState(
-        prospect_id=ctx.state.prospect_id,
-        state="outreach_sent",
-        attempt_count=attempts,
-        next_attempt_at=scheduled_for,
-        last_outcome="cash_engine: initial outreach drafted + scheduled",
-        notes=f"cash_engine outreach for opp {opp_id}",
-    ))
+    ctx.crm.upsert_call_state(
+        CallState(
+            prospect_id=ctx.state.prospect_id,
+            state="outreach_sent",
+            attempt_count=attempts,
+            next_attempt_at=scheduled_for,
+            last_outcome="cash_engine: initial outreach drafted + scheduled",
+            notes=f"cash_engine outreach for opp {opp_id}",
+        )
+    )
 
     # Live send behind the explicit flag AND a configured sender. Gate on
     # the ACTIVE backend's sender, not SES specifically: the stack's primary
@@ -435,9 +482,8 @@ def _outreach_stage(ctx: StageContext) -> StageResult:
     # routes through the email_backend selector.
     ref = draft.artifact_id
     settings = ctx.settings or get_settings()
-    _active_sender = (
-        str(getattr(settings, "ses_from_email", "") or "")
-        or str(getattr(settings, "sendgrid_from_email", "") or "")
+    _active_sender = str(getattr(settings, "ses_from_email", "") or "") or str(
+        getattr(settings, "sendgrid_from_email", "") or ""
     )
     # Heat Field safe-mode: when the reputation band is critical AND the field
     # is armed, pause autonomous live sends (the draft + follow-up are still
@@ -445,6 +491,7 @@ def _outreach_stage(ctx: StageContext) -> StageResult:
     _heat_paused = False
     try:
         from backend.heat import service as _heat
+
         _heat_paused = _heat.is_send_paused_now()
     except Exception:  # noqa: BLE001 — heat must never break the send path
         _heat_paused = False
@@ -453,15 +500,19 @@ def _outreach_stage(ctx: StageContext) -> StageResult:
     _chosen_arm = ""
     try:
         from backend.attribution.engine import build_arm_id, select_variant
+
         _tpl = "cash_engine_reengagement" if is_reengagement else "cash_engine_initial"
         _choice = select_variant([build_arm_id(_tpl)])
         _chosen_arm = _choice.arm_id or ""
     except Exception as exc:  # noqa: BLE001 — attribution must never block sends
         _LOG.debug("cash_engine arm selection skipped: %s", exc)
 
-    if (getattr(settings, "cash_engine_live_send_enabled", False)
-            and _active_sender and packet["to"]
-            and not _heat_paused):
+    if (
+        getattr(settings, "cash_engine_live_send_enabled", False)
+        and _active_sender
+        and packet["to"]
+        and not _heat_paused
+    ):
         # Render the vibrant HTML flyer for this prospect so the autonomous
         # send matches the morning_batch path (both now ship rich HTML, not
         # plain text). Fail-SOFT: any render fault leaves html_body empty and
@@ -470,6 +521,7 @@ def _outreach_stage(ctx: StageContext) -> StageResult:
         # promo emails were text-heavy; this closes the text-only leak on the
         # autonomous revenue path.)
         from backend.outreach.flyer import flyer_html_for
+
         _html_body = flyer_html_for(
             prospect_id=ctx.state.prospect_id,
             to_email=packet["to"],
@@ -482,30 +534,34 @@ def _outreach_stage(ctx: StageContext) -> StageResult:
             from backend.outreach.models import OutreachMessageRequest
             from backend.outreach.service import send_message
 
-            sent = send_message(OutreachMessageRequest(
-                prospect_id=ctx.state.prospect_id,
-                channel="email",
-                template_id=(
-                    "cash_engine_reengagement"
-                    if is_reengagement else "cash_engine_initial"
-                ),
-                body=packet["body"],
-                html_body=_html_body,
-                to=packet["to"],
-                subject=packet["subject"],
-                company=str(getattr(ctx.prospect, "company_name", "") or ""),
-                phone=str(getattr(ctx.prospect, "phone", "") or ""),
-                variant_arm_id=_chosen_arm,
-            ))
+            sent = send_message(
+                OutreachMessageRequest(
+                    prospect_id=ctx.state.prospect_id,
+                    channel="email",
+                    template_id=(
+                        "cash_engine_reengagement" if is_reengagement else "cash_engine_initial"
+                    ),
+                    body=packet["body"],
+                    html_body=_html_body,
+                    to=packet["to"],
+                    subject=packet["subject"],
+                    company=str(getattr(ctx.prospect, "company_name", "") or ""),
+                    phone=str(getattr(ctx.prospect, "phone", "") or ""),
+                    variant_arm_id=_chosen_arm,
+                )
+            )
             ref = str(sent.get("message_id") or ref)
         except Exception as exc:  # noqa: BLE001 — draft + schedule already durable
             _LOG.warning("cash_engine live send failed (draft retained): %s", exc)
 
-    return StageResult(ok=True, detail={
-        "outreach_scheduled_for": scheduled_for,
-        "outreach_ref": ref,
-        "variant_arm_id": _chosen_arm,
-    })
+    return StageResult(
+        ok=True,
+        detail={
+            "outreach_scheduled_for": scheduled_for,
+            "outreach_ref": ref,
+            "variant_arm_id": _chosen_arm,
+        },
+    )
 
 
 def _deliver_stage(ctx: StageContext) -> StageResult:
@@ -531,13 +587,16 @@ def _deliver_stage(ctx: StageContext) -> StageResult:
     # WebsiteBuildState. A won deal => would open a build (no direct $ cost;
     # the build's own spend is metered downstream).
     if ctx.dry_run:
-        return StageResult(ok=True, detail={
-            "dry_run": True,
-            "predicted_action": "website_deliver",
-            "would_open_build": True,
-            "stage": stage,
-            "predicted_cost_usd": 0.0,
-        })
+        return StageResult(
+            ok=True,
+            detail={
+                "dry_run": True,
+                "predicted_action": "website_deliver",
+                "would_open_build": True,
+                "stage": stage,
+                "predicted_cost_usd": 0.0,
+            },
+        )
 
     # Codex gate on the handoff to the website workcell (revenue-critical).
     verdict = codex_gate(
@@ -554,9 +613,7 @@ def _deliver_stage(ctx: StageContext) -> StageResult:
         "company_name": str(getattr(ctx.prospect, "company_name", "") or "")
         or str(getattr(opp, "company_name", "") or ctx.state.prospect_id),
         "industry": str(getattr(ctx.prospect, "industry", "") or ""),
-        "business_description": str(
-            getattr(ctx.prospect, "business_description", "") or ""
-        ),
+        "business_description": str(getattr(ctx.prospect, "business_description", "") or ""),
         "stake_sentence": ctx.stake_sentence,
         "source_opportunity_id": opp.opportunity_id,
     }
@@ -576,9 +633,12 @@ def _deliver_stage(ctx: StageContext) -> StageResult:
         _LOG.info("cash_engine deliver parked (builder disabled): %s", exc)
         return StageResult(ok=False, parked=True, park_reason="website_builder_disabled")
 
-    return StageResult(ok=True, detail={
-        "website_order_id": str(getattr(build, "order_id", "") or ""),
-    })
+    return StageResult(
+        ok=True,
+        detail={
+            "website_order_id": str(getattr(build, "order_id", "") or ""),
+        },
+    )
 
 
 # Stage name -> handler. Injectable wholesale in tests / future HTTP fan-out.

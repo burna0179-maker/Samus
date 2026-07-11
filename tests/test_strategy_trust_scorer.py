@@ -14,7 +14,6 @@ import pytest
 from backend.strategy.trust_scorer import (
     AccessTier,
     TrustInputs,
-    TrustResult,
     WEIGHTS,
     can_access,
     score_trust,

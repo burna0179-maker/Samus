@@ -35,6 +35,7 @@ CLI::
 
 PowerShell wrapper: ``scripts/Analyze-DialBatch.ps1`` (DPAPI VapiApiKey pull).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -148,6 +149,7 @@ def _load_banned_self_narration() -> tuple[str, ...]:
         from tests.test_voice_morgan_prompt_hardening import (  # noqa: PLC0415
             BANNED_SELF_NARRATION,
         )
+
         return tuple(BANNED_SELF_NARRATION)
     except Exception as exc:  # noqa: BLE001 — fail-soft
         _LOG.warning("could not import BANNED_SELF_NARRATION: %s", exc)
@@ -292,6 +294,7 @@ def analyze_call(
     dial-run artifact / call metadata) used only for the finding-leak guard.
     Never raises — a malformed call yields a best-effort 'other' row.
     """
+
     def _g(name: str, default: Any = None) -> Any:
         if isinstance(call, dict):
             return call.get(name, default)
@@ -317,7 +320,8 @@ def analyze_call(
     # live human engaged after a machine/hold greeting. Only machine-ish
     # ended-reasons are eligible — exactly the detector's own contract.
     was_gatekeeper, _gk_reason = gk.detect_human_engagement(
-        transcript, ended_reason=ended_reason,
+        transcript,
+        ended_reason=ended_reason,
     )
 
     # machine_menu: an IVR / press-key menu Vapi's AMD didn't flag as voicemail.
@@ -345,7 +349,9 @@ def analyze_call(
 
     leak_phrases = detect_reasoning_leak(transcript, banned=banned)
     finding_leak = detect_finding_leaked_to_gatekeeper(
-        transcript, finding, was_gatekeeper=was_gatekeeper,
+        transcript,
+        finding,
+        was_gatekeeper=was_gatekeeper,
     )
 
     return CallAudit(
@@ -376,8 +382,8 @@ class BatchMetrics:
     analyzed_ts: str
     total_calls: int
     outcome_distribution: dict[str, int] = field(default_factory=dict)
-    engagement_rate: float = 0.0          # engaged / total
-    live_contact_rate: float = 0.0        # reached_human / total
+    engagement_rate: float = 0.0  # engaged / total
+    live_contact_rate: float = 0.0  # reached_human / total
     gatekeeper_count: int = 0
     gatekeeper_handoff_success_rate: float = 0.0  # reached_owner / gatekeepers-seen
     median_time_to_hangup_s: float | None = None
@@ -386,7 +392,7 @@ class BatchMetrics:
     reasoning_leak_phrases: dict[str, int] = field(default_factory=dict)
     finding_leaked_to_gatekeeper_count: int = 0
     caller_id_distribution: dict[str, int] = field(default_factory=dict)
-    caller_id_skew: float = 0.0           # 0 == perfectly even, 1 == all on one
+    caller_id_skew: float = 0.0  # 0 == perfectly even, 1 == all on one
     total_cost: float = 0.0
 
 
@@ -422,9 +428,7 @@ def aggregate_batch(
     leak_count = sum(1 for a in audits if a.reasoning_leak_detected)
     finding_leak_count = sum(1 for a in audits if a.finding_leaked_to_gatekeeper)
 
-    caller_dist: Counter[str] = Counter(
-        a.caller_number_id or "(unknown)" for a in audits
-    )
+    caller_dist: Counter[str] = Counter(a.caller_number_id or "(unknown)" for a in audits)
     skew = _distribution_skew(caller_dist)
 
     total_cost = round(sum(a.cost for a in audits), 4)
@@ -471,7 +475,7 @@ class TrendDelta:
     metric: str
     previous: float | None
     current: float | None
-    direction: str          # "improved" | "regressed" | "flat"
+    direction: str  # "improved" | "regressed" | "flat"
     note: str = ""
 
 
@@ -489,7 +493,7 @@ _HIGHER_IS_BETTER: dict[str, bool] = {
     "engagement_rate": True,
     "live_contact_rate": True,
     "gatekeeper_handoff_success_rate": True,
-    "median_time_to_hangup_s": True,   # longer before hangup == better opener
+    "median_time_to_hangup_s": True,  # longer before hangup == better opener
     "reasoning_leak_count": False,
     "finding_leaked_to_gatekeeper_count": False,
     "caller_id_skew": False,
@@ -519,8 +523,11 @@ def compute_trend(current: BatchMetrics, prior: BatchMetrics | None) -> TrendRep
                 f"(gatekeeper-opener regression guard — must be 0)"
             )
         return TrendReport(
-            has_prior=False, prior_batch_id=None,
-            deltas=[], regressions=regressions, improvements=[],
+            has_prior=False,
+            prior_batch_id=None,
+            deltas=[],
+            regressions=regressions,
+            improvements=[],
         )
 
     deltas: list[TrendDelta] = []
@@ -551,8 +558,7 @@ def compute_trend(current: BatchMetrics, prior: BatchMetrics | None) -> TrendRep
     # Absolute hard-guards ALWAYS regress if non-zero, even if unchanged.
     if current.reasoning_leak_count > 0:
         msg = (
-            f"reasoning_leak_count={current.reasoning_leak_count} "
-            f"(P0 regression guard — must be 0)"
+            f"reasoning_leak_count={current.reasoning_leak_count} (P0 regression guard — must be 0)"
         )
         if msg not in regressions:
             regressions.append(msg)
@@ -580,7 +586,7 @@ def compute_trend(current: BatchMetrics, prior: BatchMetrics | None) -> TrendRep
 @dataclass
 class Remediation:
     metric: str
-    severity: int          # higher == more urgent
+    severity: int  # higher == more urgent
     what_to_fix: str
 
 
@@ -600,82 +606,93 @@ def next_remediations(
     # 1. Hard-guard leaks — always top priority.
     if current.reasoning_leak_count > 0:
         phrases = ", ".join(sorted(current.reasoning_leak_phrases)) or "banned phrases"
-        out.append(Remediation(
-            metric="reasoning_leak_count",
-            severity=100,
-            what_to_fix=(
-                f"Morgan narrated protocol aloud ({current.reasoning_leak_count}x: "
-                f"{phrases}). Re-run Sync-MorganAssistant.ps1 -Live to push the "
-                f"hardened OUTPUT CONTRACT; verify the prompt still bans these."
-            ),
-        ))
+        out.append(
+            Remediation(
+                metric="reasoning_leak_count",
+                severity=100,
+                what_to_fix=(
+                    f"Morgan narrated protocol aloud ({current.reasoning_leak_count}x: "
+                    f"{phrases}). Re-run Sync-MorganAssistant.ps1 -Live to push the "
+                    f"hardened OUTPUT CONTRACT; verify the prompt still bans these."
+                ),
+            )
+        )
     if current.finding_leaked_to_gatekeeper_count > 0:
-        out.append(Remediation(
-            metric="finding_leaked_to_gatekeeper_count",
-            severity=95,
-            what_to_fix=(
-                f"The withheld finding leaked to a gatekeeper "
-                f"({current.finding_leaked_to_gatekeeper_count}x). Reinforce the "
-                f"'reveal {{{{callsheet_finding}}}} only after owner confirmed' "
-                f"gate in the GATEKEEPER HANDLING section."
-            ),
-        ))
+        out.append(
+            Remediation(
+                metric="finding_leaked_to_gatekeeper_count",
+                severity=95,
+                what_to_fix=(
+                    f"The withheld finding leaked to a gatekeeper "
+                    f"({current.finding_leaked_to_gatekeeper_count}x). Reinforce the "
+                    f"'reveal {{{{callsheet_finding}}}} only after owner confirmed' "
+                    f"gate in the GATEKEEPER HANDLING section."
+                ),
+            )
+        )
 
     # 2. Regressed metrics from the trend.
     for delta in trend.deltas:
         if delta.direction != "regressed":
             continue
-        out.append(Remediation(
-            metric=delta.metric,
-            severity=70,
-            what_to_fix=_fix_hint(delta.metric, delta.current, delta.previous),
-        ))
+        out.append(
+            Remediation(
+                metric=delta.metric,
+                severity=70,
+                what_to_fix=_fix_hint(delta.metric, delta.current, delta.previous),
+            )
+        )
 
     # 3. Weak absolutes (independent of trend) — surface even on the first batch.
     if current.total_calls > 0:
         if current.live_contact_rate < 0.25:
-            out.append(Remediation(
-                metric="live_contact_rate",
-                severity=50,
-                what_to_fix=(
-                    f"Only {current.live_contact_rate:.0%} of dials reached a human. "
-                    f"Check call-hours windowing + number reputation; consider "
-                    f"tightening the dial list to answered-before segments."
-                ),
-            ))
-        if (
-            current.median_time_to_hangup_s is not None
-            and current.median_time_to_hangup_s < 15.0
-        ):
-            out.append(Remediation(
-                metric="median_time_to_hangup_s",
-                severity=45,
-                what_to_fix=(
-                    f"Median live hangup at {current.median_time_to_hangup_s}s — "
-                    f"the opener is losing people fast. Iterate firstMessage "
-                    f"(hook + honesty) and A/B the first 10 seconds."
-                ),
-            ))
+            out.append(
+                Remediation(
+                    metric="live_contact_rate",
+                    severity=50,
+                    what_to_fix=(
+                        f"Only {current.live_contact_rate:.0%} of dials reached a human. "
+                        f"Check call-hours windowing + number reputation; consider "
+                        f"tightening the dial list to answered-before segments."
+                    ),
+                )
+            )
+        if current.median_time_to_hangup_s is not None and current.median_time_to_hangup_s < 15.0:
+            out.append(
+                Remediation(
+                    metric="median_time_to_hangup_s",
+                    severity=45,
+                    what_to_fix=(
+                        f"Median live hangup at {current.median_time_to_hangup_s}s — "
+                        f"the opener is losing people fast. Iterate firstMessage "
+                        f"(hook + honesty) and A/B the first 10 seconds."
+                    ),
+                )
+            )
         if current.gatekeeper_count > 0 and current.gatekeeper_handoff_success_rate < 0.5:
-            out.append(Remediation(
-                metric="gatekeeper_handoff_success_rate",
-                severity=40,
-                what_to_fix=(
-                    f"Gatekeeper -> owner handoff succeeded only "
-                    f"{current.gatekeeper_handoff_success_rate:.0%} of the time. "
-                    f"Strengthen the 'who handles the website' ask + owner_name use."
-                ),
-            ))
+            out.append(
+                Remediation(
+                    metric="gatekeeper_handoff_success_rate",
+                    severity=40,
+                    what_to_fix=(
+                        f"Gatekeeper -> owner handoff succeeded only "
+                        f"{current.gatekeeper_handoff_success_rate:.0%} of the time. "
+                        f"Strengthen the 'who handles the website' ask + owner_name use."
+                    ),
+                )
+            )
         if current.caller_id_skew > 0.5:
-            out.append(Remediation(
-                metric="caller_id_skew",
-                severity=35,
-                what_to_fix=(
-                    f"Caller-ID rotation is skewed ({current.caller_id_skew:.0%}). "
-                    f"One number is carrying most of the volume — verify all "
-                    f"phone_number_ids in the pool are active (GET /phone-number)."
-                ),
-            ))
+            out.append(
+                Remediation(
+                    metric="caller_id_skew",
+                    severity=35,
+                    what_to_fix=(
+                        f"Caller-ID rotation is skewed ({current.caller_id_skew:.0%}). "
+                        f"One number is carrying most of the volume — verify all "
+                        f"phone_number_ids in the pool are active (GET /phone-number)."
+                    ),
+                )
+            )
 
     # De-dup by metric (keep highest severity), sort, cap.
     best: dict[str, Remediation] = {}
@@ -689,13 +706,13 @@ def next_remediations(
 def _fix_hint(metric: str, cur: float | None, prev: float | None) -> str:
     hints = {
         "engagement_rate": "Engagement dropped — review recent transcripts for a "
-                           "new objection or a script change that stopped landing.",
+        "new objection or a script change that stopped landing.",
         "live_contact_rate": "Fewer humans reached — check number reputation + "
-                            "call-hours windowing.",
+        "call-hours windowing.",
         "gatekeeper_handoff_success_rate": "Handoffs converting worse — refine the "
-                            "gatekeeper ask for the decision-maker.",
+        "gatekeeper ask for the decision-maker.",
         "median_time_to_hangup_s": "People hanging up faster — the opener regressed; "
-                            "revert or re-tune firstMessage.",
+        "revert or re-tune firstMessage.",
         "caller_id_skew": "Rotation got lumpier — confirm all pool numbers are live.",
     }
     base = hints.get(metric, f"{metric} regressed.")
@@ -805,9 +822,7 @@ def _findings_by_call_id(dial_run: dict[str, Any]) -> dict[str, str]:
 
 def _since_epoch(since_ts: str) -> float | None:
     try:
-        return datetime.fromisoformat(
-            since_ts.replace("Z", "+00:00")
-        ).timestamp()
+        return datetime.fromisoformat(since_ts.replace("Z", "+00:00")).timestamp()
     except (ValueError, TypeError):
         return None
 
@@ -830,6 +845,7 @@ def _finding_from_call(call: Any) -> str:
     can recover the withheld finding without the dial-run carrying it. Best-
     effort; returns "" when absent.
     """
+
     def _g(name: str) -> Any:
         return call.get(name) if isinstance(call, dict) else getattr(call, name, None)
 
@@ -923,6 +939,7 @@ def _scope_calls(
     since_ts: str | None,
 ) -> list[Any]:
     """Restrict the pulled calls to the batch under audit."""
+
     def _cid(c: Any) -> str:
         return str(c.get("id") if isinstance(c, dict) else getattr(c, "id", "") or "")
 
@@ -973,13 +990,10 @@ def surface_learning_notes(audits: list[CallAudit]) -> list[str]:
 
     gk_leaks = sum(1 for a in audits if a.finding_leaked_to_gatekeeper)
     if gk_leaks:
-        notes.append(
-            f"[FINDING-LEAK x{gk_leaks}] withheld finding revealed to a gatekeeper"
-        )
+        notes.append(f"[FINDING-LEAK x{gk_leaks}] withheld finding revealed to a gatekeeper")
 
     fast_hangups = [
-        a for a in audits
-        if a.time_to_hangup_s is not None and a.time_to_hangup_s < 15.0
+        a for a in audits if a.time_to_hangup_s is not None and a.time_to_hangup_s < 15.0
     ]
     if len(fast_hangups) >= 2:
         notes.append(
@@ -1025,10 +1039,14 @@ def render_report(result: BatchResult) -> str:
     lines.append(f"  gatekeeper_handoff_success {m.gatekeeper_handoff_success_rate:.0%}")
     lines.append(f"  median_time_to_hangup_s    {m.median_time_to_hangup_s}")
     lines.append(f"  mean_time_to_hangup_s      {m.mean_time_to_hangup_s}")
-    lines.append(f"  reasoning_leak_count       {m.reasoning_leak_count}"
-                 + ("  <-- P0 REGRESSION" if m.reasoning_leak_count else "  (clean)"))
-    lines.append(f"  finding_leaked_to_gk       {m.finding_leaked_to_gatekeeper_count}"
-                 + ("  <-- REGRESSION" if m.finding_leaked_to_gatekeeper_count else "  (clean)"))
+    lines.append(
+        f"  reasoning_leak_count       {m.reasoning_leak_count}"
+        + ("  <-- P0 REGRESSION" if m.reasoning_leak_count else "  (clean)")
+    )
+    lines.append(
+        f"  finding_leaked_to_gk       {m.finding_leaked_to_gatekeeper_count}"
+        + ("  <-- REGRESSION" if m.finding_leaked_to_gatekeeper_count else "  (clean)")
+    )
     lines.append(f"  caller_id_skew             {m.caller_id_skew:.0%}")
     lines.append(f"  total_cost                 ${m.total_cost:.2f}")
     if m.caller_id_distribution:
@@ -1044,8 +1062,7 @@ def render_report(result: BatchResult) -> str:
         lines.append(f"  prior: {result.trend.prior_batch_id}")
         for d in result.trend.deltas:
             arrow = {"improved": "^", "regressed": "v", "flat": "="}[d.direction]
-            lines.append(f"    {arrow} {d.metric}: {d.previous} -> {d.current} "
-                         f"({d.direction})")
+            lines.append(f"    {arrow} {d.metric}: {d.previous} -> {d.current} ({d.direction})")
     if result.trend.improvements:
         lines.append(f"  improvements: {len(result.trend.improvements)}")
     if result.trend.regressions:
@@ -1128,7 +1145,8 @@ def _write_alert_artifact(result: "BatchResult") -> None:
         # illegal on Windows).
         safe_id = re.sub(r"[^A-Za-z0-9._-]", "_", m.batch_id)
         (d / f"alert_{safe_id}.json").write_text(
-            json.dumps(payload, indent=2, default=str), encoding="utf-8")
+            json.dumps(payload, indent=2, default=str), encoding="utf-8"
+        )
     except OSError as exc:
         _LOG.warning("audit alert artifact write failed: %s", exc)
 
@@ -1159,13 +1177,13 @@ def autonomous_audit(
             append_batch(result.metrics)
         _write_report_artifact(result)
         m = result.metrics
-        if alert and (m.reasoning_leak_count > 0
-                      or m.finding_leaked_to_gatekeeper_count > 0):
+        if alert and (m.reasoning_leak_count > 0 or m.finding_leaked_to_gatekeeper_count > 0):
             _write_alert_artifact(result)
             _LOG.warning(
                 "AUTONOMOUS AUDIT P0 REGRESSION: batch=%s reasoning_leaks=%d "
                 "finding_leaks=%d — see audit_alerts/",
-                m.batch_id, m.reasoning_leak_count,
+                m.batch_id,
+                m.reasoning_leak_count,
                 m.finding_leaked_to_gatekeeper_count,
             )
         return result
@@ -1181,17 +1199,24 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m backend.voice.call_batch_analyzer",
         description="Post-batch call auditor — outcomes, leaks, trend, and the "
-                    "next thing to fix. Read-only Vapi (GET /call).",
+        "next thing to fix. Read-only Vapi (GET /call).",
     )
-    parser.add_argument("--since", metavar="ISO",
-                        help="Only audit calls created at/after this ISO timestamp.")
-    parser.add_argument("--dial-run", metavar="PATH",
-                        help="Path to a dial_run_<id>.json artifact to scope the "
-                             "batch to its placed call_ids.")
-    parser.add_argument("--no-persist", action="store_true",
-                        help="Do not append to the durable trend store (preview).")
-    parser.add_argument("--json", action="store_true",
-                        help="Emit the batch metrics as JSON instead of a report.")
+    parser.add_argument(
+        "--since", metavar="ISO", help="Only audit calls created at/after this ISO timestamp."
+    )
+    parser.add_argument(
+        "--dial-run",
+        metavar="PATH",
+        help="Path to a dial_run_<id>.json artifact to scope the batch to its placed call_ids.",
+    )
+    parser.add_argument(
+        "--no-persist",
+        action="store_true",
+        help="Do not append to the durable trend store (preview).",
+    )
+    parser.add_argument(
+        "--json", action="store_true", help="Emit the batch metrics as JSON instead of a report."
+    )
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -1212,8 +1237,10 @@ def main(argv: list[str] | None = None) -> int:
         print(render_report(result))
 
     # Non-zero exit on a hard-guard regression so a scheduled run can alert.
-    if (result.metrics.reasoning_leak_count > 0
-            or result.metrics.finding_leaked_to_gatekeeper_count > 0):
+    if (
+        result.metrics.reasoning_leak_count > 0
+        or result.metrics.finding_leaked_to_gatekeeper_count > 0
+    ):
         return 3
     return 0
 

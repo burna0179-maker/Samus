@@ -6,6 +6,7 @@ Backfills end_of_call events for today's initiated dials whose Vapi
 end-of-call-report webhook never arrived. Safe to run repeatedly
 (idempotent) and on a schedule. One JSON line of summary on stdout.
 """
+
 from __future__ import annotations
 
 import json
@@ -67,8 +68,12 @@ def main(argv: list[str] | None = None) -> int:
         closes = scan_recent()
         if closes:
             summary["closes_queued"] = [
-                {"company": c.company, "product": c.product_name,
-                 "price": c.product_price, "needs_email": c.needs_email}
+                {
+                    "company": c.company,
+                    "product": c.product_name,
+                    "price": c.product_price,
+                    "needs_email": c.needs_email,
+                }
                 for c in closes
             ]
     except Exception:  # noqa: BLE001 — additive, never blocks reconcile

@@ -11,6 +11,7 @@ complete BrandBrief.
 
 ASCII-only output. No new external dependencies.
 """
+
 from __future__ import annotations
 
 import json
@@ -18,7 +19,6 @@ import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 from backend.common.dates import iso_now
 from backend.common.llm_client import (
@@ -44,8 +44,7 @@ _HARDCODED_DONT_SAY: tuple[str, ...] = (
     "internal agent names (Darwin, Anita, Optimus, Major, Sapphire, Samus)",
     "internal infrastructure terms (Agora, deliberation hub, stake sentence, "
     "audit chain, broker, ledger, governance hook, escalation queue)",
-    "specific dates, incident timelines, production-readiness milestones, or "
-    "deployment history",
+    "specific dates, incident timelines, production-readiness milestones, or deployment history",
     "first-person 'we run this on ourselves' / 'client zero' framing",
     "revolutionary, cutting-edge, world-class, game-changing, magical, "
     "set-and-forget, no-oversight",
@@ -60,16 +59,17 @@ _HARDCODED_DONT_SAY: tuple[str, ...] = (
 @dataclass
 class BrandBrief:
     """Structured brand brief consumed by downstream content generators."""
+
     brand: str
-    one_liner: str               # 1-sentence elevator pitch (<=160 chars)
-    positioning: str             # 60-120 word problem/mechanism/outcome
+    one_liner: str  # 1-sentence elevator pitch (<=160 chars)
+    positioning: str  # 60-120 word problem/mechanism/outcome
     voice_attributes: list[str]  # 3-5 short adjectives
-    target_audience: str         # 1-2 sentences naming the buyer
-    differentiators: list[str]   # 3-5 single-line bullets
-    proof_points: list[str]      # 3-6 concrete claims (stats / dates / artifacts)
-    key_messages: list[str]      # 3-5 messages every channel should land
-    do_say: list[str]            # 3-6 phrases / topics to lean into
-    dont_say: list[str]          # 3-5 phrases / topics to avoid
+    target_audience: str  # 1-2 sentences naming the buyer
+    differentiators: list[str]  # 3-5 single-line bullets
+    proof_points: list[str]  # 3-6 concrete claims (stats / dates / artifacts)
+    key_messages: list[str]  # 3-5 messages every channel should land
+    do_say: list[str]  # 3-6 phrases / topics to lean into
+    dont_say: list[str]  # 3-5 phrases / topics to avoid
     tagline_candidates: list[str] = field(default_factory=list)
     used_llm: bool = False
     llm_cost_usd: float = 0.0
@@ -107,8 +107,8 @@ def _template_brief(
     )
     voice = ["direct", "practical", "systems-focused", "plain-language"]
     audience = (
-        f"Operators of small teams that are losing time to manual handoffs, "
-        f"broken processes, and tools that do not talk to each other."
+        "Operators of small teams that are losing time to manual handoffs, "
+        "broken processes, and tools that do not talk to each other."
     )
     differentiators = [
         "Connects existing tools instead of replacing them",
@@ -118,9 +118,9 @@ def _template_brief(
     ]
     proof_points = list(extra_facts[:8])
     key_messages = [
-        f"Replace manual work with systems that run automatically",
-        f"Connect systems so execution stops breaking at handoffs",
-        f"Make automation provable through measurable outcomes",
+        "Replace manual work with systems that run automatically",
+        "Connect systems so execution stops breaking at handoffs",
+        "Make automation provable through measurable outcomes",
     ]
     if kws:
         key_messages.append(f"Apply {kws[0]} where it removes the most friction first")
@@ -236,7 +236,9 @@ def _parse_brief_text(text: str, brand: str) -> BrandBrief:
         key_messages=req_list("key_messages", 3),
         do_say=req_list("do_say", 3),
         dont_say=req_list("dont_say", 3),
-        tagline_candidates=[str(x).strip() for x in (parsed.get("tagline_candidates") or []) if str(x).strip()],
+        tagline_candidates=[
+            str(x).strip() for x in (parsed.get("tagline_candidates") or []) if str(x).strip()
+        ],
         ts=iso_now(),
     )
 
@@ -244,6 +246,7 @@ def _parse_brief_text(text: str, brand: str) -> BrandBrief:
 def _price_brief_usage(usage: dict[str, int] | None) -> float:
     try:
         from backend.common.llm_pricing import cost_from_usage
+
         return cost_from_usage(_ANTHROPIC_MODEL, usage)
     except Exception as exc:  # noqa: BLE001
         _LOG.debug("brand brief llm cost pricing skipped: %s", exc)
@@ -282,7 +285,8 @@ def generate_brand_brief(
     except BudgetExceeded as exc:
         _LOG.info(
             "brand brief budget denied workcell=%s reason=%s; falling back to template",
-            _BUDGET_WORKCELL, exc.decision.reason,
+            _BUDGET_WORKCELL,
+            exc.decision.reason,
         )
         return _template_brief(campaign, facts)
     except LlmCallError as exc:
@@ -323,6 +327,7 @@ def _brief_dir(campaign_id: str) -> Path:
     """Resolve the on-disk directory for ``campaign_id``'s brief."""
     try:
         from backend.common import storage
+
         base = storage.root()
     except Exception:  # noqa: BLE001
         base = Path(os.getenv("SAMUS_ARTIFACT_ROOT", os.getenv("SAMUS_DATA_ROOT", "data")))
@@ -428,46 +433,91 @@ import re as _re
 # range and leave the rest naked ("30-[STAT: time duration]").
 _SCRUB_PATTERNS: tuple[tuple[_re.Pattern[str], str], ...] = (
     # ---- Ranges (must precede single-side patterns) ----
-    (_re.compile(r"\$\s?\d+(?:[.,]\d+)?\s*(?:to|-)\s*\$?\s?\d+(?:[.,]\d+)?(?:\s*(?:k|m|mo|/mo|/month|/year|monthly|annually|per\s+month|per\s+user))?", _re.IGNORECASE),
-     "[STAT: dollar amount]"),
-    (_re.compile(r"\b\d+(?:\.\d+)?\s*(?:to|-)\s*\d+(?:\.\d+)?\s*(?:hours?|hrs?|minutes?|mins?|seconds?|days?|weeks?|months?|quarters?|years?)\b", _re.IGNORECASE),
-     "[STAT: time duration]"),
-    (_re.compile(r"\b\d+(?:\.\d+)?\s*(?:to|-)\s*\d+(?:\.\d+)?\s*%", _re.IGNORECASE),
-     "[STAT: percentage]"),
-    (_re.compile(r"\b\d+\s*(?:to|-)\s*\d+\s+(?:teams?|customers?|clients?|users?|businesses?|companies|operators?|founders?|tools?|platforms?|integrations?|tasks?)", _re.IGNORECASE),
-     "[STAT: count range]"),
+    (
+        _re.compile(
+            r"\$\s?\d+(?:[.,]\d+)?\s*(?:to|-)\s*\$?\s?\d+(?:[.,]\d+)?(?:\s*(?:k|m|mo|/mo|/month|/year|monthly|annually|per\s+month|per\s+user))?",
+            _re.IGNORECASE,
+        ),
+        "[STAT: dollar amount]",
+    ),
+    (
+        _re.compile(
+            r"\b\d+(?:\.\d+)?\s*(?:to|-)\s*\d+(?:\.\d+)?\s*(?:hours?|hrs?|minutes?|mins?|seconds?|days?|weeks?|months?|quarters?|years?)\b",
+            _re.IGNORECASE,
+        ),
+        "[STAT: time duration]",
+    ),
+    (
+        _re.compile(r"\b\d+(?:\.\d+)?\s*(?:to|-)\s*\d+(?:\.\d+)?\s*%", _re.IGNORECASE),
+        "[STAT: percentage]",
+    ),
+    (
+        _re.compile(
+            r"\b\d+\s*(?:to|-)\s*\d+\s+(?:teams?|customers?|clients?|users?|businesses?|companies|operators?|founders?|tools?|platforms?|integrations?|tasks?)",
+            _re.IGNORECASE,
+        ),
+        "[STAT: count range]",
+    ),
     # Generic numeric range as last-resort range catch
-    (_re.compile(r"\b\d+\s*(?:to|-)\s*\d+\b", _re.IGNORECASE),
-     "[STAT: range]"),
-
+    (_re.compile(r"\b\d+\s*(?:to|-)\s*\d+\b", _re.IGNORECASE), "[STAT: range]"),
     # ---- Single-side ----
-    (_re.compile(r"\b\d+(?:\.\d+)?\s*%", _re.IGNORECASE),
-     "[STAT: percentage]"),
-    (_re.compile(r"\b\d+(?:\.\d+)?\s*(?:percent)\b", _re.IGNORECASE),
-     "[STAT: percentage]"),
-    (_re.compile(r"\$\s?\d+(?:[.,]\d+)*(?:\s*(?:k|m|mo|/mo|/month|/year|monthly|annually))?", _re.IGNORECASE),
-     "[STAT: dollar amount]"),
-    (_re.compile(r"\b\d+(?:[.,]\d+)?\s*(?:dollars?|usd|cents?)\b", _re.IGNORECASE),
-     "[STAT: dollar amount]"),
-    (_re.compile(r"\b\d+(?:\.\d+)?\s*\+?\s*(?:hours?|hrs?|minutes?|mins?|seconds?|days?|weeks?|months?|quarters?|years?)\b", _re.IGNORECASE),
-     "[STAT: time duration]"),
-    (_re.compile(r"\b\d+\s*x\b", _re.IGNORECASE),
-     "[STAT: multiplier]"),
-    (_re.compile(r"\b\d+\s*(?:times)\s+(?:more|less|faster|slower|higher|lower|larger|smaller)\b", _re.IGNORECASE),
-     "[STAT: comparison]"),
-    (_re.compile(r"\b(?:thousands?|hundreds?|tens|millions?|dozens?)\s+of\s+(?:teams?|customers?|clients?|users?|businesses?|companies|operators?|founders?)", _re.IGNORECASE),
-     "[STAT: customer count]"),
-    (_re.compile(r"\b\d+\s+(?:teams?|customers?|clients?|users?|businesses?|companies|operators?|founders?)\b", _re.IGNORECASE),
-     "[STAT: customer count]"),
+    (_re.compile(r"\b\d+(?:\.\d+)?\s*%", _re.IGNORECASE), "[STAT: percentage]"),
+    (_re.compile(r"\b\d+(?:\.\d+)?\s*(?:percent)\b", _re.IGNORECASE), "[STAT: percentage]"),
+    (
+        _re.compile(
+            r"\$\s?\d+(?:[.,]\d+)*(?:\s*(?:k|m|mo|/mo|/month|/year|monthly|annually))?",
+            _re.IGNORECASE,
+        ),
+        "[STAT: dollar amount]",
+    ),
+    (
+        _re.compile(r"\b\d+(?:[.,]\d+)?\s*(?:dollars?|usd|cents?)\b", _re.IGNORECASE),
+        "[STAT: dollar amount]",
+    ),
+    (
+        _re.compile(
+            r"\b\d+(?:\.\d+)?\s*\+?\s*(?:hours?|hrs?|minutes?|mins?|seconds?|days?|weeks?|months?|quarters?|years?)\b",
+            _re.IGNORECASE,
+        ),
+        "[STAT: time duration]",
+    ),
+    (_re.compile(r"\b\d+\s*x\b", _re.IGNORECASE), "[STAT: multiplier]"),
+    (
+        _re.compile(
+            r"\b\d+\s*(?:times)\s+(?:more|less|faster|slower|higher|lower|larger|smaller)\b",
+            _re.IGNORECASE,
+        ),
+        "[STAT: comparison]",
+    ),
+    (
+        _re.compile(
+            r"\b(?:thousands?|hundreds?|tens|millions?|dozens?)\s+of\s+(?:teams?|customers?|clients?|users?|businesses?|companies|operators?|founders?)",
+            _re.IGNORECASE,
+        ),
+        "[STAT: customer count]",
+    ),
+    (
+        _re.compile(
+            r"\b\d+\s+(?:teams?|customers?|clients?|users?|businesses?|companies|operators?|founders?)\b",
+            _re.IGNORECASE,
+        ),
+        "[STAT: customer count]",
+    ),
 )
 
 # Third-party / competitor vendor names that should not appear in self-marketing.
 # Substituted with a generic category descriptor. Word-boundary matched.
 _VENDOR_BLACKLIST: tuple[tuple[_re.Pattern[str], str], ...] = (
     (_re.compile(r"\b(?:Zapier|Make\.com|Make,|Make )\b"), "your workflow platform "),
-    (_re.compile(r"\b(?:n8n|Pabbly|Integromat|Tray\.io)\b", _re.IGNORECASE), "your workflow platform"),
+    (
+        _re.compile(r"\b(?:n8n|Pabbly|Integromat|Tray\.io)\b", _re.IGNORECASE),
+        "your workflow platform",
+    ),
     (_re.compile(r"\b(?:Slack|Microsoft Teams|MS Teams|Teams)\b"), "your team chat"),
-    (_re.compile(r"\b(?:Salesforce|HubSpot|Pipedrive|Close\.io|Close)\b", _re.IGNORECASE), "your CRM"),
+    (
+        _re.compile(r"\b(?:Salesforce|HubSpot|Pipedrive|Close\.io|Close)\b", _re.IGNORECASE),
+        "your CRM",
+    ),
     (_re.compile(r"\b(?:Gmail|Outlook|Mailchimp|SendGrid)\b"), "your email"),
     (_re.compile(r"\b(?:Airtable|Notion|Coda|Smartsheet)\b"), "your database"),
 )
@@ -499,18 +549,22 @@ def _scrub_segment(text: str, allowed: set[str]) -> tuple[str, list[str]]:
 
     out = text
     for pattern, placeholder in _SCRUB_PATTERNS:
+
         def _sub(m: _re.Match[str]) -> str:
             mt = m.group(0)
             if is_allowed(mt):
                 return mt
             flagged.append(mt.strip())
             return placeholder
+
         out = pattern.sub(_sub, out)
     # Strip vendor/competitor names independent of the number guards.
     for pattern, replacement in _VENDOR_BLACKLIST:
+
         def _vsub(m: _re.Match[str]) -> str:
             flagged.append(m.group(0).strip())
             return replacement
+
         out = pattern.sub(_vsub, out)
     return out, flagged
 
@@ -524,7 +578,11 @@ def _post_rejoin_cleanup(text: str) -> str:
     out = _re.sub(r"\b\d+(?:\.\d+)?\s*-\s*(?=\[STAT:)", "", out)
     # Stranded suffix: "[STAT: ...]-200 monthly" → "[STAT: ...]"
     # Alternatives ordered longest-first so "monthly" wins over "m".
-    out = _re.sub(r"(?<=\])\s*-\s*\d+(?:\.\d+)?(?:\s*(?:monthly|annually|months?|weeks?|years?|hours?|days?|/month|/year|/mo|mo|k|m))?\b", "", out)
+    out = _re.sub(
+        r"(?<=\])\s*-\s*\d+(?:\.\d+)?(?:\s*(?:monthly|annually|months?|weeks?|years?|hours?|days?|/month|/year|/mo|mo|k|m))?\b",
+        "",
+        out,
+    )
     # Repair previously-corrupted suffixes ("]onthly" → "] monthly") if any
     # leak in from artifacts touched by a prior greedy build of this regex.
     out = _re.sub(r"\]onthly\b", "] monthly", out)

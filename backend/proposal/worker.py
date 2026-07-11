@@ -4,6 +4,7 @@ Routes ``envelope.action`` -> :func:`generate_proposal` /
 :func:`validate_proposal`. Wraps ``backend.common.worker_base`` in try/except
 so the module imports cleanly even if the base class is unavailable.
 """
+
 from __future__ import annotations
 
 import logging

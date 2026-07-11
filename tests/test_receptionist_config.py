@@ -1,4 +1,5 @@
 """AI Digital Receptionist — per-client config loader + resolution."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -28,7 +29,10 @@ def _artifact_root(tmp_path, monkeypatch):
 
 
 def test_load_config_parses_yaml(_artifact_root):
-    _write_config(_artifact_root, "acme_plumbing", """
+    _write_config(
+        _artifact_root,
+        "acme_plumbing",
+        """
 business_name: Acme Plumbing
 timezone: America/Los_Angeles
 phone_numbers:
@@ -39,10 +43,11 @@ transfer_number: "+15305559999"
 vapi_phone_number_id: pn_acme
 stripe_customer_id: cus_acme
 status: active
-""")
+""",
+    )
     cfg = rc.load_config("acme_plumbing")
     assert cfg is not None
-    assert cfg.customer_slug == "acme_plumbing"      # stamped from dir name
+    assert cfg.customer_slug == "acme_plumbing"  # stamped from dir name
     assert cfg.business_name == "Acme Plumbing"
     assert cfg.phone_numbers == ["+15305551212"]
     assert cfg.stripe_customer_id == "cus_acme"
@@ -79,8 +84,7 @@ def test_resolve_customer_for_vapi_number(_artifact_root):
 
 
 def test_paused_client_excluded_from_resolution(_artifact_root):
-    _write_config(_artifact_root, "paused_co",
-                  'phone_numbers: ["+15305550000"]\nstatus: paused\n')
+    _write_config(_artifact_root, "paused_co", 'phone_numbers: ["+15305550000"]\nstatus: paused\n')
     rc.clear_cache()
     assert rc.resolve_customer_for_number("+15305550000") is None
     assert rc.list_active_configs() == []
@@ -90,27 +94,26 @@ def test_paused_client_excluded_from_resolution(_artifact_root):
 # FIN-08 — stripe_customer_id validation gates metering (fail-closed)
 # ---------------------------------------------------------------------------
 
+
 def test_valid_stripe_customer_id_leaves_metering_enabled(_artifact_root):
     seen = []
     rc.set_stripe_customer_validator(
-        lambda config, cid: (seen.append(cid) or (True, "")),
+        lambda config, cid: seen.append(cid) or (True, ""),
     )
-    _write_config(_artifact_root, "acme",
-                  "stripe_customer_id: cus_acme\nstatus: active\n")
+    _write_config(_artifact_root, "acme", "stripe_customer_id: cus_acme\nstatus: active\n")
     rc.clear_cache()
     cfg = rc.load_config("acme")
     assert cfg is not None
     assert cfg.metering_disabled is False
     assert cfg.metering_disabled_reason == ""
-    assert seen == ["cus_acme"]      # validator was called exactly once
+    assert seen == ["cus_acme"]  # validator was called exactly once
 
 
 def test_invalid_stripe_customer_id_disables_metering(_artifact_root):
     rc.set_stripe_customer_validator(
         lambda config, cid: (False, "stripe_customer_not_found"),
     )
-    _write_config(_artifact_root, "typo_co",
-                  "stripe_customer_id: cus_TYPO\nstatus: active\n")
+    _write_config(_artifact_root, "typo_co", "stripe_customer_id: cus_TYPO\nstatus: active\n")
     rc.clear_cache()
     cfg = rc.load_config("typo_co")
     assert cfg is not None
@@ -121,11 +124,13 @@ def test_invalid_stripe_customer_id_disables_metering(_artifact_root):
 def test_validation_runs_once_per_load_cached_with_config(_artifact_root):
     calls = []
     rc.set_stripe_customer_validator(
-        lambda config, cid: (calls.append(cid) or (True, "")),
+        lambda config, cid: calls.append(cid) or (True, ""),
     )
-    _write_config(_artifact_root, "acme",
-                  'phone_numbers: ["+15305551212"]\n'
-                  "stripe_customer_id: cus_acme\nstatus: active\n")
+    _write_config(
+        _artifact_root,
+        "acme",
+        'phone_numbers: ["+15305551212"]\nstripe_customer_id: cus_acme\nstatus: active\n',
+    )
     rc.clear_cache()
     # First resolution validates + caches; subsequent cached reads must NOT
     # re-validate (one validation per config-load, not per call).
@@ -137,14 +142,14 @@ def test_validation_runs_once_per_load_cached_with_config(_artifact_root):
 def test_empty_stripe_customer_id_is_not_validated(_artifact_root):
     calls = []
     rc.set_stripe_customer_validator(
-        lambda config, cid: (calls.append(cid) or (True, "")),
+        lambda config, cid: calls.append(cid) or (True, ""),
     )
     _write_config(_artifact_root, "no_billing", "status: active\n")
     rc.clear_cache()
     cfg = rc.load_config("no_billing")
     assert cfg is not None
     assert cfg.metering_disabled is False
-    assert calls == []               # empty id -> validator not called
+    assert calls == []  # empty id -> validator not called
 
 
 def test_raising_validator_fails_closed(_artifact_root):
@@ -152,8 +157,7 @@ def test_raising_validator_fails_closed(_artifact_root):
         raise RuntimeError("finance unreachable")
 
     rc.set_stripe_customer_validator(_boom)
-    _write_config(_artifact_root, "acme",
-                  "stripe_customer_id: cus_acme\nstatus: active\n")
+    _write_config(_artifact_root, "acme", "stripe_customer_id: cus_acme\nstatus: active\n")
     rc.clear_cache()
     cfg = rc.load_config("acme")
     assert cfg is not None
@@ -167,9 +171,11 @@ def test_yaml_cannot_preclear_metering_disabled_flag(_artifact_root):
     rc.set_stripe_customer_validator(
         lambda config, cid: (False, "stripe_customer_not_found"),
     )
-    _write_config(_artifact_root, "sneaky",
-                  "stripe_customer_id: cus_BAD\n"
-                  "metering_disabled: false\nstatus: active\n")
+    _write_config(
+        _artifact_root,
+        "sneaky",
+        "stripe_customer_id: cus_BAD\nmetering_disabled: false\nstatus: active\n",
+    )
     rc.clear_cache()
     cfg = rc.load_config("sneaky")
     assert cfg is not None

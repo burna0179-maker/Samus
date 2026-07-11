@@ -1,4 +1,5 @@
 """CRM Pydantic model validation."""
+
 from __future__ import annotations
 
 import pytest
@@ -21,14 +22,17 @@ def test_prospect_subclasses_prospecting_record():
     intact, but with extra='ignore' so reads of legacy DDB rows that carry
     pre-iteration fields (campaign_name, etc.) work without raising."""
     from backend.prospecting.models import ProspectRecord
+
     assert issubclass(Prospect, ProspectRecord)
     # Reading a legacy row with truly-extra fields must NOT raise:
-    p = Prospect.model_validate({
-        "prospect_id": "pr_x",
-        "company_name": "Acme",
-        "campaign_name": "local-marysville",   # legacy, not on ProspectRecord
-        "legacy_priority_score": 0.85,          # hypothetical legacy field
-    })
+    p = Prospect.model_validate(
+        {
+            "prospect_id": "pr_x",
+            "company_name": "Acme",
+            "campaign_name": "local-marysville",  # legacy, not on ProspectRecord
+            "legacy_priority_score": 0.85,  # hypothetical legacy field
+        }
+    )
     assert p.prospect_id == "pr_x"
     assert p.company_name == "Acme"
 
@@ -39,18 +43,22 @@ def test_prospect_record_strict_path_unchanged():
     import pytest
     from pydantic import ValidationError
     from backend.prospecting.models import ProspectRecord
+
     with pytest.raises(ValidationError):
-        ProspectRecord.model_validate({
-            "prospect_id": "pr_x", "company_name": "Acme",
-            "campaign_name": "local-marysville",   # extra on parent -> reject
-        })
+        ProspectRecord.model_validate(
+            {
+                "prospect_id": "pr_x",
+                "company_name": "Acme",
+                "campaign_name": "local-marysville",  # extra on parent -> reject
+            }
+        )
 
 
 def test_contact_minimum_field():
     """Only contact_id is required; everything else has a sensible default."""
     c = Contact(contact_id="co_xyz")
     assert c.contact_id == "co_xyz"
-    assert c.preferred_channel == "email"     # default
+    assert c.preferred_channel == "email"  # default
     assert c.do_not_contact is False
     assert c.email == ""
 

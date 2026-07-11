@@ -1,23 +1,28 @@
 """Smoke tests for the outreach workcell — FSM + metrics + service."""
+
 from __future__ import annotations
 
 
 def _reset_idempotency(monkeypatch):
     from backend.common.idempotency import IdempotencyStore
     import backend.common.idempotency as idem_mod
+
     fresh = IdempotencyStore()
     monkeypatch.setattr(idem_mod, "GLOBAL_IDEMPOTENCY_STORE", fresh)
     import backend.outreach.service as svc_mod
+
     monkeypatch.setattr(svc_mod, "GLOBAL_IDEMPOTENCY_STORE", fresh)
 
 
 def _reset_metrics():
     from backend.outreach import metrics
+
     metrics.reset_metrics()
 
 
 def test_fsm_full_path():
     from backend.outreach.fsm import next_state
+
     assert next_state("open", {}) == "pitch"
     assert next_state("pitch", {}) == "engage"
     assert next_state("engage", {"objection": True}) == "handle_objection"
@@ -32,6 +37,7 @@ def test_fsm_full_path():
 def test_decide_action_per_state():
     from backend.outreach.fsm import decide_action
     from backend.outreach.models import OutreachIntel
+
     intel = OutreachIntel(products={"primary": "seo", "secondary": "ads"})
     assert decide_action("open", intel) == "deliver_opener"
     assert decide_action("pitch", intel) == "deliver_pitch"
@@ -44,6 +50,7 @@ def test_decide_action_per_state():
 def test_metrics_log_and_snapshot():
     _reset_metrics()
     from backend.outreach import metrics
+
     metrics.log_interaction("pr1", "closed", None, "seo", "pain")
     metrics.log_interaction("pr2", "failed", "too expensive", "seo", "pain")
     metrics.log_interaction("pr3", "closed", None, "seo", "value")

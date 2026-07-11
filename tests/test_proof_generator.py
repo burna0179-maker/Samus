@@ -1,4 +1,5 @@
 """Tests for backend.proof.generator — case studies + proof wall (no live LLM)."""
+
 from __future__ import annotations
 
 from backend.proof.generator import (
@@ -28,8 +29,10 @@ def _input() -> CaseStudyInput:
 
 def test_generate_case_study_templated(monkeypatch):
     from backend.common.llm_client import LlmCallError
+
     def _llm_unavailable(**kw):
         raise LlmCallError("unavailable")
+
     monkeypatch.setattr("backend.common.llm_client.anthropic_messages", _llm_unavailable)
     cs = generate_case_study(_input(), use_llm=True)
     assert cs.used_llm is False
@@ -60,9 +63,7 @@ def test_case_study_minimal_input_safe():
 
 
 def test_to_markdown_without_quote():
-    cs = generate_case_study(
-        CaseStudyInput(company="Acme", results=["2x revenue"]), use_llm=False
-    )
+    cs = generate_case_study(CaseStudyInput(company="Acme", results=["2x revenue"]), use_llm=False)
     assert "“" not in to_markdown(cs)  # no quote block when no quote
 
 

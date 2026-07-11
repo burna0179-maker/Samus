@@ -4,6 +4,7 @@ Pure functions — no httpx, no settings dependency. The registry YAML is
 re-read on every call so an operator can edit ``codb_registry.yaml`` and
 have changes reflected immediately without restarting the workcell.
 """
+
 from __future__ import annotations
 
 import logging
@@ -94,8 +95,7 @@ def cuttable_low_first(items: list[CodbItem]) -> list[CodbItem]:
     """
     return sorted(
         items,
-        key=lambda i: (-_CRITICALITY_RANK.get(i.criticality, 99),
-                       -i.estimated_monthly_usd),
+        key=lambda i: (-_CRITICALITY_RANK.get(i.criticality, 99), -i.estimated_monthly_usd),
     )
 
 

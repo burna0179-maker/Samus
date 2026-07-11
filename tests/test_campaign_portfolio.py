@@ -3,9 +3,9 @@
 Selection is pure; orchestration runs injected fake campaigns so nothing real
 fires. Core invariant: run as many campaigns as goal pace wants, never more than
 monitoring capacity (concurrency ceiling + monitor-cost budget) allows."""
+
 from __future__ import annotations
 
-import pytest
 
 from backend.cash_engine.campaign_portfolio import (
     Campaign,
@@ -18,7 +18,10 @@ from backend.cash_engine.campaign_portfolio import (
 
 def _camp(cid, *, priority=1.0, cost=1.0, eligible=True, produced=1):
     return Campaign(
-        campaign_id=cid, kind="test", priority=priority, monitor_cost=cost,
+        campaign_id=cid,
+        kind="test",
+        priority=priority,
+        monitor_cost=cost,
         is_eligible=lambda: eligible,
         actuate=lambda cap: {"initiated": produced, "cap": cap},
         default_cap=5,
@@ -26,6 +29,7 @@ def _camp(cid, *, priority=1.0, cost=1.0, eligible=True, produced=1):
 
 
 # --- target derivation from pace ---------------------------------------------
+
 
 def test_target_behind_pushes_to_capacity():
     assert target_campaign_count(behind_pace=True, max_concurrent=4) == 4
@@ -44,6 +48,7 @@ def test_target_zero_capacity():
 
 
 # --- pure selection ----------------------------------------------------------
+
 
 def test_selects_highest_priority_first():
     camps = [_camp("low", priority=1.0), _camp("high", priority=5.0), _camp("mid", priority=3.0)]
@@ -67,8 +72,11 @@ def test_concurrency_ceiling_bounds_selection():
 
 
 def test_monitor_budget_bounds_selection():
-    camps = [_camp("a", priority=3, cost=2.0), _camp("b", priority=2, cost=2.0),
-             _camp("c", priority=1, cost=2.0)]
+    camps = [
+        _camp("a", priority=3, cost=2.0),
+        _camp("b", priority=2, cost=2.0),
+        _camp("c", priority=1, cost=2.0),
+    ]
     # budget 3.0 fits only one 2.0-cost campaign
     d = select_campaigns(camps, monitor_budget=3.0, max_concurrent=9, target_count=9)
     assert d.selected == ["a"]
@@ -86,14 +94,21 @@ def test_eligibility_fault_excludes_not_raises():
     def _boom():
         raise RuntimeError("crm down")
 
-    bad = Campaign("bad", kind="t", priority=9, monitor_cost=1, is_eligible=_boom,
-                   actuate=lambda cap: {"initiated": 1})
+    bad = Campaign(
+        "bad",
+        kind="t",
+        priority=9,
+        monitor_cost=1,
+        is_eligible=_boom,
+        actuate=lambda cap: {"initiated": 1},
+    )
     good = _camp("good")
     d = select_campaigns([bad, good], monitor_budget=99, max_concurrent=9, target_count=9)
     assert d.selected == ["good"] and ("bad", "ineligible") in d.skipped
 
 
 # --- orchestration -----------------------------------------------------------
+
 
 def test_runs_selected_and_tallies_initiated():
     camps = [_camp("a", priority=2, produced=3), _camp("b", priority=1, produced=4)]
@@ -115,8 +130,15 @@ def test_one_campaign_fault_does_not_sink_the_rest():
     def _boom(cap):
         raise RuntimeError("send stack down")
 
-    bad = Campaign("bad", kind="t", priority=9, monitor_cost=1.0, is_eligible=lambda: True,
-                   actuate=_boom, count_initiated=lambda r: int(r.get("initiated", 0) or 0))
+    bad = Campaign(
+        "bad",
+        kind="t",
+        priority=9,
+        monitor_cost=1.0,
+        is_eligible=lambda: True,
+        actuate=_boom,
+        count_initiated=lambda r: int(r.get("initiated", 0) or 0),
+    )
     good = _camp("good", priority=1, produced=5)
     deps = PortfolioDeps(campaigns=[bad, good], monitor_budget=99, max_concurrent=2)
     out = run_campaign_portfolio(deps=deps, behind_pace=True)
@@ -130,6 +152,7 @@ def test_has_call_list_csv_uses_business_date(monkeypatch, tmp_path):
     monkeypatch.setattr("backend.common.storage._ROOT", tmp_path)
     from backend.cash_engine.campaign_portfolio import _has_call_list_csv
     from backend.common.us_timezones import business_today
+
     d = tmp_path / "daily_calls"
     d.mkdir()
     (d / f"call_list_{business_today().isoformat()}.csv").write_text("x", encoding="utf-8")
@@ -138,6 +161,7 @@ def test_has_call_list_csv_uses_business_date(monkeypatch, tmp_path):
 
 def test_default_portfolio_deps_seeds_email_and_voice():
     from backend.cash_engine.campaign_portfolio import default_portfolio_deps
+
     deps = default_portfolio_deps()
     ids = {c.campaign_id for c in deps.campaigns}
     assert ids == {"email_outreach", "voice_consent_routed"}

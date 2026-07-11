@@ -8,6 +8,7 @@ opportunities into the forwarder's item shape (with ISO created_at -> epoch).
 Run (PARENT only — sub-agent pytest is sandbox-blocked):
     .venv\\Scripts\\python.exe -m pytest tests/test_relief_forwarder.py -v
 """
+
 from __future__ import annotations
 
 import sys
@@ -49,9 +50,15 @@ def test_forwarder_forwards_and_dedups(tmp_path):
     sent = []
     fwd = ReliefForwarder(
         agent_id="samus",
-        pending_source=lambda: [{"ticket_id": "o1", "action": "sign_stake_sentence",
-                                 "reason": "deal X", "created_ts": 0.0,
-                                 "payload": {"stage": "new"}}],
+        pending_source=lambda: [
+            {
+                "ticket_id": "o1",
+                "action": "sign_stake_sentence",
+                "reason": "deal X",
+                "created_ts": 0.0,
+                "payload": {"stage": "new"},
+            }
+        ],
         post_fn=lambda r: sent.append(r) or True,
         settings=_settings(),
         state_path=tmp_path / "f.json",
@@ -61,7 +68,7 @@ def test_forwarder_forwards_and_dedups(tmp_path):
     assert sent[0]["origin_agent"] == "samus"
     assert sent[0]["remote_ticket_id"] == "o1"
     assert sent[0]["payload"]["stage"] == "new"
-    assert fwd.run_once()["sent"] == 0   # persisted dedup
+    assert fwd.run_once()["sent"] == 0  # persisted dedup
 
 
 def test_forwarder_best_effort_retry(tmp_path):
@@ -94,17 +101,30 @@ def test_iso_to_epoch():
 
 def test_pending_stake_items_maps_opportunities(monkeypatch):
     opps = [
-        SimpleNamespace(opportunity_id="op1", name="Acme", stage="new",
-                        created_at="2026-06-03T00:00:00Z", deal_size_usd=740.0,
-                        prospect_id="p1"),
-        SimpleNamespace(opportunity_id="", name="bad", stage="new",
-                        created_at="", deal_size_usd=0.0, prospect_id=""),
+        SimpleNamespace(
+            opportunity_id="op1",
+            name="Acme",
+            stage="new",
+            created_at="2026-06-03T00:00:00Z",
+            deal_size_usd=740.0,
+            prospect_id="p1",
+        ),
+        SimpleNamespace(
+            opportunity_id="",
+            name="bad",
+            stage="new",
+            created_at="",
+            deal_size_usd=0.0,
+            prospect_id="",
+        ),
     ]
     import backend.crm.service as crm_service
-    monkeypatch.setattr(crm_service, "list_opportunities_pending_stake",
-                        lambda limit=50: opps, raising=False)
+
+    monkeypatch.setattr(
+        crm_service, "list_opportunities_pending_stake", lambda limit=50: opps, raising=False
+    )
     items = relief_task.pending_stake_items()
-    assert len(items) == 1                       # blank id dropped
+    assert len(items) == 1  # blank id dropped
     it = items[0]
     assert it["ticket_id"] == "op1"
     assert it["action"] == "sign_stake_sentence"

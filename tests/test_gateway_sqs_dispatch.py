@@ -1,4 +1,5 @@
 """Unit tests for backend.gateway.sqs_dispatch."""
+
 from __future__ import annotations
 
 import json

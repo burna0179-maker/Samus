@@ -18,6 +18,7 @@ TOS NOTE: automated posting to LinkedIn/Instagram is account-ban territory
 without an approved app. Activation is a deliberate per-platform operator
 decision, not a default.
 """
+
 from __future__ import annotations
 
 import json
@@ -35,7 +36,7 @@ from backend.outreach.social_adapter import (
     moderate_post as _moderate_post,
     send_post as _outreach_send_post,
 )
-from backend.social.models import Platform, PlannedPost, SocialDispatchResult
+from backend.social.models import PlannedPost, SocialDispatchResult
 
 _LOG = logging.getLogger("samus.social.adapters")
 
@@ -108,9 +109,7 @@ def _guardrail_reason(post: PlannedPost) -> str | None:
         return "empty_body"
     # Reuse the outreach banned-phrase + prohibited-term moderator. The platform
     # value is irrelevant to moderation, so a LinkedIn vehicle is fine.
-    vehicle = _OutreachPost(
-        platform="linkedin", body=post.body, stake_sentence=post.stake_sentence
-    )
+    vehicle = _OutreachPost(platform="linkedin", body=post.body, stake_sentence=post.stake_sentence)
     ok, reason = _moderate_post(vehicle)
     if not ok:
         return f"moderation_blocked: {reason}"
@@ -122,9 +121,7 @@ def _guardrail_reason(post: PlannedPost) -> str | None:
 # ---------------------------------------------------------------------------
 
 
-def _send_instagram(
-    post: PlannedPost, image_url: str, video_url: str = ""
-) -> SocialDispatchResult:
+def _send_instagram(post: PlannedPost, image_url: str, video_url: str = "") -> SocialDispatchResult:
     """Instagram Graph API content publishing: create a media container, then
     publish it. Photo feed posts require a public ``image_url``; **Reels**
     require a public ``video_url`` (and a processing-poll before publish).
@@ -137,13 +134,9 @@ def _send_instagram(
     if not _INSTAGRAM_TOKEN:
         return SocialDispatchResult(False, "instagram", error="instagram_token_unset")
     if not _INSTAGRAM_ACCOUNT_ID:
-        return SocialDispatchResult(
-            False, "instagram", error="instagram_account_id_unset"
-        )
+        return SocialDispatchResult(False, "instagram", error="instagram_account_id_unset")
     if not video_url and not image_url:
-        return SocialDispatchResult(
-            False, "instagram", error="instagram_media_required"
-        )
+        return SocialDispatchResult(False, "instagram", error="instagram_media_required")
 
     base = f"https://graph.facebook.com/{_FACEBOOK_GRAPH_VERSION}/{_INSTAGRAM_ACCOUNT_ID}"
     if video_url:
@@ -165,18 +158,14 @@ def _send_instagram(
             create = client.post(f"{base}/media", data=create_data)
             code = _facebook_error_code(create)
             if create.status_code == 429 or code in _FACEBOOK_RATE_LIMIT_CODES:
-                return SocialDispatchResult(
-                    False, "instagram", error="instagram_rate_limited"
-                )
+                return SocialDispatchResult(False, "instagram", error="instagram_rate_limited")
             if create.status_code != 200:
                 return SocialDispatchResult(
                     False, "instagram", error=f"instagram_http_{create.status_code}"
                 )
             creation_id = str((create.json() or {}).get("id") or "")
             if not creation_id:
-                return SocialDispatchResult(
-                    False, "instagram", error="instagram_no_creation_id"
-                )
+                return SocialDispatchResult(False, "instagram", error="instagram_no_creation_id")
 
             # Reels are processed asynchronously — the container must report
             # FINISHED before media_publish, or the publish 400s.
@@ -206,9 +195,7 @@ _IG_CONTAINER_POLL_MAX = 12
 _IG_CONTAINER_POLL_INTERVAL_S = 5.0
 
 
-def _send_instagram_carousel(
-    post: PlannedPost, image_urls: list[str]
-) -> SocialDispatchResult:
+def _send_instagram_carousel(post: PlannedPost, image_urls: list[str]) -> SocialDispatchResult:
     """Instagram Graph API carousel publishing: create N child containers,
     one carousel parent container, then publish. Requires at least 2 public
     ``image_urls``. Fail-closed on missing credentials or insufficient media.
@@ -217,13 +204,9 @@ def _send_instagram_carousel(
     if not _INSTAGRAM_TOKEN:
         return SocialDispatchResult(False, "instagram", error="instagram_token_unset")
     if not _INSTAGRAM_ACCOUNT_ID:
-        return SocialDispatchResult(
-            False, "instagram", error="instagram_account_id_unset"
-        )
+        return SocialDispatchResult(False, "instagram", error="instagram_account_id_unset")
     if len(image_urls) < 2:
-        return SocialDispatchResult(
-            False, "instagram", error="instagram_carousel_min_2_images"
-        )
+        return SocialDispatchResult(False, "instagram", error="instagram_carousel_min_2_images")
 
     base = f"https://graph.facebook.com/{_FACEBOOK_GRAPH_VERSION}/{_INSTAGRAM_ACCOUNT_ID}"
 
@@ -239,9 +222,7 @@ def _send_instagram_carousel(
                 resp = client.post(f"{base}/media", data=child_data)
                 code = _facebook_error_code(resp)
                 if resp.status_code == 429 or code in _FACEBOOK_RATE_LIMIT_CODES:
-                    return SocialDispatchResult(
-                        False, "instagram", error="instagram_rate_limited"
-                    )
+                    return SocialDispatchResult(False, "instagram", error="instagram_rate_limited")
                 if resp.status_code != 200:
                     return SocialDispatchResult(
                         False,
@@ -250,9 +231,7 @@ def _send_instagram_carousel(
                     )
                 child_id = str((resp.json() or {}).get("id") or "")
                 if not child_id:
-                    return SocialDispatchResult(
-                        False, "instagram", error="instagram_no_child_id"
-                    )
+                    return SocialDispatchResult(False, "instagram", error="instagram_no_child_id")
                 child_ids.append(child_id)
 
             carousel_data = {
@@ -264,9 +243,7 @@ def _send_instagram_carousel(
             create = client.post(f"{base}/media", data=carousel_data)
             code = _facebook_error_code(create)
             if create.status_code == 429 or code in _FACEBOOK_RATE_LIMIT_CODES:
-                return SocialDispatchResult(
-                    False, "instagram", error="instagram_rate_limited"
-                )
+                return SocialDispatchResult(False, "instagram", error="instagram_rate_limited")
             if create.status_code != 200:
                 return SocialDispatchResult(
                     False,
@@ -275,9 +252,7 @@ def _send_instagram_carousel(
                 )
             carousel_id = str((create.json() or {}).get("id") or "")
             if not carousel_id:
-                return SocialDispatchResult(
-                    False, "instagram", error="instagram_no_carousel_id"
-                )
+                return SocialDispatchResult(False, "instagram", error="instagram_no_carousel_id")
 
             publish = client.post(
                 f"{base}/media_publish",
@@ -309,13 +284,9 @@ def _send_instagram_story(
     if not _INSTAGRAM_TOKEN:
         return SocialDispatchResult(False, "instagram", error="instagram_token_unset")
     if not _INSTAGRAM_ACCOUNT_ID:
-        return SocialDispatchResult(
-            False, "instagram", error="instagram_account_id_unset"
-        )
+        return SocialDispatchResult(False, "instagram", error="instagram_account_id_unset")
     if not image_url and not video_url:
-        return SocialDispatchResult(
-            False, "instagram", error="instagram_media_required"
-        )
+        return SocialDispatchResult(False, "instagram", error="instagram_media_required")
 
     base = f"https://graph.facebook.com/{_FACEBOOK_GRAPH_VERSION}/{_INSTAGRAM_ACCOUNT_ID}"
     create_data: dict[str, str] = {
@@ -332,18 +303,14 @@ def _send_instagram_story(
             create = client.post(f"{base}/media", data=create_data)
             code = _facebook_error_code(create)
             if create.status_code == 429 or code in _FACEBOOK_RATE_LIMIT_CODES:
-                return SocialDispatchResult(
-                    False, "instagram", error="instagram_rate_limited"
-                )
+                return SocialDispatchResult(False, "instagram", error="instagram_rate_limited")
             if create.status_code != 200:
                 return SocialDispatchResult(
                     False, "instagram", error=f"instagram_http_{create.status_code}"
                 )
             creation_id = str((create.json() or {}).get("id") or "")
             if not creation_id:
-                return SocialDispatchResult(
-                    False, "instagram", error="instagram_no_creation_id"
-                )
+                return SocialDispatchResult(False, "instagram", error="instagram_no_creation_id")
 
             if video_url:
                 ready = _wait_instagram_container(client, base, creation_id)
@@ -434,9 +401,7 @@ def _send_x(post: PlannedPost) -> SocialDispatchResult:
                 resp = client.post(_X_TWEETS_URL, json={"text": text}, headers=headers)
         except httpx.HTTPError as exc:
             _LOG.warning("x send transport error: %s", exc)
-            return SocialDispatchResult(
-                False, "x", error=f"x_send_failed:{type(exc).__name__}"
-            )
+            return SocialDispatchResult(False, "x", error=f"x_send_failed:{type(exc).__name__}")
 
         if resp.status_code == 429:
             if attempt < _RATE_LIMIT_MAX_RETRIES:

@@ -53,6 +53,7 @@ PRESERVATION: this module is **additive**. It imports nothing from
 ``control_tick_task.py`` itself. It only consumes the public surface of the
 Phase F/G runner (``run_one_cycle`` + ``loop_enabled``).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -76,8 +77,8 @@ _DEFAULT_INITIAL_DELAY_SEC = 5.0  # short settle so the gateway finishes boot
 # before the next probe, so a transient broker outage self-recovers without
 # operator intervention but a persistent one is plainly visible in the log.
 _BACKOFF_TRIP_THRESHOLD = 5  # consecutive broker-failure cycles before tripping
-_BACKOFF_MULTIPLIER = 2.0    # interval *= mult on each step past the trip
-_BACKOFF_MAX_MULT = 10.0     # cap (so 60s base never grows past 600s)
+_BACKOFF_MULTIPLIER = 2.0  # interval *= mult on each step past the trip
+_BACKOFF_MAX_MULT = 10.0  # cap (so 60s base never grows past 600s)
 
 # Substrings that flag a broker / budget failure inside a cycle's ``errors``
 # list. Matches the shape :class:`CognitiveLoop._record_error` produces
@@ -113,7 +114,9 @@ def cadence_interval_seconds() -> float:
     try:
         from backend.common.config import get_settings
 
-        v = int(getattr(get_settings(), "cognition_cadence_interval_seconds", _DEFAULT_INTERVAL_SEC))
+        v = int(
+            getattr(get_settings(), "cognition_cadence_interval_seconds", _DEFAULT_INTERVAL_SEC)
+        )
         return float(max(1, v))  # never 0 (would tight-loop); never negative
     except Exception:  # noqa: BLE001
         return float(_DEFAULT_INTERVAL_SEC)
@@ -247,8 +250,16 @@ class CognitionCadenceTask:
             # Compute the next sleep AFTER the tick so a backoff trip applies
             # to the next gap. Jitter is uniform [0, J]; the master interval
             # is read fresh so a runtime env change is picked up.
-            base = self._configured_interval if self._configured_interval is not None else cadence_interval_seconds()
-            jitter_max = self._configured_jitter if self._configured_jitter is not None else cadence_jitter_seconds()
+            base = (
+                self._configured_interval
+                if self._configured_interval is not None
+                else cadence_interval_seconds()
+            )
+            jitter_max = (
+                self._configured_jitter
+                if self._configured_jitter is not None
+                else cadence_jitter_seconds()
+            )
             jitter = random.uniform(0.0, jitter_max) if jitter_max > 0 else 0.0
             sleep_for = (base * self._backoff_mult) + jitter
             try:
@@ -338,7 +349,9 @@ class CognitionCadenceTask:
                 self._backoff_mult = min(_BACKOFF_MAX_MULT, new_mult)
                 backoff_state = f"tripped:x{self._backoff_mult:.1f}"
             else:
-                backoff_state = f"warming:{self._consecutive_broker_failures}/{_BACKOFF_TRIP_THRESHOLD}"
+                backoff_state = (
+                    f"warming:{self._consecutive_broker_failures}/{_BACKOFF_TRIP_THRESHOLD}"
+                )
         else:
             if self._backoff_mult > 1.0 or self._consecutive_broker_failures > 0:
                 backoff_state = "reset"

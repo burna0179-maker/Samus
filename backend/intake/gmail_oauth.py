@@ -17,6 +17,7 @@ access tokens via :func:`backend.intake.gmail_api_client.refresh_access_token`.
 Run from a console with stdin attached so the user can see the consent
 URL if their browser fails to launch automatically (SSH / WSL contexts).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -49,8 +50,7 @@ _TOKEN_URL = "https://oauth2.googleapis.com/token"
 # poller can project detected calendar events into samushustleforge@'s
 # calendar for operator review.
 _SCOPE = (
-    "https://www.googleapis.com/auth/gmail.modify "
-    "https://www.googleapis.com/auth/calendar.events"
+    "https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/calendar.events"
 )
 _LOOPBACK_HOST = "127.0.0.1"
 
@@ -58,6 +58,7 @@ _LOOPBACK_HOST = "127.0.0.1"
 # ---------------------------------------------------------------------------
 # Tiny one-shot HTTP server that captures ?code= from the redirect
 # ---------------------------------------------------------------------------
+
 
 class _CallbackServer:
     """Bind a free loopback port; serve exactly one /oauth2/callback request.
@@ -168,6 +169,7 @@ class _CallbackServer:
 # Code -> token exchange
 # ---------------------------------------------------------------------------
 
+
 def _exchange_code_for_tokens(
     *,
     client_id: str,
@@ -216,6 +218,7 @@ def _exchange_code_for_tokens(
 # Top-level: run the consent flow + persist the token JSON
 # ---------------------------------------------------------------------------
 
+
 def run_consent_flow(
     *,
     client_id: str | None = None,
@@ -246,7 +249,8 @@ def run_consent_flow(
     state = secrets.token_urlsafe(24)
 
     with _CallbackServer(
-        expected_state=state, timeout_seconds=timeout_seconds,
+        expected_state=state,
+        timeout_seconds=timeout_seconds,
     ) as server:
         params = {
             "client_id": cid,
@@ -254,14 +258,14 @@ def run_consent_flow(
             "response_type": "code",
             "scope": _SCOPE,
             "state": state,
-            "access_type": "offline",        # ask for a refresh_token
+            "access_type": "offline",  # ask for a refresh_token
             "prompt": "consent select_account",  # force the consent screen
-                                                  # AND the account chooser so
-                                                  # Google doesn't silently use
-                                                  # whatever's currently signed
-                                                  # in (the inbox account is
-                                                  # usually NOT the user's
-                                                  # daily-driver Google account)
+            # AND the account chooser so
+            # Google doesn't silently use
+            # whatever's currently signed
+            # in (the inbox account is
+            # usually NOT the user's
+            # daily-driver Google account)
             "include_granted_scopes": "true",
         }
         if inbox_email:
@@ -325,11 +329,14 @@ def run_consent_flow(
 def main() -> int:
     parser = argparse.ArgumentParser(description="Samus Gmail OAuth consent setup")
     parser.add_argument(
-        "--no-open-browser", action="store_true",
+        "--no-open-browser",
+        action="store_true",
         help="Don't auto-launch the browser; just print the URL.",
     )
     parser.add_argument(
-        "--timeout", type=int, default=300,
+        "--timeout",
+        type=int,
+        default=300,
         help="Seconds to wait for the consent callback (default 300).",
     )
     args = parser.parse_args()

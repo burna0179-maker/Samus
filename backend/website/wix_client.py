@@ -30,6 +30,7 @@ The Wix REST API "is not intended for use in Wix site *development*": there is
 no endpoint that lays out pages or styles elements. Design comes from a
 template (or the Editor); this client *provisions* and *populates*.
 """
+
 from __future__ import annotations
 
 import logging
@@ -133,8 +134,11 @@ class WixClient:
             try:
                 with httpx.Client(timeout=self._timeout, transport=self._transport) as client:
                     response = client.request(
-                        method.upper(), url, headers=headers,
-                        json=json, params=params or {},
+                        method.upper(),
+                        url,
+                        headers=headers,
+                        json=json,
+                        params=params or {},
                     )
             except httpx.HTTPError as exc:
                 # Transport failure — fail-closed (no silent success).
@@ -144,7 +148,11 @@ class WixClient:
                 sleep_for = _RETRY_BACKOFF_SEC * (attempt + 1)
                 _LOG.warning(
                     "wix 429 rate-limited on %s %s; backoff %.1fs (attempt %d/%d)",
-                    method.upper(), path, sleep_for, attempt + 1, _MAX_RETRIES,
+                    method.upper(),
+                    path,
+                    sleep_for,
+                    attempt + 1,
+                    _MAX_RETRIES,
                 )
                 time.sleep(sleep_for)
                 continue
@@ -167,7 +175,9 @@ class WixClient:
             try:
                 return response.json()
             except ValueError as exc:
-                raise WixError(f"wix_invalid_json: {exc}", status_code=response.status_code) from exc
+                raise WixError(
+                    f"wix_invalid_json: {exc}", status_code=response.status_code
+                ) from exc
 
         # Exhausted retries on repeated 429.
         raise WixError(
@@ -178,8 +188,13 @@ class WixClient:
     # --- site-level: Media Manager (upload generated assets) --------------
 
     def generate_upload_url(
-        self, *, site_id: str, filename: str, mime_type: str,
-        parent_folder_id: str = "", private: bool = False,
+        self,
+        *,
+        site_id: str,
+        filename: str,
+        mime_type: str,
+        parent_folder_id: str = "",
+        private: bool = False,
     ) -> str:
         """POST /site-media/v1/files/generate-upload-url — get a signed upload URL.
 
@@ -191,7 +206,10 @@ class WixClient:
         if parent_folder_id:
             body["parentFolderId"] = parent_folder_id
         resp = self.call(
-            "POST", "/site-media/v1/files/generate-upload-url", json=body, site_id=site_id,
+            "POST",
+            "/site-media/v1/files/generate-upload-url",
+            json=body,
+            site_id=site_id,
         )
         url = resp.get("uploadUrl") or ""
         if not url:
@@ -199,7 +217,12 @@ class WixClient:
         return str(url)
 
     def upload_file_bytes(
-        self, upload_url: str, data: bytes, *, filename: str, mime_type: str,
+        self,
+        upload_url: str,
+        data: bytes,
+        *,
+        filename: str,
+        mime_type: str,
     ) -> dict[str, Any]:
         """PUT raw bytes to a signed upload URL; return the file descriptor.
 
@@ -212,8 +235,10 @@ class WixClient:
         try:
             with httpx.Client(timeout=self._timeout, transport=self._transport) as client:
                 response = client.put(
-                    upload_url, params={"filename": filename},
-                    headers={"Content-Type": mime_type}, content=data,
+                    upload_url,
+                    params={"filename": filename},
+                    headers={"Content-Type": mime_type},
+                    content=data,
                 )
         except httpx.HTTPError as exc:
             raise WixError(f"wix_media_upload_transport: {exc}", status_code=None) from exc
@@ -225,22 +250,38 @@ class WixClient:
         try:
             body = response.json() if response.content else {}
         except ValueError as exc:
-            raise WixError(f"wix_media_upload_invalid_json: {exc}", status_code=response.status_code) from exc
+            raise WixError(
+                f"wix_media_upload_invalid_json: {exc}", status_code=response.status_code
+            ) from exc
         return body.get("file") or body.get("fileDescriptor") or body
 
     def upload_bytes(
-        self, *, site_id: str, data: bytes, filename: str, mime_type: str,
-        parent_folder_id: str = "", private: bool = False,
+        self,
+        *,
+        site_id: str,
+        data: bytes,
+        filename: str,
+        mime_type: str,
+        parent_folder_id: str = "",
+        private: bool = False,
     ) -> dict[str, Any]:
         """Convenience: generate a signed URL then PUT the bytes. Returns descriptor."""
         url = self.generate_upload_url(
-            site_id=site_id, filename=filename, mime_type=mime_type,
-            parent_folder_id=parent_folder_id, private=private,
+            site_id=site_id,
+            filename=filename,
+            mime_type=mime_type,
+            parent_folder_id=parent_folder_id,
+            private=private,
         )
         return self.upload_file_bytes(url, data, filename=filename, mime_type=mime_type)
 
     def import_file(
-        self, *, site_id: str, url: str, mime_type: str, display_name: str = "",
+        self,
+        *,
+        site_id: str,
+        url: str,
+        mime_type: str,
+        display_name: str = "",
     ) -> dict[str, Any]:
         """POST /site-media/v1/files/import — import a publicly reachable file (e.g. a Veo URI)."""
         if not site_id:
@@ -283,14 +324,20 @@ class WixClient:
         if template_id:
             body["templateId"] = template_id
         return self.call(
-            "POST", "/funnel/projects/v1/create",
-            json=body, account_level=True,
+            "POST",
+            "/funnel/projects/v1/create",
+            json=body,
+            account_level=True,
         )
 
     # --- site-level: CMS data items (dynamic page content) ----------------
 
     def insert_data_item(
-        self, *, site_id: str, collection_id: str, data: dict[str, Any],
+        self,
+        *,
+        site_id: str,
+        collection_id: str,
+        data: dict[str, Any],
     ) -> dict[str, Any]:
         """POST /wix-data/v2/items — insert one item into a CMS collection.
 
@@ -309,7 +356,12 @@ class WixClient:
         return self.call("POST", "/wix-data/v2/items", json=body, site_id=site_id)
 
     def update_data_item(
-        self, *, site_id: str, collection_id: str, item_id: str, data: dict[str, Any],
+        self,
+        *,
+        site_id: str,
+        collection_id: str,
+        item_id: str,
+        data: dict[str, Any],
     ) -> dict[str, Any]:
         """PUT /wix-data/v2/items/{id} — overwrite an existing CMS item.
 
@@ -327,7 +379,10 @@ class WixClient:
         return self.call("PUT", f"/wix-data/v2/items/{item_id}", json=body, site_id=site_id)
 
     def query_data_items(
-        self, *, site_id: str, collection_id: str,
+        self,
+        *,
+        site_id: str,
+        collection_id: str,
         query: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """POST /wix-data/v2/items/query — read items from a CMS collection.
@@ -344,7 +399,11 @@ class WixClient:
         return self.call("POST", "/wix-data/v2/items/query", json=body, site_id=site_id)
 
     def create_data_collection(
-        self, *, site_id: str, collection_id: str, display_name: str,
+        self,
+        *,
+        site_id: str,
+        collection_id: str,
+        display_name: str,
         field_keys: list[str],
     ) -> dict[str, Any]:
         """POST /wix-data/v2/collections — create a CMS collection (all TEXT).
@@ -357,11 +416,13 @@ class WixClient:
         """
         if not site_id:
             raise WixError("create_data_collection requires a site_id")
-        body = {"collection": {
-            "id": collection_id,
-            "displayName": display_name,
-            "fields": [{"key": k, "displayName": k, "type": "TEXT"} for k in field_keys],
-        }}
+        body = {
+            "collection": {
+                "id": collection_id,
+                "displayName": display_name,
+                "fields": [{"key": k, "displayName": k, "type": "TEXT"} for k in field_keys],
+            }
+        }
         return self.call("POST", "/wix-data/v2/collections", json=body, site_id=site_id)
 
     # --- site-level: business identity (Site Properties v4) ----------------
@@ -390,7 +451,10 @@ class WixClient:
         return ",".join(data.keys())
 
     def update_business_profile(
-        self, *, site_id: str, business_profile: dict[str, Any],
+        self,
+        *,
+        site_id: str,
+        business_profile: dict[str, Any],
     ) -> dict[str, Any]:
         """POST /site-properties/v4/properties/business-profile.
 
@@ -402,15 +466,19 @@ class WixClient:
         """
         if not site_id:
             raise WixError("update_business_profile requires a site_id")
-        body = {"businessProfile": business_profile,
-                "fields": self._field_mask(business_profile)}
+        body = {"businessProfile": business_profile, "fields": self._field_mask(business_profile)}
         return self.call(
-            "POST", "/site-properties/v4/properties/business-profile",
-            json=body, site_id=site_id,
+            "POST",
+            "/site-properties/v4/properties/business-profile",
+            json=body,
+            site_id=site_id,
         )
 
     def update_business_contact(
-        self, *, site_id: str, business_contact: dict[str, Any],
+        self,
+        *,
+        site_id: str,
+        business_contact: dict[str, Any],
     ) -> dict[str, Any]:
         """POST /site-properties/v4/properties/business-contact.
 
@@ -420,11 +488,12 @@ class WixClient:
         """
         if not site_id:
             raise WixError("update_business_contact requires a site_id")
-        body = {"businessContact": business_contact,
-                "fields": self._field_mask(business_contact)}
+        body = {"businessContact": business_contact, "fields": self._field_mask(business_contact)}
         return self.call(
-            "POST", "/site-properties/v4/properties/business-contact",
-            json=body, site_id=site_id,
+            "POST",
+            "/site-properties/v4/properties/business-contact",
+            json=body,
+            site_id=site_id,
         )
 
     # --- publish ----------------------------------------------------------
@@ -439,8 +508,11 @@ class WixClient:
         if not site_id:
             raise WixError("publish_site requires a site_id")
         return self.call(
-            "POST", "/site-publisher/v1/site/publish",
-            json={}, site_id=site_id, account_level=True,
+            "POST",
+            "/site-publisher/v1/site/publish",
+            json={},
+            site_id=site_id,
+            account_level=True,
         )
 
 

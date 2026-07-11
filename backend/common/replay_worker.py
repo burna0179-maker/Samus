@@ -7,6 +7,7 @@ base URL from ``settings.gateway_urls``; attempts a signed_post_json to
 ``{base_url}/work``; records the outcome via ``dlq.mark_replayed`` and
 flips the idempotency key on success.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -46,8 +47,11 @@ async def _replay_one(item: dict[str, Any]) -> dict[str, Any]:
             dlq.mark_replayed("gateway", event_id, replay_status="replayed")
             return {"event_id": event_id, "status": "replayed"}
         dlq.mark_replayed("gateway", event_id, replay_status="replay_failed")
-        return {"event_id": event_id, "status": "replay_failed",
-                "reason": f"upstream {resp.status_code}"}
+        return {
+            "event_id": event_id,
+            "status": "replay_failed",
+            "reason": f"upstream {resp.status_code}",
+        }
     except Exception as exc:
         dlq.mark_replayed("gateway", event_id, replay_status="replay_failed")
         return {"event_id": event_id, "status": "replay_failed", "reason": str(exc)}
@@ -60,7 +64,10 @@ async def replay_gateway_dlq(limit: int = 25) -> list[dict[str, Any]]:
     for item in pending:
         result = await _replay_one(item)
         out.append(result)
-        _LOG.info("replay_outcome", extra={"event_id": result.get("event_id"), "status": result.get("status")})
+        _LOG.info(
+            "replay_outcome",
+            extra={"event_id": result.get("event_id"), "status": result.get("status")},
+        )
     return out
 
 

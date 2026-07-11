@@ -9,6 +9,7 @@ Exit code:
     1   at least one cycle failed (the rest still ran)
     2   a hard crash before/during the iteration
 """
+
 from __future__ import annotations
 
 import argparse
@@ -24,6 +25,7 @@ _LOG = logging.getLogger("samus.retainer.run_due")
 def _resolve_intake(customer_id: str, sku_id: str) -> dict[str, str]:
     """Pull customer email + name + audit_url metadata for cycle inputs."""
     from backend.memory.customers import CustomerStore
+
     store = CustomerStore()
     cust = store.get_customer(customer_id)
     if cust is None:
@@ -42,7 +44,8 @@ def main(argv: list[str] | None = None) -> int:
         description="Run every retainer monthly cycle whose due-date has passed.",
     )
     parser.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="Print due cycles without executing them.",
     )
     args = parser.parse_args(argv)

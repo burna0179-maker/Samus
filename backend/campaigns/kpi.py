@@ -9,6 +9,7 @@ Two update modes, both routed through :func:`apply_kpi_events`:
   * webhook  — an external analytics/imported event (page views, CTA clicks,
                application starts, ...) increments the funnel counter.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -83,9 +84,7 @@ def normalize_event(event: dict[str, Any]) -> dict[str, Any]:
     return {"kpi": kpi, "mode": mode, "value": value}
 
 
-def apply_kpi_events(
-    run: CampaignRun, events: list[dict[str, Any]]
-) -> dict[str, float]:
+def apply_kpi_events(run: CampaignRun, events: list[dict[str, Any]]) -> dict[str, float]:
     """Fold KPI events into ``run.kpis_updated`` and mirror to metrics.
 
     Returns the map of KPIs actually changed to their new values. Invalid

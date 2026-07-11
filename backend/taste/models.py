@@ -6,14 +6,15 @@ Pure-stdlib dataclasses with ``to_dict()`` JSON projections, mirroring
 ``TasteAuditResult`` drops straight into the PDC composite finding. No I/O,
 no LLM.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
 
 # Violation severities.
-SEVERITY_FAIL = "fail"   # a non-negotiable tell (em-dash, banned palette) — gate should refuse
-SEVERITY_WARN = "warn"   # a soft signal — degrades the score, never hard-fails alone
+SEVERITY_FAIL = "fail"  # a non-negotiable tell (em-dash, banned palette) — gate should refuse
+SEVERITY_WARN = "warn"  # a soft signal — degrades the score, never hard-fails alone
 
 
 def _clamp_dial(x: Any) -> int:
@@ -70,11 +71,11 @@ class TasteDials:
 class DesignRead:
     """The one-line "reading the room" inference made before any generation."""
 
-    page_kind: str                 # landing | portfolio | redesign | editorial | proposal | ...
-    audience: str                  # b2b-buyer | consumer | recruiter | public-sector | ...
-    vibe: str                      # minimalist | premium | playful | brutal | editorial | ...
-    aesthetic_family: str          # the design-system / aesthetic family leaned toward
-    one_liner: str                 # the declared "Reading this as: …" sentence
+    page_kind: str  # landing | portfolio | redesign | editorial | proposal | ...
+    audience: str  # b2b-buyer | consumer | recruiter | public-sector | ...
+    vibe: str  # minimalist | premium | playful | brutal | editorial | ...
+    aesthetic_family: str  # the design-system / aesthetic family leaned toward
+    one_liner: str  # the declared "Reading this as: …" sentence
     signals: list[str] = field(default_factory=list)  # matched dial-signal ids
     needs_clarification: bool = False  # True when the brief is too ambiguous to read
 
@@ -102,8 +103,8 @@ class TasteProfile:
 
     design_read: DesignRead
     dials: TasteDials
-    design_system: str             # package id, or "tailwind-v4-native" default
-    design_system_install: str     # the install command (or "" for the native default)
+    design_system: str  # package id, or "tailwind-v4-native" default
+    design_system_install: str  # the install command (or "" for the native default)
     design_system_rationale: str
     palette_guidance: list[str] = field(default_factory=list)
     typography_guidance: list[str] = field(default_factory=list)
@@ -127,10 +128,10 @@ class TasteViolation:
     """One failed Pre-Flight check."""
 
     check_id: str
-    severity: str          # SEVERITY_FAIL | SEVERITY_WARN
+    severity: str  # SEVERITY_FAIL | SEVERITY_WARN
     message: str
-    evidence: str = ""     # the offending snippet / count, truncated
-    weight: float = 0.1    # score penalty contributed by this violation
+    evidence: str = ""  # the offending snippet / count, truncated
+    weight: float = 0.1  # score penalty contributed by this violation
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -146,9 +147,9 @@ class TasteViolation:
 class TasteAuditResult:
     """Result of running the deterministic Pre-Flight audit over a deliverable."""
 
-    score: float                                  # 0.0..1.0 (1.0 = no tells)
-    grade: str                                    # A..F
-    passed: bool                                  # True when no SEVERITY_FAIL present
+    score: float  # 0.0..1.0 (1.0 = no tells)
+    grade: str  # A..F
+    passed: bool  # True when no SEVERITY_FAIL present
     checks_run: list[str] = field(default_factory=list)
     violations: list[TasteViolation] = field(default_factory=list)
     rationale: list[str] = field(default_factory=list)

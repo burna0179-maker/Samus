@@ -32,6 +32,7 @@ The remediation is **additive and non-breaking**:
 what key signs/verifies its traffic" — used by both the signer
 (``http_client``) and the verifier (``middleware``).
 """
+
 from __future__ import annotations
 
 import hashlib

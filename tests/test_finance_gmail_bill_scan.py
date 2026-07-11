@@ -6,12 +6,12 @@ below deliberately does NOT implement mark_read / modify / send so any
 accidental call raises AttributeError, which the read-only tests assert
 against as a second line of defense on top of the source-grep check.
 """
+
 from __future__ import annotations
 
 import ast
 import inspect
 import json
-from pathlib import Path
 
 import pytest
 
@@ -23,6 +23,7 @@ from backend.intake.gmail_api_client import GmailApiError
 # ---------------------------------------------------------------------------
 # Fixtures: synthetic RFC822 messages
 # ---------------------------------------------------------------------------
+
 
 def _rfc822(*, from_addr: str, subject: str, date: str, body: str, message_id: str) -> bytes:
     return (
@@ -106,18 +107,22 @@ NON_BILLING_NEWSLETTER = _rfc822(
 # Vendor matching
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("domain,expected_first_id", [
-    ("anthropic.com", "anthropic-claude-subscription"),
-    ("twilio.com", "twilio-telephony"),
-    ("vapi.ai", "vapi-voice-calls"),
-    ("wordpress.com", "wordpress-com-domain"),
-    ("google.com", "google-workspace-hustleforge"),
-    ("cloud.google.com", "gcp-cloud-run"),
-    ("pge.com", "pge-energy"),
-    ("xfinity.com", "xfinity-internet-cable"),
-    ("comcast.com", "xfinity-internet-cable"),
-    ("spotify.com", "spotify-premium"),
-])
+
+@pytest.mark.parametrize(
+    "domain,expected_first_id",
+    [
+        ("anthropic.com", "anthropic-claude-subscription"),
+        ("twilio.com", "twilio-telephony"),
+        ("vapi.ai", "vapi-voice-calls"),
+        ("wordpress.com", "wordpress-com-domain"),
+        ("google.com", "google-workspace-hustleforge"),
+        ("cloud.google.com", "gcp-cloud-run"),
+        ("pge.com", "pge-energy"),
+        ("xfinity.com", "xfinity-internet-cable"),
+        ("comcast.com", "xfinity-internet-cable"),
+        ("spotify.com", "spotify-premium"),
+    ],
+)
 def test_known_vendor_domains_map_correctly(domain, expected_first_id):
     matched_domain, candidates = gbs.match_vendor(f"billing@{domain}")
     assert matched_domain == domain
@@ -157,13 +162,17 @@ def test_subdomain_matches_known_vendor():
 # Amount extraction
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("text,expected", [
-    ("Your receipt from Anthropic - $200.00", 200.0),
-    ("Payment declined: Google Workspace ($54.56)", 54.56),
-    ("Total charged: $200.00", 200.0),
-    ("Amount due: $10.00", 10.0),
-    ("No amount here at all", None),
-])
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("Your receipt from Anthropic - $200.00", 200.0),
+        ("Payment declined: Google Workspace ($54.56)", 54.56),
+        ("Total charged: $200.00", 200.0),
+        ("Amount due: $10.00", 10.0),
+        ("No amount here at all", None),
+    ],
+)
 def test_amount_extraction_from_subjects(text, expected):
     assert gbs.extract_amount(text) == expected
 
@@ -176,6 +185,7 @@ def test_amount_extraction_prefers_total_context_over_stray_number():
 # ---------------------------------------------------------------------------
 # Signal classification
 # ---------------------------------------------------------------------------
+
 
 def test_classify_signal_kind_payment_declined():
     assert gbs.classify_signal_kind("Payment declined", "card was declined") == "payment_declined"
@@ -200,6 +210,7 @@ def test_classify_signal_kind_other_fallback():
 # ---------------------------------------------------------------------------
 # parse_bill_signal — fail-soft on unparseable messages
 # ---------------------------------------------------------------------------
+
 
 def test_parse_bill_signal_happy_path():
     match = gbs.RawMatch(gmail_id="g1", raw=ANTHROPIC_RECEIPT)
@@ -235,6 +246,7 @@ def test_parse_bill_signal_unmatched_vendor_bucketed():
 # search_billing_emails — read-only usage of the (fake) client
 # ---------------------------------------------------------------------------
 
+
 class _FakeGmailClient:
     """Fake exposing ONLY the read-only surface — no mark_read/modify/send."""
 
@@ -257,9 +269,12 @@ class _FakeGmailClient:
 
 
 def test_search_billing_emails_uses_search_not_unread_only():
-    fake = _FakeGmailClient({
-        "g1": ANTHROPIC_RECEIPT, "g2": GOOGLE_DECLINED,
-    })
+    fake = _FakeGmailClient(
+        {
+            "g1": ANTHROPIC_RECEIPT,
+            "g2": GOOGLE_DECLINED,
+        }
+    )
     matches = gbs.search_billing_emails(fake, lookback_days=30, max_results=50)
     assert len(matches) == 2
     assert fake.search_calls, "search_message_ids must be called"
@@ -283,17 +298,38 @@ def test_search_billing_emails_skips_fetch_failures_without_raising():
 # compile_bills_snapshot — delta computation, declined flagging, bucketing
 # ---------------------------------------------------------------------------
 
+
 def _mock_registry() -> CodbRegistry:
     return CodbRegistry(
         costs=[
-            CodbItem(id="anthropic-claude-subscription", name="Anthropic Claude subscription",
-                     category="ai", criticality="critical", estimated_monthly_usd=150.0),
-            CodbItem(id="google-workspace-hustleforge", name="Google Workspace (Hustleforge)",
-                     category="saas", criticality="high", estimated_monthly_usd=54.56),
-            CodbItem(id="wordpress-com-domain", name="WordPress.com",
-                     category="saas", criticality="medium", estimated_monthly_usd=10.0),
-            CodbItem(id="twilio-telephony", name="Twilio",
-                     category="infrastructure", criticality="critical", estimated_monthly_usd=15.0),
+            CodbItem(
+                id="anthropic-claude-subscription",
+                name="Anthropic Claude subscription",
+                category="ai",
+                criticality="critical",
+                estimated_monthly_usd=150.0,
+            ),
+            CodbItem(
+                id="google-workspace-hustleforge",
+                name="Google Workspace (Hustleforge)",
+                category="saas",
+                criticality="high",
+                estimated_monthly_usd=54.56,
+            ),
+            CodbItem(
+                id="wordpress-com-domain",
+                name="WordPress.com",
+                category="saas",
+                criticality="medium",
+                estimated_monthly_usd=10.0,
+            ),
+            CodbItem(
+                id="twilio-telephony",
+                name="Twilio",
+                category="infrastructure",
+                criticality="critical",
+                estimated_monthly_usd=15.0,
+            ),
         ],
         revenue_targets=CodbRevenueTargets(monthly_minimum_usd=5500, runway_alert_days=60),
     )
@@ -331,14 +367,26 @@ def test_compile_bills_snapshot_unmatched_vendor_bucketing():
 
 def test_compile_bills_snapshot_most_recent_amount_wins():
     older = gbs.BillSignal(
-        gmail_id="x1", message_id="m1", from_addr="billing@twilio.com",
-        from_domain="twilio.com", subject="old invoice", date_header="Mon, 01 Jun 2026 08:00:00 +0000",
-        amount_usd=10.0, signal_kind="invoice", matched_registry_id="twilio-telephony",
+        gmail_id="x1",
+        message_id="m1",
+        from_addr="billing@twilio.com",
+        from_domain="twilio.com",
+        subject="old invoice",
+        date_header="Mon, 01 Jun 2026 08:00:00 +0000",
+        amount_usd=10.0,
+        signal_kind="invoice",
+        matched_registry_id="twilio-telephony",
     )
     newer = gbs.BillSignal(
-        gmail_id="x2", message_id="m2", from_addr="billing@twilio.com",
-        from_domain="twilio.com", subject="new invoice", date_header="Thu, 04 Jun 2026 08:00:00 +0000",
-        amount_usd=15.32, signal_kind="invoice", matched_registry_id="twilio-telephony",
+        gmail_id="x2",
+        message_id="m2",
+        from_addr="billing@twilio.com",
+        from_domain="twilio.com",
+        subject="new invoice",
+        date_header="Thu, 04 Jun 2026 08:00:00 +0000",
+        amount_usd=15.32,
+        signal_kind="invoice",
+        matched_registry_id="twilio-telephony",
     )
     snap = gbs.compile_bills_snapshot([older, newer], _mock_registry(), lookback_days=90)
     row = next(r for r in snap.rows if r.registry_id == "twilio-telephony")
@@ -361,15 +409,18 @@ def test_compile_bills_snapshot_never_touches_registry_file(monkeypatch, tmp_pat
 # End-to-end fixture pipeline (no real network)
 # ---------------------------------------------------------------------------
 
+
 def test_end_to_end_fixture_pipeline_and_summary_table():
-    fake = _FakeGmailClient({
-        "g1": ANTHROPIC_RECEIPT,
-        "g2": GOOGLE_DECLINED,
-        "g3": WORDPRESS_RENEWAL,
-        "g4": TWILIO_INVOICE,
-        "g5": SENDGRID_UNMATCHED,
-        "g6": NON_BILLING_NEWSLETTER,
-    })
+    fake = _FakeGmailClient(
+        {
+            "g1": ANTHROPIC_RECEIPT,
+            "g2": GOOGLE_DECLINED,
+            "g3": WORDPRESS_RENEWAL,
+            "g4": TWILIO_INVOICE,
+            "g5": SENDGRID_UNMATCHED,
+            "g6": NON_BILLING_NEWSLETTER,
+        }
+    )
     matches = gbs.search_billing_emails(fake, lookback_days=90)
     signals = [s for s in (gbs.parse_bill_signal(m) for m in matches) if s is not None]
     snap = gbs.compile_bills_snapshot(signals, _mock_registry(), lookback_days=90)
@@ -383,10 +434,12 @@ def test_end_to_end_fixture_pipeline_and_summary_table():
 # CLI / missing-token graceful exit
 # ---------------------------------------------------------------------------
 
+
 def test_cli_missing_token_exits_2_no_traceback(monkeypatch, tmp_path, capsys):
     missing_token_path = tmp_path / "does_not_exist.json"
     monkeypatch.setattr(
-        gbs, "run_scan",
+        gbs,
+        "run_scan",
         lambda **kw: (_ for _ in ()).throw(
             GmailApiError(f"gmail_oauth_token_missing: {missing_token_path}"),
         ),
@@ -400,7 +453,8 @@ def test_cli_missing_token_exits_2_no_traceback(monkeypatch, tmp_path, capsys):
 
 def test_cli_other_connect_error_exits_1(monkeypatch, capsys):
     monkeypatch.setattr(
-        gbs, "run_scan",
+        gbs,
+        "run_scan",
         lambda **kw: (_ for _ in ()).throw(GmailApiError("gmail_http_500: boom")),
     )
     rc = gbs.main([])
@@ -412,7 +466,8 @@ def test_cli_other_connect_error_exits_1(monkeypatch, capsys):
 def test_cli_writes_json_snapshot_and_prints_table(monkeypatch, tmp_path, capsys):
     snap = gbs.compile_bills_snapshot(
         [gbs.parse_bill_signal(gbs.RawMatch(gmail_id="g1", raw=ANTHROPIC_RECEIPT))],
-        _mock_registry(), lookback_days=45,
+        _mock_registry(),
+        lookback_days=45,
     )
     monkeypatch.setattr(gbs, "run_scan", lambda **kw: snap)
     out_file = tmp_path / "snap.json"
@@ -428,6 +483,7 @@ def test_cli_writes_json_snapshot_and_prints_table(monkeypatch, tmp_path, capsys
 # ---------------------------------------------------------------------------
 # Read-only guarantees — source-level assertion (no mark_read/modify/send)
 # ---------------------------------------------------------------------------
+
 
 def test_module_source_never_calls_mutating_gmail_methods():
     """AST-level check: gmail_bill_scan.py must not CALL client.mark_read /
@@ -448,9 +504,13 @@ def test_module_source_never_calls_mutating_gmail_methods():
 
 def test_module_source_never_writes_codb_registry_yaml():
     source = inspect.getsource(gbs)
-    assert "codb_registry.yaml" not in source or "def " not in source.split(
-        "codb_registry.yaml",
-    )[0][-50:]
+    assert (
+        "codb_registry.yaml" not in source
+        or "def "
+        not in source.split(
+            "codb_registry.yaml",
+        )[0][-50:]
+    )
     # Stronger check: no open(...'w') / write_text / dump calls near the
     # registry path helper — the module only ever calls load_registry().
     assert "yaml.safe_dump" not in source

@@ -31,6 +31,7 @@ correct choice (label-aware, rate-limited by Google, no app password).
 See :mod:`backend.intake.gmail_api_client` for the transport surface and
 :mod:`backend.intake.gmail_oauth` for the one-time consent flow.
 """
+
 from __future__ import annotations
 
 import email
@@ -57,6 +58,7 @@ _LOG = logging.getLogger("samus.intake.gmail_poller")
 # Parsed-email shape (in-memory; not persisted as-is)
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class ParsedInboundEmail:
     """One inbound email after IMAP fetch + RFC822 parse.
@@ -66,24 +68,26 @@ class ParsedInboundEmail:
     messages prefer text/plain over text/html (HTML is downgraded to a note
     on the artifact rather than stripped on the fly).
     """
-    message_id: str           # RFC822 Message-ID header (idempotency key)
-    from_addr: str            # sender email (lower-cased, stripped of name)
-    from_display: str         # raw "Name <a@b>" header for the artifact
-    to_addrs: list[str]       # all recipients (To + Cc), lower-cased
+
+    message_id: str  # RFC822 Message-ID header (idempotency key)
+    from_addr: str  # sender email (lower-cased, stripped of name)
+    from_display: str  # raw "Name <a@b>" header for the artifact
+    to_addrs: list[str]  # all recipients (To + Cc), lower-cased
     subject: str
-    date_header: str          # raw Date header
-    body_text: str            # plain-text body (capped — see _MAX_BODY_BYTES)
-    body_format: str          # "text/plain" | "text/html" | "empty"
+    date_header: str  # raw Date header
+    body_text: str  # plain-text body (capped — see _MAX_BODY_BYTES)
+    body_format: str  # "text/plain" | "text/html" | "empty"
     attachment_names: list[str] = field(default_factory=list)
 
 
-_MAX_BODY_BYTES = 64 * 1024     # 64 KB body cap — anything longer is truncated
-                                # with a marker; full message lives in IMAP.
+_MAX_BODY_BYTES = 64 * 1024  # 64 KB body cap — anything longer is truncated
+# with a marker; full message lives in IMAP.
 
 
 # ---------------------------------------------------------------------------
 # RFC822 parsing
 # ---------------------------------------------------------------------------
+
 
 def _strip_addr(raw: str) -> str:
     """Extract bare email from a "Name <a@b>" header. Lower-cased."""
@@ -97,10 +101,7 @@ def _split_addrs(raw: str) -> list[str]:
     """Parse a comma-separated address list into bare lower-cased emails."""
     if not raw:
         return []
-    return [
-        addr.lower() for _name, addr in email.utils.getaddresses([raw])
-        if addr
-    ]
+    return [addr.lower() for _name, addr in email.utils.getaddresses([raw]) if addr]
 
 
 def _select_body(msg: EmailMessage) -> tuple[str, str]:
@@ -166,6 +167,7 @@ def parse_rfc822(raw_bytes: bytes) -> ParsedInboundEmail:
 # Idempotency ledger (JSONL)
 # ---------------------------------------------------------------------------
 
+
 def _ledger_path() -> Path:
     return Path(get_settings().gmail_inbox_ledger_path)
 
@@ -207,9 +209,11 @@ def _append_ledger(rec: dict[str, Any]) -> None:
 # Per-message processor (pure-ish — CRM + finance writes are the side effects)
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class InboundEmailHandled:
     """One processed message — what artifact+task were produced + how."""
+
     message_id: str
     from_addr: str
     subject: str
@@ -225,13 +229,14 @@ class InboundEmailHandled:
     # classification + intent LLM call.
     classification: dict[str, Any] | None = None
     intent: dict[str, Any] | None = None
-    intent_task_prefix: str = ""      # e.g. "[CS/URGENT]" or "[CLIENT/COUNTER]"
+    intent_task_prefix: str = ""  # e.g. "[CS/URGENT]" or "[CLIENT/COUNTER]"
 
 
 def _safe_find_opportunity(email_addr: str) -> str:
     """Wrap find_opportunity_for_email in a try; lookup failures are non-fatal."""
     try:
         from backend.crm.service import find_opportunity_for_email
+
         return find_opportunity_for_email(email_addr) or ""
     except Exception as exc:  # noqa: BLE001 — DDB / Neo4j hiccup is non-fatal
         _LOG.warning("find_opportunity_for_email failed: %s", exc)
@@ -242,6 +247,7 @@ def _safe_billing_summary(email_addr: str) -> tuple[str, str, str]:
     """Wrap get_customer_billing_summary; returns (state, one_line, error)."""
     try:
         from backend.finance.service import get_customer_billing_summary
+
         summary = get_customer_billing_summary(email_addr)
         return summary.state, summary.one_line_summary(), summary.lookup_error
     except Exception as exc:  # noqa: BLE001 — Stripe / network is non-fatal
@@ -314,6 +320,7 @@ def handle_parsed_email(parsed: ParsedInboundEmail) -> InboundEmailHandled:
     # email but skips out for non-YouTube mail without any external call.
     try:
         from backend.intake import youtube_ingest
+
         if youtube_ingest.is_youtube_notification(parsed):
             yt = youtube_ingest.handle_youtube_email(parsed)
             # Translate to the InboundEmailHandled shape so drain_once's
@@ -331,15 +338,16 @@ def handle_parsed_email(parsed: ParsedInboundEmail) -> InboundEmailHandled:
                     f"target={yt.proposed_target_agent or 'none'} "
                     f"(transcript={yt.transcript_status})"
                 ),
-                artifact_id=yt.video_id,           # repurpose for KB node id
-                operator_task_id="",                # no operator task on this path
+                artifact_id=yt.video_id,  # repurpose for KB node id
+                operator_task_id="",  # no operator task on this path
                 persisted=yt.persisted,
                 error=yt.error,
             )
     except Exception as exc:  # noqa: BLE001 — YouTube path must never break the poller
         _LOG.warning(
             "youtube_ingest branch raised for %s: %s; falling through to CRM flow",
-            getattr(parsed, "message_id", ""), exc,
+            getattr(parsed, "message_id", ""),
+            exc,
         )
 
     # ------ Regular customer-reply CRM flow ------------------------------
@@ -369,6 +377,7 @@ def handle_parsed_email(parsed: ParsedInboundEmail) -> InboundEmailHandled:
     classification = None
     try:
         from backend.intake.email_classifier import classify
+
         classification = classify(parsed)
         classification_dict = classification.to_dict()
     except Exception as exc:  # noqa: BLE001
@@ -378,9 +387,7 @@ def handle_parsed_email(parsed: ParsedInboundEmail) -> InboundEmailHandled:
     is_client_correspondence = bool(
         classification and classification.category == "client_correspondence"
     )
-    is_outbound = bool(
-        is_client_correspondence and classification.direction == "outbound"
-    )
+    is_outbound = bool(is_client_correspondence and classification.direction == "outbound")
 
     # 3. Create the artifact (raw parsed email lives inline_data).
     # Known-client mail is owned by the client entity (not the opportunity or
@@ -431,15 +438,14 @@ def handle_parsed_email(parsed: ParsedInboundEmail) -> InboundEmailHandled:
     if is_client_correspondence:
         try:
             from backend.intake.correspondence_intent import reason_intent
+
             # For outbound forwards, use the body BELOW the preamble as the
             # reasoning target so the intent classifier sees the operator's
             # actual message, not the wrapper.
             reason_body = parsed.body_text
             reason_subject = parsed.subject
             if is_outbound:
-                reason_subject = (
-                    classification.original_subject or parsed.subject
-                )
+                reason_subject = classification.original_subject or parsed.subject
                 # Everything after the preamble's header block — the operator's
                 # sent message text. Split on the first blank line following
                 # the preamble; the body_text was already truncated to 3000
@@ -454,7 +460,7 @@ def handle_parsed_email(parsed: ParsedInboundEmail) -> InboundEmailHandled:
                     # Skip header lines until we hit a blank
                     split_at = tail.find("\n\n")
                     if split_at >= 0:
-                        reason_body = tail[split_at + 2:].strip()
+                        reason_body = tail[split_at + 2 :].strip()
             intent_result = reason_intent(
                 direction=classification.direction,
                 client_id=classification.client_id,
@@ -466,7 +472,9 @@ def handle_parsed_email(parsed: ParsedInboundEmail) -> InboundEmailHandled:
                 result.intent = intent_result.to_dict()
         except Exception as exc:  # noqa: BLE001 — intent must never break capture
             _LOG.warning(
-                "intent reasoning failed for %s: %s", parsed.message_id, exc,
+                "intent reasoning failed for %s: %s",
+                parsed.message_id,
+                exc,
             )
             intent_result = None
     artifact_req = CreateArtifactRequest(
@@ -505,15 +513,13 @@ def handle_parsed_email(parsed: ParsedInboundEmail) -> InboundEmailHandled:
             # customer_service track with due_at=now; sales-cycle intents
             # go to normal client_correspondence with softer due offsets.
             from backend.crm.client_intent_routing import route_client_intent
+
             intent_tag_value = (
-                intent_result.intent
-                if intent_result and not intent_result.error
-                else None
+                intent_result.intent if intent_result and not intent_result.error else None
             )
             action = route_client_intent(intent_tag_value)
             task_title = (
-                f"{action.title_prefix} {client_tag}: "
-                f"{(parsed.subject or '(no subject)')[:80]}"
+                f"{action.title_prefix} {client_tag}: {(parsed.subject or '(no subject)')[:80]}"
             )
             task_kind = action.task_kind
             task_due_at = action.due_at
@@ -523,8 +529,7 @@ def handle_parsed_email(parsed: ParsedInboundEmail) -> InboundEmailHandled:
             result.intent_task_prefix = action.title_prefix
         else:
             cat_prefix = (
-                classification_dict.get("category", "").upper()
-                if classification_dict else ""
+                classification_dict.get("category", "").upper() if classification_dict else ""
             )
             task_title_prefix = f"[{cat_prefix}] " if cat_prefix else ""
             task_title = f"{task_title_prefix}Reply: {(parsed.subject or '(no subject)')[:80]}"
@@ -553,8 +558,8 @@ def handle_parsed_email(parsed: ParsedInboundEmail) -> InboundEmailHandled:
             result.operator_task_id = task_res.operator_task_id
             if task_res.status != "created":
                 prior = result.error
-                result.error = (
-                    f"{prior}; task_{task_res.status}: {task_res.error or ''}".strip("; ")
+                result.error = f"{prior}; task_{task_res.status}: {task_res.error or ''}".strip(
+                    "; "
                 )
             else:
                 result.persisted = True
@@ -574,6 +579,7 @@ def handle_parsed_email(parsed: ParsedInboundEmail) -> InboundEmailHandled:
                 CLIENT_CORRESPONDENCE,
                 emit_business_event,
             )
+
             event_metadata: dict[str, Any] = {
                 "client_id": classification.client_id,
                 "client_role": classification.client_role,
@@ -584,9 +590,7 @@ def handle_parsed_email(parsed: ParsedInboundEmail) -> InboundEmailHandled:
                     if classification.direction == "outbound"
                     else (parsed.to_addrs[0] if parsed.to_addrs else "")
                 ),
-                "subject": (
-                    classification.original_subject or parsed.subject
-                ),
+                "subject": (classification.original_subject or parsed.subject),
                 "message_id": parsed.message_id,
                 "artifact_id": result.artifact_id,
                 "operator_task_id": result.operator_task_id,
@@ -609,7 +613,8 @@ def handle_parsed_email(parsed: ParsedInboundEmail) -> InboundEmailHandled:
         except Exception as exc:  # noqa: BLE001 — telemetry must not break the poller
             _LOG.warning(
                 "client_correspondence event emit failed for %s: %s",
-                parsed.message_id, exc,
+                parsed.message_id,
+                exc,
             )
 
     # ------ Auto-project meeting requests onto the planner calendar --------
@@ -622,18 +627,23 @@ def handle_parsed_email(parsed: ParsedInboundEmail) -> InboundEmailHandled:
     if (
         is_client_correspondence
         and classification.direction == "inbound"
-        and intent_result and not intent_result.error
+        and intent_result
+        and not intent_result.error
         and intent_result.intent == "requested_meeting"
     ):
         try:
             from datetime import datetime, timedelta, timezone
 
             from backend.intake.calendar_projection import project_event
+
             tbd_start = (
-                datetime.now(timezone.utc)
-                .replace(hour=10, minute=0, second=0, microsecond=0)
-                + timedelta(days=2)
-            ).isoformat().replace("+00:00", "Z")
+                (
+                    datetime.now(timezone.utc).replace(hour=10, minute=0, second=0, microsecond=0)
+                    + timedelta(days=2)
+                )
+                .isoformat()
+                .replace("+00:00", "Z")
+            )
             desc_parts = [
                 f"Client: {classification.client_id}",
                 f"From:   {parsed.from_addr}",
@@ -655,7 +665,8 @@ def handle_parsed_email(parsed: ParsedInboundEmail) -> InboundEmailHandled:
         except Exception as exc:  # noqa: BLE001 — must never break the drain
             _LOG.warning(
                 "meeting-request projection failed for %s: %s",
-                parsed.message_id, exc,
+                parsed.message_id,
+                exc,
             )
 
     # ------ Reply-handling pod chain (flag-gated; observe-only when off) -----
@@ -671,6 +682,7 @@ def handle_parsed_email(parsed: ParsedInboundEmail) -> InboundEmailHandled:
     if not is_client_correspondence:
         try:
             from backend.common.config import get_settings as _gs
+
             if getattr(_gs(), "reply_handling_enabled", False):
                 _handle_reply_intent(parsed, result.opportunity_id)
         except Exception as exc:  # noqa: BLE001 — pod chain must never break the poller
@@ -703,6 +715,7 @@ def _handle_reply_intent(parsed: ParsedInboundEmail, opportunity_id: str) -> Non
     prospect_id = ""
     try:
         from backend.common import recipient_index
+
         rec = recipient_index.lookup_recipient(addr) or {}
         prospect_id = str(rec.get("prospect_id", "") or "")
     except Exception as exc:  # noqa: BLE001
@@ -713,13 +726,18 @@ def _handle_reply_intent(parsed: ParsedInboundEmail, opportunity_id: str) -> Non
     # is a safe no-op.
     try:
         from backend.feedback import handlers
+
         if intent.intent == INTENT_OPT_OUT:
             handlers.fire_cash_engine_signal(
-                event="unsubscribe", opportunity_id=opportunity_id, prospect_id=prospect_id,
+                event="unsubscribe",
+                opportunity_id=opportunity_id,
+                prospect_id=prospect_id,
             )
         elif intent.intent in (INTENT_INTERESTED, INTENT_MEETING_BOOKED):
             handlers.fire_cash_engine_signal(
-                event="reply", opportunity_id=opportunity_id, prospect_id=prospect_id,
+                event="reply",
+                opportunity_id=opportunity_id,
+                prospect_id=prospect_id,
             )
     except Exception as exc:  # noqa: BLE001
         _LOG.warning("reply state signal failed (%s): %s", intent.intent, exc)
@@ -731,6 +749,7 @@ def _handle_reply_intent(parsed: ParsedInboundEmail, opportunity_id: str) -> Non
             from backend.common import aws
             from backend.common.config import get_settings
             from backend.common.dates import iso_now
+
             s = get_settings()
             aws.table(s.ddb_suppression_table, s.aws_region).put_item(
                 Item={"email": addr.lower(), "reason": "reply_opt_out", "ts": iso_now()},
@@ -741,10 +760,13 @@ def _handle_reply_intent(parsed: ParsedInboundEmail, opportunity_id: str) -> Non
     # Compliance-checked follow-up DRAFT -> CRM artifact for operator review.
     try:
         draft = draft_follow_up(
-            intent.intent, original_subject=parsed.subject, from_addr=addr,
+            intent.intent,
+            original_subject=parsed.subject,
+            from_addr=addr,
         )
         from backend.crm.models import CreateArtifactRequest
         from backend.crm.service import create_artifact
+
         owner_kind = "opportunity" if opportunity_id else "contact"
         # ArtifactKind is a closed Literal; "content_draft" is the closest fit
         # for a drafted reply. The follow-up nature is carried in inline_data.
@@ -753,20 +775,23 @@ def _handle_reply_intent(parsed: ParsedInboundEmail, opportunity_id: str) -> Non
             "intent": intent.to_dict(),
             "draft": draft.to_dict(),
         }
-        create_artifact(CreateArtifactRequest(
-            kind="content_draft",
-            owner_entity_kind=owner_kind,
-            owner_entity_id=opportunity_id or addr,
-            title=f"[{intent.intent}] draft reply: {(parsed.subject or '(no subject)')[:120]}",
-            inline_data=payload,
-            mime_type="application/json",
-            bytes=len(str(payload).encode("utf-8", errors="replace")),
-            source="intake.reply_classifier",
-            created_by="intake.reply_classifier",
-        ))
+        create_artifact(
+            CreateArtifactRequest(
+                kind="content_draft",
+                owner_entity_kind=owner_kind,
+                owner_entity_id=opportunity_id or addr,
+                title=f"[{intent.intent}] draft reply: {(parsed.subject or '(no subject)')[:120]}",
+                inline_data=payload,
+                mime_type="application/json",
+                bytes=len(str(payload).encode("utf-8", errors="replace")),
+                source="intake.reply_classifier",
+                created_by="intake.reply_classifier",
+            )
+        )
         _LOG.info(
             "reply-handling: %s (conf=%.2f) draft%s for %s",
-            intent.intent, intent.confidence,
+            intent.intent,
+            intent.confidence,
             " send-recommended" if draft.send_recommended else "",
             parsed.message_id,
         )
@@ -778,15 +803,17 @@ def _handle_reply_intent(parsed: ParsedInboundEmail, opportunity_id: str) -> Non
 # Drain pass (entry point)
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class DrainPassResult:
     """Outcome of one drain_once call."""
-    enabled: bool                       # False -> config missing, no-op
+
+    enabled: bool  # False -> config missing, no-op
     fetched: int = 0
-    processed: int = 0                  # produced both artifact + task ok
-    duplicates: int = 0                 # message_id already in ledger
-    failed: int = 0                     # at least one of artifact/task failed
-    connect_error: str = ""             # auth/network failure (whole pass failed)
+    processed: int = 0  # produced both artifact + task ok
+    duplicates: int = 0  # message_id already in ledger
+    failed: int = 0  # at least one of artifact/task failed
+    connect_error: str = ""  # auth/network failure (whole pass failed)
     handled: list[InboundEmailHandled] = field(default_factory=list)
 
 
@@ -819,6 +846,7 @@ def drain_once(
     ts = now or iso_now()
 
     if api_factory is None:
+
         def api_factory() -> GmailApiClient:  # type: ignore[no-redef]
             return GmailApiClient(
                 client_id=settings.gmail_oauth_client_id,
@@ -841,16 +869,19 @@ def drain_once(
                 except Exception as exc:  # noqa: BLE001 — bad single msg
                     _LOG.warning(
                         "gmail fetch/parse failed gmail_id=%s: %s",
-                        gmail_id, exc,
+                        gmail_id,
+                        exc,
                     )
                     out.failed += 1
-                    _append_ledger({
-                        "ts": ts,
-                        "gmail_id": gmail_id,
-                        "message_id": "",
-                        "status": "fetch_failed",
-                        "error": str(exc)[:240],
-                    })
+                    _append_ledger(
+                        {
+                            "ts": ts,
+                            "gmail_id": gmail_id,
+                            "message_id": "",
+                            "status": "fetch_failed",
+                            "error": str(exc)[:240],
+                        }
+                    )
                     continue
 
                 if parsed.message_id and parsed.message_id in seen_message_ids:
@@ -884,6 +915,7 @@ def drain_once(
                 }
                 try:
                     from backend.intake.email_classifier import classify as _classify
+
                     _cls = _classify(parsed)
                     ledger_row["category"] = _cls.category
                     if _cls.vendor_registry_id:
@@ -913,6 +945,7 @@ def drain_once(
                             CalendarApiError,
                         )
                         from backend.intake.calendar_ingest import project_event
+
                         with CalendarApiClient(
                             client_id=settings.gmail_oauth_client_id,
                             client_secret=settings.gmail_oauth_client_secret,
@@ -927,13 +960,16 @@ def drain_once(
                                 }
                             else:
                                 calendar_outcome = project_event(
-                                    cal_client, parsed, raw,
+                                    cal_client,
+                                    parsed,
+                                    raw,
                                     artifact_id=handled.artifact_id,
                                 )
                     except Exception as exc:  # noqa: BLE001 — never break drain
                         _LOG.warning(
                             "calendar project raised for %s: %s",
-                            gmail_id, exc,
+                            gmail_id,
+                            exc,
                         )
                         calendar_outcome = {
                             "created": False,
@@ -957,6 +993,7 @@ def drain_once(
                             forward_and_cleanup,
                             is_configured as _fwd_configured,
                         )
+
                         if _fwd_configured():
                             fwd = forward_and_cleanup(
                                 gmail_client=client,
@@ -964,9 +1001,7 @@ def drain_once(
                                 parsed=parsed,
                                 classification=handled.classification,
                                 intent=handled.intent,
-                                intent_action_prefix=(
-                                    handled.intent_task_prefix or None
-                                ),
+                                intent_action_prefix=(handled.intent_task_prefix or None),
                             )
                             forward_outcome = {
                                 "forwarded": fwd.forwarded,
@@ -977,7 +1012,9 @@ def drain_once(
                             }
                     except Exception as exc:  # noqa: BLE001 — never break drain
                         _LOG.warning(
-                            "forward step raised for %s: %s", gmail_id, exc,
+                            "forward step raised for %s: %s",
+                            gmail_id,
+                            exc,
                         )
 
                 if forward_outcome:
@@ -993,9 +1030,7 @@ def drain_once(
                 # Leaving it UNREAD would poison-pill every drain pass.
                 # SKIP if we already trashed — a trashed message can't be
                 # UNREAD-labeled (the API 404s on trashed refs).
-                already_gone = bool(
-                    forward_outcome and forward_outcome.get("trashed")
-                )
+                already_gone = bool(forward_outcome and forward_outcome.get("trashed"))
                 if not already_gone:
                     try:
                         client.mark_read(gmail_id)
@@ -1017,6 +1052,7 @@ def drain_once(
 # ---------------------------------------------------------------------------
 # Script entry point (Poll-Inbox.ps1 -> python -m backend.intake.gmail_poller)
 # ---------------------------------------------------------------------------
+
 
 def main() -> int:
     """Drain once + print one summary line. Exit 0 on success or skip.

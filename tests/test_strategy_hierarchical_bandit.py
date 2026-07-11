@@ -5,6 +5,7 @@ Covers composite-key updates, UCB1 exploration-then-exploitation in
 clearing hierarchical arms, and backward-compatibility of the flat bandit.
 Bandit state is reset between tests for isolation.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -21,6 +22,7 @@ def _reset():
 # ---------------------------------------------------------------------------
 # Composite-key updates
 # ---------------------------------------------------------------------------
+
 
 def test_update_policy_bandit_composes_key():
     """update_policy_bandit stores an ``industry::policy_family`` composite arm."""
@@ -70,6 +72,7 @@ def test_update_policy_bandit_reward_signal_flows_through():
 # ---------------------------------------------------------------------------
 # select_best_policy — explore each family once, then exploit
 # ---------------------------------------------------------------------------
+
 
 def test_select_best_policy_explores_each_family_once():
     """select_best_policy returns each unseen family once (UCB1 inf) before repeating."""
@@ -129,6 +132,7 @@ def test_select_best_policy_cold_start_yields_default_family():
 # get_policy_bandit_stats — isolation
 # ---------------------------------------------------------------------------
 
+
 def test_get_policy_bandit_stats_isolates_industry():
     """get_policy_bandit_stats returns only that industry's composite arms."""
     _reset()
@@ -155,6 +159,7 @@ def test_get_policy_bandit_stats_empty_for_unused_industry():
 # reset_bandit clears hierarchical arms
 # ---------------------------------------------------------------------------
 
+
 def test_reset_bandit_clears_hierarchical_arms():
     """reset_bandit clears composite arms — they live in the same _BANDIT_STATS."""
     _reset()
@@ -170,6 +175,7 @@ def test_reset_bandit_clears_hierarchical_arms():
 # ---------------------------------------------------------------------------
 # Backward-compat — flat bandit unaffected
 # ---------------------------------------------------------------------------
+
 
 def test_flat_update_bandit_still_works():
     """The flat update_bandit path is byte-identical — unaffected by hierarchy."""

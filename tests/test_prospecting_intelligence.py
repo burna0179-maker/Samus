@@ -3,6 +3,7 @@
 Covers: analyze_business, score_opportunity, map_products, determine_pitch_angle.
 All functions are pure; no I/O or mocking required.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -170,9 +171,9 @@ def test_score_opportunity_reputation_axis_logic():
 def test_map_products_primary_and_secondary_selection():
     """Primary is highest-scoring axis; secondary is second if score >= 50."""
     scores = {
-        "website":    90,
-        "seo":        70,
-        "ads":        40,
+        "website": 90,
+        "seo": 70,
+        "ads": 40,
         "automation": 30,
         "reputation": 20,
     }
@@ -184,9 +185,9 @@ def test_map_products_primary_and_secondary_selection():
 def test_map_products_secondary_none_when_below_threshold():
     """Secondary is None when the second-ranked axis scores below 50."""
     scores = {
-        "website":    80,
-        "seo":        49,
-        "ads":        30,
+        "website": 80,
+        "seo": 49,
+        "ads": 30,
         "automation": 10,
         "reputation": 5,
     }
@@ -198,9 +199,9 @@ def test_map_products_secondary_none_when_below_threshold():
 def test_map_products_tie_breaks_by_axis_order():
     """Equal scores resolve by axis declaration order (website > seo > ...)."""
     scores = {
-        "website":    60,
-        "seo":        60,
-        "ads":        60,
+        "website": 60,
+        "seo": 60,
+        "ads": 60,
         "automation": 60,
         "reputation": 60,
     }

@@ -1,10 +1,12 @@
 """Info-gaps loader + open-gap counting."""
+
 from __future__ import annotations
 
 
 def test_missing_file_empty_registry(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_INFO_GAPS_PATH", str(tmp_path / "x.yaml"))
     from backend.finance.info_gaps import load_registry
+
     reg, loaded = load_registry()
     assert loaded is False
     assert reg.gaps == []
@@ -23,6 +25,7 @@ def test_summarize_counts_open_by_priority(tmp_path, monkeypatch):
     )
     monkeypatch.setenv("SAMUS_INFO_GAPS_PATH", str(p))
     from backend.finance.info_gaps import load_registry, summarize
+
     reg, loaded = load_registry()
     s = summarize(reg, loaded, "2026-05-15T00:00:00Z")
     assert s.open_total == 4
@@ -42,6 +45,7 @@ def test_resolved_gaps_excluded_from_open_count(tmp_path, monkeypatch):
     )
     monkeypatch.setenv("SAMUS_INFO_GAPS_PATH", str(p))
     from backend.finance.info_gaps import load_registry, summarize
+
     reg, loaded = load_registry()
     s = summarize(reg, loaded, "t")
     assert s.open_total == 0

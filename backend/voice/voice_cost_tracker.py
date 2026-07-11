@@ -18,6 +18,7 @@ Three data sources:
 The tracker exposes a ``voice_codb_snapshot()`` function that returns a
 structured summary ready for the finance workcell's CODB pipeline.
 """
+
 from __future__ import annotations
 
 import json
@@ -45,9 +46,11 @@ _cached_at: float = 0.0
 # Data shapes
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class VapiCostSummary:
     """Aggregated Vapi call costs for a date range."""
+
     total_usd: float = 0.0
     call_count: int = 0
     avg_cost_per_call: float = 0.0
@@ -59,6 +62,7 @@ class VapiCostSummary:
 @dataclass
 class TwilioCostSummary:
     """Aggregated Twilio usage costs for a date range."""
+
     calls_usd: float = 0.0
     sms_usd: float = 0.0
     phone_numbers_usd: float = 0.0
@@ -73,6 +77,7 @@ class TwilioCostSummary:
 @dataclass
 class VoiceCostSnapshot:
     """Combined Vapi + Twilio cost snapshot for the CODB pipeline."""
+
     ts: str = ""
     vapi: VapiCostSummary = field(default_factory=VapiCostSummary)
     twilio: TwilioCostSummary = field(default_factory=TwilioCostSummary)
@@ -84,6 +89,7 @@ class VoiceCostSnapshot:
 # ---------------------------------------------------------------------------
 # Vapi cost aggregation from local ledger
 # ---------------------------------------------------------------------------
+
 
 def _events_path() -> Path:
     return Path(os.getenv("SAMUS_VOICE_EVENTS_PATH", _EVENTS_PATH_DEFAULT))
@@ -153,6 +159,7 @@ def aggregate_vapi_costs(days: int = 30) -> VapiCostSummary:
 # Vapi API cost back-fill (cross-check via REST)
 # ---------------------------------------------------------------------------
 
+
 def fetch_vapi_call_costs(api_key: str, *, limit: int = 100) -> VapiCostSummary:
     """Fetch recent calls from Vapi REST API and sum their costs.
 
@@ -163,6 +170,7 @@ def fetch_vapi_call_costs(api_key: str, *, limit: int = 100) -> VapiCostSummary:
         return VapiCostSummary()
     try:
         from .client import VapiClient
+
         client = VapiClient(api_key=api_key)
         calls = client.list_calls(limit=limit)
     except Exception as exc:
@@ -186,6 +194,7 @@ def fetch_vapi_call_costs(api_key: str, *, limit: int = 100) -> VapiCostSummary:
 # ---------------------------------------------------------------------------
 # Twilio usage + balance
 # ---------------------------------------------------------------------------
+
 
 def fetch_twilio_costs(
     account_sid: str,
@@ -267,6 +276,7 @@ def fetch_twilio_costs(
 # Composite snapshot
 # ---------------------------------------------------------------------------
 
+
 def voice_codb_snapshot(*, force: bool = False) -> VoiceCostSnapshot:
     """Build a combined Vapi + Twilio cost snapshot.
 
@@ -281,6 +291,7 @@ def voice_codb_snapshot(*, force: bool = False) -> VoiceCostSnapshot:
 
     try:
         from backend.common.config import get_settings
+
         settings = get_settings()
     except Exception:
         settings = None

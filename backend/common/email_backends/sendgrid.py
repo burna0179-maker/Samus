@@ -15,6 +15,7 @@ SendGrid's expected ``attachments`` envelope.
 
 EU subusers: set ``SENDGRID_BASE_URL=https://api.eu.sendgrid.com``.
 """
+
 from __future__ import annotations
 
 import base64
@@ -122,13 +123,23 @@ def send_email_via_sendgrid(
         raise ValueError("send_email_via_sendgrid requires 'body'")
 
     settings = get_settings()
-    resolved_key = _resolve(api_key, settings.sendgrid_api_key, name="api_key (arg or SENDGRID_API_KEY)")
-    resolved_from = _resolve(from_addr, settings.sendgrid_from_email, name="from_addr (arg or SENDGRID_FROM_EMAIL)")
-    resolved_name = _resolve(from_name, settings.sendgrid_from_name, name="from_name", required=False)
+    resolved_key = _resolve(
+        api_key, settings.sendgrid_api_key, name="api_key (arg or SENDGRID_API_KEY)"
+    )
+    resolved_from = _resolve(
+        from_addr, settings.sendgrid_from_email, name="from_addr (arg or SENDGRID_FROM_EMAIL)"
+    )
+    resolved_name = _resolve(
+        from_name, settings.sendgrid_from_name, name="from_name", required=False
+    )
     # Reply-To: empty string means no header (mail clients fall back to From).
     # required=False allows None / empty without raising.
-    resolved_reply_to = _resolve(reply_to, settings.sendgrid_reply_to, name="reply_to", required=False)
-    resolved_base = (base_url if base_url is not None else settings.sendgrid_base_url) or "https://api.sendgrid.com"
+    resolved_reply_to = _resolve(
+        reply_to, settings.sendgrid_reply_to, name="reply_to", required=False
+    )
+    resolved_base = (
+        base_url if base_url is not None else settings.sendgrid_base_url
+    ) or "https://api.sendgrid.com"
     resolved_base = resolved_base.rstrip("/")
 
     content: list[dict[str, str]] = [{"type": "text/plain", "value": body}]
@@ -148,23 +159,17 @@ def send_email_via_sendgrid(
     if resolved_reply_to:
         payload["reply_to"] = {"email": resolved_reply_to}
     if attachments:
-        payload["attachments"] = [
-            _build_attachment_envelope(a) for a in attachments
-        ]
+        payload["attachments"] = [_build_attachment_envelope(a) for a in attachments]
     # Custom message headers (e.g. List-Unsubscribe / List-Unsubscribe-Post
     # from the ComplianceGuard). SendGrid v3 ``headers`` is a top-level
     # string->string map applied to the message. Skipped when empty.
     if headers:
-        payload["headers"] = {
-            str(k): str(v) for k, v in headers.items() if k
-        }
+        payload["headers"] = {str(k): str(v) for k, v in headers.items() if k}
     # custom_args are echoed back verbatim on every Event Webhook event — the
     # Heat Field / attribution correlation key (sg_message_id -> deal). Values
     # must be strings. Skipped when empty.
     if custom_args:
-        payload["custom_args"] = {
-            str(k): str(v) for k, v in custom_args.items() if k
-        }
+        payload["custom_args"] = {str(k): str(v) for k, v in custom_args.items() if k}
     request_headers = {
         "Authorization": f"Bearer {resolved_key}",
         "Content-Type": "application/json",
@@ -189,18 +194,12 @@ def send_email_via_sendgrid(
             pass
         if not message:
             message = response.text[:200]
-        raise SendGridAdapterError(
-            f"sendgrid_http_{response.status_code}: {message}"
-        )
+        raise SendGridAdapterError(f"sendgrid_http_{response.status_code}: {message}")
 
     # 202 Accepted is the documented success — accept any 2xx defensively.
     # X-Message-Id (per docs); some accounts emit lowercase, httpx headers are
     # case-insensitive but we read both for clarity.
-    message_id = (
-        response.headers.get("X-Message-Id")
-        or response.headers.get("x-message-id")
-        or ""
-    )
+    message_id = response.headers.get("X-Message-Id") or response.headers.get("x-message-id") or ""
     return {
         "message_id": message_id,
         "channel": "email",

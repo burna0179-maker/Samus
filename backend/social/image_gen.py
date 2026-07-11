@@ -8,6 +8,7 @@ writable state root and can be hosted for Instagram Graph API upload.
 DORMANT by default — returns empty results when Pillow is absent or the
 feature flag is off. Never raises from public API.
 """
+
 from __future__ import annotations
 
 import logging
@@ -142,7 +143,9 @@ def _load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
 # ---------------------------------------------------------------------------
 
 
-def _wrap_text(text: str, font: ImageFont.FreeTypeFont | ImageFont.ImageFont, max_width: int) -> list[str]:
+def _wrap_text(
+    text: str, font: ImageFont.FreeTypeFont | ImageFont.ImageFont, max_width: int
+) -> list[str]:
     """Word-wrap *text* so each line fits within *max_width* pixels."""
     avg_char_width = font.getlength("M") if hasattr(font, "getlength") else _FONT_SIZE_BODY * 0.6
     chars_per_line = max(1, int(max_width / avg_char_width))
@@ -187,7 +190,11 @@ def _render_slide(
 
     for line in lines:
         if is_cover:
-            bbox = content_font.getbbox(line) if hasattr(content_font, "getbbox") else (0, 0, len(line) * 30, line_h)
+            bbox = (
+                content_font.getbbox(line)
+                if hasattr(content_font, "getbbox")
+                else (0, 0, len(line) * 30, line_h)
+            )
             text_w = bbox[2] - bbox[0]
             x = (_SLIDE_WIDTH - text_w) // 2
         else:
@@ -196,7 +203,11 @@ def _render_slide(
         y_cursor += line_h
 
     wm_y = _SLIDE_HEIGHT - _PADDING
-    wm_bbox = font_watermark.getbbox(brand_name) if hasattr(font_watermark, "getbbox") else (0, 0, len(brand_name) * 10, 20)
+    wm_bbox = (
+        font_watermark.getbbox(brand_name)
+        if hasattr(font_watermark, "getbbox")
+        else (0, 0, len(brand_name) * 10, 20)
+    )
     wm_w = wm_bbox[2] - wm_bbox[0]
     wm_x = (_SLIDE_WIDTH - wm_w) // 2
     muted = tuple(max(0, min(255, c + 40)) for c in _BG_COLOR)

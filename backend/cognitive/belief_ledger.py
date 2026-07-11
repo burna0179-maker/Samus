@@ -22,6 +22,7 @@ calls an LLM. :func:`record_from_triangulation` is an optional adapter that maps
 the triangulation output into beliefs WITHOUT the triangulation module needing to
 know this ledger exists.
 """
+
 from __future__ import annotations
 
 import json
@@ -55,25 +56,94 @@ STATUS_CONTRADICTED = "contradicted"
 # on the same curve.
 _PRECEDENT_RECENCY_HALF_LIFE_DAYS = 180.0
 _PRECEDENT_MIN_TOKEN_LEN = 3
-_PRECEDENT_STOPWORDS = frozenset({
-    "the", "and", "for", "with", "this", "that", "not", "but", "are", "was",
-    "has", "had", "have", "from", "into", "onto", "off", "out", "all", "any",
-    "can", "may", "will", "shall", "should", "would", "could", "does", "did",
-    "been", "being", "its", "our", "your", "their", "his", "her", "him",
-    "she", "they", "them", "who", "whom", "what", "which", "when", "where",
-    "why", "how", "then", "than", "too", "also", "such", "some", "each",
-    "one", "two", "new", "old", "yes", "you",
-})
+_PRECEDENT_STOPWORDS = frozenset(
+    {
+        "the",
+        "and",
+        "for",
+        "with",
+        "this",
+        "that",
+        "not",
+        "but",
+        "are",
+        "was",
+        "has",
+        "had",
+        "have",
+        "from",
+        "into",
+        "onto",
+        "off",
+        "out",
+        "all",
+        "any",
+        "can",
+        "may",
+        "will",
+        "shall",
+        "should",
+        "would",
+        "could",
+        "does",
+        "did",
+        "been",
+        "being",
+        "its",
+        "our",
+        "your",
+        "their",
+        "his",
+        "her",
+        "him",
+        "she",
+        "they",
+        "them",
+        "who",
+        "whom",
+        "what",
+        "which",
+        "when",
+        "where",
+        "why",
+        "how",
+        "then",
+        "than",
+        "too",
+        "also",
+        "such",
+        "some",
+        "each",
+        "one",
+        "two",
+        "new",
+        "old",
+        "yes",
+        "you",
+    }
+)
 _PRECEDENT_TOKEN_RE = re.compile(r"[a-z0-9][a-z0-9_-]*")
 
 __all__ = [
-    "Belief", "PrecedentMatch", "record_belief", "add_evidence", "verify",
-    "get_belief", "list_beliefs", "contradictions", "stale_beliefs",
-    "record_from_triangulation", "belief_id_for",
-    "query_precedent", "situation_key_for",
-    "link_decision", "dependent_decisions",
-    "STATUS_ACTIVE", "STATUS_CONTRADICTED",
-    "CONTRADICTION_CONFIDENCE", "DEFAULT_STALE_SECONDS",
+    "Belief",
+    "PrecedentMatch",
+    "record_belief",
+    "add_evidence",
+    "verify",
+    "get_belief",
+    "list_beliefs",
+    "contradictions",
+    "stale_beliefs",
+    "record_from_triangulation",
+    "belief_id_for",
+    "query_precedent",
+    "situation_key_for",
+    "link_decision",
+    "dependent_decisions",
+    "STATUS_ACTIVE",
+    "STATUS_CONTRADICTED",
+    "CONTRADICTION_CONFIDENCE",
+    "DEFAULT_STALE_SECONDS",
     "CONTRADICTION_EMERGENCY_IMPACT_USD",
 ]
 
@@ -92,7 +162,7 @@ class Belief:
     counter_evidence: list[dict[str, Any]] = field(default_factory=list)
     last_verified: str = ""
     economic_impact: float = 0.0
-    tier: int = 2                    # 1 critical .. 3 minor
+    tier: int = 2  # 1 critical .. 3 minor
     status: str = STATUS_ACTIVE
     created_at: str = ""
     updated_at: str = ""
@@ -154,6 +224,7 @@ class PrecedentMatch:
 # helpers
 # ---------------------------------------------------------------------------
 
+
 def belief_id_for(claim: str) -> str:
     """Stable slug so the same claim upserts rather than duplicating."""
     slug = re.sub(r"[^a-z0-9]+", "-", (claim or "").strip().lower()).strip("-")
@@ -175,8 +246,7 @@ def _recompute_confidence(support: list[dict], counter: list[dict]) -> float:
 
 
 def _evidence(source: str, detail: str = "", weight: float = 1.0) -> dict[str, Any]:
-    return {"source": str(source), "detail": str(detail), "weight": float(weight),
-            "ts": iso_now()}
+    return {"source": str(source), "detail": str(detail), "weight": float(weight), "ts": iso_now()}
 
 
 def _parse_iso(ts: str) -> datetime | None:
@@ -191,6 +261,7 @@ def _parse_iso(ts: str) -> datetime | None:
 # ---------------------------------------------------------------------------
 # persistence (JSON doc + history ledger)
 # ---------------------------------------------------------------------------
+
 
 def _doc_path() -> Path:
     return state_path(*_BELIEFS_JSON)
@@ -239,6 +310,7 @@ def _append_history(event: dict[str, Any]) -> None:
 # public API
 # ---------------------------------------------------------------------------
 
+
 def record_belief(
     claim: str,
     *,
@@ -273,9 +345,14 @@ def record_belief(
             b.situation_key = str(situation_key)
     else:
         prev_status = STATUS_ACTIVE  # new beliefs default to active pre-recompute
-        b = Belief(belief_id=bid, claim=claim, economic_impact=float(economic_impact),
-                   tier=int(tier), created_at=now,
-                   situation_key=str(situation_key or ""))
+        b = Belief(
+            belief_id=bid,
+            claim=claim,
+            economic_impact=float(economic_impact),
+            tier=int(tier),
+            created_at=now,
+            situation_key=str(situation_key or ""),
+        )
 
     b.supporting_evidence.extend(supporting or [])
     b.counter_evidence.extend(counter or [])
@@ -290,8 +367,15 @@ def record_belief(
 
     data[bid] = b.to_dict()
     _save(data)
-    _append_history({"ts": now, "event": "record", "belief_id": bid,
-                     "confidence": b.confidence, "status": b.status})
+    _append_history(
+        {
+            "ts": now,
+            "event": "record",
+            "belief_id": bid,
+            "confidence": b.confidence,
+            "status": b.status,
+        }
+    )
 
     # Concept 5 — epistemic governance. When a belief transitions from active
     # to contradicted, emit a marker business event and (if downstream
@@ -382,32 +466,39 @@ def record_from_triangulation(
     only one leg starts low-confidence rather than trusted.
     """
     out: list[Belief] = []
-    for c in (result.get("corroborated") or []):
+    for c in result.get("corroborated") or []:
         claim = str(c.get("finding", "")).strip()
         if not claim:
             continue
         sources = c.get("sources") or ["triangulation"]
         support = [_evidence(str(s), detail=claim) for s in sources]
-        out.append(record_belief(
-            claim, supporting=support, economic_impact=economic_impact,
-            tier=int(c.get("tier", 2) or 2),
-        ))
-    for dvg in (result.get("divergent") or []):
+        out.append(
+            record_belief(
+                claim,
+                supporting=support,
+                economic_impact=economic_impact,
+                tier=int(c.get("tier", 2) or 2),
+            )
+        )
+    for dvg in result.get("divergent") or []:
         claim = str(dvg.get("finding", "")).strip()
         if not claim:
             continue
-        out.append(record_belief(
-            claim,
-            supporting=[_evidence(str(dvg.get("source", "unknown")), detail=claim)],
-            counter=[_evidence("divergence", detail="only one leg asserted this")],
-            economic_impact=economic_impact,
-        ))
+        out.append(
+            record_belief(
+                claim,
+                supporting=[_evidence(str(dvg.get("source", "unknown")), detail=claim)],
+                counter=[_evidence("divergence", detail="only one leg asserted this")],
+                economic_impact=economic_impact,
+            )
+        )
     return out
 
 
 # ---------------------------------------------------------------------------
 # Concept 5 — Epistemic governance (belief-dependency graph)
 # ---------------------------------------------------------------------------
+
 
 def link_decision(belief_id: str, decision_id: str) -> Belief | None:
     """Record that ``decision_id`` used ``belief_id`` as evidence.
@@ -436,8 +527,9 @@ def link_decision(belief_id: str, decision_id: str) -> Belief | None:
     b.updated_at = now
     data[belief_id] = b.to_dict()
     _save(data)
-    _append_history({"ts": now, "event": "link_decision",
-                     "belief_id": belief_id, "decision_id": decision_id})
+    _append_history(
+        {"ts": now, "event": "link_decision", "belief_id": belief_id, "decision_id": decision_id}
+    )
     return b
 
 
@@ -481,7 +573,8 @@ def _on_contradiction(belief: Belief) -> None:
     """
     try:
         from backend.common.business_events import (
-            DECISION_MADE, emit_business_event,
+            DECISION_MADE,
+            emit_business_event,
         )
 
         emit_business_event(
@@ -506,9 +599,7 @@ def _on_contradiction(belief: Belief) -> None:
         from backend.common.approvals import create_approval
 
         risk_level = (
-            "high"
-            if belief.economic_impact >= CONTRADICTION_EMERGENCY_IMPACT_USD
-            else "normal"
+            "high" if belief.economic_impact >= CONTRADICTION_EMERGENCY_IMPACT_USD else "normal"
         )
         create_approval(
             "recheck_decisions",
@@ -530,6 +621,7 @@ def _on_contradiction(belief: Belief) -> None:
 # Precedent retrieval (Concept 1 — institutional memory)
 # ---------------------------------------------------------------------------
 
+
 def situation_key_for(context: str) -> str:
     """Stable slug for the current situation, mirroring :func:`belief_id_for`.
 
@@ -547,8 +639,7 @@ def _precedent_tokens(text: str) -> list[str]:
     return [
         m.group(0)
         for m in _PRECEDENT_TOKEN_RE.finditer(text.lower())
-        if len(m.group(0)) >= _PRECEDENT_MIN_TOKEN_LEN
-        and m.group(0) not in _PRECEDENT_STOPWORDS
+        if len(m.group(0)) >= _PRECEDENT_MIN_TOKEN_LEN and m.group(0) not in _PRECEDENT_STOPWORDS
     ]
 
 
@@ -563,6 +654,7 @@ def _precedent_recency(iso_ts: str, *, now: datetime | None = None) -> float:
     now = now or datetime.now(timezone.utc)
     age_days = max(0.0, (now - dt).total_seconds() / 86400.0)
     import math
+
     return math.exp(-age_days / _PRECEDENT_RECENCY_HALF_LIFE_DAYS)
 
 
@@ -616,13 +708,13 @@ def query_precedent(
                 overlap = query_token_set & set(claim_tokens)
                 if overlap:
                     import math
+
                     # Length dampening: divide by log of claim size so a
                     # 30-token essay-claim can't dominate a 4-token slogan-
                     # claim on raw hit count.
                     dampener = 1.0 + math.log1p(len(claim_tokens))
                     score += 2.0 * len(overlap) / dampener
-                    matched_on = ("claim+situation_key"
-                                  if matched_on else "claim")
+                    matched_on = "claim+situation_key" if matched_on else "claim"
 
             if score <= 0.0:
                 continue
@@ -633,16 +725,18 @@ def query_precedent(
             score *= max(0.25, b.confidence)
             if score < min_score:
                 continue
-            matches.append(PrecedentMatch(
-                belief_id=b.belief_id,
-                claim=b.claim,
-                confidence=b.confidence,
-                situation_key=b.situation_key,
-                last_verified=b.last_verified,
-                economic_impact=b.economic_impact,
-                score=round(score, 4),
-                matched_on=matched_on,
-            ))
+            matches.append(
+                PrecedentMatch(
+                    belief_id=b.belief_id,
+                    claim=b.claim,
+                    confidence=b.confidence,
+                    situation_key=b.situation_key,
+                    last_verified=b.last_verified,
+                    economic_impact=b.economic_impact,
+                    score=round(score, 4),
+                    matched_on=matched_on,
+                )
+            )
 
         # Higher score first; tiebreak on economic_impact then belief_id.
         matches.sort(key=lambda m: (-m.score, -m.economic_impact, m.belief_id))

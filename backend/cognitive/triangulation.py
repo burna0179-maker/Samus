@@ -13,6 +13,7 @@ review). Cost: the auditor (C) and the synthesis both run on the LOCAL model
 Fail-soft everywhere — if the local model is unreachable, a DETERMINISTIC
 keyword-overlap convergence runs instead, so the gameplan is never blocked.
 """
+
 from __future__ import annotations
 
 import json
@@ -144,10 +145,17 @@ def _claude_llm(system: str, prompt: str) -> str:
     model = os.environ.get("SAMUS_CLAUDE_MODEL", "claude-sonnet-5")
     resp = httpx.post(
         "https://api.anthropic.com/v1/messages",
-        headers={"x-api-key": key, "anthropic-version": "2023-06-01",
-                 "content-type": "application/json"},
-        json={"model": model, "max_tokens": 1200, "system": system,
-              "messages": [{"role": "user", "content": prompt}]},
+        headers={
+            "x-api-key": key,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        },
+        json={
+            "model": model,
+            "max_tokens": 1200,
+            "system": system,
+            "messages": [{"role": "user", "content": prompt}],
+        },
         timeout=90.0,
     )
     resp.raise_for_status()
@@ -165,6 +173,7 @@ def read_framework_report(day_iso: str) -> str:
     than one API call, and it's free. "" if none written today."""
     try:
         from backend.common import storage
+
         p = storage.root() / "cognition" / f"framework_report_{day_iso}.md"
         return p.read_text(encoding="utf-8").strip() if p.is_file() else ""
     except Exception as exc:  # noqa: BLE001
@@ -184,7 +193,9 @@ def build_claude_report(day_summary: str, *, llm_fn: Optional[LlmFn] = None) -> 
 
 
 def build_auditor_report(
-    day_summary: str, *, llm_fn: Optional[LlmFn] = None,
+    day_summary: str,
+    *,
+    llm_fn: Optional[LlmFn] = None,
 ) -> str:
     """Leg C FALLBACK — the skeptical LOCAL auditor's read, used only when the
     Claude leg is unavailable. Returns "" if the local model is also down
@@ -199,10 +210,25 @@ def build_auditor_report(
 
 # --- convergence -------------------------------------------------------------
 
-_STOP = set("the a an and or of to for with in on at is are was were be this that "
-            "it its as by from we our you your samus day today production report".split())
-_RISK_WORDS = ("risk", "fail", "block", "bottleneck", "governance", "outage", "down",
-               "breach", "over budget", "runway", "compliance", "stalled", "critical")
+_STOP = set(
+    "the a an and or of to for with in on at is are was were be this that "
+    "it its as by from we our you your samus day today production report".split()
+)
+_RISK_WORDS = (
+    "risk",
+    "fail",
+    "block",
+    "bottleneck",
+    "governance",
+    "outage",
+    "down",
+    "breach",
+    "over budget",
+    "runway",
+    "compliance",
+    "stalled",
+    "critical",
+)
 
 # --- finding vs. boilerplate -------------------------------------------------
 # The three EOD reports embed a lot of NON-actionable boilerplate that a naive
@@ -214,9 +240,9 @@ _RISK_WORDS = ("risk", "fail", "block", "bottleneck", "governance", "outage", "d
 # None of these are findings; routing them into the guidance ledger polluted it
 # with junk proposed recs (operator report 2026-07-07). A finding must read like
 # a sentence: enough content words and none of the stat/JSON shapes below.
-_JSON_KEY_FRAG = re.compile(r"""^["'][\w ./-]+["']\s*:""")   # '"recommendation": …'
-_LABEL_VALUE = re.compile(r"^[^:]{1,40}:\s*(\S.*)$")          # 'Label: value'
-_CONTENT_WORD = re.compile(r"[A-Za-z][A-Za-z'-]{2,}")        # a word, >=3 letters
+_JSON_KEY_FRAG = re.compile(r"""^["'][\w ./-]+["']\s*:""")  # '"recommendation": …'
+_LABEL_VALUE = re.compile(r"^[^:]{1,40}:\s*(\S.*)$")  # 'Label: value'
+_CONTENT_WORD = re.compile(r"[A-Za-z][A-Za-z'-]{2,}")  # a word, >=3 letters
 
 
 def _looks_boilerplate(s: str) -> bool:
@@ -295,8 +321,7 @@ def _deterministic_convergence(reports: dict[str, str]) -> dict[str, Any]:
                 sources.add(src_j)
                 used.add(j)
         if len(sources) >= 2:
-            corroborated.append({"finding": f_i, "tier": _tier_of(f_i),
-                                 "sources": sorted(sources)})
+            corroborated.append({"finding": f_i, "tier": _tier_of(f_i), "sources": sorted(sources)})
             used.add(i)
     for i, (src_i, f_i, _k) in enumerate(tagged):
         if i not in used and _tier_of(f_i) == 1:  # keep single-source CRITICAL only
@@ -307,8 +332,12 @@ def _deterministic_convergence(reports: dict[str, str]) -> dict[str, Any]:
         "tier2": [c["finding"] for c in corroborated if c["tier"] == 2][:5],
         "tier3": [],
     }
-    return {"corroborated": corroborated[:15], "divergent": divergent[:8],
-            "gameplan": gameplan, "method": "deterministic"}
+    return {
+        "corroborated": corroborated[:15],
+        "divergent": divergent[:8],
+        "gameplan": gameplan,
+        "method": "deterministic",
+    }
 
 
 def _extract_json_object(raw: str) -> str:
@@ -397,12 +426,15 @@ def triangulate(
     if len(present) < 2:
         # Nothing to triangulate — pass the lone report through as tier-2 gameplan.
         lone = next(iter(present.values()), "")
-        return {"corroborated": [], "divergent": [], "method": "insufficient",
-                "gameplan": {"tier1": [], "tier2": _findings(lone)[:5], "tier3": []}}
+        return {
+            "corroborated": [],
+            "divergent": [],
+            "method": "insufficient",
+            "gameplan": {"tier1": [], "tier2": _findings(lone)[:5], "tier3": []},
+        }
 
     fn = llm_fn or _local_llm
-    prompt = "\n\n".join(
-        f"=== REPORT {src} ===\n{txt}" for src, txt in present.items())
+    prompt = "\n\n".join(f"=== REPORT {src} ===\n{txt}" for src, txt in present.items())
     raw = ""
     try:
         raw = fn(_SYNTH_SYSTEM, prompt)
@@ -416,11 +448,13 @@ def triangulate(
         # verbatim as "findings"; drop those before they reach the guidance
         # ledger. Only well-formed dicts with a sentence-like finding survive.
         data["corroborated"] = [
-            c for c in data["corroborated"]
+            c
+            for c in data["corroborated"]
             if isinstance(c, dict) and _is_finding(str(c.get("finding", "")))
         ]
         data["divergent"] = [
-            d for d in data["divergent"]
+            d
+            for d in data["divergent"]
             if isinstance(d, dict) and _is_finding(str(d.get("finding", "")))
         ]
         data["method"] = "llm"
@@ -431,6 +465,7 @@ def triangulate(
         # useless output was previously the only symptom.
         _LOG.warning(
             "triangulation LLM failed (%s) -> deterministic. raw payload (first 800 chars): %r",
-            exc, (raw or "")[:800],
+            exc,
+            (raw or "")[:800],
         )
         return _deterministic_convergence(present)

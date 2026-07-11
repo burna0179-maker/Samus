@@ -7,6 +7,7 @@ fired across the gateway's frequent container recreates (it re-slept to the
 *next* 02:00 on every boot); it went dark ~7.6 days. These tests lock in the new
 behavior without touching ``run_consolidation`` itself.
 """
+
 from __future__ import annotations
 
 import json
@@ -30,6 +31,7 @@ def _isolate(tmp_path, monkeypatch):
     monkeypatch.delenv("SAMUS_CONSOLIDATION_LOOP_ENABLED", raising=False)
     monkeypatch.delenv("DDB_ATTRIBUTION_TABLE", raising=False)
     from backend.attribution import store as attr_store
+
     attr_store.reset_store()
     yield
     attr_store.reset_store()
@@ -52,11 +54,15 @@ def _spy():
 class TestScheduledFireDay:
     def test_at_or_after_hour_is_today(self):
         from backend.cognitive import consolidation_task as ct
+
         assert ct._scheduled_fire_day(datetime(2026, 7, 7, 2, 0), 2) == datetime(2026, 7, 7).date()
-        assert ct._scheduled_fire_day(datetime(2026, 7, 7, 18, 30), 2) == datetime(2026, 7, 7).date()
+        assert (
+            ct._scheduled_fire_day(datetime(2026, 7, 7, 18, 30), 2) == datetime(2026, 7, 7).date()
+        )
 
     def test_before_hour_is_yesterday(self):
         from backend.cognitive import consolidation_task as ct
+
         now = datetime(2026, 7, 7, 1, 30)
         assert ct._scheduled_fire_day(now, 2) == now.date() - timedelta(days=1)
 
@@ -64,29 +70,36 @@ class TestScheduledFireDay:
 class TestIsConsolidationDue:
     def test_never_run_is_due(self):
         from backend.cognitive import consolidation_task as ct
+
         due, reason = ct.is_consolidation_due(datetime(2026, 7, 7, 18, 30), None, fire_hour=2)
         assert due is True
         assert "no consolidation on record" in reason
 
     def test_stale_marker_is_due(self):
         from backend.cognitive import consolidation_task as ct
+
         due, _ = ct.is_consolidation_due(datetime(2026, 7, 7, 18, 30), "2026-07-05", fire_hour=2)
         assert due is True
 
     def test_today_marker_not_due(self):
         from backend.cognitive import consolidation_task as ct
-        due, reason = ct.is_consolidation_due(datetime(2026, 7, 7, 18, 30), "2026-07-07", fire_hour=2)
+
+        due, reason = ct.is_consolidation_due(
+            datetime(2026, 7, 7, 18, 30), "2026-07-07", fire_hour=2
+        )
         assert due is False
         assert "already consolidated" in reason
 
     def test_future_marker_not_due(self):
         # clock-skew / future marker must never trigger a re-run
         from backend.cognitive import consolidation_task as ct
+
         due, _ = ct.is_consolidation_due(datetime(2026, 7, 7, 18, 30), "2026-07-09", fire_hour=2)
         assert due is False
 
     def test_before_fire_hour_owes_yesterday(self):
         from backend.cognitive import consolidation_task as ct
+
         now = datetime(2026, 7, 7, 1, 30)  # before 02:00 -> owed day is 07-06
         assert ct.is_consolidation_due(now, "2026-07-06", fire_hour=2)[0] is False
         assert ct.is_consolidation_due(now, "2026-07-05", fire_hour=2)[0] is True
@@ -98,10 +111,12 @@ class TestIsConsolidationDue:
 class TestMarker:
     def test_missing_marker_reads_none(self):
         from backend.cognitive import consolidation_task as ct
+
         assert ct._read_last_run_day() is None
 
     def test_write_then_read_roundtrip(self):
         from backend.cognitive import consolidation_task as ct
+
         ct._write_last_run_day("2026-07-07", ok=True)
         assert ct._read_last_run_day() == "2026-07-07"
         payload = json.loads(ct._marker_path().read_text(encoding="utf-8"))
@@ -111,6 +126,7 @@ class TestMarker:
 
     def test_corrupt_marker_fails_open_to_none(self):
         from backend.cognitive import consolidation_task as ct
+
         p = ct._marker_path()
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text("{not json", encoding="utf-8")
@@ -118,6 +134,7 @@ class TestMarker:
 
     def test_invalid_day_string_reads_none(self):
         from backend.cognitive import consolidation_task as ct
+
         p = ct._marker_path()
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(json.dumps({"last_run_day": "not-a-date"}), encoding="utf-8")
@@ -132,6 +149,7 @@ class TestRunIfDue:
         # ACCEPTANCE 1: container started at 18:30, no marker for today, now past
         # the fire hour -> consolidation runs immediately (catch-up) + marks.
         from backend.cognitive import consolidation_task as ct
+
         calls, runner = _spy()
         out = ct.run_if_due(datetime(2026, 7, 7, 18, 30), runner=runner)
         assert out["ran"] is True
@@ -142,6 +160,7 @@ class TestRunIfDue:
         # ACCEPTANCE 2: marker already set for today -> does NOT re-run; the loop
         # then sleeps to the NEXT fire (tomorrow 02:00), not today's.
         from backend.cognitive import consolidation_task as ct
+
         ct._write_last_run_day("2026-07-07", ok=True)
         calls, runner = _spy()
         now = datetime(2026, 7, 7, 18, 30)
@@ -156,15 +175,17 @@ class TestRunIfDue:
         # Idempotency (item 3): boot catch-up + a later same-day scheduled tick
         # must consolidate the day exactly once.
         from backend.cognitive import consolidation_task as ct
+
         calls, runner = _spy()
         ct.run_if_due(datetime(2026, 7, 7, 18, 30), runner=runner)  # boot catch-up
-        ct.run_if_due(datetime(2026, 7, 7, 23, 0), runner=runner)   # later same-day tick
+        ct.run_if_due(datetime(2026, 7, 7, 23, 0), runner=runner)  # later same-day tick
         assert calls == ["2026-07-07"]
 
     def test_before_fire_hour_boot_catches_up_yesterday(self):
         # Boot at 01:30 (before 02:00) with yesterday unconsolidated -> catch up
         # YESTERDAY's missed fire and mark it (not today).
         from backend.cognitive import consolidation_task as ct
+
         calls, runner = _spy()
         out = ct.run_if_due(datetime(2026, 7, 7, 1, 30), runner=runner)
         assert out["ran"] is True
@@ -203,6 +224,7 @@ class TestRunIfDueRealConsolidation:
         # (fail-soft; empty ledgers make every stage a clean no-op). Proves
         # result["day"] flows into the marker and same-day re-entry is idempotent.
         from backend.cognitive import consolidation_task as ct
+
         out = ct.run_if_due(datetime(2026, 7, 7, 18, 30))
         assert out["ran"] is True
         assert out["day"] == "2026-07-07"

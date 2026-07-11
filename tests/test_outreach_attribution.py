@@ -1,4 +1,5 @@
 """Tests for backend.finance.outreach_attribution — flyer -> purchase credit."""
+
 from __future__ import annotations
 
 import json
@@ -18,16 +19,21 @@ def conv_log(tmp_path, monkeypatch):
 def test_prospect_id_from_ref():
     assert oa.prospect_id_from_ref("out_pr_42") == "pr_42"
     assert oa.prospect_id_from_ref("out_apollo_ChIJ_x") == "apollo_ChIJ_x"
-    assert oa.prospect_id_from_ref("op_123") == ""      # opportunity ref, not outreach
+    assert oa.prospect_id_from_ref("op_123") == ""  # opportunity ref, not outreach
     assert oa.prospect_id_from_ref("upsell_9") == ""
     assert oa.prospect_id_from_ref("") == ""
-    assert oa.prospect_id_from_ref("out_") == ""        # empty payload
+    assert oa.prospect_id_from_ref("out_") == ""  # empty payload
 
 
 def test_record_conversion_writes_record(conv_log):
     rec = oa.record_conversion(
-        ref="out_pr_42", email="o@x.com", amount_usd=500.0, currency="USD",
-        offer_code="workflow_rescue", event_id="evt_1", received_at="2026-07-02T00:00:00Z",
+        ref="out_pr_42",
+        email="o@x.com",
+        amount_usd=500.0,
+        currency="USD",
+        offer_code="workflow_rescue",
+        event_id="evt_1",
+        received_at="2026-07-02T00:00:00Z",
     )
     assert rec is not None
     assert rec.prospect_id == "pr_42"

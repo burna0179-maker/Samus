@@ -15,6 +15,7 @@ CAN-SPAM: every composed body ends with a footer carrying the sender's physical
 postal address and an unsubscribe line. A campaign with neither configured
 refuses to build (fail-closed) rather than send non-compliant cold email.
 """
+
 from __future__ import annotations
 
 import json
@@ -69,11 +70,11 @@ class CampaignConfig(BaseModel):
         "Best,\n{from_name}"
     )
     from_name: str = "Samus"
-    sender_postal_address: str = ""     # required (CAN-SPAM physical address)
-    unsubscribe_url: str = ""           # required (CAN-SPAM opt-out)
-    max_send: int = 25                  # per-run cap (SES reputation / warmup)
+    sender_postal_address: str = ""  # required (CAN-SPAM physical address)
+    unsubscribe_url: str = ""  # required (CAN-SPAM opt-out)
+    max_send: int = 25  # per-run cap (SES reputation / warmup)
     require_verified_email: bool = True
-    use_llm: bool = False               # opt-in personalisation (budget-gated)
+    use_llm: bool = False  # opt-in personalisation (budget-gated)
 
 
 # --- Re-engagement template (soft-no resurfacing) -----------------------
@@ -144,11 +145,7 @@ def _compliance_footer(cfg: CampaignConfig, recipient_email: str = "") -> str:
 
         sep = "&" if "?" in url else "?"
         url = f"{url}{sep}e={quote(recipient_email.strip().lower())}"
-    return (
-        "\n\n---\n"
-        f"{cfg.sender_postal_address}\n"
-        f"Unsubscribe: {url}"
-    )
+    return f"\n\n---\n{cfg.sender_postal_address}\nUnsubscribe: {url}"
 
 
 def _safe_format(
@@ -184,6 +181,7 @@ def _safe_format(
                     "(refusing to silently drop the gate)",
                 )
             return ""
+
     return template.format_map(_Default(values))
 
 
@@ -229,20 +227,22 @@ def compose_body(
     # If the Codex isn't loaded, fail closed by aborting compose — the
     # boot path (_ensure_codex_loaded) should have made this impossible.
     try:
-        _verdict = check_action(ProposedAction(
-            service="outreach",
-            capability="send_message",
-            action_kind="outreach_send",
-            payload={
-                "stake_sentence": stake,
-                "subject": _safe_format(cfg.subject, contact, cfg),
-                "body": body,
-                "to_email": contact.email,
-                "legitimacy_signal": getattr(contact, "legitimacy_signal", None),
-            },
-            proposed_by="outreach.compose_body",
-            correlation_id=None,
-        ))
+        _verdict = check_action(
+            ProposedAction(
+                service="outreach",
+                capability="send_message",
+                action_kind="outreach_send",
+                payload={
+                    "stake_sentence": stake,
+                    "subject": _safe_format(cfg.subject, contact, cfg),
+                    "body": body,
+                    "to_email": contact.email,
+                    "legitimacy_signal": getattr(contact, "legitimacy_signal", None),
+                },
+                proposed_by="outreach.compose_body",
+                correlation_id=None,
+            )
+        )
     except CodexUnavailable as exc:
         raise OutreachStakeMissing(
             f"compose_body refused: Codex unavailable, refusing to send: {exc}",
@@ -300,7 +300,8 @@ def compose_body(
                     _LOG.info(
                         "compose_body llm greeting guard tripped (expected "
                         "'Hi %s'); using template body for %s",
-                        greeting_name, contact.email,
+                        greeting_name,
+                        contact.email,
                     )
         except Exception as exc:  # noqa: BLE001 — budget/LLM faults degrade to template
             _LOG.info(
@@ -327,11 +328,13 @@ def _load_stake_sentence_from_opportunity(opportunity_id: str) -> str | None:
         return None
     try:
         from backend.crm import service as crm_service
+
         opp = crm_service.get_opportunity(opportunity_id)
     except Exception as exc:  # noqa: BLE001
         _LOG.warning(
             "stake load failed for opportunity %s: %s",
-            opportunity_id, exc,
+            opportunity_id,
+            exc,
         )
         return None
     if opp is None:
@@ -400,7 +403,8 @@ def build_messages(
         stake = stake_lookup.get(email, "").strip()
         if not stake:
             _LOG.warning(
-                "build_messages skipping %s — no stake_sentence on file", email,
+                "build_messages skipping %s — no stake_sentence on file",
+                email,
             )
             result.not_sendable += 1
             continue
@@ -409,7 +413,9 @@ def build_messages(
             body = compose_body(contact, cfg, stake_sentence=stake)
         except OutreachStakeMissing as exc:
             _LOG.warning(
-                "build_messages refused %s (stake gate): %s", email, exc,
+                "build_messages refused %s (stake gate): %s",
+                email,
+                exc,
             )
             result.not_sendable += 1
             continue
@@ -433,8 +439,12 @@ def build_messages(
     _LOG.info(
         "build_messages considered=%d built=%d suppressed=%d not_sendable=%d "
         "duplicate=%d capped=%d",
-        result.considered, result.built, result.suppressed,
-        result.not_sendable, result.duplicate, result.capped,
+        result.considered,
+        result.built,
+        result.suppressed,
+        result.not_sendable,
+        result.duplicate,
+        result.capped,
     )
     return result
 

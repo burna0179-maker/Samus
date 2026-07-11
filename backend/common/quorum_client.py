@@ -24,6 +24,7 @@ Every public method returns a quiet sentinel (False / [] / {}) on transport
 or hub-side failure. The hub is an advisory observer — Samus never crashes
 or stalls when it's down or misconfigured.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -58,7 +59,9 @@ class QuorumHubClient:
         hmac_key: bytes | None = None,
         timeout_s: int = _REQUEST_TIMEOUT_S,
     ) -> None:
-        self._base_url = (base_url or os.environ.get("SAMUS_QUORUM_HUB_URL", _DEFAULT_URL)).rstrip("/")
+        self._base_url = (base_url or os.environ.get("SAMUS_QUORUM_HUB_URL", _DEFAULT_URL)).rstrip(
+            "/"
+        )
         if hmac_key is None:
             key_hex = os.environ.get("SAMUS_QUORUM_HUB_HMAC_KEY", "").strip()
             hmac_key = bytes.fromhex(key_hex) if key_hex else None
@@ -141,12 +144,15 @@ class QuorumHubClient:
     # ------------------------------------------------------------------
 
     def _rpc(self, method: str, params: dict[str, Any]) -> dict[str, Any] | None:
-        body = json.dumps({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": method,
-            "params": params,
-        }, separators=(",", ":")).encode()
+        body = json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": method,
+                "params": params,
+            },
+            separators=(",", ":"),
+        ).encode()
 
         headers: dict[str, str] = {"Content-Type": "application/json"}
         if self._hmac_key:
@@ -165,7 +171,9 @@ class QuorumHubClient:
                 # OOM the workcell with a multi-GB body. Hub JSON-RPC replies
                 # are tiny; the ceiling is generous headroom.
                 raw = read_capped(
-                    resp, max_bytes=QUORUM_HUB_MAX_BYTES, source="quorum_hub",
+                    resp,
+                    max_bytes=QUORUM_HUB_MAX_BYTES,
+                    source="quorum_hub",
                 )
             return json.loads(raw)
         except ResponseTooLarge as exc:

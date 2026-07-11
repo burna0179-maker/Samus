@@ -1,8 +1,8 @@
 """Tests for backend.workflow.service + the fail-soft fulfill_service wiring."""
+
 from __future__ import annotations
 
 import json
-import time
 from types import SimpleNamespace
 
 from backend.services.registry import get_sku
@@ -10,9 +10,14 @@ from backend.services.scope_planner import generate_scope
 
 
 def _settings(**over):
-    base = dict(workflow_n8n_llm_enrich=False, workflow_n8n_deliverable_enabled=True,
-                workflow_n8n_deploy_enabled=False, workflow_n8n_dry_run=True,
-                n8n_base_url="", n8n_api_key="")
+    base = dict(
+        workflow_n8n_llm_enrich=False,
+        workflow_n8n_deliverable_enabled=True,
+        workflow_n8n_deploy_enabled=False,
+        workflow_n8n_dry_run=True,
+        n8n_base_url="",
+        n8n_api_key="",
+    )
     base.update(over)
     return SimpleNamespace(**base)
 
@@ -25,7 +30,8 @@ def test_generate_deliverable_writes_files(tmp_path):
         "service_workflow_rescue",
     )
     report = generate_workflow_deliverable(
-        artifact, out_dir=tmp_path, settings=_settings(), sku=get_sku("service_workflow_rescue"))
+        artifact, out_dir=tmp_path, settings=_settings(), sku=get_sku("service_workflow_rescue")
+    )
 
     assert (tmp_path / "workflow.json").exists()
     assert (tmp_path / "runbook.md").exists()
@@ -42,6 +48,7 @@ def test_generate_deliverable_writes_files(tmp_path):
 
 
 # --- fail-soft fulfillment wiring ------------------------------------------
+
 
 class _FakeCustomer:
     def __init__(self, id_, email):
@@ -120,14 +127,17 @@ def test_fulfillment_writes_workflow_artifact(monkeypatch, tmp_path):
     result = fulfill_service(
         sku_id="service_workflow_rescue",
         email="buyer2@acme.example.com",
-        intake_payload={"bottleneck": "Calendly booking -> Twilio SMS -> Discord on failure",
-                        "needs": ["48-Hour Workflow Rescue"]},
+        intake_payload={
+            "bottleneck": "Calendly booking -> Twilio SMS -> Discord on failure",
+            "needs": ["48-Hour Workflow Rescue"],
+        },
         customer_store=_FakeStore(),
         send_email_fn=_send_email_fn,
     )
     assert result.ok is True
     assert result.workflow_path is not None
     import os
+
     assert os.path.exists(result.workflow_path)
     step = next(s for s in result.steps if s.name == "write_workflow_artifact")
     assert step.status == "ok"

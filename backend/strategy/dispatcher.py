@@ -2,6 +2,7 @@
 
 Maps engine decisions to gateway POST calls via signed_post_json.
 """
+
 from __future__ import annotations
 
 import logging
@@ -20,8 +21,8 @@ SAMUS_GATEWAY_URL: str = os.getenv("SAMUS_GATEWAY_URL", "http://samus-gateway:80
 # Maps engine action -> (service, gateway_action)
 _ACTION_MAP: dict[str, tuple[str, str]] = {
     "replan_fulfillment": ("fulfillment", "resume_plan"),
-    "trigger_outreach":   ("outreach",    "send_outreach"),
-    "escalate_close":     ("outreach",    "send_close"),
+    "trigger_outreach": ("outreach", "send_outreach"),
+    "escalate_close": ("outreach", "send_close"),
 }
 
 

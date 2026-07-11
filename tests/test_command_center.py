@@ -3,6 +3,7 @@ morning-brief integration.
 
 Isolation: tmp goals/plans/approvals/business-events/state paths per test.
 """
+
 from __future__ import annotations
 
 import datetime as _dt
@@ -29,12 +30,17 @@ def iso_env(tmp_path, monkeypatch):
 
 # --- aggregate shape -------------------------------------------------------
 
+
 def test_build_command_center_has_all_sections(iso_env):
     agg = cc.build_command_center()
     assert agg["ok"] is True
     for section in (
-        "what_happened", "why", "running_now", "needs_approval",
-        "economics", "health",
+        "what_happened",
+        "why",
+        "running_now",
+        "needs_approval",
+        "economics",
+        "health",
     ):
         assert section in agg
 
@@ -42,10 +48,12 @@ def test_build_command_center_has_all_sections(iso_env):
 def test_command_center_what_happened_digests_events(iso_env):
     for _ in range(3):
         business_events.emit_business_event(
-            business_events.LEAD_CREATED, workcell="intake",
+            business_events.LEAD_CREATED,
+            workcell="intake",
         )
     business_events.emit_business_event(
-        business_events.EMAIL_SENT, workcell="outreach",
+        business_events.EMAIL_SENT,
+        workcell="outreach",
     )
     agg = cc.build_command_center()
     wh = agg["what_happened"]
@@ -68,8 +76,7 @@ def test_command_center_running_now_counts_plans(iso_env, monkeypatch):
         "backend.cash_engine.affordability.assess_affordability",
         lambda **_: type("P", (), {"posture": "invest"})(),
     )
-    goal = Goal(id="g1", horizon=HORIZON_DAY, target_metric="leads_created",
-                target_value=8.0)
+    goal = Goal(id="g1", horizon=HORIZON_DAY, target_metric="leads_created", target_value=8.0)
     store.save_goal(goal)
     planner.generate_plan(goal)
     agg = cc.build_command_center()
@@ -103,10 +110,14 @@ def test_command_center_health_section(iso_env):
 
 def test_command_center_narrows_to_prospect(iso_env):
     business_events.emit_business_event(
-        business_events.LEAD_CREATED, workcell="intake", prospect_id="p1",
+        business_events.LEAD_CREATED,
+        workcell="intake",
+        prospect_id="p1",
     )
     business_events.emit_business_event(
-        business_events.LEAD_CREATED, workcell="intake", prospect_id="p2",
+        business_events.LEAD_CREATED,
+        workcell="intake",
+        prospect_id="p2",
     )
     agg = cc.build_command_center(prospect_id="p1")
     assert agg["what_happened"]["event_count"] == 1
@@ -126,6 +137,7 @@ def test_build_command_center_never_raises(iso_env, monkeypatch):
 
 # --- gateway routes --------------------------------------------------------
 
+
 @pytest.fixture
 def client(iso_env, monkeypatch):
     from fastapi.testclient import TestClient
@@ -142,8 +154,7 @@ def test_route_autonomy_plan_get(client, monkeypatch):
         "backend.cash_engine.affordability.assess_affordability",
         lambda **_: type("P", (), {"posture": "invest"})(),
     )
-    goal = Goal(id="g1", horizon=HORIZON_DAY, target_metric="leads_created",
-                target_value=8.0)
+    goal = Goal(id="g1", horizon=HORIZON_DAY, target_metric="leads_created", target_value=8.0)
     store.save_goal(goal)
     planner.generate_plan(goal)
     resp = client.get("/autonomy/plan")
@@ -155,7 +166,9 @@ def test_route_autonomy_plan_get(client, monkeypatch):
 
 def test_route_admin_decisions_list_and_detail(client):
     rec = dr.record_decision(
-        "planner", "why here", workcell="planning",
+        "planner",
+        "why here",
+        workcell="planning",
         alternatives_considered=["alt"],
     )
     resp = client.get("/admin/decisions")
@@ -178,8 +191,7 @@ def test_route_admin_decisions_detail_unknown(client):
 
 
 def test_route_admin_approvals_list_and_decide(client):
-    row = approvals.create_approval("replan", {"goal_id": "g1"},
-                                    risk_level="normal")
+    row = approvals.create_approval("replan", {"goal_id": "g1"}, risk_level="normal")
     resp = client.get("/admin/approvals")
     assert resp.status_code == 200
     body = resp.json()
@@ -214,7 +226,8 @@ def test_route_admin_approvals_decide_missing_args(client):
 
 def test_route_command_center(client):
     business_events.emit_business_event(
-        business_events.LEAD_CREATED, workcell="intake",
+        business_events.LEAD_CREATED,
+        workcell="intake",
     )
     resp = client.get("/admin/command_center")
     assert resp.status_code == 200
@@ -225,6 +238,7 @@ def test_route_command_center(client):
 
 
 # --- morning brief integration ---------------------------------------------
+
 
 def test_morning_brief_renders_command_center(iso_env, monkeypatch):
     import backend.morning as morning

@@ -20,6 +20,7 @@ Everything is offline: the "slow" server is a loopback socket, and the SSRF
 egress guard (which would otherwise block a 127.0.0.1 target) is patched off so
 the real httpx client actually connects to it and exercises the real timeout.
 """
+
 from __future__ import annotations
 
 import socket
@@ -34,6 +35,7 @@ import pytest
 # A loopback server that ACCEPTs connections and then never sends a response
 # body — the exact "connection established, read stalls forever" failure.
 # ---------------------------------------------------------------------------
+
 
 class _SilentAcceptServer:
     """Accepts TCP connections on loopback and holds them open, sending nothing.
@@ -107,6 +109,7 @@ def _bypass_ssrf(monkeypatch):
 # (a) The individual fetch is bounded — it does not hang on a silent socket.
 # ---------------------------------------------------------------------------
 
+
 def test_homepage_fetch_bounded_against_silent_socket(_bypass_ssrf, monkeypatch):
     """fetch_homepage against an accept-but-never-respond server returns a
     transport failure within the phase-split read budget — not a hang."""
@@ -114,7 +117,8 @@ def test_homepage_fetch_bounded_against_silent_socket(_bypass_ssrf, monkeypatch)
 
     # Tight read budget so the test is fast; a real hang would blow past it.
     monkeypatch.setattr(
-        crawler, "_TIMEOUT",
+        crawler,
+        "_TIMEOUT",
         crawler.bounded_timeout(connect=2.0, read=1.0, write=1.0, pool=1.0),
     )
     # Single attempt — the retry would just double the (already-bounded) wait.
@@ -136,6 +140,7 @@ def test_homepage_fetch_bounded_against_silent_socket(_bypass_ssrf, monkeypatch)
 # ---------------------------------------------------------------------------
 # (b) The run-level deadline guard cannot be exhausted by wedged prospects.
 # ---------------------------------------------------------------------------
+
 
 def test_deadline_guard_not_exhausted_by_many_wedged_calls():
     """More genuinely-wedged calls than the OLD pool size (4) must not stall a
@@ -171,25 +176,43 @@ def test_deadline_guard_not_exhausted_by_many_wedged_calls():
 # hang-guard suite shape (offline; discover monkeypatched to fixtures).
 # ---------------------------------------------------------------------------
 
+
 def _many_prospects(n_slow: int, n_fast: int):
     from backend.prospecting.models import ProspectRecord
+
     out = []
     for i in range(n_slow):
-        out.append(ProspectRecord(
-            prospect_id=f"pr_slow_{i}", account_id=f"acct_slow_{i}",
-            company_name=f"Slow Co {i}", phone="(530) 222-2222",
-            website_url=f"https://slow{i}.example/",
-            city="Yuba City", state="CA", zipcode="95993",
-            industry="finance", review_rating="4.1", review_count="9",
-        ))
+        out.append(
+            ProspectRecord(
+                prospect_id=f"pr_slow_{i}",
+                account_id=f"acct_slow_{i}",
+                company_name=f"Slow Co {i}",
+                phone="(530) 222-2222",
+                website_url=f"https://slow{i}.example/",
+                city="Yuba City",
+                state="CA",
+                zipcode="95993",
+                industry="finance",
+                review_rating="4.1",
+                review_count="9",
+            )
+        )
     for i in range(n_fast):
-        out.append(ProspectRecord(
-            prospect_id=f"pr_fast_{i}", account_id=f"acct_fast_{i}",
-            company_name=f"Fast Co {i}", phone="(530) 111-1111",
-            website_url=f"https://fast{i}.example/",
-            city="Yuba City", state="CA", zipcode="95993",
-            industry="finance", review_rating="4.8", review_count="20",
-        ))
+        out.append(
+            ProspectRecord(
+                prospect_id=f"pr_fast_{i}",
+                account_id=f"acct_fast_{i}",
+                company_name=f"Fast Co {i}",
+                phone="(530) 111-1111",
+                website_url=f"https://fast{i}.example/",
+                city="Yuba City",
+                state="CA",
+                zipcode="95993",
+                industry="finance",
+                review_rating="4.8",
+                review_count="20",
+            )
+        )
     return out
 
 
@@ -207,14 +230,16 @@ def test_run_completes_despite_many_wedged_prospects(tmp_path, monkeypatch):
     monkeypatch.setattr(svc_mod, "GLOBAL_IDEMPOTENCY_STORE", store)
     monkeypatch.setenv("SAMUS_ARTIFACT_ROOT", str(tmp_path))
     monkeypatch.setenv(
-        "SAMUS_PROSPECTING_AUDIT_PATH", str(tmp_path / "audit.jsonl"),
+        "SAMUS_PROSPECTING_AUDIT_PATH",
+        str(tmp_path / "audit.jsonl"),
     )
 
     fixtures = _many_prospects(n_slow=6, n_fast=2)
     monkeypatch.setattr(
         "backend.prospecting.service.discover_for_zipcode",
-        lambda *, zipcode, industries, max_results_per_zip, must_have_website:
-            list(fixtures) if zipcode == "95993" else [],
+        lambda *, zipcode, industries, max_results_per_zip, must_have_website: (
+            list(fixtures) if zipcode == "95993" else []
+        ),
     )
 
     # Tiny deadline so wedged prospects are skipped fast; a real hang blows past.
@@ -225,17 +250,24 @@ def test_run_completes_despite_many_wedged_prospects(tmp_path, monkeypatch):
     def _fake_fetch_homepage(url):
         if "slow" in url:
             released.wait(timeout=30.0)  # abandoned daemon thread; safe
-        return {"final_url": url, "status_code": 200,
-                "html": "<title>ok</title>", "fetch_error": None}
+        return {
+            "final_url": url,
+            "status_code": 200,
+            "html": "<title>ok</title>",
+            "fetch_error": None,
+        }
 
     monkeypatch.setattr(
-        "backend.prospecting.crawler.fetch_homepage", _fake_fetch_homepage,
+        "backend.prospecting.crawler.fetch_homepage",
+        _fake_fetch_homepage,
     )
     monkeypatch.setattr(
-        "backend.prospecting.crawler.classify_website", lambda page: "live",
+        "backend.prospecting.crawler.classify_website",
+        lambda page: "live",
     )
     monkeypatch.setattr(
-        "backend.prospecting.seo_audit.score_seo", lambda page: (55, []),
+        "backend.prospecting.seo_audit.score_seo",
+        lambda page: (55, []),
     )
     monkeypatch.setattr(
         "backend.prospecting.enrichment.enrich_from_page_with_fallback",

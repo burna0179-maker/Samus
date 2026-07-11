@@ -19,6 +19,7 @@ Read surface (deliverable §6):
   GET  /campaigns/{id}/metrics
   GET  /campaigns/{id}/audit
 """
+
 from __future__ import annotations
 
 import logging

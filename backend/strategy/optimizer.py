@@ -18,6 +18,7 @@ Allocation tiers (by rank after score sort):
   rank >= MID_TIER               → defer
   score <= 0                     → drop
 """
+
 from __future__ import annotations
 
 import logging
@@ -50,12 +51,12 @@ class ProspectSignals:
     """
 
     prospect_id: str
-    expected_value: float = 1_000.0       # estimated deal value in $
-    conversion_prob: float = 0.1          # 0.0 – 1.0
-    time_to_close: int = 7                # days remaining; 1 minimum enforced
-    execution_cost: float = 100.0         # cost to work this prospect
+    expected_value: float = 1_000.0  # estimated deal value in $
+    conversion_prob: float = 0.1  # 0.0 – 1.0
+    time_to_close: int = 7  # days remaining; 1 minimum enforced
+    execution_cost: float = 100.0  # cost to work this prospect
     stage: str = "new"
-    momentum: float = 0.0                 # 0.0 – 1.0; pre-computed or from signals
+    momentum: float = 0.0  # 0.0 – 1.0; pre-computed or from signals
     engagement_signals: list[str] = field(default_factory=list)
 
 
@@ -65,8 +66,8 @@ class PortfolioRanking:
 
     prospect_id: str
     score: float
-    action: str                           # accelerate | maintain | defer | drop
-    rank: int                             # 0-based position in sorted list
+    action: str  # accelerate | maintain | defer | drop
+    rank: int  # 0-based position in sorted list
     raw_signals: dict[str, Any] = field(default_factory=dict)
 
 

@@ -12,6 +12,7 @@ DORMANCY: constructed no-arg; no live importer; no flag of its own (the
 WRAPPER's enable posture governs whether it runs). Bias is advisory PROMPT
 text only — it never bypasses any governance gate.
 """
+
 from __future__ import annotations
 
 import logging

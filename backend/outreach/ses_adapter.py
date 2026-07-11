@@ -1,4 +1,5 @@
 """AWS SES email adapter for the outreach workcell."""
+
 from __future__ import annotations
 
 import logging
@@ -11,6 +12,7 @@ from typing import Any
 try:
     import boto3  # type: ignore[import-untyped]
 except ImportError:
+
     class _Boto3Stub:
         """Stand-in for the boto3 module when the package isn't installed.
 
@@ -19,6 +21,7 @@ except ImportError:
         cleanly via :class:`SesAdapterError` when ``client`` is still
         ``None`` at call time.
         """
+
         client = None  # type: ignore[assignment]
 
     boto3 = _Boto3Stub()  # type: ignore[assignment]
@@ -26,8 +29,10 @@ except ImportError:
 try:
     from botocore.exceptions import ClientError
 except ImportError:
+
     class ClientError(Exception):  # type: ignore[no-redef]
         response: dict = {}
+
 
 from backend.common.config import get_settings
 from backend.common.dates import iso_now
@@ -51,9 +56,7 @@ def send_email_via_ses(
     settings = get_settings()
     source = from_addr if from_addr is not None else settings.ses_from_email
     if not (source and source.strip()):
-        raise ValueError(
-            "send_email_via_ses requires from_addr (arg or settings.ses_from_email)"
-        )
+        raise ValueError("send_email_via_ses requires from_addr (arg or settings.ses_from_email)")
     region = aws_region or settings.aws_region
     if boto3.client is None:
         raise SesAdapterError(

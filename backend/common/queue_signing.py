@@ -33,6 +33,7 @@ string. ``canonical_json`` sorts keys + uses compact separators so both sides
 hash byte-identical content. The ``hmac`` field is itself excluded from the
 canonical string (it is the output, not an input).
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -65,12 +66,8 @@ def _canonical_json(obj: dict[str, Any]) -> str:
 
 def envelope_canonical_string(envelope: QueueEnvelope) -> str:
     """The canonical string that the HMAC is computed over (excludes ``hmac``)."""
-    payload_hash = hashlib.sha256(
-        _canonical_json(envelope.payload).encode("utf-8")
-    ).hexdigest()
-    metadata_hash = hashlib.sha256(
-        _canonical_json(envelope.metadata).encode("utf-8")
-    ).hexdigest()
+    payload_hash = hashlib.sha256(_canonical_json(envelope.payload).encode("utf-8")).hexdigest()
+    metadata_hash = hashlib.sha256(_canonical_json(envelope.metadata).encode("utf-8")).hexdigest()
     parts = [
         envelope.task_id,
         envelope.service,
@@ -176,15 +173,23 @@ def check_message_authenticity(envelope: QueueEnvelope, *, service: str) -> bool
     if enforcing:
         _LOG.error(
             "sqs_message_hmac_rejected",
-            extra={"service": service, "reason": reason,
-                   "task_id": envelope.task_id, "action": envelope.action},
+            extra={
+                "service": service,
+                "reason": reason,
+                "task_id": envelope.task_id,
+                "action": envelope.action,
+            },
         )
         return False
     _LOG.warning(
         "sqs_message_hmac_audit_mismatch",
-        extra={"service": service, "reason": reason,
-               "task_id": envelope.task_id, "action": envelope.action,
-               "mode": "audit"},
+        extra={
+            "service": service,
+            "reason": reason,
+            "task_id": envelope.task_id,
+            "action": envelope.action,
+            "mode": "audit",
+        },
     )
     return True
 

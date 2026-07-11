@@ -26,6 +26,7 @@ two things — *identify* and *reason*:
 
 Pure + zero-I/O — safe to run on every prospect and every call note.
 """
+
 from __future__ import annotations
 
 import re
@@ -54,11 +55,23 @@ _TLD_RE = re.compile(r"^[A-Za-z]{2,}$")
 # Consumer mailbox providers — legitimate for plenty of small businesses, but
 # an address here cannot be tied to the business's own domain, so it is worth
 # noting rather than trusting blind.
-_CONSUMER_DOMAINS: frozenset[str] = frozenset({
-    "gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "aol.com",
-    "icloud.com", "live.com", "msn.com", "ymail.com", "proton.me",
-    "protonmail.com", "gmx.com", "mail.com",
-})
+_CONSUMER_DOMAINS: frozenset[str] = frozenset(
+    {
+        "gmail.com",
+        "yahoo.com",
+        "hotmail.com",
+        "outlook.com",
+        "aol.com",
+        "icloud.com",
+        "live.com",
+        "msn.com",
+        "ymail.com",
+        "proton.me",
+        "protonmail.com",
+        "gmx.com",
+        "mail.com",
+    }
+)
 
 # A domain stem must be at least this long before a prefix match counts as a
 # "resemblance" — guards against trivial 1-3 char coincidences.
@@ -138,10 +151,7 @@ def email_syntax_error(email: str) -> str | None:
                 )
             return f"the domain label '{label}' contains an illegal character"
     if not _TLD_RE.match(labels[-1]):
-        return (
-            f"the top-level domain '{labels[-1]}' is not valid "
-            "(it must be two or more letters)"
-        )
+        return f"the top-level domain '{labels[-1]}' is not valid (it must be two or more letters)"
     return None
 
 
@@ -162,12 +172,30 @@ def is_valid_email_syntax(email: str) -> bool:
 # record; this predicate only governs whether it is eligible as a COLD-send
 # ``to``. Mirrors enrichment's ``_GENERIC_LOCAL_PARTS`` + ``_BLOCKED_LOCAL_PREFIXES``
 # but is the single canonical gate the send-selection path consults.
-_NON_COLD_SENDABLE_LOCAL_PARTS: frozenset[str] = frozenset({
-    "bugreport", "admin", "support", "noreply", "no-reply", "info",
-    "postmaster", "abuse", "sales", "contact", "hello", "webmaster",
-    "privacy", "legal", "security", "marketing", "help", "team", "office",
-    "mailer-daemon",
-})
+_NON_COLD_SENDABLE_LOCAL_PARTS: frozenset[str] = frozenset(
+    {
+        "bugreport",
+        "admin",
+        "support",
+        "noreply",
+        "no-reply",
+        "info",
+        "postmaster",
+        "abuse",
+        "sales",
+        "contact",
+        "hello",
+        "webmaster",
+        "privacy",
+        "legal",
+        "security",
+        "marketing",
+        "help",
+        "team",
+        "office",
+        "mailer-daemon",
+    }
+)
 
 
 def is_cold_sendable_email(email: str) -> bool:
@@ -201,8 +229,8 @@ def _host_from_url(url: str) -> str:
     u = (url or "").strip().lower()
     if not u:
         return ""
-    u = re.sub(r"^[a-z][a-z0-9+.-]*://", "", u)   # strip scheme
-    u = u.split("/", 1)[0].split("?", 1)[0]       # host only
+    u = re.sub(r"^[a-z][a-z0-9+.-]*://", "", u)  # strip scheme
+    u = u.split("/", 1)[0].split("?", 1)[0]  # host only
     if u.startswith("www."):
         u = u[4:]
     return u.strip(".")
@@ -300,8 +328,7 @@ def assess_email(
         return EmailAssessment(raw, "valid", True, reasons)
     if not known and not business_name.strip():
         reasons.append(
-            "Syntax is valid; no business context was supplied to cross-check "
-            "the domain."
+            "Syntax is valid; no business context was supplied to cross-check the domain."
         )
         return EmailAssessment(raw, "valid", True, reasons)
 
@@ -346,7 +373,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--company", default="", help="business name, for context")
     parser.add_argument("--website", default="", help="business website URL")
     parser.add_argument(
-        "--known-domain", action="append", default=[],
+        "--known-domain",
+        action="append",
+        default=[],
         help="a domain already on file for the business (repeatable)",
     )
     args = parser.parse_args(argv)
@@ -357,12 +386,16 @@ def main(argv: list[str] | None = None) -> int:
         website_url=args.website,
         extra_domains=tuple(args.known_domain),
     )
-    print(json.dumps({
-        "email": assessment.email,
-        "verdict": assessment.verdict,
-        "valid_syntax": assessment.valid_syntax,
-        "reasons": assessment.reasons,
-    }))
+    print(
+        json.dumps(
+            {
+                "email": assessment.email,
+                "verdict": assessment.verdict,
+                "valid_syntax": assessment.valid_syntax,
+                "reasons": assessment.reasons,
+            }
+        )
+    )
     return 0 if assessment.verdict == "valid" else 1
 
 

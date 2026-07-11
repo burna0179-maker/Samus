@@ -5,6 +5,7 @@ Per directed_capability.protocol.yaml v0.6.0 Component 3:
   fail_closed: > timeout sec without Major ack -> commercial BLOCKED and
   audit_blackout_frozen state engaged; only Anita /gate can lift.
 """
+
 from __future__ import annotations
 
 import datetime as _dt
@@ -14,11 +15,10 @@ import threading
 import time
 import uuid
 from pathlib import Path
-from typing import Any, Callable
+from typing import Callable
 
 import httpx
 import yaml
-from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
 
@@ -52,9 +52,15 @@ class DualChannelMirror:
         # After the call returns, caller commits and stamps audit_ack_ts.
     """
 
-    def __init__(self, *, optimus_dispatch_url=None, signing_key_path=None,
-                 timeout_sec: int = 180, env: str = "development",
-                 ack_probe: Callable[[str], dict | None] | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        optimus_dispatch_url=None,
+        signing_key_path=None,
+        timeout_sec: int = 180,
+        env: str = "development",
+        ack_probe: Callable[[str], dict | None] | None = None,
+    ) -> None:
         self._url = (optimus_dispatch_url or "").strip()
         self._timeout = max(1, int(timeout_sec))
         self._env = env
@@ -74,9 +80,7 @@ class DualChannelMirror:
                     if env in ("production", "prod"):
                         raise
         elif env in ("production", "prod"):
-            raise RuntimeError(
-                "samus.dual_channel.missing_signing_key: refuses to boot in prod"
-            )
+            raise RuntimeError("samus.dual_channel.missing_signing_key: refuses to boot in prod")
 
     # ------------------------------------------------------------------
     # State accessors
@@ -87,7 +91,8 @@ class DualChannelMirror:
     def _freeze(self, reason: str) -> None:
         try:
             _BLACKOUT_FLAG.write_text(
-                f"{_utcnow_iso()}\n{reason}\n", encoding="utf-8",
+                f"{_utcnow_iso()}\n{reason}\n",
+                encoding="utf-8",
             )
         except OSError:
             pass
@@ -105,10 +110,17 @@ class DualChannelMirror:
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
-    def send_action(self, *, isv_id, action_class: str,
-                    trust_premium_at_commit: float, value_exchange_record_ref: str,
-                    commercial_destination: str, syscall_summary=None,
-                    commit_status: str = "pending") -> str:
+    def send_action(
+        self,
+        *,
+        isv_id,
+        action_class: str,
+        trust_premium_at_commit: float,
+        value_exchange_record_ref: str,
+        commercial_destination: str,
+        syscall_summary=None,
+        commit_status: str = "pending",
+    ) -> str:
         """Queue + sync-wait audit envelope; return audit_ack_ts.
 
         Raises AuditBlackoutError on timeout / unreachable Major.
@@ -141,19 +153,17 @@ class DualChannelMirror:
         return ack_ts
 
     def assert_audit_precedes_commit(
-        self, audit_ack_ts: str | None, commercial_commit_ts: str | None,
+        self,
+        audit_ack_ts: str | None,
+        commercial_commit_ts: str | None,
     ) -> None:
         """Caller hook to enforce structural invariant explicitly."""
         if not audit_ack_ts:
-            raise ProtocolViolation(
-                "audit_envelope_precedes_commercial_commit: no audit ack"
-            )
+            raise ProtocolViolation("audit_envelope_precedes_commercial_commit: no audit ack")
         if commercial_commit_ts and audit_ack_ts > commercial_commit_ts:
             return  # well-ordered (ack first)
         if commercial_commit_ts and commercial_commit_ts < audit_ack_ts:
-            raise ProtocolViolation(
-                "audit_envelope_precedes_commercial_commit: reverse ordering"
-            )
+            raise ProtocolViolation("audit_envelope_precedes_commercial_commit: reverse ordering")
 
     # ------------------------------------------------------------------
     # Internals
@@ -161,7 +171,8 @@ class DualChannelMirror:
     def _sign(self, envelope: dict) -> str:
         payload = json.dumps(
             {k: v for k, v in envelope.items() if k != "signature"},
-            sort_keys=True, separators=(",", ":"),
+            sort_keys=True,
+            separators=(",", ":"),
         ).encode("utf-8")
         if self._signing_key is None:
             # Dev-only stub signature; production refuses at __init__.

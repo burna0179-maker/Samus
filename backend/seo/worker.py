@@ -4,6 +4,7 @@ Routes ``envelope.action`` -> :func:`audit_site` / :func:`optimize_page` /
 :func:`generate_content`. Wraps ``backend.common.worker_base`` in try/except
 so the module imports cleanly even if the base class is unavailable.
 """
+
 from __future__ import annotations
 
 import logging

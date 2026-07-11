@@ -22,6 +22,7 @@ Returns / raises a strict :class:`SnsSignatureError` on any failure — no
 soft-fail, no "warn and continue". Callers wire this in **before** any business
 logic so a forged payload never reaches the suppression handlers.
 """
+
 from __future__ import annotations
 
 import base64
@@ -116,6 +117,7 @@ def _allowed_topic_arns() -> frozenset[str]:
     the HustleForge SES feedback topic.
     """
     import logging as _logging
+
     raw = os.getenv("SAMUS_FEEDBACK_ALLOWED_TOPIC_ARNS", "").strip()
     if not raw:
         env = os.getenv("SAMUS_ENV", "development") or "development"
@@ -193,8 +195,10 @@ def _fetch_signing_cert(url: str, *, http_get: Any | None = None) -> Certificate
     _validate_signing_cert_url(url)
 
     if http_get is None:
+
         def _default_get(u: str) -> httpx.Response:
             return httpx.get(u, timeout=10.0, follow_redirects=False)
+
         http_get = _default_get
 
     try:
@@ -271,9 +275,7 @@ def verify_sns_message(
 
     # TopicArn allowlist — explicit param wins, else env-var, else no-op.
     allowlist = (
-        frozenset(allowed_topic_arns)
-        if allowed_topic_arns is not None
-        else _allowed_topic_arns()
+        frozenset(allowed_topic_arns) if allowed_topic_arns is not None else _allowed_topic_arns()
     )
     topic_arn = str(message.get("TopicArn") or "")
     if allowlist and topic_arn not in allowlist:

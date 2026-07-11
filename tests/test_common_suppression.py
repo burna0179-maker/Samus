@@ -1,4 +1,5 @@
 """Tests for the shared email suppression-read helper (fail-open)."""
+
 from __future__ import annotations
 
 import backend.common.suppression as supp

@@ -2,6 +2,7 @@
 
 The GraphClient is mocked so the tests don't require a running Neo4j.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -36,9 +37,7 @@ class _FakeGraphClient:
         target_label: str,
         target_key: Any,
     ) -> bool:
-        self.rel_writes.append(
-            (source_label, source_key, rel_type, target_label, target_key)
-        )
+        self.rel_writes.append((source_label, source_key, rel_type, target_label, target_key))
         return self.available
 
     def query(self, name: str, **params: Any) -> list[dict[str, Any]]:
@@ -67,10 +66,12 @@ def unavailable_client(monkeypatch):
 def _client():
     from fastapi.testclient import TestClient
     from backend.memory.app import app
+
     return TestClient(app)
 
 
 # --- /graph/init -----------------------------------------------------------
+
 
 def test_graph_init_ok(fake_client):
     r = _client().post("/graph/init", json={})
@@ -87,6 +88,7 @@ def test_graph_init_unavailable(unavailable_client):
 
 
 # --- /graph/write/node -----------------------------------------------------
+
 
 def test_graph_write_node_ok(fake_client):
     r = _client().post(
@@ -128,6 +130,7 @@ def test_graph_write_node_unavailable(unavailable_client):
 
 
 # --- /graph/write/relationship --------------------------------------------
+
 
 def test_graph_write_relationship_ok(fake_client):
     r = _client().post(
@@ -178,6 +181,7 @@ def test_graph_write_relationship_unavailable(unavailable_client):
 
 # --- /graph/query ----------------------------------------------------------
 
+
 def test_graph_query_ok(fake_client):
     fake_client.query_rows = [{"a": {"account_id": "A-1"}}]
     r = _client().post(
@@ -212,6 +216,8 @@ def test_graph_query_unavailable(unavailable_client):
 
 # --- capability check ------------------------------------------------------
 
+
 def test_graph_capability_exists():
     from backend.common.capabilities import SERVICE_CAPABILITIES
+
     assert "graph" in SERVICE_CAPABILITIES["memory"]

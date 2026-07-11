@@ -40,6 +40,7 @@ disabled process-wide when ``SAMUS_RATE_LIMIT_ENABLED`` is falsey — the test
 suite sets this so existing endpoint tests do not have to reason about
 counters.
 """
+
 from __future__ import annotations
 
 import collections
@@ -99,6 +100,7 @@ class RateLimitDecision:
     ``limit`` describe the ceiling for the 429 detail / logs;
     ``retry_after_seconds`` is the seconds until the fixed window rolls over.
     """
+
     allowed: bool
     scope: str = ""
     limit: int = 0
@@ -157,10 +159,15 @@ def check_rate_limit(
         retry_after = _WINDOW_SECONDS - int(clock % _WINDOW_SECONDS)
         _LOG.info(
             "rate-limit breach scope=%s id=%s count=%d limit=%d",
-            scope, ident, count, limit,
+            scope,
+            ident,
+            count,
+            limit,
         )
         return RateLimitDecision(
-            allowed=False, scope=scope, limit=limit,
+            allowed=False,
+            scope=scope,
+            limit=limit,
             retry_after_seconds=max(1, retry_after),
         )
     return RateLimitDecision(allowed=True, scope=scope, limit=limit)

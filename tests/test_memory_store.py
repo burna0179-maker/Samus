@@ -1,4 +1,5 @@
 """Tests for backend.memory.store."""
+
 from __future__ import annotations
 
 import time

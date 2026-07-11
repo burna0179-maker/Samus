@@ -5,9 +5,9 @@ to keep tests as unit-level concerns (no I/O, no filesystem).
 
 Phase 6.
 """
+
 from __future__ import annotations
 
-import pytest
 
 from backend.crm.models import (
     CreateOpportunityResult,
@@ -19,6 +19,7 @@ from backend.crm.models import (
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
 # ---------------------------------------------------------------------------
+
 
 def _fake_opp(opportunity_id: str = "opp_fake001", stage: str = "new") -> Opportunity:
     return Opportunity(
@@ -52,6 +53,7 @@ def _ok_task_result(task_id: str = "task_fake001") -> CreateOperatorTaskResult:
 # test_auto_create_from_deal_scoring_cold_tier_skips_creation
 # ---------------------------------------------------------------------------
 
+
 def test_auto_create_from_deal_scoring_cold_tier_skips_creation(monkeypatch):
     """Cold tier from deal_scoring must return status='failed' without creating an Opportunity."""
     import backend.crm.service as svc
@@ -66,6 +68,7 @@ def test_auto_create_from_deal_scoring_cold_tier_skips_creation(monkeypatch):
         return _ok_create_result()
 
     import backend.prospecting.deal_scoring as ds_mod
+
     monkeypatch.setattr(ds_mod, "score_deal", fake_score_deal)
     monkeypatch.setattr(svc, "create_opportunity", fake_create_opportunity)
 
@@ -85,6 +88,7 @@ def test_auto_create_from_deal_scoring_cold_tier_skips_creation(monkeypatch):
 # test_auto_create_from_deal_scoring_hot_tier_creates_opportunity
 # ---------------------------------------------------------------------------
 
+
 def test_auto_create_from_deal_scoring_hot_tier_creates_opportunity(monkeypatch):
     """Hot tier must call create_opportunity and return status='created'."""
     import backend.crm.service as svc
@@ -102,6 +106,7 @@ def test_auto_create_from_deal_scoring_hot_tier_creates_opportunity(monkeypatch)
         return _ok_task_result()
 
     import backend.prospecting.deal_scoring as ds_mod
+
     monkeypatch.setattr(ds_mod, "score_deal", fake_score_deal)
     monkeypatch.setattr(svc, "create_opportunity", fake_create_opportunity)
     monkeypatch.setattr(svc, "get_opportunity", fake_get_opportunity)
@@ -120,6 +125,7 @@ def test_auto_create_from_deal_scoring_hot_tier_creates_opportunity(monkeypatch)
 # ---------------------------------------------------------------------------
 # test_auto_create_runs_lifecycle_task_generators
 # ---------------------------------------------------------------------------
+
 
 def test_auto_create_runs_lifecycle_task_generators(monkeypatch):
     """After creating an opportunity, lifecycle tasks must be generated and persisted."""
@@ -142,6 +148,7 @@ def test_auto_create_runs_lifecycle_task_generators(monkeypatch):
         return _ok_task_result()
 
     import backend.prospecting.deal_scoring as ds_mod
+
     monkeypatch.setattr(ds_mod, "score_deal", fake_score_deal)
     monkeypatch.setattr(svc, "create_opportunity", fake_create_opportunity)
     monkeypatch.setattr(svc, "get_opportunity", fake_get_opportunity)
@@ -162,6 +169,7 @@ def test_auto_create_runs_lifecycle_task_generators(monkeypatch):
 # test_auto_create_lifecycle_task_failure_does_not_fail_opportunity
 # ---------------------------------------------------------------------------
 
+
 def test_auto_create_lifecycle_task_failure_does_not_fail_opportunity(monkeypatch):
     """A lifecycle task creation failure must not propagate; the opportunity result is returned."""
     import backend.crm.service as svc
@@ -179,6 +187,7 @@ def test_auto_create_lifecycle_task_failure_does_not_fail_opportunity(monkeypatc
         raise RuntimeError("task persistence failure")
 
     import backend.prospecting.deal_scoring as ds_mod
+
     monkeypatch.setattr(ds_mod, "score_deal", fake_score_deal)
     monkeypatch.setattr(svc, "create_opportunity", fake_create_opportunity)
     monkeypatch.setattr(svc, "get_opportunity", fake_get_opportunity)
@@ -199,6 +208,7 @@ def test_auto_create_lifecycle_task_failure_does_not_fail_opportunity(monkeypatc
 # ---------------------------------------------------------------------------
 # test_auto_create_from_lead_creates_opportunity
 # ---------------------------------------------------------------------------
+
 
 def test_auto_create_from_lead_creates_opportunity(monkeypatch):
     """auto_create_opportunity_from_lead must delegate to create_opportunity."""

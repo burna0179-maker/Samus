@@ -1,4 +1,5 @@
 """SQS wiring — producer (enqueue -> real queue) + consumer (poll -> process_job)."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -15,9 +16,11 @@ from backend.common.queue_contracts import QueueEnvelope
 # Roster + producer
 # --------------------------------------------------------------------------
 
+
 def test_roster_reads_cash_engine_queue_env(monkeypatch):
     monkeypatch.setenv("SQS_CASH_ENGINE_QUEUE_URL", "https://sqs.example/cash")
     from backend.common.settings import bootstrap_settings
+
     s = bootstrap_settings()
     assert s.sqs_queue_urls.get("cash_engine") == "https://sqs.example/cash"
 
@@ -53,6 +56,7 @@ def test_enqueue_uses_sqs_when_queue_configured(monkeypatch):
 def test_enqueue_falls_back_to_mock_without_queue(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_STATE_ROOT", str(tmp_path))
     from backend.gateway import sqs_dispatch
+
     monkeypatch.delitem(sqs_dispatch.QUEUE_URLS, "cash_engine", raising=False)
     res = cash_queue.enqueue_cash_job(task_id="ce-2", payload={"opportunity_id": "op-2"})
     assert res["queue"] == "mock:jsonl"
@@ -61,6 +65,7 @@ def test_enqueue_falls_back_to_mock_without_queue(tmp_path, monkeypatch):
 # --------------------------------------------------------------------------
 # Consumer
 # --------------------------------------------------------------------------
+
 
 @pytest.fixture
 def sqs_worker(tmp_path, monkeypatch):
@@ -71,7 +76,9 @@ def sqs_worker(tmp_path, monkeypatch):
 
 def _envelope():
     return QueueEnvelope(
-        task_id="ce-1", service="cash_engine", action="cash_engine_step",
+        task_id="ce-1",
+        service="cash_engine",
+        action="cash_engine_step",
         payload={"opportunity_id": "op-1", "prospect_id": "pr-1"},
     )
 

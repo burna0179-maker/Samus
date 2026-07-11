@@ -26,6 +26,7 @@ Public surface:
   * :func:`verify` — full chain verify; returns the
     :class:`backend.common.audit_ledger.LedgerState` dataclass.
 """
+
 from __future__ import annotations
 
 import json

@@ -3,6 +3,7 @@
 Exact-formula tests with known inputs -> known outputs, boundary clamping,
 and graceful-degradation when the neutral-default telemetry fields are omitted.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -122,9 +123,14 @@ def test_seo_score_clamped_above_one():
 def test_latency_penalty_saturates_at_one_day():
     """Latency past 86400s saturates the penalty at the full weight (0.20)."""
     base = dict(
-        outcome=0.0, owner_email=False, social_facebook=False,
-        social_instagram=False, seo_score=1.0, contactability=0.0,
-        infrastructure_health=0.0, estimated_close_probability=0.0,
+        outcome=0.0,
+        owner_email=False,
+        social_facebook=False,
+        social_instagram=False,
+        seo_score=1.0,
+        contactability=0.0,
+        infrastructure_health=0.0,
+        estimated_close_probability=0.0,
         token_cost_usd=1.0,
     )
     one_day = compute_reward_density(RewardSignal(latency_to_resolution_sec=86_400.0, **base))
@@ -137,11 +143,15 @@ def test_latency_penalty_saturates_at_one_day():
 def test_infrastructure_and_contactability_clamped():
     """Out-of-range infra/contactability clamp into [0,1]."""
     signal = RewardSignal(
-        outcome=0.0, owner_email=False, social_facebook=False,
-        social_instagram=False, seo_score=1.0,
-        contactability=5.0,           # clamps to 1.0
-        infrastructure_health=-2.0,   # clamps to 0.0
-        estimated_close_probability=0.0, token_cost_usd=1.0,
+        outcome=0.0,
+        owner_email=False,
+        social_facebook=False,
+        social_instagram=False,
+        seo_score=1.0,
+        contactability=5.0,  # clamps to 1.0
+        infrastructure_health=-2.0,  # clamps to 0.0
+        estimated_close_probability=0.0,
+        token_cost_usd=1.0,
     )
     value = compute_reward_density(signal)
     # infra = 0.0*0.20 + 1.0*0.20 = 0.20

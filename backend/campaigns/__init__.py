@@ -15,6 +15,7 @@ Public surface:
         CampaignTemplate, CampaignInstance, CampaignRun,
     )
 """
+
 from __future__ import annotations
 
 from .models import (

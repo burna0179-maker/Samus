@@ -11,6 +11,7 @@ Covers:
   - candidate_modules substring matching
   - sha256 hashing is deterministic
 """
+
 from __future__ import annotations
 
 import re
@@ -95,15 +96,7 @@ def _py_artifact(path: str = "mod.py", size: int = 100) -> ArchiveArtifact:
 
 
 def test_extract_concepts_py_finds_class_and_def(empty_scanner: ArchiveScanner) -> None:
-    content = (
-        "import os\n"
-        "\n"
-        "class FooBar:\n"
-        "    pass\n"
-        "\n"
-        "def run_pipeline():\n"
-        "    return 1\n"
-    )
+    content = "import os\n\nclass FooBar:\n    pass\n\ndef run_pipeline():\n    return 1\n"
     concepts = empty_scanner.extract_concepts(_py_artifact(), content)
     names = {c.name: c for c in concepts}
 
@@ -154,15 +147,7 @@ def _md_artifact(path: str = "doc.md", size: int = 100) -> ArchiveArtifact:
 
 
 def test_extract_concepts_md_finds_h1_and_h2(empty_scanner: ArchiveScanner) -> None:
-    content = (
-        "# Top Title\n"
-        "\n"
-        "Some body text.\n"
-        "\n"
-        "## Subsection\n"
-        "\n"
-        "### Deeper (h3 — ignored)\n"
-    )
+    content = "# Top Title\n\nSome body text.\n\n## Subsection\n\n### Deeper (h3 — ignored)\n"
     concepts = empty_scanner.extract_concepts(_md_artifact(), content)
     names = {c.name: c for c in concepts}
 
@@ -260,9 +245,7 @@ def test_classify_gap_missing_impl_for_md_class_reference(
 # --------------------------------------------------------------------------- #
 
 
-def test_scan_walks_subdirectories(
-    loaded_scanner: ArchiveScanner, tmp_path: Path
-) -> None:
+def test_scan_walks_subdirectories(loaded_scanner: ArchiveScanner, tmp_path: Path) -> None:
     (tmp_path / "a").mkdir()
     (tmp_path / "a" / "b").mkdir()
     (tmp_path / "top.py").write_text("class TopLevel:\n    pass\n", encoding="utf-8")
@@ -277,9 +260,7 @@ def test_scan_walks_subdirectories(
     assert concept_names == {"toplevel", "mid_helper", "deep_idea"}
 
 
-def test_scan_skips_binary_files(
-    loaded_scanner: ArchiveScanner, tmp_path: Path
-) -> None:
+def test_scan_skips_binary_files(loaded_scanner: ArchiveScanner, tmp_path: Path) -> None:
     # A non-UTF8 byte sequence inside a .py file — must be recorded but
     # produce zero concepts (decode failure handled silently).
     binary_bytes = b"\xff\xfe\x00\x01class Foo:\xff\n"
@@ -295,9 +276,7 @@ def test_scan_skips_binary_files(
     assert concept_paths == {"ok.py"}
 
 
-def test_scan_skips_files_over_1mib(
-    loaded_scanner: ArchiveScanner, tmp_path: Path
-) -> None:
+def test_scan_skips_files_over_1mib(loaded_scanner: ArchiveScanner, tmp_path: Path) -> None:
     # >1 MiB Python file with a real class declaration — must NOT yield a concept.
     padding = "# pad\n" * (200_000)  # ~1.2 MiB
     big_content = "class HugeClass:\n    pass\n" + padding
@@ -316,9 +295,7 @@ def test_scan_skips_files_over_1mib(
     assert concept_names == {"small"}
 
 
-def test_scan_report_has_iso8601_timestamp(
-    loaded_scanner: ArchiveScanner, tmp_path: Path
-) -> None:
+def test_scan_report_has_iso8601_timestamp(loaded_scanner: ArchiveScanner, tmp_path: Path) -> None:
     (tmp_path / "x.py").write_text("class X:\n    pass\n", encoding="utf-8")
     report = loaded_scanner.scan(tmp_path)
 
@@ -334,9 +311,7 @@ def test_scan_report_has_iso8601_timestamp(
 # --------------------------------------------------------------------------- #
 
 
-def test_scanner_is_read_only(
-    loaded_scanner: ArchiveScanner, tmp_path: Path
-) -> None:
+def test_scanner_is_read_only(loaded_scanner: ArchiveScanner, tmp_path: Path) -> None:
     """After scan(), every source file must be byte-identical and same mtime."""
     file_a = tmp_path / "a.py"
     file_b = tmp_path / "sub" / "b.md"
@@ -344,10 +319,7 @@ def test_scanner_is_read_only(
     file_b.parent.mkdir()
     file_b.write_text("# Heading\n", encoding="utf-8")
 
-    snapshot = {
-        p: (p.read_bytes(), p.stat().st_mtime_ns)
-        for p in (file_a, file_b)
-    }
+    snapshot = {p: (p.read_bytes(), p.stat().st_mtime_ns) for p in (file_a, file_b)}
 
     report = loaded_scanner.scan(tmp_path)
     assert isinstance(report, ScanReport)
@@ -356,9 +328,7 @@ def test_scanner_is_read_only(
     for path, (original_bytes, original_mtime_ns) in snapshot.items():
         assert path.exists(), f"scanner deleted source file: {path}"
         assert path.read_bytes() == original_bytes, f"scanner mutated bytes of: {path}"
-        assert path.stat().st_mtime_ns == original_mtime_ns, (
-            f"scanner touched mtime of: {path}"
-        )
+        assert path.stat().st_mtime_ns == original_mtime_ns, f"scanner touched mtime of: {path}"
 
     # No stray output directories created by the scanner.
     children = {p.name for p in tmp_path.iterdir()}

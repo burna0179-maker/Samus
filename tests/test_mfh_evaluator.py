@@ -4,17 +4,20 @@ MFH is the advisory sibling of EFH: it FLAGS meaning-anchor concerns (never
 vetoes) and its assessment rides on the cash_engine review's decision.made
 event.
 """
+
 from __future__ import annotations
 
 
 def test_mfh_clean_action_not_flagged():
     from backend.governance.mfh_evaluator import evaluate_meaning
 
-    out = evaluate_meaning({
-        "kind": "cash_engine_review",
-        "stake_sentence": "We will rebuild Acme's booking flow so they can take "
-                          "reservations without us after launch.",
-    })
+    out = evaluate_meaning(
+        {
+            "kind": "cash_engine_review",
+            "stake_sentence": "We will rebuild Acme's booking flow so they can take "
+            "reservations without us after launch.",
+        }
+    )
     assert out["flagged"] is False
     assert out["anchors"] == []
 
@@ -22,11 +25,13 @@ def test_mfh_clean_action_not_flagged():
 def test_mfh_flags_treadmill_language():
     from backend.governance.mfh_evaluator import evaluate_meaning
 
-    out = evaluate_meaning({
-        "kind": "cash_engine_review",
-        "stake_sentence": "A recurring fee to keep the lights on; the site only "
-                          "works while we maintain it and it's hard to cancel.",
-    })
+    out = evaluate_meaning(
+        {
+            "kind": "cash_engine_review",
+            "stake_sentence": "A recurring fee to keep the lights on; the site only "
+            "works while we maintain it and it's hard to cancel.",
+        }
+    )
     assert out["flagged"] is True
     # Multiple anchors should trip on this dense treadmill+lock-in sentence.
     assert "axiom.meaning.capability_over_dependency" in out["anchors"]
@@ -37,9 +42,11 @@ def test_mfh_flags_treadmill_language():
 def test_mfh_flags_vanity_metric():
     from backend.governance.mfh_evaluator import evaluate_meaning
 
-    out = evaluate_meaning({
-        "body": {"plan": "Inflate the metric so it looks good on paper."},
-    })
+    out = evaluate_meaning(
+        {
+            "body": {"plan": "Inflate the metric so it looks good on paper."},
+        }
+    )
     assert out["flagged"] is True
     assert "axiom.meaning.externality_reality" in out["anchors"]
 
@@ -60,11 +67,13 @@ def test_mfh_only_flags_registered_anchors(tmp_path):
 
     # Registry with only ONE of the five anchors present.
     (tmp_path / "meaning_anchors.yaml").write_text(
-        yaml.safe_dump({
-            "meaning_anchors": [
-                {"id": "axiom.meaning.reversibility_for_recipient"},
-            ],
-        }),
+        yaml.safe_dump(
+            {
+                "meaning_anchors": [
+                    {"id": "axiom.meaning.reversibility_for_recipient"},
+                ],
+            }
+        ),
         encoding="utf-8",
     )
     h = MeaningFailureHandler(axioms_dir=tmp_path)
@@ -78,6 +87,7 @@ def test_mfh_only_flags_registered_anchors(tmp_path):
 # ---------------------------------------------------------------------------
 # integration: cash_engine gate emits the MFH advisory as a decision.made event
 # ---------------------------------------------------------------------------
+
 
 def test_cash_engine_gate_emits_meaning_advisory_event(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_BUSINESS_EVENTS_PATH", str(tmp_path / "events.jsonl"))
@@ -104,6 +114,7 @@ def test_cash_engine_gate_emits_meaning_advisory_event(tmp_path, monkeypatch):
     assert out is not None
 
     from backend.common.business_events import DECISION_MADE, read_events
+
     evs = read_events(opportunity_id="opp_1", event_types=[DECISION_MADE])
     adv = [e for e in evs if (e.get("metadata") or {}).get("decision") == "meaning_advisory"]
     assert len(adv) == 1

@@ -1,4 +1,5 @@
 """Pydantic models for the SEO workcell."""
+
 from __future__ import annotations
 
 from typing import Any, Literal

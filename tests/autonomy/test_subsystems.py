@@ -10,6 +10,7 @@ Covers the build-plan Phase-B test bullets:
   * each FLAGGED subsystem is INERT when its flag is False (no-op / ""/False/
     empty), and a fresh state dir stays empty when the flags are off.
 """
+
 from __future__ import annotations
 
 import json
@@ -132,7 +133,11 @@ def test_wrapper_call_sequence_end_to_end(state_dir, monkeypatch):
     result = _R()
 
     # --- META-REFLECTION ---
-    at.adjust(latency=result.elapsed_ms, errors=result.errors, compliance_blocked=result.compliance_blocked)
+    at.adjust(
+        latency=result.elapsed_ms,
+        errors=result.errors,
+        compliance_blocked=result.compliance_blocked,
+    )
     if ue.evaluate(result=result, situation=situation):
         ue.execute()
     ap.snapshot(
@@ -174,13 +179,17 @@ def test_rl_weight_clamps_and_decay(state_dir, monkeypatch):
     for _ in range(500):
         rl.reinforce("command", 1.0)
     assert rl.get_weight("command") <= ReinforcementHeuristicEngine.MAX_WEIGHT
-    assert rl.get_weight("command") == pytest.approx(ReinforcementHeuristicEngine.MAX_WEIGHT, abs=1e-6)
+    assert rl.get_weight("command") == pytest.approx(
+        ReinforcementHeuristicEngine.MAX_WEIGHT, abs=1e-6
+    )
 
     # Drive a different heuristic to the MIN clamp with many negative rewards.
     for _ in range(500):
         rl.reinforce("risky", -1.0)
     assert rl.get_weight("risky") >= ReinforcementHeuristicEngine.MIN_WEIGHT
-    assert rl.get_weight("risky") == pytest.approx(ReinforcementHeuristicEngine.MIN_WEIGHT, abs=1e-6)
+    assert rl.get_weight("risky") == pytest.approx(
+        ReinforcementHeuristicEngine.MIN_WEIGHT, abs=1e-6
+    )
 
     # snapshot exposes per-heuristic stats
     snap = rl.snapshot()

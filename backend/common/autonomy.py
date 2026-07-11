@@ -3,6 +3,7 @@
 Observe -> Orient -> Decide -> Act. ``run_cycle`` is called by the gateway's
 ``/autonomy/plan`` endpoint after governance clears.
 """
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
@@ -12,6 +13,7 @@ from .dates import iso_now
 
 
 # --- dataclasses ----------------------------------------------------------
+
 
 @dataclass(frozen=True, slots=True)
 class Observation:
@@ -54,6 +56,7 @@ _SIGNAL_TERMS: dict[str, tuple[str, ...]] = {
 
 # --- MAPE-K cycle ----------------------------------------------------------
 
+
 def observe(task_id: str, objective: str, inputs: dict[str, Any] | None = None) -> Observation:
     return Observation(
         task_id=task_id,
@@ -83,7 +86,9 @@ def decide(observation: Observation, orientation: Orientation) -> Plan:
     return Plan(strategy="mape-k-basic", steps=steps)
 
 
-def simulate(plan: Plan, *, decision_id: str, inputs: dict[str, Any] | None = None) -> dict[str, Any]:
+def simulate(
+    plan: Plan, *, decision_id: str, inputs: dict[str, Any] | None = None
+) -> dict[str, Any]:
     """SIMULATE phase (HOTL T5) — dry-run every external-effect plan step.
 
     Sits between decide (plan) and act (execute). For each step whose ``action``
@@ -158,8 +163,13 @@ def run_cycle(
         "decision": {
             "strategy": plan.strategy,
             "steps": [
-                {"name": s.name, "target": s.target, "action": s.action,
-                 "blocking": s.blocking, "metadata": s.metadata}
+                {
+                    "name": s.name,
+                    "target": s.target,
+                    "action": s.action,
+                    "blocking": s.blocking,
+                    "metadata": s.metadata,
+                }
                 for s in plan.steps
             ],
         },
@@ -180,7 +190,9 @@ def run_cycle(
 
 
 def _persist_mape_k_plan(
-    task_id: str, objective: str, plan: "Plan",
+    task_id: str,
+    objective: str,
+    plan: "Plan",
 ) -> dict[str, Any] | None:
     """Persist a MAPE-K decision as a planning.Plan + mint a DecisionRecord.
 
@@ -217,7 +229,9 @@ def _persist_mape_k_plan(
         generation = (prior.plan_generation + 1) if prior else 1
         steps = [
             _PlanStep(
-                name=s.name, channel=s.target, action=s.action,
+                name=s.name,
+                channel=s.target,
+                action=s.action,
                 rationale=f"MAPE-K routed to {s.target}",
                 metadata=dict(s.metadata),
             )
@@ -233,7 +247,10 @@ def _persist_mape_k_plan(
                 _Assumption(
                     id=_uuid.uuid4().hex,
                     description="MAPE-K keyword-routed plan (advisory)",
-                    metric="", op=">=", threshold=0.0, window_days=1,
+                    metric="",
+                    op=">=",
+                    threshold=0.0,
+                    window_days=1,
                 )
             ],
             steps=steps,
@@ -247,16 +264,20 @@ def _persist_mape_k_plan(
             from backend.common.decision_record import record_decision
 
             precedent_ctx = f"mape-k objective {(objective or '')[:120]}"
-            precedent = {"mode": "proceed_novel", "beliefs": [], "decisions": [],
-                         "leading_belief": None}
+            precedent = {
+                "mode": "proceed_novel",
+                "beliefs": [],
+                "decisions": [],
+                "leading_belief": None,
+            }
             try:
                 from backend.cognitive.intelligence_cycle import consult_precedent
+
                 precedent = consult_precedent(precedent_ctx)
             except Exception:  # noqa: BLE001 — cognition is optional
                 pass
 
-            extra: dict[str, Any] = {"plan_id": new_plan.id,
-                                     "steps": [s.name for s in steps]}
+            extra: dict[str, Any] = {"plan_id": new_plan.id, "steps": [s.name for s in steps]}
             if precedent.get("mode") == "short_circuit":
                 extra["precedent_mode"] = "short_circuit"
                 lb = precedent.get("leading_belief")
@@ -267,8 +288,7 @@ def _persist_mape_k_plan(
 
             decision = record_decision(
                 "autonomy_mape_k",
-                f"MAPE-K plan for '{(objective or '')[:80]}' "
-                f"({len(steps)} steps)",
+                f"MAPE-K plan for '{(objective or '')[:80]}' ({len(steps)} steps)",
                 workcell="gateway",
                 data_used=[f"task_id={task_id}", f"strategy={plan.strategy}"],
                 expected_outcome="Route the objective through the signalled workcells",
@@ -281,6 +301,7 @@ def _persist_mape_k_plan(
             if decision.decision_id and beliefs:
                 try:
                     from backend.cognitive.belief_ledger import link_decision
+
                     for m in beliefs:
                         bid = getattr(m, "belief_id", "")
                         if bid:
@@ -299,7 +320,11 @@ def _persist_mape_k_plan(
             except Exception:  # noqa: BLE001
                 pass
         _pstore.save_plan(new_plan)
-        return {"plan_id": new_plan.id, "decision_id": new_plan.decision_id,
-                "goal_id": goal_id, "plan_generation": generation}
+        return {
+            "plan_id": new_plan.id,
+            "decision_id": new_plan.decision_id,
+            "goal_id": goal_id,
+            "plan_generation": generation,
+        }
     except Exception:  # noqa: BLE001 — planning persistence must not break MAPE-K
         return None

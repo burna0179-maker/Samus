@@ -1,9 +1,11 @@
 """CODB loader + runway math — pure function tests."""
+
 from __future__ import annotations
 
 
 def test_load_default_registry_validates():
     from backend.finance.codb import load_registry
+
     reg = load_registry()
     assert len(reg.costs) >= 6
     assert reg.revenue_targets.monthly_minimum_usd > 0
@@ -30,6 +32,7 @@ def test_load_registry_respects_env_override(tmp_path, monkeypatch):
     )
     monkeypatch.setenv("SAMUS_CODB_REGISTRY_PATH", str(custom))
     from backend.finance.codb import load_registry
+
     reg = load_registry()
     assert len(reg.costs) == 1
     assert reg.costs[0].id == "test-cost"
@@ -40,13 +43,17 @@ def test_load_registry_respects_env_override(tmp_path, monkeypatch):
 def test_total_monthly_burn():
     from backend.finance.codb import total_monthly_burn
     from backend.finance.models import CodbItem
+
     items = [
-        CodbItem(id="a", name="A", category="infrastructure",
-                 criticality="critical", estimated_monthly_usd=10.0),
-        CodbItem(id="b", name="B", category="ai",
-                 criticality="medium", estimated_monthly_usd=20.5),
-        CodbItem(id="c", name="C", category="ai",
-                 criticality="low", estimated_monthly_usd=0.75),
+        CodbItem(
+            id="a",
+            name="A",
+            category="infrastructure",
+            criticality="critical",
+            estimated_monthly_usd=10.0,
+        ),
+        CodbItem(id="b", name="B", category="ai", criticality="medium", estimated_monthly_usd=20.5),
+        CodbItem(id="c", name="C", category="ai", criticality="low", estimated_monthly_usd=0.75),
     ]
     assert total_monthly_burn(items) == 31.25
 
@@ -54,13 +61,19 @@ def test_total_monthly_burn():
 def test_burn_by_criticality_groups_correctly():
     from backend.finance.codb import burn_by_criticality
     from backend.finance.models import CodbItem
+
     items = [
-        CodbItem(id="a", name="A", category="infrastructure",
-                 criticality="critical", estimated_monthly_usd=10),
-        CodbItem(id="b", name="B", category="ai",
-                 criticality="critical", estimated_monthly_usd=5),
-        CodbItem(id="c", name="C", category="infrastructure",
-                 criticality="low", estimated_monthly_usd=3),
+        CodbItem(
+            id="a",
+            name="A",
+            category="infrastructure",
+            criticality="critical",
+            estimated_monthly_usd=10,
+        ),
+        CodbItem(id="b", name="B", category="ai", criticality="critical", estimated_monthly_usd=5),
+        CodbItem(
+            id="c", name="C", category="infrastructure", criticality="low", estimated_monthly_usd=3
+        ),
     ]
     buckets = burn_by_criticality(items)
     assert buckets["critical"] == 15
@@ -71,13 +84,23 @@ def test_burn_by_criticality_groups_correctly():
 def test_burn_by_category_sorted_desc():
     from backend.finance.codb import burn_by_category
     from backend.finance.models import CodbItem
+
     items = [
-        CodbItem(id="a", name="A", category="ai",
-                 criticality="high", estimated_monthly_usd=40),
-        CodbItem(id="b", name="B", category="infrastructure",
-                 criticality="critical", estimated_monthly_usd=10),
-        CodbItem(id="c", name="C", category="infrastructure",
-                 criticality="medium", estimated_monthly_usd=5),
+        CodbItem(id="a", name="A", category="ai", criticality="high", estimated_monthly_usd=40),
+        CodbItem(
+            id="b",
+            name="B",
+            category="infrastructure",
+            criticality="critical",
+            estimated_monthly_usd=10,
+        ),
+        CodbItem(
+            id="c",
+            name="C",
+            category="infrastructure",
+            criticality="medium",
+            estimated_monthly_usd=5,
+        ),
     ]
     bins = burn_by_category(items)
     # ai = 40, infrastructure = 15
@@ -93,15 +116,28 @@ def test_cuttable_low_first_ordering():
     """Cut order: lowest criticality first; within tier, largest $ first."""
     from backend.finance.codb import cuttable_low_first
     from backend.finance.models import CodbItem
+
     items = [
-        CodbItem(id="critical-small", name="A", category="infrastructure",
-                 criticality="critical", estimated_monthly_usd=5),
-        CodbItem(id="medium-big", name="B", category="ai",
-                 criticality="medium", estimated_monthly_usd=30),
-        CodbItem(id="medium-small", name="C", category="ai",
-                 criticality="medium", estimated_monthly_usd=10),
-        CodbItem(id="low-only", name="D", category="other",
-                 criticality="low", estimated_monthly_usd=2),
+        CodbItem(
+            id="critical-small",
+            name="A",
+            category="infrastructure",
+            criticality="critical",
+            estimated_monthly_usd=5,
+        ),
+        CodbItem(
+            id="medium-big", name="B", category="ai", criticality="medium", estimated_monthly_usd=30
+        ),
+        CodbItem(
+            id="medium-small",
+            name="C",
+            category="ai",
+            criticality="medium",
+            estimated_monthly_usd=10,
+        ),
+        CodbItem(
+            id="low-only", name="D", category="other", criticality="low", estimated_monthly_usd=2
+        ),
     ]
     ordered = cuttable_low_first(items)
     ids = [i.id for i in ordered]
@@ -111,6 +147,7 @@ def test_cuttable_low_first_ordering():
 
 def test_compute_runway_normal_case():
     from backend.finance.codb import compute_runway
+
     r = compute_runway(
         available_balance_usd=300.0,
         total_monthly_burn_usd=150.0,
@@ -125,6 +162,7 @@ def test_compute_runway_normal_case():
 
 def test_compute_runway_triggers_alert_when_short():
     from backend.finance.codb import compute_runway
+
     r = compute_runway(
         available_balance_usd=100.0,
         total_monthly_burn_usd=150.0,
@@ -137,6 +175,7 @@ def test_compute_runway_triggers_alert_when_short():
 
 def test_compute_runway_zero_burn_is_infinite():
     from backend.finance.codb import compute_runway
+
     r = compute_runway(
         available_balance_usd=100.0,
         total_monthly_burn_usd=0.0,
@@ -170,6 +209,7 @@ def test_summarize_full_pipeline(tmp_path, monkeypatch):
     )
     monkeypatch.setenv("SAMUS_CODB_REGISTRY_PATH", str(custom))
     from backend.finance.codb import load_registry, summarize
+
     summary = summarize(load_registry(), "2026-05-15T00:00:00Z")
     assert summary.total_monthly_burn_usd == 105
     assert summary.by_criticality == {"high": 100, "low": 5}

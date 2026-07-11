@@ -12,6 +12,7 @@ Idempotency note: Stripe retries are caught upstream by the event-log
 idempotency check (``_load_seen_event_ids`` in ``webhook.py``), so the
 receipt-send fires at most once per Stripe event_id.
 """
+
 from __future__ import annotations
 
 import logging
@@ -35,10 +36,7 @@ def _offer_display_name(offer_code: str) -> str:
     if not (offer_code and offer_code.strip()):
         return "your purchase"
     words = offer_code.replace("-", "_").split("_")
-    return " ".join(
-        w.upper() if w.upper() in _ACRONYMS else w.title()
-        for w in words if w
-    )
+    return " ".join(w.upper() if w.upper() in _ACRONYMS else w.title() for w in words if w)
 
 
 def _format_amount(amount_total_usd: float | None, currency: str) -> str:
@@ -86,20 +84,18 @@ def render_payment_receipt(
         "— HustleForge\n"
     )
 
-    offer_code_html = (
-        f" <code>({hf_offer_code})</code>" if hf_offer_code else ""
-    )
+    offer_code_html = f" <code>({hf_offer_code})</code>" if hf_offer_code else ""
     html_body = (
         "<p>Hi,</p>"
         "<p>Thanks for your purchase. This email confirms your payment to HustleForge:</p>"
-        "<table style=\"border-collapse:collapse\">"
-        f"<tr><td style=\"padding:4px 12px 4px 0\"><strong>Offer:</strong></td>"
+        '<table style="border-collapse:collapse">'
+        f'<tr><td style="padding:4px 12px 4px 0"><strong>Offer:</strong></td>'
         f"<td>{offer_name}{offer_code_html}</td></tr>"
-        f"<tr><td style=\"padding:4px 12px 4px 0\"><strong>Amount:</strong></td>"
+        f'<tr><td style="padding:4px 12px 4px 0"><strong>Amount:</strong></td>'
         f"<td>{amount_str}</td></tr>"
-        f"<tr><td style=\"padding:4px 12px 4px 0\"><strong>Date:</strong></td>"
+        f'<tr><td style="padding:4px 12px 4px 0"><strong>Date:</strong></td>'
         f"<td>{received_at}</td></tr>"
-        f"<tr><td style=\"padding:4px 12px 4px 0\"><strong>Event ID:</strong></td>"
+        f'<tr><td style="padding:4px 12px 4px 0"><strong>Event ID:</strong></td>'
         f"<td><code>{event_id}</code></td></tr>"
         "</table>"
         "<p>Your fulfillment team has been notified and will be in touch within "
@@ -154,7 +150,9 @@ def send_payment_receipt(
     except (EmailBackendError, ValueError, NotImplementedError) as exc:
         _LOG.warning(
             "payment receipt send failed event=%s email=%s: %s",
-            event_id, email, exc,
+            event_id,
+            email,
+            exc,
         )
         return {"sent": False, "message_id": "", "error": str(exc)[:200]}
 

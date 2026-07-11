@@ -6,6 +6,7 @@ governance/observability state to SAMUS_STATE_ROOT (set to the volume in
 compose) and falls back to <code root>/state on the host so test + host-venv
 behaviour is unchanged.
 """
+
 from __future__ import annotations
 
 from pathlib import Path

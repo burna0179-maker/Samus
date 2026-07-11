@@ -1,4 +1,5 @@
 """Pydantic models for the leadgen workcell (doc §5)."""
+
 from __future__ import annotations
 
 from typing import Literal

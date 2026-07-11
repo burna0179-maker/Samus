@@ -22,6 +22,7 @@ Entry point::
     from backend.marketing.campaign_cycle import run_monthly_campaign
     result = await run_monthly_campaign(month=6, year=2026)
 """
+
 from __future__ import annotations
 
 import json
@@ -49,6 +50,7 @@ PlanStatus = Literal["planned", "running", "complete", "failed"]
 @dataclass
 class CampaignStep:
     """One DAG node in the campaign plan."""
+
     id: str
     type: str
     depends_on: list[str] = field(default_factory=list)
@@ -63,9 +65,10 @@ class CampaignStep:
 @dataclass
 class CampaignPlan:
     """Full 4-week DAG + state for one campaign cycle."""
-    plan_id: str          # f"{campaign_id}:{YYYY-MM}"
+
+    plan_id: str  # f"{campaign_id}:{YYYY-MM}"
     campaign_id: str
-    cycle_month: str      # YYYY-MM
+    cycle_month: str  # YYYY-MM
     steps: list[CampaignStep] = field(default_factory=list)
     status: PlanStatus = "planned"
     created_at: str = ""
@@ -78,6 +81,7 @@ class CampaignPlan:
 @dataclass
 class CampaignStepResult:
     """Per-step rollup in the public CampaignResult."""
+
     id: str
     type: str
     status: StepStatus
@@ -88,6 +92,7 @@ class CampaignStepResult:
 @dataclass
 class CampaignResult:
     """Full audit trail of one run_monthly_campaign() invocation."""
+
     campaign_id: str
     cycle_month: str
     plan_id: str
@@ -101,6 +106,7 @@ class CampaignResult:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -118,6 +124,7 @@ def _campaign_dir(campaign_id: str, cycle_month: str) -> Path:
     """Return (and create) the artifact directory for this campaign-month."""
     try:
         from backend.common import storage
+
         base = storage.root()
     except Exception:  # noqa: BLE001
         base = Path(os.getenv("SAMUS_DATA_ROOT", "data"))
@@ -137,6 +144,7 @@ def _persist_plan(plan: CampaignPlan) -> Path:
 # ---------------------------------------------------------------------------
 # Plan builder
 # ---------------------------------------------------------------------------
+
 
 def _build_plan(campaign: SelfMarketingCampaign, cycle_month: str) -> CampaignPlan:
     """Construct the 4-week DAG for one month."""
@@ -215,6 +223,7 @@ def _build_plan(campaign: SelfMarketingCampaign, cycle_month: str) -> CampaignPl
 # Step executors
 # ---------------------------------------------------------------------------
 
+
 class StepFailure(RuntimeError):
     """Raised by a step executor to mark its step as failed."""
 
@@ -234,16 +243,17 @@ def _exec_plan_topics(
     for i in range(campaign.blogs_per_month):
         kw = campaign.keyword_for_index(month + i)
         theme = campaign.theme_for_index(month + i)
-        topics.append({
-            "index": str(i),
-            "keyword": kw,
-            "theme": theme,
-            "title": f"How to Use {kw.title()} for Your Business in {year_str}",
-            "summary": (
-                f"A practical guide to {kw} for small business owners. "
-                f"Covers {theme.lower()}."
-            ),
-        })
+        topics.append(
+            {
+                "index": str(i),
+                "keyword": kw,
+                "theme": theme,
+                "title": f"How to Use {kw.title()} for Your Business in {year_str}",
+                "summary": (
+                    f"A practical guide to {kw} for small business owners. Covers {theme.lower()}."
+                ),
+            }
+        )
     return {"topics": topics, "count": len(topics)}
 
 
@@ -283,6 +293,7 @@ def _exec_generate_blog(
 
     try:
         from backend.seo.blog_gen import generate_blog_post
+
         post = generate_blog_post(
             primary_kw=keyword,
             secondary_kws=[campaign.keyword_for_index(blog_index + 1)],
@@ -404,26 +415,26 @@ def _exec_dispatch(
     dispatched = 0
     errors: list[str] = []
     try:
-        from dataclasses import fields as dc_fields
-        from backend.social.models import RepurposedAsset, PlannedPost
+        from backend.social.models import PlannedPost
         from backend.social.adapters import dispatch_plan
-        from backend.social.models import MonthlyPlan
 
         # Wrap assets as PlannedPost objects for the dispatch_plan adapter.
         planned_posts: list[PlannedPost] = []
         for a_raw in assets_raw:
-            planned_posts.append(PlannedPost(
-                week=_week_for_index(blog_index),
-                day="Mon",
-                platform=a_raw.get("platform", "linkedin"),
-                fmt=a_raw.get("fmt", "li_text"),
-                pipeline_fn=a_raw.get("pipeline_fn", "educate"),
-                theme="Self Marketing",
-                cluster=a_raw.get("notes", ""),
-                brief=a_raw.get("body", "")[:120],
-                body=a_raw.get("body", ""),
-                status="scheduled",
-            ))
+            planned_posts.append(
+                PlannedPost(
+                    week=_week_for_index(blog_index),
+                    day="Mon",
+                    platform=a_raw.get("platform", "linkedin"),
+                    fmt=a_raw.get("fmt", "li_text"),
+                    pipeline_fn=a_raw.get("pipeline_fn", "educate"),
+                    theme="Self Marketing",
+                    cluster=a_raw.get("notes", ""),
+                    brief=a_raw.get("body", "")[:120],
+                    body=a_raw.get("body", ""),
+                    status="scheduled",
+                )
+            )
 
         result = dispatch_plan(planned_posts)
         dispatched = sum(1 for r in result if r.sent)
@@ -461,6 +472,7 @@ def _exec_geo_audit(
     try:
         from backend.seo.models import AuditRequest
         from backend.seo.service import audit_site
+
         audit = audit_site(AuditRequest(url=url))
         return {
             "url": url,
@@ -491,7 +503,7 @@ def _exec_month_summary(
                 blogs_published.append(title)
         if s.id.startswith("dispatch_blog_") and s.status == "done":
             total_dispatched += s.output.get("dispatched", 0)
-            for a in (s.output.get("assets") or []):
+            for a in s.output.get("assets") or []:
                 plat = a.get("platform")
                 if plat:
                     platforms_hit.add(plat)
@@ -530,6 +542,7 @@ _EXECUTORS: dict[str, Callable[..., dict[str, Any]]] = {
 # ---------------------------------------------------------------------------
 # Public DAG runner
 # ---------------------------------------------------------------------------
+
 
 def run_monthly_campaign(
     month: int,
@@ -606,9 +619,14 @@ def run_monthly_campaign(
             if executor is None:
                 step.status = "failed"
                 step.error = f"no executor for type={step.type}"
-                result_steps.append(CampaignStepResult(
-                    id=step.id, type=step.type, status="failed", detail=step.error,
-                ))
+                result_steps.append(
+                    CampaignStepResult(
+                        id=step.id,
+                        type=step.type,
+                        status="failed",
+                        detail=step.error,
+                    )
+                )
                 _persist_plan(plan)
                 made_progress = True
                 continue
@@ -623,22 +641,31 @@ def run_monthly_campaign(
                 step.status = "done"
                 step.finished_at = _now_iso()
                 detail = ", ".join(
-                    f"{k}={v}" for k, v in output.items()
-                    if k not in ("assets", "issues", "topics")
+                    f"{k}={v}" for k, v in output.items() if k not in ("assets", "issues", "topics")
                 )[:200]
-                result_steps.append(CampaignStepResult(
-                    id=step.id, type=step.type, status="done",
-                    detail=detail, elapsed_ms=_ms_since(t0),
-                ))
+                result_steps.append(
+                    CampaignStepResult(
+                        id=step.id,
+                        type=step.type,
+                        status="done",
+                        detail=detail,
+                        elapsed_ms=_ms_since(t0),
+                    )
+                )
                 made_progress = True
             except Exception as exc:  # noqa: BLE001
                 step.status = "failed"
                 step.error = str(exc)
                 step.finished_at = _now_iso()
-                result_steps.append(CampaignStepResult(
-                    id=step.id, type=step.type, status="failed",
-                    detail=str(exc), elapsed_ms=_ms_since(t0),
-                ))
+                result_steps.append(
+                    CampaignStepResult(
+                        id=step.id,
+                        type=step.type,
+                        status="failed",
+                        detail=str(exc),
+                        elapsed_ms=_ms_since(t0),
+                    )
+                )
                 made_progress = True
             finally:
                 _persist_plan(plan)
@@ -648,19 +675,21 @@ def run_monthly_campaign(
         if step.status == "pending":
             step.status = "skipped"
             step.error = "dependency not met"
-            result_steps.append(CampaignStepResult(
-                id=step.id, type=step.type, status="skipped",
-                detail="dependency not met",
-            ))
+            result_steps.append(
+                CampaignStepResult(
+                    id=step.id,
+                    type=step.type,
+                    status="skipped",
+                    detail="dependency not met",
+                )
+            )
     _persist_plan(plan)
 
     plan.status = "complete" if all(s.status == "done" for s in plan.steps) else "failed"
     _persist_plan(plan)
 
-    summary_step = next(
-        (s for s in reversed(plan.steps) if s.id == "month_summary"), None
-    )
-    summary = (summary_step.output if summary_step and summary_step.output else {})
+    summary_step = next((s for s in reversed(plan.steps) if s.id == "month_summary"), None)
+    summary = summary_step.output if summary_step and summary_step.output else {}
 
     return CampaignResult(
         campaign_id=campaign_id,

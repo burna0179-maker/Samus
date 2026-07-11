@@ -1,4 +1,5 @@
 """Pydantic I/O models for the strategy workcell."""
+
 from __future__ import annotations
 
 from typing import Literal

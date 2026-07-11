@@ -11,6 +11,7 @@ the same way as ``backend.optimizer.worker``: BaseSqsWorker subclass with a
 single ``handle(envelope)`` routing by ``envelope.action``, plus a ``main()``
 that calls ``serve_worker(VoiceWorker(AwsRuntime(settings)))``.
 """
+
 from __future__ import annotations
 
 import logging

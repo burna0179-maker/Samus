@@ -4,14 +4,13 @@ Covers: clamp, classify_deal, compute_base_score, adjust_for_signals,
 adjust_for_engagement, score_deal.
 All functions are pure; no I/O or mocking required.
 """
+
 from __future__ import annotations
 
 import pytest
 
 from backend.prospecting.deal_scoring import (
     BASE_WEIGHTS,
-    SIGNAL_WEIGHTS,
-    adjust_for_engagement,
     adjust_for_signals,
     clamp,
     classify_deal,
@@ -82,10 +81,10 @@ def test_adjust_for_signals_subtracts_for_existing_assets():
 
     signals_all_present = {
         "has_website": True,
-        "has_cta":     True,
+        "has_cta": True,
         "has_booking": True,
         "review_count": 25,  # > 20 triggers reduction
-        "rating":       4.8,  # >= 4.5 triggers reduction
+        "rating": 4.8,  # >= 4.5 triggers reduction
         "ads_detected": True,
     }
     adjusted = adjust_for_signals(base, signals_all_present)
@@ -100,10 +99,10 @@ def test_adjust_for_signals_no_deductions_when_no_assets():
     base = 0.5
     signals_none = {
         "has_website": False,
-        "has_cta":     False,
+        "has_cta": False,
         "has_booking": False,
-        "review_count": 3,    # <= 20 — no deduction
-        "rating":       3.0,  # < 4.5 — no deduction
+        "review_count": 3,  # <= 20 — no deduction
+        "rating": 3.0,  # < 4.5 — no deduction
         "ads_detected": False,
     }
     adjusted = adjust_for_signals(base, signals_none)
@@ -119,18 +118,18 @@ def test_score_deal_with_positive_engagement_raises_score():
     """Positive engagement increases the final probability."""
     intel_no_presence = {
         "opportunity_scores": {
-            "website":    100,
-            "seo":        80,
-            "ads":        80,
+            "website": 100,
+            "seo": 80,
+            "ads": 80,
             "automation": 90,
             "reputation": 90,
         },
         "signals": {
             "has_website": False,
-            "has_cta":     False,
+            "has_cta": False,
             "has_booking": False,
             "review_count": 0,
-            "rating":       0.0,
+            "rating": 0.0,
             "ads_detected": False,
         },
     }
@@ -142,10 +141,7 @@ def test_score_deal_with_positive_engagement_raises_score():
     assert result_positive["probability"] > result_no_engagement["probability"]
     # Engagement weights are positive, so tier should be at least as good.
     tier_order = {"cold": 0, "nurture": 1, "warm": 2, "hot": 3}
-    assert (
-        tier_order[result_positive["tier"]]
-        >= tier_order[result_no_engagement["tier"]]
-    )
+    assert tier_order[result_positive["tier"]] >= tier_order[result_no_engagement["tier"]]
 
 
 # ---------------------------------------------------------------------------
@@ -156,9 +152,21 @@ def test_score_deal_with_positive_engagement_raises_score():
 def test_score_deal_no_engagement():
     """score_deal without engagement returns a valid result dict."""
     intel = {
-        "opportunity_scores": {"website": 60, "seo": 60, "ads": 40, "automation": 90, "reputation": 30},
-        "signals": {"has_website": True, "has_cta": False, "has_booking": False,
-                    "review_count": 10, "rating": 3.8, "ads_detected": False},
+        "opportunity_scores": {
+            "website": 60,
+            "seo": 60,
+            "ads": 40,
+            "automation": 90,
+            "reputation": 30,
+        },
+        "signals": {
+            "has_website": True,
+            "has_cta": False,
+            "has_booking": False,
+            "review_count": 10,
+            "rating": 3.8,
+            "ads_detected": False,
+        },
     }
     result = score_deal(intel)
     assert "probability" in result

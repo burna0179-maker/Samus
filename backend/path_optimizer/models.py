@@ -1,4 +1,5 @@
 """Pydantic request/response models for the path-optimizer workcell."""
+
 from __future__ import annotations
 
 from typing import Literal

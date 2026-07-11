@@ -4,6 +4,7 @@ Network is fully mocked (httpx.Client is patched inside the notify module).
 No live calls. Covers: (a) a successful webhook POST, (b) dedup suppression
 within TTL, (c) no-webhook -> False no raise, (d) a POST exception swallowed.
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -45,6 +46,7 @@ def _mock_client(status_code: int = 204):
 # (a) successful POST
 # --------------------------------------------------------------------------
 
+
 def test_notify_success(monkeypatch):
     monkeypatch.setenv("SAMUS_BRIEF_DISCORD_WEBHOOK", _WEBHOOK)
     factory, client = _mock_client(204)
@@ -63,6 +65,7 @@ def test_notify_success(monkeypatch):
 # --------------------------------------------------------------------------
 # (b) dedup suppresses a repeat within TTL
 # --------------------------------------------------------------------------
+
 
 def test_notify_dedup_suppresses_repeat(monkeypatch):
     monkeypatch.setenv("SAMUS_BRIEF_DISCORD_WEBHOOK", _WEBHOOK)
@@ -98,6 +101,7 @@ def test_notify_no_dedup_key_always_sends(monkeypatch):
 # (c) no webhook configured -> returns False, no raise
 # --------------------------------------------------------------------------
 
+
 def test_notify_no_webhook_returns_false(monkeypatch):
     # env var stripped by the autouse fixture.
     factory, client = _mock_client(204)
@@ -116,6 +120,7 @@ def test_notify_non_http_webhook_returns_false(monkeypatch):
 # --------------------------------------------------------------------------
 # (d) a POST exception is swallowed -> returns False, no raise
 # --------------------------------------------------------------------------
+
 
 def test_notify_post_exception_swallowed(monkeypatch):
     monkeypatch.setenv("SAMUS_BRIEF_DISCORD_WEBHOOK", _WEBHOOK)
@@ -139,4 +144,5 @@ def test_notify_http_4xx_returns_false(monkeypatch):
 def test_notify_importable_from_backend():
     """The public helper must be importable for scripts (PYTHONPATH=/opt/samus)."""
     from backend.common.notify import notify_operator as _fn
+
     assert callable(_fn)

@@ -31,6 +31,7 @@ Wire-not-arm: ``SAMUS_PRODUCTION_PULSE_ENABLED`` (default OFF; the operator
 arms it in compose/.env). Loop shape mirrors control_tick_task: settle
 delay, fault-isolated iterations, idempotent start, best-effort stop.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -51,7 +52,10 @@ _INITIAL_DELAY_SEC = 90.0  # let boot churn settle; control tick fires first
 
 def _enabled() -> bool:
     return (os.environ.get(ENV_ENABLED, "") or "").strip().lower() in (
-        "1", "true", "yes", "on",
+        "1",
+        "true",
+        "yes",
+        "on",
     )
 
 
@@ -64,9 +68,9 @@ def _pulse_sec() -> float:
 
 def _idle_threshold_s() -> float:
     try:
-        return max(60.0, float(
-            os.environ.get(ENV_IDLE_THRESHOLD_S, "") or _DEFAULT_IDLE_THRESHOLD_S
-        ))
+        return max(
+            60.0, float(os.environ.get(ENV_IDLE_THRESHOLD_S, "") or _DEFAULT_IDLE_THRESHOLD_S)
+        )
     except ValueError:
         return _DEFAULT_IDLE_THRESHOLD_S
 
@@ -84,20 +88,16 @@ async def _production_pulse_loop(pulse: float, threshold: float) -> None:
 
             # The full observe->decide->produce reasoning, off the event loop
             # (ledger scans + a possible portfolio pass are blocking I/O).
-            result = await run_in_threadpool(
-                lambda: run_idle_drive(idle_threshold_s=threshold)
-            )
+            result = await run_in_threadpool(lambda: run_idle_drive(idle_threshold_s=threshold))
             # Log only signal: a pulse that held is silence, a pulse that
             # produced (or starved) is a line. The control-tick ledger keeps
             # the full periodic record; this loop is the fast path.
             if isinstance(result, dict) and (
-                result.get("produced")
-                or (result.get("self_supply") or {}).get("starved")
+                result.get("produced") or (result.get("self_supply") or {}).get("starved")
             ):
                 act = result.get("actuation") or {}
                 _LOG.info(
-                    "production_pulse: produced=%s initiated=%s reason=%r "
-                    "self_supply=%s",
+                    "production_pulse: produced=%s initiated=%s reason=%r self_supply=%s",
                     result.get("produced"),
                     act.get("initiated"),
                     result.get("reason"),
@@ -128,7 +128,8 @@ async def start_production_pulse_loop(app: Any) -> Optional[asyncio.Task]:
     app.state.production_pulse_task = task
     _LOG.info(
         "production pulse started (pulse=%.0fs idle_threshold=%.0fs)",
-        pulse, threshold,
+        pulse,
+        threshold,
     )
     return task
 

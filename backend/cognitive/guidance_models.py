@@ -27,6 +27,7 @@ the recommendation has been acted on):
     Success Score        -> ``success_score``
     Lessons Learned      -> ``lessons_learned``
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -68,8 +69,8 @@ TERMINAL_STATUSES = frozenset(
 class GuidanceTier(int, Enum):
     """Prioritization tier from the directive's framework."""
 
-    CRITICAL = 1       # immediate impact to production / stability / strategy
-    HIGH_VALUE = 2     # significant opportunity / optimization / risk
+    CRITICAL = 1  # immediate impact to production / stability / strategy
+    HIGH_VALUE = 2  # significant opportunity / optimization / risk
     INFORMATIONAL = 3  # useful but limited immediate impact
 
 
@@ -181,24 +182,24 @@ class GuidanceRecord:
 
     recommendation_id: str
     briefing_id: str
-    ts: str                       # ISO-8601 creation time
-    updated_ts: str               # ISO-8601 last-mutation time
+    ts: str  # ISO-8601 creation time
+    updated_ts: str  # ISO-8601 last-mutation time
 
-    recommendation: str           # the guidance text (what to do)
-    rationale: str = ""           # why (advisor's reasoning, if supplied)
+    recommendation: str  # the guidance text (what to do)
+    rationale: str = ""  # why (advisor's reasoning, if supplied)
 
     category: str = GuidanceCategory.OTHER.value
     tier: int = GuidanceTier.INFORMATIONAL.value
 
     # Assessment (directive steps 2-4)
-    feasibility: str = "medium"       # low | medium | high
-    expected_impact: str = "medium"   # low | medium | high
-    risk_level: str = "medium"        # low | medium | high
+    feasibility: str = "medium"  # low | medium | high
+    expected_impact: str = "medium"  # low | medium | high
+    risk_level: str = "medium"  # low | medium | high
 
     # Action plan (directive steps 5-6)
     action_plan: List[str] = field(default_factory=list)
     owner: str = "operator"
-    acceptance_hint: str = ""         # accept | reject | review (advisory only)
+    acceptance_hint: str = ""  # accept | reject | review (advisory only)
 
     status: str = GuidanceStatus.PROPOSED.value
 
@@ -212,12 +213,12 @@ class GuidanceRecord:
     # Effectiveness tracking (filled in after action)
     implemented_actions: List[str] = field(default_factory=list)
     outcome: Optional[str] = None
-    impact_actual: Optional[str] = None       # low | medium | high
-    success_score: Optional[float] = None     # 0.0 .. 1.0
+    impact_actual: Optional[str] = None  # low | medium | high
+    success_score: Optional[float] = None  # 0.0 .. 1.0
     lessons_learned: Optional[str] = None
 
     # Provenance
-    source_question: Optional[str] = None     # which briefing question it answers
+    source_question: Optional[str] = None  # which briefing question it answers
     kind: str = KIND
 
     def to_dict(self) -> dict:

@@ -9,6 +9,7 @@ Asserts that ``audit_url`` tags findings with the correct
     rendered into a Gap Report.
   * ``AuditResult.evidence_sources`` is the derived id->source map.
 """
+
 from __future__ import annotations
 
 import httpx
@@ -22,7 +23,9 @@ from tests.test_seo_deeper import (  # type: ignore[import-untyped]
 
 def test_fetch_failed_tagged_http_status(monkeypatch) -> None:
     _patch_audit_fetch(
-        monkeypatch, "", raise_exc=httpx.ConnectError("boom"),
+        monkeypatch,
+        "",
+        raise_exc=httpx.ConnectError("boom"),
     )
     from backend.seo.audit import audit_url
 
@@ -37,17 +40,21 @@ def test_blocked_by_robots_tagged_robots_txt(monkeypatch) -> None:
     _patch_audit_fetch(monkeypatch, _BAD_HTML)
 
     import backend.seo.audit as audit_mod
+
     monkeypatch.setattr(
-        audit_mod, "_check_robots_txt",
+        audit_mod,
+        "_check_robots_txt",
         lambda url: ("disallows", False),
     )
     # Pin the security audit + pagespeed so the test stays deterministic.
     monkeypatch.setattr(
-        audit_mod, "audit_security",
+        audit_mod,
+        "audit_security",
         lambda url, headers, html, http_resources: {},
     )
 
     from backend.seo.audit import audit_url
+
     result = audit_url("https://blocked.example.com")
 
     blocked = next(i for i in result.issues if i.id == "blocked_by_robots")
@@ -59,12 +66,15 @@ def test_content_findings_left_untagged(monkeypatch) -> None:
     _patch_audit_fetch(monkeypatch, _BAD_HTML)
 
     import backend.seo.audit as audit_mod
+
     monkeypatch.setattr(
-        audit_mod, "audit_security",
+        audit_mod,
+        "audit_security",
         lambda url, headers, html, http_resources: {},
     )
 
     from backend.seo.audit import audit_url
+
     result = audit_url("https://bad.example.com")
 
     # Content-derived findings have no verified external source and must
@@ -81,12 +91,15 @@ def test_evidence_sources_map_only_contains_tagged_findings(monkeypatch) -> None
     _patch_audit_fetch(monkeypatch, _BAD_HTML)
 
     import backend.seo.audit as audit_mod
+
     monkeypatch.setattr(
-        audit_mod, "audit_security",
+        audit_mod,
+        "audit_security",
         lambda url, headers, html, http_resources: {},
     )
 
     from backend.seo.audit import audit_url
+
     result = audit_url("https://bad.example.com")
 
     # Every entry in the map points to a real issue id with that source.

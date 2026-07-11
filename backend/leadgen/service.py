@@ -5,6 +5,7 @@ LeadRequest -> normalize_domain -> enrich -> classify_segment -> score -> tier
 ``f"{normalized_domain}:{company.lower()}"``. Audit event appended to the
 service ledger on first computation.
 """
+
 from __future__ import annotations
 
 import logging
@@ -46,7 +47,9 @@ def _build_reasons(
     matched: list[str],
 ) -> list[str]:
     reasons: list[str] = []
-    reasons.append(f"segment={segment} (employees={req.employee_count}, revenue={req.annual_revenue_usd})")
+    reasons.append(
+        f"segment={segment} (employees={req.employee_count}, revenue={req.annual_revenue_usd})"
+    )
     reasons.append(f"industry={req.industry.lower()} points={breakdown['industry']}")
     reasons.append(f"geo={req.geo.upper()} points={breakdown['geo']}")
     if matched:

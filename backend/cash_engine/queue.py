@@ -12,6 +12,7 @@ decay -> front door -> gate -> enqueue -> job visible in the mock queue —
 with no AWS dependency. Swapping to real SQS is a config change, not a code
 change.
 """
+
 from __future__ import annotations
 
 import json
@@ -27,7 +28,7 @@ from backend.gateway import sqs_dispatch
 _LOG = logging.getLogger("samus.cash_engine.queue")
 
 _CASH_DIR = "cash_engine"
-_JOBS_FILE = "jobs.jsonl"        # mock queue (downstream sequence jobs)
+_JOBS_FILE = "jobs.jsonl"  # mock queue (downstream sequence jobs)
 _REVIEWS_FILE = "reviews.jsonl"  # audit ledger of every front-door verdict
 
 __all__ = [

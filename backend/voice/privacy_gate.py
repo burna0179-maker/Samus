@@ -16,6 +16,7 @@ Operator endpoints:
   GET  /voice/pending_transcripts        — list all pending entries
   POST /voice/classify_transcript        — approve or mark personal
 """
+
 from __future__ import annotations
 
 import json
@@ -66,6 +67,7 @@ class PendingEntry:
 # Main gate
 # ---------------------------------------------------------------------------
 
+
 def classify(
     raw: RawTranscript,
     *,
@@ -96,6 +98,7 @@ def classify(
     if raw.contact_phone:
         if phone_index is not None:
             from .prospect_lookup import _norm10
+
             prospect = phone_index.get(_norm10(raw.contact_phone))
         else:
             prospect = lookup_by_phone(raw.contact_phone)
@@ -107,7 +110,9 @@ def classify(
     _upsert_pending(raw, decision=GateDecision.PENDING_REVIEW)
     _LOG.info(
         "privacy_gate: %s queued for review (phone=%s contact=%s)",
-        raw.source_file, raw.contact_phone or "unknown", raw.contact_name or "unknown",
+        raw.source_file,
+        raw.contact_phone or "unknown",
+        raw.contact_name or "unknown",
     )
     return GateDecision.PENDING_REVIEW, None
 
@@ -115,6 +120,7 @@ def classify(
 # ---------------------------------------------------------------------------
 # Operator classification
 # ---------------------------------------------------------------------------
+
 
 def mark_approved(
     filename: str,
@@ -135,7 +141,9 @@ def mark_approved(
             entry.company_name = company_name
             entry.operator_note = operator_note
             _save_all(pending)
-            _LOG.info("privacy_gate: %s approved by operator (prospect_id=%s)", filename, prospect_id)
+            _LOG.info(
+                "privacy_gate: %s approved by operator (prospect_id=%s)", filename, prospect_id
+            )
             return True
     # Entry may not exist yet (called before pipeline ran it)
     new_entry = PendingEntry(
@@ -167,16 +175,18 @@ def mark_personal(filename: str, *, operator_note: str | None = None) -> bool:
             break
 
     if not updated:
-        pending.append(PendingEntry(
-            filename=filename,
-            phone="",
-            contact_name="",
-            call_ts_iso="",
-            direction="",
-            staged_at=iso_now(),
-            decision=GateDecision.PERSONAL,
-            operator_note=operator_note,
-        ))
+        pending.append(
+            PendingEntry(
+                filename=filename,
+                phone="",
+                contact_name="",
+                call_ts_iso="",
+                direction="",
+                staged_at=iso_now(),
+                decision=GateDecision.PERSONAL,
+                operator_note=operator_note,
+            )
+        )
     _save_all(pending)
 
     # Move file out of staging so it can never be re-staged
@@ -198,6 +208,7 @@ def list_all() -> list[PendingEntry]:
 # ---------------------------------------------------------------------------
 # Persistence helpers
 # ---------------------------------------------------------------------------
+
 
 def _queue_path() -> Path:
     target = storage.root() / _PENDING_FILE
@@ -243,15 +254,17 @@ def _upsert_pending(raw: RawTranscript, *, decision: GateDecision) -> None:
     for entry in pending:
         if entry.filename == raw.source_file:
             return  # already in queue
-    pending.append(PendingEntry(
-        filename=raw.source_file,
-        phone=raw.contact_phone,
-        contact_name=raw.contact_name,
-        call_ts_iso=raw.call_ts.isoformat(),
-        direction=raw.direction,
-        staged_at=iso_now(),
-        decision=decision,
-    ))
+    pending.append(
+        PendingEntry(
+            filename=raw.source_file,
+            phone=raw.contact_phone,
+            contact_name=raw.contact_name,
+            call_ts_iso=raw.call_ts.isoformat(),
+            direction=raw.direction,
+            staged_at=iso_now(),
+            decision=decision,
+        )
+    )
     _save_all(pending)
 
 

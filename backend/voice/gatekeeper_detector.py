@@ -35,6 +35,7 @@ worse than missing one warm lead.
 
 ``detect_human_engagement(transcript, *, ended_reason="") -> (is_human, reason)``
 """
+
 from __future__ import annotations
 
 import logging

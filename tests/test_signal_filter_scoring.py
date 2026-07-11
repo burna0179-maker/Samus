@@ -3,6 +3,7 @@
 Covers the deterministic enrichment→ProspectSignal map, float clamping, and
 the should_enqueue boundary at exactly 0.62 (just-below and just-above).
 """
+
 from __future__ import annotations
 
 import pytest
@@ -34,8 +35,13 @@ def test_prospect_signal_as_dict_has_seven_axes():
     sig = ProspectSignal()
     keys = set(sig.as_dict())
     assert keys == {
-        "domain_health", "seo_score", "review_velocity", "contactability",
-        "social_activity", "revenue_estimate", "infrastructure_maturity",
+        "domain_health",
+        "seo_score",
+        "review_velocity",
+        "contactability",
+        "social_activity",
+        "revenue_estimate",
+        "infrastructure_maturity",
     }
 
 
@@ -88,8 +94,8 @@ def test_weighted_score_formula():
         seo_score=1.0,
         review_velocity=1.0,
         contactability=1.0,
-        social_activity=1.0,      # not weighted
-        revenue_estimate=1.0,     # not weighted
+        social_activity=1.0,  # not weighted
+        revenue_estimate=1.0,  # not weighted
         infrastructure_maturity=1.0,
     )
     # 0.20 + 0.25 + 0.25 + 0.10 + 0.20 == 1.0
@@ -102,10 +108,10 @@ def test_should_enqueue_just_below_threshold_rejects():
     # dh=0.5(.20=.10) seo=0.6(.25=.15) contact=0.6(.25=.15) rev=0.5(.10=.05)
     # infra=1.0(.20=.20) → total = 0.65 ... build a precise just-below case:
     sig = ProspectSignal(
-        domain_health=0.6,            # .12
-        seo_score=0.6,                # .15
-        contactability=0.6,           # .15
-        review_velocity=0.5,          # .05
+        domain_health=0.6,  # .12
+        seo_score=0.6,  # .15
+        contactability=0.6,  # .15
+        review_velocity=0.5,  # .05
         infrastructure_maturity=0.6,  # .12
     )
     score = weighted_score(sig)
@@ -116,11 +122,11 @@ def test_should_enqueue_just_below_threshold_rejects():
 def test_should_enqueue_just_above_threshold_admits():
     """A signal whose weighted score lands just above 0.62 is admitted."""
     sig = ProspectSignal(
-        domain_health=0.65,            # .13
-        seo_score=0.65,                # .1625
-        contactability=0.65,           # .1625
-        review_velocity=0.6,           # .06
-        infrastructure_maturity=0.6,   # .12
+        domain_health=0.65,  # .13
+        seo_score=0.65,  # .1625
+        contactability=0.65,  # .1625
+        review_velocity=0.6,  # .06
+        infrastructure_maturity=0.6,  # .12
     )
     score = weighted_score(sig)
     assert score >= ADMISSION_THRESHOLD  # ~0.635

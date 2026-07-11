@@ -4,9 +4,8 @@ Targets the formatter — Stripe call is stubbed out via env-var unset +
 service helpers return real (empty) registries from the gitignored yaml
 fallback path.
 """
-from __future__ import annotations
 
-import os
+from __future__ import annotations
 
 
 def _isolate_phase3_empty(monkeypatch, tmp_path):
@@ -15,11 +14,9 @@ def _isolate_phase3_empty(monkeypatch, tmp_path):
     monkeypatch.setenv("SAMUS_ACTIONS_PATH", str(tmp_path / "_a.yaml"))
     monkeypatch.setenv("SAMUS_INFO_GAPS_PATH", str(tmp_path / "_g.yaml"))
     monkeypatch.setenv("SAMUS_HARDSHIP_PATH", str(tmp_path / "_h.yaml"))
-    monkeypatch.setenv("SAMUS_CODB_REGISTRY_PATH",
-                       str(tmp_path / "_codb.yaml"))
+    monkeypatch.setenv("SAMUS_CODB_REGISTRY_PATH", str(tmp_path / "_codb.yaml"))
     (tmp_path / "_codb.yaml").write_text(
-        "costs: []\n"
-        "revenue_targets: {monthly_minimum_usd: 0, runway_alert_days: 60}\n",
+        "costs: []\nrevenue_targets: {monthly_minimum_usd: 0, runway_alert_days: 60}\n",
         encoding="utf-8",
     )
 
@@ -27,17 +24,21 @@ def _isolate_phase3_empty(monkeypatch, tmp_path):
 def _stub_stripe_cash(monkeypatch, *, available=0.0, mrr=0.0, subs=0, err=None):
     """Replace _fetch_stripe_cash so tests don't hit the live API."""
     import backend.morning as morning_mod
+
     monkeypatch.setattr(
-        morning_mod, "_fetch_stripe_cash",
+        morning_mod,
+        "_fetch_stripe_cash",
         lambda: (available, mrr, subs, err),
     )
 
 
-def _stub_payment_links(monkeypatch, *, stripe_reachable=False,
-                        stripe_error="stripe_api_key_unset", links=None):
+def _stub_payment_links(
+    monkeypatch, *, stripe_reachable=False, stripe_error="stripe_api_key_unset", links=None
+):
     """Replace get_payment_links so tests don't hit the live Stripe API."""
     import backend.morning as morning_mod
     from backend.finance.models import PaymentLinksRollup
+
     rollup = PaymentLinksRollup(
         links=links or [],
         count_total=len(links or []),
@@ -57,6 +58,7 @@ def test_briefing_renders_with_no_data(tmp_path, monkeypatch):
     _stub_payment_links(monkeypatch)
     monkeypatch.setenv("SAMUS_MORNING_NO_COLOR", "1")
     from backend.morning import render_briefing
+
     out = render_briefing()
     # Sectioning is present even on empty data.
     assert "SAMUS MORNING BRIEFING" in out
@@ -77,6 +79,7 @@ def test_briefing_surfaces_live_stripe_mrr(tmp_path, monkeypatch):
     _stub_payment_links(monkeypatch)
     monkeypatch.setenv("SAMUS_MORNING_NO_COLOR", "1")
     from backend.morning import render_briefing
+
     out = render_briefing()
     assert "$269.53" in out
     assert "$300.00" in out
@@ -87,16 +90,33 @@ def test_briefing_renders_payment_links_section(tmp_path, monkeypatch):
     _isolate_phase3_empty(monkeypatch, tmp_path)
     _stub_stripe_cash(monkeypatch, err="stripe_api_key_unset")
     from backend.finance.models import PaymentLinkSummary
-    _stub_payment_links(monkeypatch, stripe_reachable=True, stripe_error=None, links=[
-        PaymentLinkSummary(id="p1", offer_code="seo_audit",
-                           url="https://buy.stripe.com/9B6fZgcoW7yWbSm6Hy8so0h",
-                           is_subscription=False, livemode=True, samus_managed=True),
-        PaymentLinkSummary(id="p2", offer_code="seo_optimization",
-                           url="https://buy.stripe.com/6oU5kCagO7yW9Keea08so0i",
-                           is_subscription=True, livemode=True, samus_managed=True),
-    ])
+
+    _stub_payment_links(
+        monkeypatch,
+        stripe_reachable=True,
+        stripe_error=None,
+        links=[
+            PaymentLinkSummary(
+                id="p1",
+                offer_code="seo_audit",
+                url="https://buy.stripe.com/9B6fZgcoW7yWbSm6Hy8so0h",
+                is_subscription=False,
+                livemode=True,
+                samus_managed=True,
+            ),
+            PaymentLinkSummary(
+                id="p2",
+                offer_code="seo_optimization",
+                url="https://buy.stripe.com/6oU5kCagO7yW9Keea08so0i",
+                is_subscription=True,
+                livemode=True,
+                samus_managed=True,
+            ),
+        ],
+    )
     monkeypatch.setenv("SAMUS_MORNING_NO_COLOR", "1")
     from backend.morning import render_briefing
+
     out = render_briefing()
     assert "Live payment links: 2 active" in out
     assert "1 one-time" in out
@@ -111,10 +131,12 @@ def test_briefing_renders_payment_links_section(tmp_path, monkeypatch):
 def test_briefing_renders_payment_links_unavailable(tmp_path, monkeypatch):
     _isolate_phase3_empty(monkeypatch, tmp_path)
     _stub_stripe_cash(monkeypatch, err="stripe_api_key_unset")
-    _stub_payment_links(monkeypatch, stripe_reachable=False,
-                        stripe_error="stripe_http_403: forbidden")
+    _stub_payment_links(
+        monkeypatch, stripe_reachable=False, stripe_error="stripe_http_403: forbidden"
+    )
     monkeypatch.setenv("SAMUS_MORNING_NO_COLOR", "1")
     from backend.morning import render_briefing
+
     out = render_briefing()
     assert "Live payment links: unavailable" in out
     assert "stripe_http_403" in out
@@ -135,6 +157,7 @@ def test_briefing_surfaces_critical_warrant_gap(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_INFO_GAPS_PATH", str(tmp_path / "_g.yaml"))
     monkeypatch.setenv("SAMUS_MORNING_NO_COLOR", "1")
     from backend.morning import render_briefing
+
     out = render_briefing()
     assert "Status of probation-violation warrant" in out
     assert "DBT-006" in out
@@ -155,6 +178,7 @@ def test_briefing_renders_overdue_actions_when_present(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_ACTIONS_PATH", str(tmp_path / "_a.yaml"))
     monkeypatch.setenv("SAMUS_MORNING_NO_COLOR", "1")
     from backend.morning import render_briefing
+
     out = render_briefing()
     assert "OVERDUE" in out
     assert "Ancient overdue thing" in out
@@ -166,6 +190,7 @@ def test_no_color_flag_strips_ansi(tmp_path, monkeypatch):
     _stub_payment_links(monkeypatch)
     monkeypatch.setenv("SAMUS_MORNING_NO_COLOR", "1")
     from backend.morning import render_briefing
+
     out = render_briefing()
     assert "\033[" not in out
 
@@ -174,6 +199,7 @@ def test_main_returns_zero_on_success(tmp_path, monkeypatch, capsys):
     _isolate_phase3_empty(monkeypatch, tmp_path)
     _stub_stripe_cash(monkeypatch, err="stripe_api_key_unset")
     from backend.morning import main
+
     code = main(["--no-color"])
     assert code == 0
     captured = capsys.readouterr()
@@ -183,36 +209,78 @@ def test_main_returns_zero_on_success(tmp_path, monkeypatch, capsys):
 def test_stripe_subscription_mrr_math():
     """monthly_recurring_revenue_usd math against synthetic fixtures."""
     from backend.finance.models import (
-        StripeRecurring, StripeSubscription, StripeSubscriptionItem,
+        StripeRecurring,
+        StripeSubscription,
+        StripeSubscriptionItem,
         StripeSubscriptionItemPrice,
     )
     from backend.finance.stripe_client import monthly_recurring_revenue_usd
 
     # 1x $300/mo + 1x $1200/yr + 2x $50/week + 1x EUR(skipped)
-    monthly = StripeSubscription(id="s1", status="active", items=[
-        StripeSubscriptionItem(id="i1", quantity=1, price=StripeSubscriptionItemPrice(
-            id="p1", unit_amount=30000, currency="usd",
-            recurring=StripeRecurring(interval="month", interval_count=1),
-        )),
-    ])
-    yearly = StripeSubscription(id="s2", status="active", items=[
-        StripeSubscriptionItem(id="i2", quantity=1, price=StripeSubscriptionItemPrice(
-            id="p2", unit_amount=120000, currency="usd",
-            recurring=StripeRecurring(interval="year", interval_count=1),
-        )),
-    ])
-    weekly = StripeSubscription(id="s3", status="active", items=[
-        StripeSubscriptionItem(id="i3", quantity=2, price=StripeSubscriptionItemPrice(
-            id="p3", unit_amount=5000, currency="usd",
-            recurring=StripeRecurring(interval="week", interval_count=1),
-        )),
-    ])
-    eur = StripeSubscription(id="s4", status="active", items=[
-        StripeSubscriptionItem(id="i4", quantity=1, price=StripeSubscriptionItemPrice(
-            id="p4", unit_amount=10000, currency="eur",
-            recurring=StripeRecurring(interval="month", interval_count=1),
-        )),
-    ])
+    monthly = StripeSubscription(
+        id="s1",
+        status="active",
+        items=[
+            StripeSubscriptionItem(
+                id="i1",
+                quantity=1,
+                price=StripeSubscriptionItemPrice(
+                    id="p1",
+                    unit_amount=30000,
+                    currency="usd",
+                    recurring=StripeRecurring(interval="month", interval_count=1),
+                ),
+            ),
+        ],
+    )
+    yearly = StripeSubscription(
+        id="s2",
+        status="active",
+        items=[
+            StripeSubscriptionItem(
+                id="i2",
+                quantity=1,
+                price=StripeSubscriptionItemPrice(
+                    id="p2",
+                    unit_amount=120000,
+                    currency="usd",
+                    recurring=StripeRecurring(interval="year", interval_count=1),
+                ),
+            ),
+        ],
+    )
+    weekly = StripeSubscription(
+        id="s3",
+        status="active",
+        items=[
+            StripeSubscriptionItem(
+                id="i3",
+                quantity=2,
+                price=StripeSubscriptionItemPrice(
+                    id="p3",
+                    unit_amount=5000,
+                    currency="usd",
+                    recurring=StripeRecurring(interval="week", interval_count=1),
+                ),
+            ),
+        ],
+    )
+    eur = StripeSubscription(
+        id="s4",
+        status="active",
+        items=[
+            StripeSubscriptionItem(
+                id="i4",
+                quantity=1,
+                price=StripeSubscriptionItemPrice(
+                    id="p4",
+                    unit_amount=10000,
+                    currency="eur",
+                    recurring=StripeRecurring(interval="month", interval_count=1),
+                ),
+            ),
+        ],
+    )
     mrr = monthly_recurring_revenue_usd([monthly, yearly, weekly, eur])
     # 300 + (1200/12=100) + (2*50*4.33=433) + 0 = 833
     assert abs(mrr - 833.0) < 0.01
@@ -221,6 +289,7 @@ def test_stripe_subscription_mrr_math():
 def test_subscription_envelope_flattening():
     """Stripe wraps items as {items: {data: [...]}}; verify we flatten."""
     from backend.finance.models import StripeSubscription
+
     raw = {
         "id": "sub_x",
         "status": "active",
@@ -230,7 +299,9 @@ def test_subscription_envelope_flattening():
                     "id": "si_a",
                     "quantity": 1,
                     "price": {
-                        "id": "price_a", "unit_amount": 30000, "currency": "usd",
+                        "id": "price_a",
+                        "unit_amount": 30000,
+                        "currency": "usd",
                         "recurring": {"interval": "month", "interval_count": 1},
                     },
                 }
@@ -246,6 +317,7 @@ def test_subscription_envelope_flattening():
 def test_briefing_sales_lists_call_list_prospects(tmp_path, monkeypatch):
     """SALES section renders today's prospects from the call-list CSV."""
     import datetime as _dt
+
     _isolate_phase3_empty(monkeypatch, tmp_path)
     _stub_stripe_cash(monkeypatch, err="stripe_api_key_unset")
     _stub_payment_links(monkeypatch)
@@ -262,24 +334,27 @@ def test_briefing_sales_lists_call_list_prospects(tmp_path, monkeypatch):
         encoding="utf-8",
     )
     from backend.morning import render_briefing
+
     out = render_briefing(today=day)
     assert "2 prospects ready" in out
     assert "1 hot, 0 warm, 1 low" in out
     assert "Acme HVAC" in out
     assert "(555) 111-2222" in out
-    assert "ask for Dana Reed" in out          # owner enrichment surfaced
+    assert "ask for Dana Reed" in out  # owner enrichment surfaced
     assert f"morning_call_list_{day.isoformat()}.txt" in out  # attachment pointer
 
 
 def test_briefing_sales_no_call_list_message(tmp_path, monkeypatch):
     """SALES section degrades gracefully when no call-list CSV exists."""
     import datetime as _dt
+
     _isolate_phase3_empty(monkeypatch, tmp_path)
     _stub_stripe_cash(monkeypatch, err="stripe_api_key_unset")
     _stub_payment_links(monkeypatch)
     monkeypatch.setenv("SAMUS_MORNING_NO_COLOR", "1")
     monkeypatch.setenv("SAMUS_ARTIFACT_ROOT", str(tmp_path))  # no daily_calls/ csv
     from backend.morning import render_briefing
+
     out = render_briefing(today=_dt.date(2026, 5, 20))
     assert "no call list for today" in out
 
@@ -288,6 +363,7 @@ def test_briefing_sales_shows_yesterdays_logged_calls(tmp_path, monkeypatch):
     """SALES section surfaces yesterday's hand-logged calls from the journal."""
     import datetime as _dt
     import json as _json
+
     _isolate_phase3_empty(monkeypatch, tmp_path)
     _stub_stripe_cash(monkeypatch, err="stripe_api_key_unset")
     _stub_payment_links(monkeypatch)
@@ -299,16 +375,19 @@ def test_briefing_sales_shows_yesterdays_logged_calls(tmp_path, monkeypatch):
     calls = tmp_path / "daily_calls"
     calls.mkdir(parents=True, exist_ok=True)
     (calls / f"call_outcomes_{yesterday.isoformat()}.jsonl").write_text(
-        _json.dumps({"outcome": "booked", "company": "Acme HVAC",
-                     "notes": "owner booked an audit Thu 2pm"}) + "\n"
-        + _json.dumps({"outcome": "no_answer", "company": "Quiet Co",
-                       "notes": "answering machine"}) + "\n",
+        _json.dumps(
+            {"outcome": "booked", "company": "Acme HVAC", "notes": "owner booked an audit Thu 2pm"}
+        )
+        + "\n"
+        + _json.dumps({"outcome": "no_answer", "company": "Quiet Co", "notes": "answering machine"})
+        + "\n",
         encoding="utf-8",
     )
     from backend.morning import render_briefing
+
     out = render_briefing(today=day)
     assert "Calls logged yesterday: 2" in out
     assert "1 booked" in out and "1 no_answer" in out
-    assert "Acme HVAC" in out                      # booked one is listed
+    assert "Acme HVAC" in out  # booked one is listed
     assert "owner booked an audit Thu 2pm" in out  # with its notes
-    assert "Quiet Co" not in out                   # no_answer not individually listed
+    assert "Quiet Co" not in out  # no_answer not individually listed

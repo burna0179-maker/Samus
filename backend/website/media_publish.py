@@ -14,6 +14,7 @@ drops the unknown keys and the text is still preserved.
 Fail-closed per asset: an upload/import failure is recorded and skipped, never
 crashes the batch. Dormant by construction — only runs on assets you pass it.
 """
+
 from __future__ import annotations
 
 import base64
@@ -78,15 +79,21 @@ def publish_assets(
             continue
         try:
             if a.is_video:
-                if a.data_b64:  # downloaded Veo bytes -> upload (Veo URI needs auth, Wix can't fetch it)
+                if (
+                    a.data_b64
+                ):  # downloaded Veo bytes -> upload (Veo URI needs auth, Wix can't fetch it)
                     desc = wix.upload_bytes(
-                        site_id=site_id, data=base64.b64decode(a.data_b64),
-                        filename=f"{a.kind}.mp4", mime_type=a.mime_type or "video/mp4",
+                        site_id=site_id,
+                        data=base64.b64decode(a.data_b64),
+                        filename=f"{a.kind}.mp4",
+                        mime_type=a.mime_type or "video/mp4",
                     )
                 elif a.video_uri:  # a public video URL Wix can fetch
                     desc = wix.import_file(
-                        site_id=site_id, url=a.video_uri,
-                        mime_type=a.mime_type or "video/mp4", display_name=a.kind,
+                        site_id=site_id,
+                        url=a.video_uri,
+                        mime_type=a.mime_type or "video/mp4",
+                        display_name=a.kind,
                     )
                 else:
                     errors.append(f"{a.kind}:no_video")
@@ -97,8 +104,11 @@ def publish_assets(
                     continue
                 data = base64.b64decode(a.data_b64)
                 desc = wix.upload_bytes(
-                    site_id=site_id, data=data, filename=f"{a.kind}.png",
-                    mime_type=a.mime_type or "image/png", parent_folder_id=parent_folder_id,
+                    site_id=site_id,
+                    data=data,
+                    filename=f"{a.kind}.png",
+                    mime_type=a.mime_type or "image/png",
+                    parent_folder_id=parent_folder_id,
                 )
             refs[a.kind] = _ref_of(desc)
         except WixError as exc:
@@ -112,8 +122,11 @@ def publish_assets(
 
 
 def _merge_refs_into_cms(
-    wix: WixClient, site_id: str, collection_id: str,
-    refs: dict[str, dict[str, str]], errors: list[str],
+    wix: WixClient,
+    site_id: str,
+    collection_id: str,
+    refs: dict[str, dict[str, str]],
+    errors: list[str],
 ) -> bool:
     """Safe read-merge-write: add media refs onto the existing row, keep its text."""
     row = _existing_row(wix, site_id, collection_id)
@@ -126,8 +139,10 @@ def _merge_refs_into_cms(
             merged[field] = refs[kind].get("wixUrl") or refs[kind].get("url")
     try:
         wix.update_data_item(
-            site_id=site_id, collection_id=collection_id,
-            item_id=str(row["_id"]), data=merged,
+            site_id=site_id,
+            collection_id=collection_id,
+            item_id=str(row["_id"]),
+            data=merged,
         )
         return True
     except WixError as exc:

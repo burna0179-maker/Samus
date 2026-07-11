@@ -17,6 +17,7 @@ telemetry hiccup must never break the growth loop it instruments.
 newest value of a metric across the retained window so a real improvement (or
 regression) shows up as a signed delta, not a single point.
 """
+
 from __future__ import annotations
 
 import logging

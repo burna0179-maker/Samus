@@ -4,6 +4,7 @@ Covers: append + tail round-trip, ts injection, limit clamping, and the
 fail-soft contract (record_tick returns a bool and never raises; recent_ticks
 returns a populated ``error`` field on a read failure).
 """
+
 from __future__ import annotations
 
 import pytest

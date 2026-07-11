@@ -3,6 +3,7 @@
 Kept tolerant of DocuSeal API/webhook shape variations (self-hosted payloads
 differ slightly by version) while giving the rest of Samus stable types.
 """
+
 from __future__ import annotations
 
 from typing import Any, Optional
@@ -173,8 +174,10 @@ class DocuSealWebhookEvent(BaseModel):
         data = body.get("data") if isinstance(body.get("data"), dict) else body
         submission = data.get("submission") if isinstance(data.get("submission"), dict) else {}
 
-        raw_sid = data.get("submission_id") or submission.get("id") or (
-            data.get("id") if event_type.startswith("submission") else None
+        raw_sid = (
+            data.get("submission_id")
+            or submission.get("id")
+            or (data.get("id") if event_type.startswith("submission") else None)
         )
         try:
             submission_id = int(raw_sid) if raw_sid is not None else None
@@ -201,7 +204,7 @@ class DocuSealWebhookEvent(BaseModel):
         )
 
     def is_completed(self) -> bool:
-        return (
-            self.event_type in ("submission.completed", "form.completed")
-            or self.status.strip().lower() in ("completed", "signed")
-        )
+        return self.event_type in (
+            "submission.completed",
+            "form.completed",
+        ) or self.status.strip().lower() in ("completed", "signed")

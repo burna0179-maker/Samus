@@ -1,4 +1,5 @@
 """Blocking-rule coverage for the Codex Validation Layer."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -121,7 +122,8 @@ def test_vr_g2_blocks_banned_phrase_in_user_text(loaded_registry, patch_drafts_d
 
 
 def test_vr_adr_008_blocks_banned_phrase_list_mutation(
-    loaded_registry, patch_drafts_dir,
+    loaded_registry,
+    patch_drafts_dir,
 ):
     action = ProposedAction(
         service="admin",
@@ -144,9 +146,11 @@ def test_vr_adr_008_blocks_banned_phrase_list_mutation(
 # ADR-016 governed autonomous dial policy — voice_dial conditional allow
 # ---------------------------------------------------------------------------
 
+
 def _arm(monkeypatch, on: bool) -> None:
     """Arm/disarm the governed dial flag via env + settings reload (real path)."""
     from backend.common.settings import reload_settings
+
     if on:
         monkeypatch.setenv("SAMUS_GOVERNED_AUTONOMOUS_DIAL_ENABLED", "true")
     else:
@@ -168,8 +172,12 @@ def _governed_dial(**over) -> ProposedAction:
     }
     payload.update(over)
     return ProposedAction(
-        service="voice", capability="voice_dial", action_kind="voice_dial",
-        payload=payload, proposed_by="voice.autonomous.governed", correlation_id="c1",
+        service="voice",
+        capability="voice_dial",
+        action_kind="voice_dial",
+        payload=payload,
+        proposed_by="voice.autonomous.governed",
+        correlation_id="c1",
     )
 
 
@@ -180,7 +188,9 @@ def test_governed_dial_blocked_when_flag_off(loaded_registry, patch_drafts_dir, 
     assert v.violated_rule_id == "VR-G5"
 
 
-def test_governed_dial_allowed_when_armed_and_attested(loaded_registry, patch_drafts_dir, monkeypatch):
+def test_governed_dial_allowed_when_armed_and_attested(
+    loaded_registry, patch_drafts_dir, monkeypatch
+):
     _arm(monkeypatch, on=True)
     v = _verdict_for(_governed_dial(), loaded_registry)
     assert v.allowed is True
@@ -199,15 +209,23 @@ def test_governed_dial_blocked_wrong_policy(loaded_registry, patch_drafts_dir, m
     assert v.allowed is False
 
 
-@pytest.mark.parametrize("fence", ["within_call_hours", "cooldown_ok", "under_daily_cap", "dnc_ok", "consent_ok"])
-def test_governed_dial_blocked_when_any_fence_false(fence, loaded_registry, patch_drafts_dir, monkeypatch):
+@pytest.mark.parametrize(
+    "fence", ["within_call_hours", "cooldown_ok", "under_daily_cap", "dnc_ok", "consent_ok"]
+)
+def test_governed_dial_blocked_when_any_fence_false(
+    fence, loaded_registry, patch_drafts_dir, monkeypatch
+):
     _arm(monkeypatch, on=True)
     v = _verdict_for(_governed_dial(**{fence: False}), loaded_registry)
     assert v.allowed is False, f"fence {fence}=False must block"
 
 
-@pytest.mark.parametrize("fence", ["within_call_hours", "cooldown_ok", "under_daily_cap", "dnc_ok", "consent_ok"])
-def test_governed_dial_blocked_when_any_fence_missing(fence, loaded_registry, patch_drafts_dir, monkeypatch):
+@pytest.mark.parametrize(
+    "fence", ["within_call_hours", "cooldown_ok", "under_daily_cap", "dnc_ok", "consent_ok"]
+)
+def test_governed_dial_blocked_when_any_fence_missing(
+    fence, loaded_registry, patch_drafts_dir, monkeypatch
+):
     _arm(monkeypatch, on=True)
     payload_missing = _governed_dial()
     del payload_missing.payload[fence]  # attestation absent, not just False
@@ -237,5 +255,7 @@ def test_governed_dial_banned_phrase_still_blocks(loaded_registry, patch_drafts_
     banned = list(loaded_registry.banned_phrases())
     if not banned:
         pytest.skip("no banned phrases in registry")
-    v = _verdict_for(_governed_dial(stake_sentence=f"Hi there {banned[0]} deal now"), loaded_registry)
+    v = _verdict_for(
+        _governed_dial(stake_sentence=f"Hi there {banned[0]} deal now"), loaded_registry
+    )
     assert v.allowed is False  # G2 fires independently even under the governed policy

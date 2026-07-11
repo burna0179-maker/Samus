@@ -6,6 +6,7 @@ initialised, persistence round-trip, type/shape guards, and env-binding
 PARITY between the catalog defaults and the pydantic Settings field
 defaults (the single-source-of-truth contract).
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -75,9 +76,7 @@ def test_register_conflicting_shape_raises(store):
 
 def test_register_type_mismatch_default_raises(store):
     with pytest.raises(FlagTypeMismatchError):
-        store.register(
-            FlagSpec(name="x", description="d", default_value="nope", kind="bool")
-        )
+        store.register(FlagSpec(name="x", description="d", default_value="nope", kind="bool"))
 
 
 # ---------------------------------------------------------------------
@@ -260,6 +259,5 @@ def test_catalog_kinds_match_settings_field_types():
         else:
             actual = kind_of.get(type(val))
         assert actual == spec.kind, (
-            f"flag {spec.name}: declared kind {spec.kind!r} != "
-            f"settings field type {actual!r}"
+            f"flag {spec.name}: declared kind {spec.kind!r} != settings field type {actual!r}"
         )

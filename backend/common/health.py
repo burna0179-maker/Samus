@@ -31,6 +31,7 @@ Public surface:
   * :func:`default_registry` — module-level singleton with the canonical
     Samus probes pre-registered (audit ledger integrity, settings load).
 """
+
 from __future__ import annotations
 
 import logging

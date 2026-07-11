@@ -1,4 +1,5 @@
 """Tests for backend.visibility.analyze — pure mention/domain analysis."""
+
 from __future__ import annotations
 
 from backend.visibility.analyze import aggregate, analyze_answer, extract_domains
@@ -39,9 +40,24 @@ def test_analyze_competitor_counts():
 
 def test_aggregate_citation_rate_and_sov():
     analyses = [
-        {"answered": True, "brand_cited": True, "competitor_hits": {"Apollo": 1}, "cited_domains": ["apollo.io"]},
-        {"answered": True, "brand_cited": False, "competitor_hits": {"Apollo": 2, "Clay": 1}, "cited_domains": ["clay.com"]},
-        {"answered": False, "brand_cited": False, "competitor_hits": {}, "cited_domains": []},  # unanswered, excluded
+        {
+            "answered": True,
+            "brand_cited": True,
+            "competitor_hits": {"Apollo": 1},
+            "cited_domains": ["apollo.io"],
+        },
+        {
+            "answered": True,
+            "brand_cited": False,
+            "competitor_hits": {"Apollo": 2, "Clay": 1},
+            "cited_domains": ["clay.com"],
+        },
+        {
+            "answered": False,
+            "brand_cited": False,
+            "competitor_hits": {},
+            "cited_domains": [],
+        },  # unanswered, excluded
     ]
     agg = aggregate(analyses)
     assert agg["sample_n"] == 2  # only answered probes count
@@ -61,7 +77,9 @@ def test_aggregate_empty():
 
 
 def test_aggregate_no_voice_no_div_zero():
-    analyses = [{"answered": True, "brand_cited": False, "competitor_hits": {}, "cited_domains": []}]
+    analyses = [
+        {"answered": True, "brand_cited": False, "competitor_hits": {}, "cited_domains": []}
+    ]
     agg = aggregate(analyses)
     assert agg["share_of_voice"] == 0.0
     assert agg["citation_rate"] == 0.0

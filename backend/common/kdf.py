@@ -17,6 +17,7 @@ forge the other.
 
 Tested against RFC 5869 Test Case 1.
 """
+
 from __future__ import annotations
 
 import hashlib

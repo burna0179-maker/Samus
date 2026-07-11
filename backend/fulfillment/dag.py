@@ -18,7 +18,6 @@ Public surface: see ``__all__``.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from dataclasses import asdict, dataclass, field
 from typing import Any
@@ -55,6 +54,7 @@ __all__ = [
 # Dataclasses
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class PlanStep:
     """A single node in the fulfillment DAG.
@@ -80,12 +80,12 @@ class PlanStep:
     """
 
     id: str
-    type: str                                    # "<service>.<action>"
+    type: str  # "<service>.<action>"
     depends_on: list[str] = field(default_factory=list)
     payload: dict[str, Any] = field(default_factory=dict)
     retryable: bool = True
     timeout_sec: int | None = None
-    status: str = "pending"                      # pending|running|done|failed|skipped
+    status: str = "pending"  # pending|running|done|failed|skipped
 
 
 @dataclass
@@ -111,12 +111,13 @@ class FulfillmentPlan:
     steps: list[PlanStep]
     risk: dict[str, Any] = field(default_factory=dict)
     artifacts: list[dict[str, Any]] = field(default_factory=list)
-    status: str = "planned"                      # planned|running|complete|failed
+    status: str = "planned"  # planned|running|complete|failed
 
 
 # ---------------------------------------------------------------------------
 # Builder
 # ---------------------------------------------------------------------------
+
 
 def build_execution_graph_v2(
     task_id: str,
@@ -234,6 +235,7 @@ def build_execution_graph_v2(
 # Serialization helpers
 # ---------------------------------------------------------------------------
 
+
 def plan_to_dict(plan: FulfillmentPlan) -> dict[str, Any]:
     """JSON-safe serialization of a ``FulfillmentPlan`` via ``dataclasses.asdict``.
 
@@ -270,6 +272,8 @@ def plan_from_dict(d: dict[str, Any]) -> FulfillmentPlan:
         artifacts=list(d.get("artifacts") or []),
         status=str(d.get("status", "planned")),
     )
+
+
 STEP_STATUS_PENDING: str = "pending"
 STEP_STATUS_RUNNING: str = "running"
 STEP_STATUS_DONE: str = "done"
@@ -306,8 +310,7 @@ def _step_ready(step: PlanStep, plan: FulfillmentPlan) -> bool:
     """True if every step in step.depends_on is DONE or SKIPPED."""
     status_by_id: dict[str, str] = {s.id: s.status for s in plan.steps}
     return all(
-        status_by_id.get(dep) in (STEP_STATUS_DONE, STEP_STATUS_SKIPPED)
-        for dep in step.depends_on
+        status_by_id.get(dep) in (STEP_STATUS_DONE, STEP_STATUS_SKIPPED) for dep in step.depends_on
     )
 
 
@@ -433,18 +436,14 @@ def validate_plan(plan: FulfillmentPlan) -> list[str]:
     prefix = f"{plan.plan_id}:"
     for step in plan.steps:
         if not step.id.startswith(prefix):
-            errors.append(
-                f"step id {step.id!r} does not start with plan prefix {prefix!r}"
-            )
+            errors.append(f"step id {step.id!r} does not start with plan prefix {prefix!r}")
 
     # Referential integrity of depends_on
     all_ids = {s.id for s in plan.steps}
     for step in plan.steps:
         for dep in step.depends_on:
             if dep not in all_ids:
-                errors.append(
-                    f"step {step.id!r} depends_on unknown id {dep!r}"
-                )
+                errors.append(f"step {step.id!r} depends_on unknown id {dep!r}")
 
     # Cycle detection — only meaningful if no referential-integrity errors
     ref_errors = [e for e in errors if "depends_on unknown id" in e]
@@ -501,9 +500,7 @@ def ingest_result(
 
     step = _find_step(plan, step_id)
     if step is None:
-        raise ValueError(
-            f"ingest_result: step_id {step_id!r} not found in plan {plan.plan_id!r}"
-        )
+        raise ValueError(f"ingest_result: step_id {step_id!r} not found in plan {plan.plan_id!r}")
 
     step.status = status
     if output is not None:
@@ -576,9 +573,7 @@ async def execute_plan(
     if errors:
         plan.status = PLAN_STATUS_FAILED
         plan.risk.setdefault("validation_errors", errors)
-        _LOG.warning(
-            "execute_plan: plan %s failed validation: %s", plan.plan_id, errors
-        )
+        _LOG.warning("execute_plan: plan %s failed validation: %s", plan.plan_id, errors)
         return plan
 
     # Walk in topological order; keep looping until nothing new is ready.

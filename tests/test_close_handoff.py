@@ -1,4 +1,5 @@
 """Tests for backend.voice.close_handoff — HOTL close -> checkout draft queue."""
+
 from __future__ import annotations
 
 import json
@@ -6,8 +7,15 @@ import json
 from backend.voice import close_handoff as ch
 
 
-def _closed_call(*, product="SEO Audit", price=149, transcript="", cid="c1",
-                 contact_email=None, prospect_id="pr_9"):
+def _closed_call(
+    *,
+    product="SEO Audit",
+    price=149,
+    transcript="",
+    cid="c1",
+    contact_email=None,
+    prospect_id="pr_9",
+):
     ls = {
         "company": "Dave's Diner",
         "pain_points": ["no working website"],
@@ -44,7 +52,7 @@ def test_detect_close_builds_pending_with_stripe_link():
 
 
 def test_no_close_when_validated_product_null():
-    call = _closed_call(product="")           # null/empty => not a close
+    call = _closed_call(product="")  # null/empty => not a close
     assert ch.detect_close(call) is None
 
 
@@ -57,8 +65,7 @@ def test_missing_email_flags_needs_email():
 
 
 def test_structured_contact_email_preferred():
-    call = _closed_call(contact_email="owner@shop.com",
-                        transcript="User: also cc random@else.com")
+    call = _closed_call(contact_email="owner@shop.com", transcript="User: also cc random@else.com")
     p = ch.detect_close(call)
     assert p.email == "owner@shop.com"
     assert p.email_confidence == "structured"
@@ -67,7 +74,7 @@ def test_structured_contact_email_preferred():
 def test_hustleforge_email_in_transcript_ignored():
     call = _closed_call(transcript="AI: this is morgan@hustleforge.tech calling")
     p = ch.detect_close(call)
-    assert p.email == "" and p.needs_email is True   # Morgan's own address skipped
+    assert p.email == "" and p.needs_email is True  # Morgan's own address skipped
 
 
 def test_queue_is_idempotent(tmp_path, monkeypatch):
@@ -89,5 +96,6 @@ def test_queue_skips_non_closes(tmp_path, monkeypatch):
     monkeypatch.setattr(ch.storage, "root", lambda: tmp_path)
     calls = [_closed_call(product="", cid="nope")]
     assert ch.queue_close_handoffs(calls) == []
-    assert not (tmp_path / "voice" / "close_handoffs").exists() or \
-        not list((tmp_path / "voice" / "close_handoffs").glob("pending_*.json"))
+    assert not (tmp_path / "voice" / "close_handoffs").exists() or not list(
+        (tmp_path / "voice" / "close_handoffs").glob("pending_*.json")
+    )

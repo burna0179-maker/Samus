@@ -39,6 +39,7 @@ Design notes:
     an *optional* extra (``httpx[http2]``) detected opportunistically below —
     absent it, outbound fetches transparently use HTTP/1.1.
 """
+
 from __future__ import annotations
 
 import concurrent.futures
@@ -70,7 +71,8 @@ _DNS_RESOLVE_TIMEOUT = 5.0
 # a stuck ``getaddrinfo`` (the very case we are bounding) never blocks process
 # exit; a small cap keeps a batch run from spawning unbounded threads.
 _DNS_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
-    max_workers=8, thread_name_prefix="safe-fetch-dns",
+    max_workers=8,
+    thread_name_prefix="safe-fetch-dns",
 )
 
 _ALLOWED_SCHEMES: frozenset[str] = frozenset({"http", "https"})
@@ -90,8 +92,7 @@ BROWSER_USER_AGENT = (
 BROWSER_HEADERS: dict[str, str] = {
     "User-Agent": BROWSER_USER_AGENT,
     "Accept": (
-        "text/html,application/xhtml+xml,application/xml;q=0.9,"
-        "image/avif,image/webp,*/*;q=0.8"
+        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"
     ),
     "Accept-Language": "en-US,en;q=0.9",
 }
@@ -127,7 +128,10 @@ _CGNAT_NETWORK_V4 = ipaddress.ip_network("100.64.0.0/10")
 # pass their own ``httpx.Timeout`` for per-endpoint tuning (PageSpeed's
 # 25s Lighthouse render, the crawler's snappier budget).
 _DEFAULT_TIMEOUT: httpx.Timeout = httpx.Timeout(
-    connect=5.0, read=15.0, write=10.0, pool=5.0,
+    connect=5.0,
+    read=15.0,
+    write=10.0,
+    pool=5.0,
 )
 
 
@@ -145,6 +149,7 @@ def bounded_timeout(
     pool independently instead of a scalar that a slow-trickle read can defeat.
     """
     return httpx.Timeout(connect=connect, read=read, write=write, pool=pool)
+
 
 # Redirect hops walked + re-validated before giving up. SNS / SEO targets do
 # not need deep redirect chains; a small ceiling also bounds the guard cost.
@@ -199,7 +204,9 @@ def _is_forbidden_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
 
 
 def _resolved_addresses(
-    host: str, port: int, resolver: Resolver,
+    host: str,
+    port: int,
+    resolver: Resolver,
 ) -> list[ipaddress.IPv4Address | ipaddress.IPv6Address] | None:
     """Resolve ``host`` to its IPs. Returns ``None`` on resolution failure.
 
@@ -245,7 +252,10 @@ def _default_resolver(host: str, port: int) -> list:
     transport fail naturally") rather than hanging the caller.
     """
     future = _DNS_EXECUTOR.submit(
-        socket.getaddrinfo, host, port, type=socket.SOCK_STREAM,
+        socket.getaddrinfo,
+        host,
+        port,
+        type=socket.SOCK_STREAM,
     )
     try:
         return future.result(timeout=_DNS_RESOLVE_TIMEOUT)
@@ -254,12 +264,11 @@ def _default_resolver(host: str, port: int) -> list:
         # background; we abandon the result. Report as a resolution failure.
         future.cancel()
         _LOG.warning(
-            "safe_fetch: DNS resolution for %r exceeded %.1fs — treating as "
-            "unresolved", host, _DNS_RESOLVE_TIMEOUT,
+            "safe_fetch: DNS resolution for %r exceeded %.1fs — treating as unresolved",
+            host,
+            _DNS_RESOLVE_TIMEOUT,
         )
-        raise socket.gaierror(
-            f"getaddrinfo timed out after {_DNS_RESOLVE_TIMEOUT}s"
-        ) from exc
+        raise socket.gaierror(f"getaddrinfo timed out after {_DNS_RESOLVE_TIMEOUT}s") from exc
 
 
 def assert_public_http_url(url: str, *, resolver: Resolver | None = None) -> None:
@@ -282,9 +291,7 @@ def assert_public_http_url(url: str, *, resolver: Resolver | None = None) -> Non
 
     scheme = (parsed.scheme or "").lower()
     if scheme not in _ALLOWED_SCHEMES:
-        raise SsrfBlockedError(
-            f"scheme {scheme!r} not permitted (only http/https)"
-        )
+        raise SsrfBlockedError(f"scheme {scheme!r} not permitted (only http/https)")
 
     host = parsed.host or ""
     if not host:
@@ -302,9 +309,7 @@ def assert_public_http_url(url: str, *, resolver: Resolver | None = None) -> Non
 
     for ip in addrs:
         if _is_forbidden_ip(ip):
-            raise SsrfBlockedError(
-                f"host {host!r} resolves to non-public address {ip} — blocked"
-            )
+            raise SsrfBlockedError(f"host {host!r} resolves to non-public address {ip} — blocked")
 
 
 def safe_get(
@@ -371,7 +376,9 @@ def safe_get(
             # the kwarg.
             try:
                 response = client.get(
-                    current, headers=headers or {}, timeout=timeout,
+                    current,
+                    headers=headers or {},
+                    timeout=timeout,
                 )
             except TypeError:
                 # Test-double client.get without a ``timeout`` kwarg — fall back
@@ -399,12 +406,11 @@ def safe_get(
         # ``SsrfBlockedError``.
         if max_bytes is not None:
             from .net_limits import check_httpx_size
+
             check_httpx_size(response, max_bytes=max_bytes, source="safe_get")
         return response
 
-    raise SsrfBlockedError(
-        f"exceeded {max_redirects} redirects while fetching {url!r}"
-    )
+    raise SsrfBlockedError(f"exceeded {max_redirects} redirects while fetching {url!r}")
 
 
 __all__ = [

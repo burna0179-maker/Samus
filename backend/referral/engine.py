@@ -5,6 +5,7 @@ effect is an optional append to a JSONL tracking ledger. Codes are
 deterministic (a hash of referrer id + program salt) so the same customer
 always gets the same shareable code — idempotent and test-stable.
 """
+
 from __future__ import annotations
 
 import hashlib

@@ -17,6 +17,7 @@ Every delta is written through ``backend.common.audit.record`` (HMAC-chained).
 accrues before the operator arms enforcement; ``check`` is a no-op ALLOW until
 ``settings.karma_gate_enabled`` is true.
 """
+
 from __future__ import annotations
 
 import logging
@@ -36,21 +37,21 @@ from backend.strategy.trust_scorer import (
 _LOG = logging.getLogger("samus.governance.karma.engine")
 
 DEFAULT_ACTOR = "samus"
-HALF_LIFE_DAYS = 14.0   # deviation from baseline halves every 14 idle days
-BASE_ALPHA = 0.15       # EMA step for a unit-magnitude, unit-weight outcome
+HALF_LIFE_DAYS = 14.0  # deviation from baseline halves every 14 idle days
+BASE_ALPHA = 0.15  # EMA step for a unit-magnitude, unit-weight outcome
 
 # outcome -> [(dimension, signed_weight)]; +weight rewards toward 1.0, -penalty
 # toward 0.0. Dimensions are exactly trust_scorer's four signals.
 _OUTCOMES: dict[str, list[tuple[str, float]]] = {
-    "send_success":  [("success_rate", +0.5)],
-    "reply":         [("success_rate", +1.0), ("stability_score", +0.5)],
-    "deal_won":      [("success_rate", +1.0), ("stability_score", +1.0)],
-    "bounce":        [("resource_efficiency", -0.6)],
-    "complaint":     [("policy_compliance", -1.0), ("success_rate", -0.5)],
-    "unsubscribe":   [("success_rate", -0.3)],
-    "policy_block":  [("policy_compliance", -1.0)],
-    "gate_denied":   [("policy_compliance", -0.6)],
-    "efh_refusal":   [("policy_compliance", -1.0), ("stability_score", -0.5)],
+    "send_success": [("success_rate", +0.5)],
+    "reply": [("success_rate", +1.0), ("stability_score", +0.5)],
+    "deal_won": [("success_rate", +1.0), ("stability_score", +1.0)],
+    "bounce": [("resource_efficiency", -0.6)],
+    "complaint": [("policy_compliance", -1.0), ("success_rate", -0.5)],
+    "unsubscribe": [("success_rate", -0.3)],
+    "policy_block": [("policy_compliance", -1.0)],
+    "gate_denied": [("policy_compliance", -0.6)],
+    "efh_refusal": [("policy_compliance", -1.0), ("stability_score", -0.5)],
     "heat_critical": [("stability_score", -1.0)],
 }
 
@@ -160,7 +161,12 @@ def check(
     except Exception as exc:  # noqa: BLE001 — fail-open to innocent
         _LOG.warning("karma check errored (allowing, innocent default): %s", exc)
         return KarmaDecision(
-            True, actor, action_kind, DEFAULT_BASELINE, "autonomous", req.value,
+            True,
+            actor,
+            action_kind,
+            DEFAULT_BASELINE,
+            "autonomous",
+            req.value,
             f"karma_error_failopen: {exc}",
         )
 
@@ -199,13 +205,22 @@ def apply_outcome(
 
 
 def _audit_delta(
-    actor: str, outcome: str, before: dict, after: dict, ref: str,
+    actor: str,
+    outcome: str,
+    before: dict,
+    after: dict,
+    ref: str,
 ) -> None:
     try:
         from backend.common import audit
+
         audit.record(
-            "karma.delta", actor=actor, outcome=outcome,
-            before=before, after=after, ref=ref,
+            "karma.delta",
+            actor=actor,
+            outcome=outcome,
+            before=before,
+            after=after,
+            ref=ref,
         )
     except Exception as exc:  # noqa: BLE001
         _LOG.warning("karma audit append failed: %s", exc)

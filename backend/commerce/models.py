@@ -1,4 +1,5 @@
 """Lean dataclasses for the Medusa commerce surface (stdlib-only)."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -10,7 +11,7 @@ class MedusaProduct:
     id: str
     title: str
     description: str = ""
-    status: str = "draft"          # draft | proposed | published | rejected
+    status: str = "draft"  # draft | proposed | published | rejected
     price_usd_cents: int = 0
     currency: str = "usd"
     thumbnail: str = ""
@@ -33,9 +34,14 @@ class MedusaProduct:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "id": self.id, "title": self.title, "description": self.description,
-            "status": self.status, "price_usd_cents": self.price_usd_cents,
-            "currency": self.currency, "thumbnail": self.thumbnail, "handle": self.handle,
+            "id": self.id,
+            "title": self.title,
+            "description": self.description,
+            "status": self.status,
+            "price_usd_cents": self.price_usd_cents,
+            "currency": self.currency,
+            "thumbnail": self.thumbnail,
+            "handle": self.handle,
         }
 
 
@@ -68,9 +74,13 @@ class MedusaOrder:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "id": self.id, "display_id": self.display_id, "email": self.email,
-            "status": self.status, "total_usd_cents": self.total_usd_cents,
-            "currency": self.currency, "created_at": self.created_at,
+            "id": self.id,
+            "display_id": self.display_id,
+            "email": self.email,
+            "status": self.status,
+            "total_usd_cents": self.total_usd_cents,
+            "currency": self.currency,
+            "created_at": self.created_at,
             "item_count": len(self.items),
         }
 

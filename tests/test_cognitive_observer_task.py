@@ -4,6 +4,7 @@ Focus is the pure reasoning function ``should_fire_now`` -- the "when" of
 Samus grading its own forecasts, isolated from the calibration diagnostic's
 I/O. Mirrors ``tests/test_eod_task.py``.
 """
+
 import pytest
 
 import backend.gateway.cognitive_observer_task as co
@@ -23,6 +24,7 @@ def isolated_root(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_ARTIFACT_ROOT", str(tmp_path))
     # Reset the storage._ROOT back-compat alias so env-var wins in this test.
     from backend.common import storage
+
     monkeypatch.setattr(storage, "_ROOT", None, raising=False)
     return tmp_path
 
@@ -59,11 +61,11 @@ def test_respects_custom_window(monkeypatch, isolated_root):
     _clear_env(monkeypatch)
     monkeypatch.setenv(co.ENV_HOUR, "1")
     monkeypatch.setenv(co.ENV_LATEST, "3")
-    fire, _ = co.should_fire_now("2026-07-07", 1)   # newly inside
+    fire, _ = co.should_fire_now("2026-07-07", 1)  # newly inside
     assert fire is True
-    fire, _ = co.should_fire_now("2026-07-07", 0)   # still below
+    fire, _ = co.should_fire_now("2026-07-07", 0)  # still below
     assert fire is False
-    fire, _ = co.should_fire_now("2026-07-07", 3)   # at cap (excl)
+    fire, _ = co.should_fire_now("2026-07-07", 3)  # at cap (excl)
     assert fire is False
 
 
@@ -77,7 +79,7 @@ def test_skips_when_master_disabled(monkeypatch, isolated_root):
 
 def test_skips_when_report_already_ran_today(monkeypatch, isolated_root):
     _clear_env(monkeypatch)
-    _write_report(isolated_root, "2026-07-07")   # today's report already exists
+    _write_report(isolated_root, "2026-07-07")  # today's report already exists
     fire, reason = co.should_fire_now("2026-07-07", 3)
     assert fire is False
     assert "already ran" in reason

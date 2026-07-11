@@ -12,6 +12,7 @@ Routes ``envelope.action`` to the appropriate handler:
 Wraps ``backend.common.worker_base`` in try/except so the module imports
 cleanly even if the base class is unavailable.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -48,10 +49,7 @@ try:
             # plan_execution
             # ------------------------------------------------------------------
             if action == "plan_execution":
-                task_id = (
-                    getattr(envelope, "task_id", "")
-                    or getattr(envelope, "id", "")
-                )
+                task_id = getattr(envelope, "task_id", "") or getattr(envelope, "id", "")
                 metadata = getattr(envelope, "metadata", None) or {}
                 return plan_fulfillment(task_id, payload, metadata)
 
@@ -69,9 +67,7 @@ try:
             if action == "execute_plan":
                 plan = plan_from_dict(payload["plan"])
                 settings = get_settings()
-                gateway = settings.gateway_urls.get(
-                    "gateway", "http://samus-gateway:8080"
-                )
+                gateway = settings.gateway_urls.get("gateway", "http://samus-gateway:8080")
                 result = asyncio.run(
                     execute_plan(
                         plan,
@@ -132,9 +128,7 @@ except Exception as exc:  # pragma: no cover
 
 def main() -> None:
     if _IMPORT_ERROR is not None or serve_worker is None:
-        raise NotImplementedError(
-            f"worker_base unavailable; import failed: {_IMPORT_ERROR!r}"
-        )
+        raise NotImplementedError(f"worker_base unavailable; import failed: {_IMPORT_ERROR!r}")
     settings = AwsWorkerSettings.from_env(  # type: ignore[union-attr]
         "fulfillment", "SQS_FULFILLMENT_QUEUE_URL"
     )

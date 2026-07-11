@@ -4,13 +4,13 @@ Voiceover / footage / compose are monkeypatched, so the pipeline is exercised
 end-to-end with no edge-tts, no media spend, and no ffmpeg. State writes are
 redirected to a tmp dir via SAMUS_STATE_ROOT.
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
 
 import backend.social.video.compose as compose_mod
 import backend.social.video.footage as footage_mod
-import backend.social.video.pipeline as pipeline_mod
 import backend.social.video.voiceover as voiceover_mod
 from backend.social.models import BlogInput
 from backend.social.video.pipeline import produce_reel
@@ -30,8 +30,11 @@ def _settings(**over) -> SimpleNamespace:
 
 
 def _blog() -> BlogInput:
-    return BlogInput(title="The 44% rule", summary="44% of citations come early.",
-                     key_points=["Front-load the answer", "Add an FAQ block"])
+    return BlogInput(
+        title="The 44% rule",
+        summary="44% of citations come early.",
+        key_points=["Front-load the answer", "Add an FAQ block"],
+    )
 
 
 def _wire_success(monkeypatch, tmp_path):
@@ -42,13 +45,19 @@ def _wire_success(monkeypatch, tmp_path):
         return SimpleNamespace(
             mp3_path=str(tmp_path / "voiceover.mp3"),
             srt_path=str(tmp_path / "voiceover.srt"),
-            duration_s=12.5, word_count=30,
+            duration_s=12.5,
+            word_count=30,
         )
 
     def fake_footage(segments, *, settings, out_dir, video_approved=False):
         paths = [str(tmp_path / f"shot_{i}.png") for i in range(len(segments))]
-        return paths, {"status": "ok", "generated": len(paths), "planned": len(segments),
-                       "skipped": [], "spent_usd": 0.04 * len(paths)}
+        return paths, {
+            "status": "ok",
+            "generated": len(paths),
+            "planned": len(segments),
+            "skipped": [],
+            "spent_usd": 0.04 * len(paths),
+        }
 
     def fake_compose(footage, mp3, srt, *, out_path, aspect, music_path):
         return str(out_path)
@@ -94,8 +103,14 @@ def test_voiceover_failure_is_fail_closed(monkeypatch, tmp_path):
 
 def test_no_footage_is_fail_closed(monkeypatch, tmp_path):
     _wire_success(monkeypatch, tmp_path)
-    monkeypatch.setattr(footage_mod, "generate_segment_footage",
-                        lambda *a, **k: ([], {"status": "no_api_key", "skipped": ["all:no_api_key"], "spent_usd": 0.0}))
+    monkeypatch.setattr(
+        footage_mod,
+        "generate_segment_footage",
+        lambda *a, **k: (
+            [],
+            {"status": "no_api_key", "skipped": ["all:no_api_key"], "spent_usd": 0.0},
+        ),
+    )
     res = produce_reel(_blog(), settings=_settings(), use_llm=False)
     assert res.ok is False
     assert "footage" in res.error

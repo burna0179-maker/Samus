@@ -22,6 +22,7 @@ stays behind the existing website / cash_engine / scheduler outward gates, and
 the *quality* of each generated asset is the Fable enrichment layer. That keeps
 this loop default-on and safe on any cadence.
 """
+
 from __future__ import annotations
 
 import logging
@@ -38,7 +39,11 @@ _LOG = logging.getLogger("samus.growth.house_growth_tick")
 _SEO_TARGET: int = 85
 # Severity ranking so the worst issues surface first.
 _SEVERITY_RANK: dict[str, int] = {
-    "critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4,
+    "critical": 0,
+    "high": 1,
+    "medium": 2,
+    "low": 3,
+    "info": 4,
 }
 # Max improvement hypotheses surfaced per pass (the weekly discipline).
 _MAX_HYPOTHESES: int = 5
@@ -110,15 +115,17 @@ def _decide(
     score = seo_obs.get("seo_score")
     if seo_obs.get("ok") and score is not None and score < _SEO_TARGET:
         for issue in seo_obs.get("issues", [])[:3]:
-            hypotheses.append({
-                "channel": "seo",
-                "kind": "seo_fix",
-                "priority": issue.get("severity", ""),
-                "rationale": f"SEO score {score} < target {_SEO_TARGET}",
-                "detail": issue.get("message", ""),
-                "category": issue.get("category", ""),
-                "target": profile.domain,
-            })
+            hypotheses.append(
+                {
+                    "channel": "seo",
+                    "kind": "seo_fix",
+                    "priority": issue.get("severity", ""),
+                    "rationale": f"SEO score {score} < target {_SEO_TARGET}",
+                    "detail": issue.get("message", ""),
+                    "category": issue.get("category", ""),
+                    "target": profile.domain,
+                }
+            )
 
     # 2) Content asset - rotate through pillars/keywords so coverage broadens
     #    week over week (the traffic engine: "more media -> more traffic").
@@ -127,48 +134,54 @@ def _decide(
     if pillars:
         pillar = pillars[pass_index % len(pillars)]
         keyword = keywords[pass_index % len(keywords)] if keywords else ""
-        hypotheses.append({
-            "channel": "content",
-            "kind": "content_asset",
-            "priority": "medium",
-            "rationale": "weekly pillar coverage (traffic engine)",
-            "detail": pillar,
-            "target_keyword": keyword,
-            "channels": [c for c in profile.channels if c in _CONTENT_CHANNELS],
-        })
+        hypotheses.append(
+            {
+                "channel": "content",
+                "kind": "content_asset",
+                "priority": "medium",
+                "rationale": "weekly pillar coverage (traffic engine)",
+                "detail": pillar,
+                "target_keyword": keyword,
+                "channels": [c for c in profile.channels if c in _CONTENT_CHANNELS],
+            }
+        )
 
     # 3) Design upgrade - gated by the correlated health anchor. Ambition only
     #    appears once sustained financial surplus has unlocked it; conservative
     #    / standard tiers queue nothing here (protect runway).
     if budget.allows("threed_renders"):
-        hypotheses.append({
-            "channel": "website",
-            "kind": "design_upgrade",
-            "priority": "high",
-            "rationale": (
-                f"design tier '{budget.tier}' unlocked by ${budget.design_funds_usd:,.0f} "
-                f"designated funds (healthy streak {budget.healthy_streak})"
-            ),
-            "detail": (
-                f"Elevate {profile.domain} with a 3D hero render + hero animation so it "
-                f"reads like a top-tier tech firm's best work."
-            ),
-            "spend_cap_usd": budget.spend_cap_usd,
-            "capabilities": list(budget.unlocked),
-        })
+        hypotheses.append(
+            {
+                "channel": "website",
+                "kind": "design_upgrade",
+                "priority": "high",
+                "rationale": (
+                    f"design tier '{budget.tier}' unlocked by ${budget.design_funds_usd:,.0f} "
+                    f"designated funds (healthy streak {budget.healthy_streak})"
+                ),
+                "detail": (
+                    f"Elevate {profile.domain} with a 3D hero render + hero animation so it "
+                    f"reads like a top-tier tech firm's best work."
+                ),
+                "spend_cap_usd": budget.spend_cap_usd,
+                "capabilities": list(budget.unlocked),
+            }
+        )
     elif budget.allows("scroll_animations"):
-        hypotheses.append({
-            "channel": "website",
-            "kind": "design_upgrade",
-            "priority": "medium",
-            "rationale": (
-                f"design tier '{budget.tier}' unlocked by ${budget.design_funds_usd:,.0f} "
-                f"designated funds (healthy streak {budget.healthy_streak})"
-            ),
-            "detail": f"Elevate {profile.domain} with rich scroll animations + motion design.",
-            "spend_cap_usd": budget.spend_cap_usd,
-            "capabilities": list(budget.unlocked),
-        })
+        hypotheses.append(
+            {
+                "channel": "website",
+                "kind": "design_upgrade",
+                "priority": "medium",
+                "rationale": (
+                    f"design tier '{budget.tier}' unlocked by ${budget.design_funds_usd:,.0f} "
+                    f"designated funds (healthy streak {budget.healthy_streak})"
+                ),
+                "detail": f"Elevate {profile.domain} with rich scroll animations + motion design.",
+                "spend_cap_usd": budget.spend_cap_usd,
+                "capabilities": list(budget.unlocked),
+            }
+        )
 
     return hypotheses[:_MAX_HYPOTHESES]
 

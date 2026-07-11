@@ -29,6 +29,7 @@ All async bodies are driven via ``asyncio.run`` to match the existing test
 pattern in ``test_phase_f_runner.py`` / ``test_phase_g_promoter.py`` — this
 suite does NOT depend on pytest-asyncio.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -60,8 +61,9 @@ def _fake_app() -> types.SimpleNamespace:
     return types.SimpleNamespace(state=types.SimpleNamespace())
 
 
-def _make_summary(*, ok=True, errors=None, compliance_blocked=False, plan_token="t",
-                  promotion_attempted=False):
+def _make_summary(
+    *, ok=True, errors=None, compliance_blocked=False, plan_token="t", promotion_attempted=False
+):
     """Build a minimal CycleResultSummary-shaped object the cadence consumes."""
     return types.SimpleNamespace(
         ok=ok,
@@ -118,8 +120,9 @@ def test_cadence_on_master_off_ticks_fire_but_runner_not_invoked(monkeypatch):
     invocations = {"n": 0}
 
     async def _body():
-        runtime = CognitionCadenceTask(interval_seconds=0.01, jitter_seconds=0,
-                                       initial_delay_seconds=0.0)
+        runtime = CognitionCadenceTask(
+            interval_seconds=0.01, jitter_seconds=0, initial_delay_seconds=0.0
+        )
 
         async def _spy(_inp):  # pragma: no cover — must NEVER be hit while master OFF
             invocations["n"] += 1
@@ -159,8 +162,9 @@ def test_cadence_on_master_on_invokes_run_one_cycle(monkeypatch):
     invocations: list = []
 
     async def _body():
-        runtime = CognitionCadenceTask(interval_seconds=0.05, jitter_seconds=0,
-                                       initial_delay_seconds=0.0)
+        runtime = CognitionCadenceTask(
+            interval_seconds=0.05, jitter_seconds=0, initial_delay_seconds=0.0
+        )
 
         async def _spy(inp):
             invocations.append(inp)
@@ -201,8 +205,9 @@ def test_cadence_overlap_prevention_only_one_in_flight(monkeypatch):
     state = {"concurrent": 0, "max_concurrent": 0, "completed": 0}
 
     async def _body():
-        runtime = CognitionCadenceTask(interval_seconds=0.01, jitter_seconds=0,
-                                       initial_delay_seconds=0.0)
+        runtime = CognitionCadenceTask(
+            interval_seconds=0.01, jitter_seconds=0, initial_delay_seconds=0.0
+        )
 
         async def _slow_cycle(_inp):
             state["concurrent"] += 1
@@ -247,8 +252,9 @@ def test_cadence_per_cycle_exception_is_isolated(monkeypatch):
     calls = {"n": 0}
 
     async def _body():
-        runtime = CognitionCadenceTask(interval_seconds=0.02, jitter_seconds=0,
-                                       initial_delay_seconds=0.0)
+        runtime = CognitionCadenceTask(
+            interval_seconds=0.02, jitter_seconds=0, initial_delay_seconds=0.0
+        )
 
         async def _flaky(_inp):
             calls["n"] += 1
@@ -286,8 +292,9 @@ def test_cadence_broker_backoff_trips_then_resets(monkeypatch):
     _arm_master(monkeypatch, enabled=True)
 
     async def _body():
-        runtime = CognitionCadenceTask(interval_seconds=0.01, jitter_seconds=0,
-                                       initial_delay_seconds=0.0)
+        runtime = CognitionCadenceTask(
+            interval_seconds=0.01, jitter_seconds=0, initial_delay_seconds=0.0
+        )
 
         # Drive the per-tick path directly so we don't have to race a real loop.
         summaries = [
@@ -312,8 +319,7 @@ def test_cadence_broker_backoff_trips_then_resets(monkeypatch):
         # 5th consecutive broker failure trips backoff (×2.0 by default).
         await runtime._run_one_tick_safely()
         assert runtime._backoff_mult >= 2.0, (
-            f"backoff should have tripped on the 5th broker failure; "
-            f"mult={runtime._backoff_mult}"
+            f"backoff should have tripped on the 5th broker failure; mult={runtime._backoff_mult}"
         )
         assert runtime._consecutive_broker_failures == 5
 
@@ -348,8 +354,9 @@ def test_cadence_clean_shutdown_no_orphan_task(monkeypatch):
     _arm_master(monkeypatch, enabled=True)
 
     async def _body():
-        runtime = CognitionCadenceTask(interval_seconds=0.05, jitter_seconds=0,
-                                       initial_delay_seconds=0.0)
+        runtime = CognitionCadenceTask(
+            interval_seconds=0.05, jitter_seconds=0, initial_delay_seconds=0.0
+        )
 
         async def _spy(_inp):
             return _make_summary()

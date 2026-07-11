@@ -13,6 +13,7 @@ Idempotent by Stripe ``event_id`` (a webhook retry never double-credits). The
 webhook's own event ledger remains the primary durable record; this is the
 queryable outreach-attribution view built from the ``out_`` refs.
 """
+
 from __future__ import annotations
 
 import logging
@@ -38,7 +39,8 @@ def _ledger_path() -> Path:
 
 def _ledger() -> persistence.Ledger:
     return persistence.open_ledger(
-        jsonl_path=str(_ledger_path()), collection="outreach_conversions",
+        jsonl_path=str(_ledger_path()),
+        collection="outreach_conversions",
     )
 
 
@@ -59,7 +61,7 @@ class ConversionRecord:
 def prospect_id_from_ref(ref: str) -> str:
     """Return the prospect id from an ``out_<prospect_id>`` ref, else ''."""
     r = (ref or "").strip()
-    return r[len(OUT_PREFIX):] if r.startswith(OUT_PREFIX) and len(r) > len(OUT_PREFIX) else ""
+    return r[len(OUT_PREFIX) :] if r.startswith(OUT_PREFIX) and len(r) > len(OUT_PREFIX) else ""
 
 
 def record_conversion(
@@ -103,8 +105,11 @@ def record_conversion(
     try:
         ledger.append(asdict(record))
         _LOG.info(
-            "outreach conversion attributed: prospect=%s amount=$%.2f offer=%s "
-            "event=%s", prospect_id, record.amount_usd, offer_code, event_id,
+            "outreach conversion attributed: prospect=%s amount=$%.2f offer=%s event=%s",
+            prospect_id,
+            record.amount_usd,
+            offer_code,
+            event_id,
         )
     except Exception as exc:  # noqa: BLE001 — best-effort
         _LOG.warning("conversion append failed: %s", exc)
@@ -118,9 +123,11 @@ def load_conversions() -> list[ConversionRecord]:
     try:
         for rec in _ledger().scan():
             try:
-                out.append(ConversionRecord(**{
-                    k: rec.get(k) for k in ConversionRecord.__dataclass_fields__
-                }))
+                out.append(
+                    ConversionRecord(
+                        **{k: rec.get(k) for k in ConversionRecord.__dataclass_fields__}
+                    )
+                )
             except (TypeError, ValueError):
                 continue
     except Exception as exc:  # noqa: BLE001

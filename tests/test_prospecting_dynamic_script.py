@@ -3,15 +3,14 @@
 Covers generate_script and generate_script_with_pivot.
 All functions are pure; no I/O or mocking required.
 """
+
 from __future__ import annotations
 
-import pytest
 
 from backend.prospecting.dynamic_script import (
     ANGLE_HOOKS,
     PRODUCT_CLOSE,
     PRODUCT_PITCH,
-    VOICEMAIL_TEMPLATES,
     generate_script,
     generate_script_with_pivot,
 )
@@ -27,8 +26,8 @@ _FULL_INTEL = {
         "secondary": "seo_package",
     },
     "signals": {
-        "signal":  "low review count",
-        "region":  "Austin TX",
+        "signal": "low review count",
+        "region": "Austin TX",
         "keyword": "plumbing services",
     },
 }
@@ -44,16 +43,30 @@ _MINIMAL_INTEL: dict = {}
 def test_generate_script_returns_all_required_keys():
     """generate_script must return all 7 required keys."""
     result = generate_script("Acme Corp", _FULL_INTEL)
-    required = {"opener", "pitch", "close", "voicemail",
-                "pitch_angle", "primary_product", "secondary_product"}
+    required = {
+        "opener",
+        "pitch",
+        "close",
+        "voicemail",
+        "pitch_angle",
+        "primary_product",
+        "secondary_product",
+    }
     assert required == set(result.keys())
 
 
 def test_generate_script_returns_all_required_keys_minimal_intel():
     """Required keys present even with empty intel."""
     result = generate_script("Acme Corp", _MINIMAL_INTEL)
-    required = {"opener", "pitch", "close", "voicemail",
-                "pitch_angle", "primary_product", "secondary_product"}
+    required = {
+        "opener",
+        "pitch",
+        "close",
+        "voicemail",
+        "pitch_angle",
+        "primary_product",
+        "secondary_product",
+    }
     assert required == set(result.keys())
 
 
@@ -161,8 +174,16 @@ def test_generate_script_with_pivot_no_pivot_when_no_products():
 def test_generate_script_with_pivot_returns_base_keys_plus_pivot():
     """generate_script_with_pivot returns all 7 base keys plus pivot."""
     result = generate_script_with_pivot("Acme Corp", _FULL_INTEL)
-    required = {"opener", "pitch", "close", "voicemail",
-                "pitch_angle", "primary_product", "secondary_product", "pivot"}
+    required = {
+        "opener",
+        "pitch",
+        "close",
+        "voicemail",
+        "pitch_angle",
+        "primary_product",
+        "secondary_product",
+        "pivot",
+    }
     assert required == set(result.keys())
 
 

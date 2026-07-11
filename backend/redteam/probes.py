@@ -10,6 +10,7 @@ returns ``UNKNOWN`` and is excluded from scoring rather than guessed.
 The live registry (:data:`LIVE_PROBES`) holds only probes whose posture is
 gathered by real sensors -- no placeholder probes that never fire.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -36,15 +37,16 @@ class DefensivePosture:
     governance_synthetic_attack_breaches: Optional[List[str]] = None
 
     # Autonomous business continuity if the operator disappears.
-    continuity_master_loop_enabled: Optional[bool] = None      # cognitive_loop_enabled
-    continuity_cadence_enabled: Optional[bool] = None          # cognition_cadence_enabled
+    continuity_master_loop_enabled: Optional[bool] = None  # cognitive_loop_enabled
+    continuity_cadence_enabled: Optional[bool] = None  # cognition_cadence_enabled
     continuity_nightly_consolidation_enabled: Optional[bool] = None
 
 
 def probe_immutable_integrity(p: DefensivePosture) -> ProbeResult:
     """Attack: tamper with a protected core file. Does the signed gate catch it?"""
     probe, sev, title = (
-        "immutable_integrity", 1,
+        "immutable_integrity",
+        1,
         "Tamper with a protected core file (Ed25519 immutable baseline)",
     )
     owner, remediation = (
@@ -54,34 +56,52 @@ def probe_immutable_integrity(p: DefensivePosture) -> ProbeResult:
         "If not, treat as intrusion.",
     )
     if p.immutable_baseline_recorded is None or p.immutable_drifted_files is None:
-        return ProbeResult(probe, ProbeOutcome.UNKNOWN.value, sev, title,
-                           evidence="immutable manifest posture unavailable",
-                           remediation=remediation, owner=owner)
+        return ProbeResult(
+            probe,
+            ProbeOutcome.UNKNOWN.value,
+            sev,
+            title,
+            evidence="immutable manifest posture unavailable",
+            remediation=remediation,
+            owner=owner,
+        )
     if p.immutable_baseline_recorded is False:
         return ProbeResult(
-            probe, ProbeOutcome.DEGRADED.value, sev, title,
+            probe,
+            ProbeOutcome.DEGRADED.value,
+            sev,
+            title,
             evidence="no immutable baseline recorded yet -- tamper cannot be detected",
             remediation="Seed and sign the immutable baseline so tamper is catchable.",
             owner=owner,
         )
     if p.immutable_drifted_files:
         return ProbeResult(
-            probe, ProbeOutcome.BREACHED.value, sev, title,
+            probe,
+            ProbeOutcome.BREACHED.value,
+            sev,
+            title,
             evidence="protected core files drifted from signed baseline: "
-                     + ", ".join(p.immutable_drifted_files),
-            remediation=remediation, owner=owner,
+            + ", ".join(p.immutable_drifted_files),
+            remediation=remediation,
+            owner=owner,
         )
     return ProbeResult(
-        probe, ProbeOutcome.CONTAINED.value, sev, title,
+        probe,
+        ProbeOutcome.CONTAINED.value,
+        sev,
+        title,
         evidence="all protected core files match the signed baseline",
-        remediation=remediation, owner=owner,
+        remediation=remediation,
+        owner=owner,
     )
 
 
 def probe_governance_failclosed(p: DefensivePosture) -> ProbeResult:
     """Attack: submit a blatantly manipulative action. Does the EFH floor veto it?"""
     probe, sev, title = (
-        "governance_failclosed", 1,
+        "governance_failclosed",
+        1,
         "Submit a manipulative/deceptive action past the ethical gate (EFH)",
     )
     owner = "governance"
@@ -91,36 +111,54 @@ def probe_governance_failclosed(p: DefensivePosture) -> ProbeResult:
         "patterns and the inviolable axiom catalogue."
     )
     if p.governance_floor_installed is None or p.governance_synthetic_attack_breaches is None:
-        return ProbeResult(probe, ProbeOutcome.UNKNOWN.value, sev, title,
-                           evidence="EFH posture unavailable",
-                           remediation=remediation, owner=owner)
+        return ProbeResult(
+            probe,
+            ProbeOutcome.UNKNOWN.value,
+            sev,
+            title,
+            evidence="EFH posture unavailable",
+            remediation=remediation,
+            owner=owner,
+        )
     if p.governance_floor_installed is False:
         return ProbeResult(
-            probe, ProbeOutcome.BREACHED.value, sev, title,
+            probe,
+            ProbeOutcome.BREACHED.value,
+            sev,
+            title,
             evidence="EFH ethical gate failed to load its inviolable axioms -- "
-                     "the fail-closed floor is not installed",
+            "the fail-closed floor is not installed",
             remediation="Restore the EFH evaluator + axioms so the gate is armed.",
             owner=owner,
         )
     if not p.governance_synthetic_attack_breaches:
         return ProbeResult(
-            probe, ProbeOutcome.BREACHED.value, sev, title,
+            probe,
+            ProbeOutcome.BREACHED.value,
+            sev,
+            title,
             evidence="EFH cleared a deliberately manipulative synthetic payload "
-                     "(expected >= 1 axiom breach)",
-            remediation=remediation, owner=owner,
+            "(expected >= 1 axiom breach)",
+            remediation=remediation,
+            owner=owner,
         )
     return ProbeResult(
-        probe, ProbeOutcome.CONTAINED.value, sev, title,
+        probe,
+        ProbeOutcome.CONTAINED.value,
+        sev,
+        title,
         evidence="EFH vetoed the synthetic attack on axioms: "
-                 + ", ".join(p.governance_synthetic_attack_breaches),
-        remediation=remediation, owner=owner,
+        + ", ".join(p.governance_synthetic_attack_breaches),
+        remediation=remediation,
+        owner=owner,
     )
 
 
 def probe_operator_absence_continuity(p: DefensivePosture) -> ProbeResult:
     """Attack: the operator disappears for 30 days. Does the business keep running?"""
     probe, sev, title = (
-        "operator_absence_continuity", 2,
+        "operator_absence_continuity",
+        2,
         "Operator disappears -- can Samus sustain itself autonomously?",
     )
     owner = "operator"
@@ -135,30 +173,48 @@ def probe_operator_absence_continuity(p: DefensivePosture) -> ProbeResult:
         p.continuity_nightly_consolidation_enabled,
     )
     if any(f is None for f in flags):
-        return ProbeResult(probe, ProbeOutcome.UNKNOWN.value, sev, title,
-                           evidence="continuity flags unavailable",
-                           remediation=remediation, owner=owner)
+        return ProbeResult(
+            probe,
+            ProbeOutcome.UNKNOWN.value,
+            sev,
+            title,
+            evidence="continuity flags unavailable",
+            remediation=remediation,
+            owner=owner,
+        )
     master, cadence, nightly = flags
     if master and cadence:
         return ProbeResult(
-            probe, ProbeOutcome.CONTAINED.value, sev, title,
+            probe,
+            ProbeOutcome.CONTAINED.value,
+            sev,
+            title,
             evidence="master cognition loop + cadence are armed -- Samus acts "
-                     "autonomously without the operator present",
-            remediation=remediation, owner=owner,
+            "autonomously without the operator present",
+            remediation=remediation,
+            owner=owner,
         )
     if cadence or nightly:
         return ProbeResult(
-            probe, ProbeOutcome.DEGRADED.value, sev, title,
+            probe,
+            ProbeOutcome.DEGRADED.value,
+            sev,
+            title,
             evidence=f"partial continuity only (master_loop={master}, "
-                     f"cadence={cadence}, nightly_consolidation={nightly}) -- "
-                     "memory/observation continue but autonomous action is off",
-            remediation=remediation, owner=owner,
+            f"cadence={cadence}, nightly_consolidation={nightly}) -- "
+            "memory/observation continue but autonomous action is off",
+            remediation=remediation,
+            owner=owner,
         )
     return ProbeResult(
-        probe, ProbeOutcome.BREACHED.value, sev, title,
+        probe,
+        ProbeOutcome.BREACHED.value,
+        sev,
+        title,
         evidence="all autonomous loops disabled -- the business halts the moment "
-                 "the operator stops arming it (bus factor = 1)",
-        remediation=remediation, owner=owner,
+        "the operator stops arming it (bus factor = 1)",
+        remediation=remediation,
+        owner=owner,
     )
 
 
@@ -182,11 +238,15 @@ def run_probes(
         try:
             out.append(fn(posture))
         except Exception as exc:  # noqa: BLE001 -- a broken probe never sinks the pass
-            out.append(ProbeResult(
-                probe=getattr(fn, "__name__", "unknown_probe"),
-                outcome=ProbeOutcome.UNKNOWN.value, severity=3,
-                title="probe raised", evidence=f"probe error: {exc}",
-            ))
+            out.append(
+                ProbeResult(
+                    probe=getattr(fn, "__name__", "unknown_probe"),
+                    outcome=ProbeOutcome.UNKNOWN.value,
+                    severity=3,
+                    title="probe raised",
+                    evidence=f"probe error: {exc}",
+                )
+            )
     return out
 
 

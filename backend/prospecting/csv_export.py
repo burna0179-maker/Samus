@@ -3,6 +3,7 @@
 Output location: ``<artifact_root>/daily_calls/`` where artifact_root is
 ``backend.common.storage.root()`` (`SAMUS_ARTIFACT_ROOT` env override or default).
 """
+
 from __future__ import annotations
 
 import csv
@@ -15,23 +16,47 @@ from .models import ProspectRecord
 
 
 CSV_COLUMNS: tuple[str, ...] = (
-    "prospect_id", "account_id", "company_name", "phone", "website_url",
+    "prospect_id",
+    "account_id",
+    "company_name",
+    "phone",
+    "website_url",
     "website_status",
-    "city", "state", "zipcode", "industry",
-    "call_priority", "lead_score", "policy_family", "llm_cost_usd",
-    "seo_score", "security_grade",
-    "owner_name", "owner_email", "owner_title", "owner_linkedin_url",
+    "city",
+    "state",
+    "zipcode",
+    "industry",
+    "call_priority",
+    "lead_score",
+    "policy_family",
+    "llm_cost_usd",
+    "seo_score",
+    "security_grade",
+    "owner_name",
+    "owner_email",
+    "owner_title",
+    "owner_linkedin_url",
     "contact_emails",
-    "review_rating", "review_count",
-    "business_description", "business_hours", "business_categories",
-    "social_facebook", "social_instagram", "social_linkedin",
+    "review_rating",
+    "review_count",
+    "business_description",
+    "business_hours",
+    "business_categories",
+    "social_facebook",
+    "social_instagram",
+    "social_linkedin",
     "negative_review_snippets",
-    "callsheet_issues", "callsheet_offer", "callsheet_pitch",
-    "callsheet_opener", "callsheet_voicemail", "callsheet_objections",
+    "callsheet_issues",
+    "callsheet_offer",
+    "callsheet_pitch",
+    "callsheet_opener",
+    "callsheet_voicemail",
+    "callsheet_objections",
     "callsheet_finding",
     # Recycle-pass context (2026-07-03; additive — every consumer reads by
     # column name and tolerates absence in older files).
-    "recycled", "prior_touch_summary",
+    "recycled",
+    "prior_touch_summary",
 )
 
 
@@ -96,8 +121,10 @@ def write_call_list(
                     if not pid or pid in new_ids:
                         continue
                     carried.append(
-                        ["" if existing.get(col) is None else str(existing.get(col, ""))
-                         for col in CSV_COLUMNS]
+                        [
+                            "" if existing.get(col) is None else str(existing.get(col, ""))
+                            for col in CSV_COLUMNS
+                        ]
                     )
         except Exception:  # noqa: BLE001 — an unreadable prior file must not
             # block the fresh batch; fall back to write-only (old behaviour).

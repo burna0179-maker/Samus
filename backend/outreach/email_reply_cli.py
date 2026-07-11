@@ -27,6 +27,7 @@ Output is one JSON line on stdout so the script composes cleanly into
 other tools. Exit code is 0 on enroll, 2 on classifier-rejected, 1 on
 configuration / persistence failure.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -50,17 +51,15 @@ def main(argv: list[str] | None = None) -> int:
             "on an email reply (or operator override)."
         ),
     )
-    parser.add_argument("--prospect-id", required=True,
-                        help="CRM prospect_id (e.g. pr_ChIJ...)")
-    parser.add_argument("--email", default="",
-                        help="Prospect email — used by dispatch when armed")
-    parser.add_argument("--company", default="",
-                        help="Display company name")
-    parser.add_argument("--reply", default="",
-                        help="Raw reply body (required unless --override)")
-    parser.add_argument("--override", action="store_true",
-                        help="Skip classifier; enroll at fixed high score "
-                             "(operator escape hatch)")
+    parser.add_argument("--prospect-id", required=True, help="CRM prospect_id (e.g. pr_ChIJ...)")
+    parser.add_argument("--email", default="", help="Prospect email — used by dispatch when armed")
+    parser.add_argument("--company", default="", help="Display company name")
+    parser.add_argument("--reply", default="", help="Raw reply body (required unless --override)")
+    parser.add_argument(
+        "--override",
+        action="store_true",
+        help="Skip classifier; enroll at fixed high score (operator escape hatch)",
+    )
     args = parser.parse_args(argv)
 
     if not args.override and not args.reply.strip():

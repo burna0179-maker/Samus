@@ -9,9 +9,9 @@ planner + arbiter use. These tests assert each now mints a reconstructable
 DecisionRecord (actor, why, risk, journey correlation) additively, without
 changing the state machine, and fail-soft.
 """
+
 from __future__ import annotations
 
-from types import SimpleNamespace
 
 import pytest
 
@@ -32,17 +32,21 @@ VALID_STAKE = (
 def _isolate(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_STATE_ROOT", str(tmp_path))
     monkeypatch.setenv(
-        "SAMUS_BUSINESS_EVENTS_PATH", str(tmp_path / "business_events.jsonl"),
+        "SAMUS_BUSINESS_EVENTS_PATH",
+        str(tmp_path / "business_events.jsonl"),
     )
     monkeypatch.setenv("SAMUS_LEDGER_BACKEND", "jsonl")
 
 
 # --- worker fixtures -----------------------------------------------------
 
+
 def _opp(stake=VALID_STAKE, opportunity_id="op-1", prospect_id="pr-1", stage="proposal"):
     return Opportunity(
-        opportunity_id=opportunity_id, prospect_id=prospect_id,
-        stage=stage, stake_sentence=stake,
+        opportunity_id=opportunity_id,
+        prospect_id=prospect_id,
+        stage=stage,
+        stake_sentence=stake,
     )
 
 
@@ -58,15 +62,20 @@ class _WorkerCRM:
 
 
 def _job(opportunity_id="op-1", prospect_id="pr-1"):
-    return {"payload": {
-        "opportunity_id": opportunity_id, "prospect_id": prospect_id,
-        "trigger_source": "manual_review", "task_id": "ce-test",
-    }}
+    return {
+        "payload": {
+            "opportunity_id": opportunity_id,
+            "prospect_id": prospect_id,
+            "trigger_source": "manual_review",
+            "task_id": "ce-test",
+        }
+    }
 
 
 def _ok_handlers():
     def mk(detail):
         return lambda ctx: StageResult(ok=True, detail=detail)
+
     return {
         "audit": mk({"gap_report_artifact_id": "g1"}),
         "proposal": mk({"proposal_ref": "p1"}),
@@ -81,6 +90,7 @@ def _decisions(opportunity_id="op-1", actor=None):
 
 
 # --- service (front-door) fixtures --------------------------------------
+
 
 class _GateCRM:
     def __init__(self, opp=None):
@@ -105,12 +115,15 @@ def _req(**kw):
 # Worker walk — escalate / park / complete
 # ==========================================================================
 
+
 class TestWalkDecisions:
     def test_codex_block_emits_escalate_decision(self):
         handlers = _ok_handlers()
         handlers["outreach"] = lambda ctx: StageResult(
-            ok=False, codex_blocked=True,
-            violated_rule_id="VR-G8", reason="no warmth signal",
+            ok=False,
+            codex_blocked=True,
+            violated_rule_id="VR-G8",
+            reason="no warmth signal",
         )
         process_job(_job(), handlers=handlers, crm=_WorkerCRM(opp=_opp()))
 
@@ -127,7 +140,9 @@ class TestWalkDecisions:
     def test_park_emits_park_decision(self):
         handlers = _ok_handlers()
         handlers["proposal"] = lambda ctx: StageResult(
-            ok=False, parked=True, park_reason="no_route",
+            ok=False,
+            parked=True,
+            park_reason="no_route",
         )
         process_job(_job(), handlers=handlers, crm=_WorkerCRM(opp=_opp()))
 
@@ -171,7 +186,10 @@ class TestWalkDecisions:
         monkeypatch.setattr(worker_mod, "record_decision", _boom)
         handlers = _ok_handlers()
         handlers["outreach"] = lambda ctx: StageResult(
-            ok=False, codex_blocked=True, violated_rule_id="VR-G8", reason="x",
+            ok=False,
+            codex_blocked=True,
+            violated_rule_id="VR-G8",
+            reason="x",
         )
         st = process_job(_job(), handlers=handlers, crm=_WorkerCRM(opp=_opp()))
         # Walk still escalated correctly despite the telemetry fault.
@@ -183,10 +201,12 @@ class TestWalkDecisions:
 # Front door — admit / reject
 # ==========================================================================
 
+
 class TestFrontDoorDecisions:
     def test_clean_gate_emits_admitted_decision(self):
         review_opportunity(
-            _req(), crm=_GateCRM(opp=_opp()),
+            _req(),
+            crm=_GateCRM(opp=_opp()),
             enqueue=lambda **k: {"queue": "mock:test", "task_id": k["task_id"]},
         )
         recs = _decisions(actor="cash_engine_gate")
@@ -197,7 +217,8 @@ class TestFrontDoorDecisions:
 
     def test_blocked_gate_emits_escalate_decision(self):
         review_opportunity(
-            _req(), crm=_GateCRM(opp=_opp(stake="")),
+            _req(),
+            crm=_GateCRM(opp=_opp(stake="")),
             enqueue=lambda **k: None,
         )
         recs = _decisions(actor="cash_engine_gate")
@@ -214,7 +235,8 @@ class TestFrontDoorDecisions:
 
         monkeypatch.setattr(service_mod, "record_decision", _boom)
         res = review_opportunity(
-            _req(), crm=_GateCRM(opp=_opp()),
+            _req(),
+            crm=_GateCRM(opp=_opp()),
             enqueue=lambda **k: {"queue": "mock:test", "task_id": k["task_id"]},
         )
         # Front door still admitted despite the telemetry fault.

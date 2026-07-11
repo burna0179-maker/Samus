@@ -9,6 +9,7 @@ Covers:
   - Registry lookup failure surfaces clearly
   - Unknown SKU short-circuits before touching the customer store
 """
+
 from __future__ import annotations
 
 import time
@@ -20,9 +21,9 @@ from pathlib import Path
 # Fakes — same pattern as test_fulfill_orchestrator.py
 # ---------------------------------------------------------------------------
 
+
 class _FakeCustomer:
-    def __init__(self, id_: str, email: str, name: str = "",
-                 current_state: str = "prospect"):
+    def __init__(self, id_: str, email: str, name: str = "", current_state: str = "prospect"):
         self.id = id_
         self.email = email
         self.name = name
@@ -54,19 +55,28 @@ class _FakeCustomerStore:
         self.calls.append(("get_by_email", email))
         return self.customers.get(email.lower())
 
-    def create_customer(self, *, email: str, name: str = "",
-                        company: str = "", source: str = "manual",
-                        metadata: dict | None = None):
+    def create_customer(
+        self,
+        *,
+        email: str,
+        name: str = "",
+        company: str = "",
+        source: str = "manual",
+        metadata: dict | None = None,
+    ):
         self.calls.append(("create_customer", email, source))
         cust = _FakeCustomer(
             id_=f"cust_{email.replace('@', '_at_').replace('.', '_')}",
-            email=email, name=name, current_state="prospect",
+            email=email,
+            name=name,
+            current_state="prospect",
         )
         self.customers[email.lower()] = cust
         return cust
 
-    def advance_state(self, *, customer_id: str, to_state: str,
-                      reason: str = "", metadata: dict | None = None):
+    def advance_state(
+        self, *, customer_id: str, to_state: str, reason: str = "", metadata: dict | None = None
+    ):
         self.calls.append(("advance_state", customer_id, to_state, reason))
         for cust in self.customers.values():
             if cust.id == customer_id:
@@ -78,18 +88,28 @@ class _FakeCustomerStore:
 
 def _fake_send_email_capture(captured: list, message_id: str = "sg_test_123"):
     def _fn(*, to, subject, body, attachments=None):
-        captured.append({
-            "to": to, "subject": subject, "body": body,
-            "attachments": attachments,
-        })
-        return {"message_id": message_id, "channel": "sendgrid", "to": to,
-                "ts": "2026-05-16T00:00:00Z"}
+        captured.append(
+            {
+                "to": to,
+                "subject": subject,
+                "body": body,
+                "attachments": attachments,
+            }
+        )
+        return {
+            "message_id": message_id,
+            "channel": "sendgrid",
+            "to": to,
+            "ts": "2026-05-16T00:00:00Z",
+        }
+
     return _fn
 
 
 # ---------------------------------------------------------------------------
 # Happy-path tests
 # ---------------------------------------------------------------------------
+
 
 def test_playbook_fulfillment_writes_md_and_inlines_body(tmp_path: Path):
     from backend.products import fulfill_digital_product
@@ -225,6 +245,7 @@ def test_addon_fulfillment_renders_brief_and_inlines(tmp_path: Path):
 # Failure paths
 # ---------------------------------------------------------------------------
 
+
 def test_unknown_sku_fails_at_lookup_without_touching_store(tmp_path: Path):
     from backend.products import fulfill_digital_product
 
@@ -276,6 +297,7 @@ def test_send_email_failure_leaves_state_in_delivery(tmp_path: Path):
 # ---------------------------------------------------------------------------
 # Registry surface
 # ---------------------------------------------------------------------------
+
 
 def test_registry_exposes_all_seven_sku_ids():
     from backend.products import PRODUCTS, ADDONS

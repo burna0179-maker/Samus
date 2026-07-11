@@ -31,6 +31,7 @@ by the catalog workcell — see ``backend/catalog/registry.py``. The
 retainer module itself reads ``sku_id`` only; Stripe IDs live here as
 the documented single-source-of-truth join column.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -47,10 +48,11 @@ class RetainerProductConfig:
     Frozen so accidental in-place mutation in a request handler can't
     corrupt the registry for subsequent requests.
     """
+
     sku_id: str
     display_name: str
     cadence: RetainerCadence
-    cycle_id: str                     # which monthly_cycle DAG to run
+    cycle_id: str  # which monthly_cycle DAG to run
     description: str
     price_usd_cents_low: int
     price_usd_cents_high: int
@@ -103,7 +105,7 @@ RETAINER_SKUS: tuple[RetainerProductConfig, ...] = (
             "and send a visibility report showing rank movement, GSC "
             "traffic delta, and what was changed."
         ),
-        price_usd_cents_low=30000,    # $300/mo
+        price_usd_cents_low=30000,  # $300/mo
         price_usd_cents_high=30000,
         required_intake_fields=("audit_url",),
         stripe_product_id="prod_UJX2ZiARBH88n0",
@@ -121,7 +123,7 @@ RETAINER_SKUS: tuple[RetainerProductConfig, ...] = (
             "report) but sized for one focal workflow per cycle. "
             "Self-serve from hustleforge.tech/ai-ops-partner/. $2,000/mo."
         ),
-        price_usd_cents_low=200000,   # $2,000/mo
+        price_usd_cents_low=200000,  # $2,000/mo
         price_usd_cents_high=200000,
         required_intake_fields=("operations_summary",),
         stripe_product_id="prod_U913mXXZXG9REI",
@@ -139,7 +141,7 @@ RETAINER_SKUS: tuple[RetainerProductConfig, ...] = (
             "Week 4 deliver the monthly ops report. Multi-workflow "
             "scope ceiling per cycle. Flat $5,000/mo."
         ),
-        price_usd_cents_low=500000,   # $5,000/mo
+        price_usd_cents_low=500000,  # $5,000/mo
         price_usd_cents_high=500000,
         required_intake_fields=("operations_summary",),
         stripe_product_id="prod_UWt4i2QB7BZlFx",
@@ -161,7 +163,7 @@ RETAINER_SKUS: tuple[RetainerProductConfig, ...] = (
             "client (greeting, business hours, routing numbers) — hybrid "
             "delivery, no monthly deliverable cycle."
         ),
-        price_usd_cents_low=9900,     # $99/mo flat base
+        price_usd_cents_low=9900,  # $99/mo flat base
         price_usd_cents_high=9900,
         required_intake_fields=(
             "business_name",
@@ -179,9 +181,9 @@ RETAINER_SKUS: tuple[RetainerProductConfig, ...] = (
         stripe_price_id=None,
         stripe_overage_price_id=None,
         stripe_meter_event_name="receptionist_call_minutes",
-        included_units_per_cycle=0,   # pilot: bill from the first minute
+        included_units_per_cycle=0,  # pilot: bill from the first minute
         overage_unit="minute",
-        has_monthly_cycle=False,      # always-on service — no monthly DAG
+        has_monthly_cycle=False,  # always-on service — no monthly DAG
     ),
 )
 

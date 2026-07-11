@@ -1,4 +1,5 @@
 """Tests for backend.social.calendar — themes, weekly rhythm, planning."""
+
 from __future__ import annotations
 
 import json

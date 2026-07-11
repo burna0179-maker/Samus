@@ -14,6 +14,7 @@ prospect that hits both a chamber roster and the registry produces two
 distinct signals and a prospect that double-hits the registry produces
 one.
 """
+
 from __future__ import annotations
 
 import logging

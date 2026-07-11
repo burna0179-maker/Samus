@@ -24,6 +24,7 @@ Path: honors ``SAMUS_DAILY_COUNTER_PATH`` (explicit override, used by tests);
 otherwise ``<state_root>/coordination/daily_counters.jsonl`` via the canonical
 :func:`backend.common.state_paths.state_path` resolver.
 """
+
 from __future__ import annotations
 
 import datetime as _dt
@@ -73,9 +74,7 @@ def _read_rows(path: Path | None = None) -> list[dict]:
 def count_today(key: str, *, today: _dt.date | None = None) -> int:
     """Count increments recorded for ``key`` on ``today`` (default: today)."""
     day = (today or _dt.date.today()).isoformat()
-    return sum(
-        1 for r in _read_rows() if r.get("date") == day and r.get("key") == key
-    )
+    return sum(1 for r in _read_rows() if r.get("date") == day and r.get("key") == key)
 
 
 def increment(key: str, *, today: _dt.date | None = None) -> int:
@@ -89,10 +88,7 @@ def increment(key: str, *, today: _dt.date | None = None) -> int:
     day = (today or _dt.date.today()).isoformat()
     path = ledger_path()
     with _LOCK:
-        prior = sum(
-            1 for r in _read_rows(path)
-            if r.get("date") == day and r.get("key") == key
-        )
+        prior = sum(1 for r in _read_rows(path) if r.get("date") == day and r.get("key") == key)
         row = {"date": day, "key": key}
         try:
             path.parent.mkdir(parents=True, exist_ok=True)

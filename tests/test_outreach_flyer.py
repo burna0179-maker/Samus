@@ -1,6 +1,7 @@
 """Tests for backend.outreach.flyer — the matched buy-now flyer.
 
 Uses the real catalog (SKUs carry live Stripe links); no network."""
+
 from __future__ import annotations
 
 from backend.outreach import flyer
@@ -8,8 +9,12 @@ from backend.outreach import flyer
 
 def _row(**over):
     base = {
-        "prospect_id": "pr_1", "owner_email": "o@x.com", "owner_name": "Dana Reyes",
-        "company_name": "Acme Dental", "security_grade": "F", "seo_score": "80",
+        "prospect_id": "pr_1",
+        "owner_email": "o@x.com",
+        "owner_name": "Dana Reyes",
+        "company_name": "Acme Dental",
+        "security_grade": "F",
+        "seo_score": "80",
         "callsheet_finding": "a security warning grading the site an F",
     }
     base.update(over)
@@ -37,7 +42,9 @@ def test_match_offer_routes_dns_ssl():
 
 
 def test_match_offer_routes_email_deliverability():
-    offer = flyer.match_offer(_row(security_grade="", callsheet_finding="your email lands in the spam folder"))
+    offer = flyer.match_offer(
+        _row(security_grade="", callsheet_finding="your email lands in the spam folder")
+    )
     assert offer.sku_id == "addon_email_deliverability"
 
 
@@ -99,15 +106,19 @@ def test_render_featured_flyer_uses_proven_copy():
     offer = flyer.match_offer(_row(), featured_sku="service_workflow_rescue")
     link = flyer.buy_url(offer, prospect_id="pr_1", email="o@x.com")
     html = flyer.render_flyer_html(
-        company="Acme Agency", first_name="Dana", offer=offer, buy_link=link,
-        postal_address="2290 Cheim Blvd", unsubscribe_url="https://hustleforge.tech/unsubscribe",
+        company="Acme Agency",
+        first_name="Dana",
+        offer=offer,
+        buy_link=link,
+        postal_address="2290 Cheim Blvd",
+        unsubscribe_url="https://hustleforge.tech/unsubscribe",
     )
     assert "Stop doing that manual task by Friday" in html
     assert "Start My 48-Hour Automation" in html
     assert "48 hours" in html
     assert "buy.stripe.com" in html
-    assert "<img" not in html.lower()          # spam-safe
-    assert "2290 Cheim Blvd" in html            # CAN-SPAM
+    assert "<img" not in html.lower()  # spam-safe
+    assert "2290 Cheim Blvd" in html  # CAN-SPAM
     assert "Unsubscribe" in html
 
 
@@ -129,12 +140,16 @@ def test_render_flyer_escapes_company():
 # Vibrant email design upgrade (2026-07-07) — rich HTML/CSS, no raster images.
 # ---------------------------------------------------------------------------
 
+
 def _render(**over):
     row = _row(**over)
     offer = flyer.match_offer(row, featured_sku=None)
     return flyer.render_flyer_html(
-        company=row["company_name"], first_name=row["owner_name"], offer=offer,
-        buy_link="https://buy.stripe.com/test", postal_address="2290 Cheim Blvd",
+        company=row["company_name"],
+        first_name=row["owner_name"],
+        offer=offer,
+        buy_link="https://buy.stripe.com/test",
+        postal_address="2290 Cheim Blvd",
         unsubscribe_url="https://hustleforge.tech/unsubscribe",
         stake=over.get("stake", "We noticed something worth a look."),
     )
@@ -158,7 +173,7 @@ def test_vibrant_render_still_image_free_and_compliant():
     html = _render()
     assert "<img" not in html.lower()
     assert "<script" not in html.lower()
-    assert "2290 Cheim Blvd" in html          # postal address (CAN-SPAM)
+    assert "2290 Cheim Blvd" in html  # postal address (CAN-SPAM)
     assert "Unsubscribe" in html
     assert "https://hustleforge.tech/unsubscribe" in html
 
@@ -166,13 +181,17 @@ def test_vibrant_render_still_image_free_and_compliant():
 def test_vibrant_render_escapes_injection_in_company_and_stake():
     """Offer/prospect content is attacker-influenced (company names, findings);
     it must be HTML-escaped so a crafted value can't inject markup."""
-    row = _row(company_name='Acme <script>alert(1)</script> Co')
+    row = _row(company_name="Acme <script>alert(1)</script> Co")
     offer = flyer.match_offer(row, featured_sku=None)
     html = flyer.render_flyer_html(
-        company=row["company_name"], first_name=row["owner_name"], offer=offer,
-        buy_link="https://buy.stripe.com/test", postal_address="2290 Cheim Blvd",
+        company=row["company_name"],
+        first_name=row["owner_name"],
+        offer=offer,
+        buy_link="https://buy.stripe.com/test",
+        postal_address="2290 Cheim Blvd",
         unsubscribe_url="https://hustleforge.tech/unsubscribe",
-        stake='<img src=x onerror=alert(1)>')
+        stake="<img src=x onerror=alert(1)>",
+    )
     assert "<script>alert(1)</script>" not in html
     assert "<img src=x onerror" not in html
     assert "&lt;script&gt;" in html  # crafted company present, escaped
@@ -183,9 +202,14 @@ def test_vibrant_featured_render_has_feature_grid():
     offer = flyer.match_offer(row, featured_sku="service_workflow_rescue")
     assert offer.kind == "featured"
     html = flyer.render_flyer_html(
-        company="Acme", first_name="Dana", offer=offer,
-        buy_link="https://buy.stripe.com/test", postal_address="2290 Cheim Blvd",
-        unsubscribe_url="https://hustleforge.tech/unsubscribe", stake="")
+        company="Acme",
+        first_name="Dana",
+        offer=offer,
+        buy_link="https://buy.stripe.com/test",
+        postal_address="2290 Cheim Blvd",
+        unsubscribe_url="https://hustleforge.tech/unsubscribe",
+        stake="",
+    )
     # featured offers carry bullets -> the 2-col check grid renders
     assert "&#10003;" in html  # check mark
     assert html.count("<table") >= 5
@@ -211,10 +235,18 @@ def test_send_message_forwards_html_body_to_backend(monkeypatch):
     # Neutralize suppression / compliance side-lookups that need AWS/DDB.
     monkeypatch.setattr(svc, "_check_harm_suppression", lambda req: None, raising=False)
 
-    svc.send_message(OutreachMessageRequest(
-        prospect_id="pr_test", channel="email", template_id="cash_engine_initial",
-        body="plain text fallback", html_body="<body>VIBRANT</body>",
-        to="t@example.com", subject="Test", company="Acme"))
+    svc.send_message(
+        OutreachMessageRequest(
+            prospect_id="pr_test",
+            channel="email",
+            template_id="cash_engine_initial",
+            body="plain text fallback",
+            html_body="<body>VIBRANT</body>",
+            to="t@example.com",
+            subject="Test",
+            company="Acme",
+        )
+    )
 
     assert captured["html_body"] == "<body>VIBRANT</body>"
     assert captured["body"] == "plain text fallback"  # multipart text part intact
@@ -223,6 +255,7 @@ def test_send_message_forwards_html_body_to_backend(monkeypatch):
 # ---------------------------------------------------------------------------
 # flyer_html_for — the ONE reusable attach every promo path calls.
 # ---------------------------------------------------------------------------
+
 
 class _FakeProspect:
     company_name = "Acme Dental"
@@ -235,19 +268,25 @@ class _FakeProspect:
 
 def test_flyer_html_for_from_object_prospect():
     html = flyer.flyer_html_for(
-        prospect_id="pr_9", to_email="o@acme.example", prospect=_FakeProspect(),
-        stake="We found an F security grade.")
+        prospect_id="pr_9",
+        to_email="o@acme.example",
+        prospect=_FakeProspect(),
+        stake="We found an F security grade.",
+    )
     assert html  # non-empty
-    assert "buy.stripe.com" in html          # buy button present (impulse purchase)
+    assert "buy.stripe.com" in html  # buy button present (impulse purchase)
     assert "client_reference_id=out_pr_9" in html  # attribution on the CTA
-    assert "<table" in html                  # vibrant structure
-    assert "<img" not in html.lower()        # image-free
+    assert "<table" in html  # vibrant structure
+    assert "<img" not in html.lower()  # image-free
 
 
 def test_flyer_html_for_from_row_dict():
     html = flyer.flyer_html_for(
-        prospect_id="pr_7", to_email="x@y.com",
-        row={"company_name": "Beta LLC", "security_grade": "D"}, stake="")
+        prospect_id="pr_7",
+        to_email="x@y.com",
+        row={"company_name": "Beta LLC", "security_grade": "D"},
+        stake="",
+    )
     assert html
     assert "Beta LLC" in html
     assert "buy.stripe.com" in html
@@ -255,8 +294,8 @@ def test_flyer_html_for_from_row_dict():
 
 def test_flyer_html_for_failsoft_returns_empty(monkeypatch):
     """A render fault must return '' (caller sends text), never raise."""
-    monkeypatch.setattr(flyer, "match_offer",
-                        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
-    out = flyer.flyer_html_for(prospect_id="p", to_email="t@x.com",
-                               row={"company_name": "X"})
+    monkeypatch.setattr(
+        flyer, "match_offer", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom"))
+    )
+    out = flyer.flyer_html_for(prospect_id="p", to_email="t@x.com", row={"company_name": "X"})
     assert out == ""

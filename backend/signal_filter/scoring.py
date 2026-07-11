@@ -6,6 +6,7 @@ onto a :class:`ProspectSignal` — seven float axes, each clamped to
 dict: identical input always yields identical output, and there are no LLM
 calls or randomness anywhere in this module.
 """
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass

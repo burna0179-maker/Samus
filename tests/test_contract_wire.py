@@ -1,4 +1,5 @@
 """Tests for backend.campaigns.contract_wire — CONTRACT_SIGNED auto-start."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -15,6 +16,7 @@ from backend.campaigns.contract_wire import (
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
+
 
 def _write_campaign_yaml(tmp_path: Path, slug: str, campaign_id: str) -> Path:
     d = tmp_path / "clients" / "test_client"
@@ -48,6 +50,7 @@ def _write_campaign_yaml(tmp_path: Path, slug: str, campaign_id: str) -> Path:
 # _find_instance_path_by_slug
 # ---------------------------------------------------------------------------
 
+
 def test_find_instance_path_returns_match(tmp_path):
     _write_campaign_yaml(tmp_path, slug="abc123", campaign_id="test_campaign")
     with patch("backend.campaigns.contract_wire._CLIENTS_ROOT", tmp_path / "clients"):
@@ -76,6 +79,7 @@ def test_find_instance_path_skips_invalid_yaml(tmp_path):
 # ---------------------------------------------------------------------------
 # trigger_campaign_on_signing
 # ---------------------------------------------------------------------------
+
 
 def test_trigger_no_slug_returns_no_slug():
     result = trigger_campaign_on_signing(slug="")

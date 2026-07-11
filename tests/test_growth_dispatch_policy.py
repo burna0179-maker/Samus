@@ -4,9 +4,9 @@ Verifies the policy table structure, flag-gating (all default-OFF),
 the is_live / is_enabled predicates, route_growth_action (flag-off -> None,
 flag-on + injected handler -> result), and policy_summary shape.
 """
+
 from __future__ import annotations
 
-import os
 
 import pytest
 
@@ -32,6 +32,7 @@ _ALL_ACTIONS = {e.action for e in GROWTH_DISPATCH_TABLE}
 # Table structure
 # ---------------------------------------------------------------------------
 
+
 def test_table_has_twelve_entries():
     """Canonical count: 3 seo + 4 outreach + 2 proof + 3 referral = 12."""
     assert len(GROWTH_DISPATCH_TABLE) == 12
@@ -49,14 +50,21 @@ def test_every_entry_has_non_empty_fields():
 def test_expected_actions_registered():
     expected = {
         # seo
-        "geo_format", "aio_analyze", "aio_probe",
+        "geo_format",
+        "aio_analyze",
+        "aio_probe",
         # outreach
-        "repurpose_blog_post", "plan_social_calendar",
-        "dispatch_social_calendar", "plan_nurture",
+        "repurpose_blog_post",
+        "plan_social_calendar",
+        "dispatch_social_calendar",
+        "plan_nurture",
         # crm/proof
-        "generate_case_study", "build_proof_wall",
+        "generate_case_study",
+        "build_proof_wall",
         # crm/referral
-        "referral_code", "referral_record", "referral_qualify",
+        "referral_code",
+        "referral_record",
+        "referral_qualify",
     }
     assert expected <= _ALL_ACTIONS
 
@@ -64,12 +72,17 @@ def test_expected_actions_registered():
 def test_workcell_assignments():
     seo_actions = {"geo_format", "aio_analyze", "aio_probe"}
     outreach_actions = {
-        "repurpose_blog_post", "plan_social_calendar",
-        "dispatch_social_calendar", "plan_nurture",
+        "repurpose_blog_post",
+        "plan_social_calendar",
+        "dispatch_social_calendar",
+        "plan_nurture",
     }
     crm_actions = {
-        "generate_case_study", "build_proof_wall",
-        "referral_code", "referral_record", "referral_qualify",
+        "generate_case_study",
+        "build_proof_wall",
+        "referral_code",
+        "referral_record",
+        "referral_qualify",
     }
     by_action = {e.action: e for e in GROWTH_DISPATCH_TABLE}
     for a in seo_actions:
@@ -92,6 +105,7 @@ def test_dispatch_calendar_and_plan_nurture_are_dry_run():
 # Flag-gating: all default OFF
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(autouse=True)
 def _clear_growth_flags(monkeypatch):
     """Ensure no growth flags leak in from the environment."""
@@ -99,6 +113,7 @@ def _clear_growth_flags(monkeypatch):
         monkeypatch.delenv(flag, raising=False)
     # Reset settings cache so any reload picks up the cleared env.
     from backend.common.settings import reload_settings
+
     reload_settings()
 
 
@@ -121,6 +136,7 @@ def test_unknown_action_disabled_and_not_live():
 # Flag-gating: enabling a group flag
 # ---------------------------------------------------------------------------
 
+
 def test_seo_flag_enables_geo_format(monkeypatch):
     monkeypatch.setenv("SAMUS_GROWTH_SEO_ENABLED", "true")
     assert is_enabled("geo_format") is True
@@ -141,8 +157,12 @@ def test_seo_flag_aio_probe_enabled_but_not_live(monkeypatch):
 
 def test_social_flag_enables_outreach_actions(monkeypatch):
     monkeypatch.setenv("SAMUS_GROWTH_SOCIAL_ENABLED", "1")
-    for action in ("repurpose_blog_post", "plan_social_calendar",
-                   "dispatch_social_calendar", "plan_nurture"):
+    for action in (
+        "repurpose_blog_post",
+        "plan_social_calendar",
+        "dispatch_social_calendar",
+        "plan_nurture",
+    ):
         assert is_enabled(action) is True, f"{action} should be enabled"
 
 
@@ -181,6 +201,7 @@ def test_enabling_one_flag_does_not_cross_bleed(monkeypatch):
 # get_entry
 # ---------------------------------------------------------------------------
 
+
 def test_get_entry_returns_correct_entry():
     e = get_entry("geo_format")
     assert isinstance(e, GrowthDispatchEntry)
@@ -195,6 +216,7 @@ def test_get_entry_unknown_returns_none():
 # ---------------------------------------------------------------------------
 # route_growth_action
 # ---------------------------------------------------------------------------
+
 
 def test_route_returns_none_when_flag_off():
     result = route_growth_action("geo_format", {"drafts": {}, "keywords": []})
@@ -230,7 +252,8 @@ def test_route_handler_exception_returns_none_not_raise(monkeypatch):
         raise RuntimeError("deliberate failure")
 
     result = route_growth_action(
-        "geo_format", {},
+        "geo_format",
+        {},
         handler_map={"geo_format": _exploding},
     )
     assert result is None
@@ -239,6 +262,7 @@ def test_route_handler_exception_returns_none_not_raise(monkeypatch):
 # ---------------------------------------------------------------------------
 # policy_summary
 # ---------------------------------------------------------------------------
+
 
 def test_policy_summary_returns_list_of_dicts():
     summary = policy_summary()

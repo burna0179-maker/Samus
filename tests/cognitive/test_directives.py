@@ -1,7 +1,7 @@
 """Directives must ship WITH the package (not under the shadowed data volume)."""
+
 from __future__ import annotations
 
-from pathlib import Path
 
 from backend.cognitive.directives import (
     _DIRECTIVE_DIRS,

@@ -12,6 +12,7 @@ Fail-soft: a DocuSeal problem yields ``ContractResult(ok=False, error=...)`` so
 the caller skips the send. Durability: every generate + completion is journaled
 under ``<artifact_root>/contracts/`` first.
 """
+
 from __future__ import annotations
 
 import base64
@@ -158,9 +159,12 @@ def generate_service_agreement(req: ServiceAgreementRequest) -> ContractResult:
         _LOG.warning("generate_service_agreement failed for %s: %s", req.prospect_id, exc)
         return ContractResult(ok=False, prospect_id=req.prospect_id, error=str(exc))
     return _finalize(
-        client, submitters,
-        prospect_id=req.prospect_id, opportunity_id=req.opportunity_id,
-        company=req.company, email=req.party.email,
+        client,
+        submitters,
+        prospect_id=req.prospect_id,
+        opportunity_id=req.opportunity_id,
+        company=req.company,
+        email=req.party.email,
     )
 
 
@@ -186,9 +190,12 @@ def generate_proposal_agreement(req: ProposalAgreementRequest) -> ContractResult
         _LOG.warning("generate_proposal_agreement failed for %s: %s", req.prospect_id, exc)
         return ContractResult(ok=False, prospect_id=req.prospect_id, error=str(exc))
     return _finalize(
-        client, submitters,
-        prospect_id=req.prospect_id, opportunity_id=req.opportunity_id,
-        company=req.company, email=req.party.email,
+        client,
+        submitters,
+        prospect_id=req.prospect_id,
+        opportunity_id=req.opportunity_id,
+        company=req.company,
+        email=req.party.email,
     )
 
 

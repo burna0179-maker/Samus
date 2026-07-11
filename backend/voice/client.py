@@ -19,6 +19,7 @@ need, and httpx is already a project dependency. The api_key is injected at
 construction time (not read from env) so tests can fake the client without
 touching ``get_settings()``.
 """
+
 from __future__ import annotations
 
 import logging
@@ -48,8 +49,9 @@ class VapiClient:
     return 401 on ``POST /call``.
     """
 
-    def __init__(self, api_key: str, *, base_url: str = _BASE_URL,
-                 timeout: float = _HTTP_TIMEOUT) -> None:
+    def __init__(
+        self, api_key: str, *, base_url: str = _BASE_URL, timeout: float = _HTTP_TIMEOUT
+    ) -> None:
         if not api_key:
             raise ValueError("VapiClient requires a non-empty api_key")
         self._api_key = api_key
@@ -58,9 +60,14 @@ class VapiClient:
 
     # --- low-level ---------------------------------------------------------
 
-    def _request(self, method: str, path: str, *,
-                 params: dict[str, Any] | None = None,
-                 json_body: dict[str, Any] | None = None) -> dict[str, Any]:
+    def _request(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: dict[str, Any] | None = None,
+        json_body: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Issue an HTTP request. Raise VapiError on any failure."""
         if not path.startswith("/"):
             raise ValueError(f"path must start with /, got {path!r}")
@@ -72,8 +79,11 @@ class VapiClient:
         try:
             with httpx.Client(timeout=self._timeout) as client:
                 response = client.request(
-                    method, url, headers=headers,
-                    params=params or None, json=json_body,
+                    method,
+                    url,
+                    headers=headers,
+                    params=params or None,
+                    json=json_body,
                 )
         except httpx.HTTPError as exc:
             raise VapiError(f"vapi_transport_error: {exc}") from exc
@@ -87,16 +97,10 @@ class VapiClient:
                 err_body = {}
             message: str
             if isinstance(err_body, dict):
-                message = (
-                    err_body.get("message")
-                    or err_body.get("error")
-                    or response.text[:200]
-                )
+                message = err_body.get("message") or err_body.get("error") or response.text[:200]
             else:
                 message = response.text[:200]
-            raise VapiError(
-                f"vapi_http_{response.status_code}: {message}"
-            )
+            raise VapiError(f"vapi_http_{response.status_code}: {message}")
         # DELETE / 204 may have no body — return empty dict so callers don't
         # have to handle None.
         if response.status_code == 204 or not response.content:
@@ -122,12 +126,18 @@ class VapiClient:
 
     # --- high-level (typed) ------------------------------------------------
 
-    def create_call(self, *, assistant_id: str, phone_number_id: str,
-                    customer_number: str, customer_name: str | None = None,
-                    metadata: dict[str, Any] | None = None,
-                    variable_values: dict[str, str] | None = None,
-                    voicemail_message: str | None = None,
-                    first_message: str | None = None) -> VapiCall:
+    def create_call(
+        self,
+        *,
+        assistant_id: str,
+        phone_number_id: str,
+        customer_number: str,
+        customer_name: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        variable_values: dict[str, str] | None = None,
+        voicemail_message: str | None = None,
+        first_message: str | None = None,
+    ) -> VapiCall:
         """``POST /call`` — initiate an outbound call. Returns the created call.
 
         ``variable_values`` is forwarded as ``assistantOverrides.variableValues``
@@ -168,9 +178,7 @@ class VapiClient:
             # Only string values are guaranteed to interpolate cleanly into
             # the assistant prompt — coerce here so callers can pass
             # ints/floats without surprise.
-            overrides["variableValues"] = {
-                k: str(v) for k, v in variable_values.items()
-            }
+            overrides["variableValues"] = {k: str(v) for k, v in variable_values.items()}
         if voicemail_message:
             overrides["voicemailMessage"] = voicemail_message
         if first_message:
@@ -201,9 +209,13 @@ class VapiClient:
                 _LOG.warning("skipping malformed call row: %s", exc)
         return out
 
-    def update_assistant(self, *, assistant_id: str,
-                         server_url: str | None = None,
-                         server_url_secret: str | None = None) -> dict[str, Any]:
+    def update_assistant(
+        self,
+        *,
+        assistant_id: str,
+        server_url: str | None = None,
+        server_url_secret: str | None = None,
+    ) -> dict[str, Any]:
         """``PATCH /assistant/{id}`` — update the assistant's server config.
 
         Vapi nests serverUrl + secret under a single ``server`` object on
@@ -302,15 +314,20 @@ class VapiClient:
 
     # --- phone numbers (AI Digital Receptionist inbound DID) ---------------
 
-    def create_phone_number(self, *, assistant_id: str, name: str = "",
-                            provider: str = "vapi",
-                            area_code: str | None = None,
-                            number: str | None = None,
-                            twilio_account_sid: str | None = None,
-                            twilio_auth_token: str | None = None,
-                            twilio_api_key: str | None = None,
-                            twilio_api_secret: str | None = None,
-                            sms_enabled: bool | None = None) -> VapiPhoneNumber:
+    def create_phone_number(
+        self,
+        *,
+        assistant_id: str,
+        name: str = "",
+        provider: str = "vapi",
+        area_code: str | None = None,
+        number: str | None = None,
+        twilio_account_sid: str | None = None,
+        twilio_auth_token: str | None = None,
+        twilio_api_key: str | None = None,
+        twilio_api_secret: str | None = None,
+        sms_enabled: bool | None = None,
+    ) -> VapiPhoneNumber:
         """``POST /phone-number`` — provision a DID and bind it to an assistant.
 
         Two providers are supported, both POSTing to the same endpoint:
@@ -354,8 +371,7 @@ class VapiClient:
             # silently fall back to a different binding.
             if not num:
                 raise ValueError(
-                    "create_phone_number(provider='twilio') requires the "
-                    "E.164 number to import",
+                    "create_phone_number(provider='twilio') requires the E.164 number to import",
                 )
             if not sid:
                 raise ValueError(
@@ -416,9 +432,13 @@ class VapiClient:
                 _LOG.warning("skipping malformed phone-number row: %s", exc)
         return out
 
-    def update_phone_number(self, *, phone_number_id: str,
-                            assistant_id: str | None = None,
-                            server_url: str | None = None) -> VapiPhoneNumber:
+    def update_phone_number(
+        self,
+        *,
+        phone_number_id: str,
+        assistant_id: str | None = None,
+        server_url: str | None = None,
+    ) -> VapiPhoneNumber:
         """``PATCH /phone-number/{id}`` — rebind a DID's assistant / server URL.
 
         At least one of ``assistant_id`` / ``server_url`` must be set. Fields

@@ -15,6 +15,7 @@ will typically come back ``needs_review`` — which is the honest status for an
 auto-seeded proposal a cold prospect hasn't shaped yet: it runs to the
 operator, exactly as intended.
 """
+
 from __future__ import annotations
 
 from .models import OnboardingIntake

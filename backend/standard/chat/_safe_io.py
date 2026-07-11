@@ -1,4 +1,5 @@
 """Tiny string-based atomic-write helper local to the STANDARD chat package."""
+
 from __future__ import annotations
 
 import os

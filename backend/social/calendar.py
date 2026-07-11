@@ -11,6 +11,7 @@ separate, DRY-RUN-by-default step in :mod:`backend.social.adapters`.
 It also reports the educate/prove/engage/convert mix and flags when "convert"
 exceeds the 15% ceiling (over-selling kills organic reach).
 """
+
 from __future__ import annotations
 
 import json
@@ -107,27 +108,97 @@ def theme_for_month(month: int) -> ContentTheme:
 WEEKLY_RHYTHM: tuple[RhythmSlot, ...] = (
     # Monday — open the week's theme.
     RhythmSlot("Mon", "linkedin", "li_text", "educate", "Week-opener insight on {focus}."),
-    RhythmSlot("Mon", "instagram", "ig_carousel", "educate", "Educational carousel repurposed from the week's blog post on {focus}."),
-    RhythmSlot("Mon", "x", "x_thread", "educate", "Thread expanding the Monday insight on {focus}."),
-    RhythmSlot("Mon", "facebook", "fb_post", "educate", "Community post: accessible explainer on {focus} for the HustleForge audience."),
+    RhythmSlot(
+        "Mon",
+        "instagram",
+        "ig_carousel",
+        "educate",
+        "Educational carousel repurposed from the week's blog post on {focus}.",
+    ),
+    RhythmSlot(
+        "Mon", "x", "x_thread", "educate", "Thread expanding the Monday insight on {focus}."
+    ),
+    RhythmSlot(
+        "Mon",
+        "facebook",
+        "fb_post",
+        "educate",
+        "Community post: accessible explainer on {focus} for the HustleForge audience.",
+    ),
     # Tuesday — framework depth.
-    RhythmSlot("Tue", "linkedin", "li_carousel", "educate", "Framework/checklist carousel for {focus}."),
-    RhythmSlot("Tue", "instagram", "ig_reel", "educate", "60s reel: one specific tactic for {focus}."),
+    RhythmSlot(
+        "Tue", "linkedin", "li_carousel", "educate", "Framework/checklist carousel for {focus}."
+    ),
+    RhythmSlot(
+        "Tue", "instagram", "ig_reel", "educate", "60s reel: one specific tactic for {focus}."
+    ),
     RhythmSlot("Tue", "x", "x_tweet", "engage", "Single insight tweet on {focus}."),
     # Wednesday — proof + engagement.
-    RhythmSlot("Wed", "linkedin", "li_text", "prove", "Social-proof post (Before/After/How) tied to {focus}."),
-    RhythmSlot("Wed", "instagram", "ig_story", "engage", "Story poll/Q&A surfacing objections about {focus}."),
-    RhythmSlot("Wed", "x", "x_tweet", "engage", "Reply to 3-5 industry conversations about {focus}."),
-    RhythmSlot("Wed", "facebook", "fb_link", "convert", "Link post driving to this week's blog on {focus}; native preview."),
+    RhythmSlot(
+        "Wed",
+        "linkedin",
+        "li_text",
+        "prove",
+        "Social-proof post (Before/After/How) tied to {focus}.",
+    ),
+    RhythmSlot(
+        "Wed",
+        "instagram",
+        "ig_story",
+        "engage",
+        "Story poll/Q&A surfacing objections about {focus}.",
+    ),
+    RhythmSlot(
+        "Wed", "x", "x_tweet", "engage", "Reply to 3-5 industry conversations about {focus}."
+    ),
+    RhythmSlot(
+        "Wed",
+        "facebook",
+        "fb_link",
+        "convert",
+        "Link post driving to this week's blog on {focus}; native preview.",
+    ),
     # Thursday — drive to the blog + demo.
-    RhythmSlot("Thu", "linkedin", "li_link", "convert", "Link post to this week's blog on {focus}; link in first comment."),
-    RhythmSlot("Thu", "instagram", "ig_reel", "prove", "Reel: product demo / result showcase for {focus}."),
-    RhythmSlot("Thu", "x", "x_thread", "educate", "Thread expanding the blog post's core argument on {focus}."),
+    RhythmSlot(
+        "Thu",
+        "linkedin",
+        "li_link",
+        "convert",
+        "Link post to this week's blog on {focus}; link in first comment.",
+    ),
+    RhythmSlot(
+        "Thu", "instagram", "ig_reel", "prove", "Reel: product demo / result showcase for {focus}."
+    ),
+    RhythmSlot(
+        "Thu",
+        "x",
+        "x_thread",
+        "educate",
+        "Thread expanding the blog post's core argument on {focus}.",
+    ),
     # Friday — humanize + roundup.
-    RhythmSlot("Fri", "linkedin", "li_text", "engage", "'Wins & lessons' post, lighter tone, around {focus}."),
-    RhythmSlot("Fri", "instagram", "ig_carousel", "educate", "'Best insight of the week' roundup carousel on {focus}."),
+    RhythmSlot(
+        "Fri",
+        "linkedin",
+        "li_text",
+        "engage",
+        "'Wins & lessons' post, lighter tone, around {focus}.",
+    ),
+    RhythmSlot(
+        "Fri",
+        "instagram",
+        "ig_carousel",
+        "educate",
+        "'Best insight of the week' roundup carousel on {focus}.",
+    ),
     RhythmSlot("Fri", "x", "x_tweet", "engage", "Quotable stat or contrarian take on {focus}."),
-    RhythmSlot("Fri", "facebook", "fb_post", "engage", "Community question or discussion prompt about {focus}; invite comments."),
+    RhythmSlot(
+        "Fri",
+        "facebook",
+        "fb_post",
+        "engage",
+        "Community question or discussion prompt about {focus}; invite comments.",
+    ),
 )
 
 

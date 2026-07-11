@@ -1,4 +1,5 @@
 """Outreach workcell FastAPI service."""
+
 from __future__ import annotations
 
 import logging
@@ -14,7 +15,6 @@ from backend.common.rate_limit import rate_limit_dependency
 
 from . import closer
 from . import objection as objection_module
-from . import social_adapter
 from .models import (
     OutreachAdvanceRequest,
     OutreachLogRequest,
@@ -77,8 +77,9 @@ def _record_opt_out(email: str) -> bool:
             with open(supp_path, "a", encoding="utf-8") as fh:
                 fh.write(email + "\n")
         with open(_os.path.join(root, "opt_outs.jsonl"), "a", encoding="utf-8") as fh:
-            fh.write(_json.dumps({"ts": iso_now(), "email": email,
-                                  "source": "unsubscribe_page"}) + "\n")
+            fh.write(
+                _json.dumps({"ts": iso_now(), "email": email, "source": "unsubscribe_page"}) + "\n"
+            )
         return True
     except Exception as exc:  # noqa: BLE001
         _LOG.warning("opt-out record failed for %s: %s", email, exc)
@@ -181,6 +182,7 @@ def create_app():
         result = handle_webhook_event(event)
         if event.is_completed() and event.slug:
             from backend.campaigns.contract_wire import trigger_campaign_on_signing
+
             result["campaign_wire"] = trigger_campaign_on_signing(
                 slug=event.slug,
                 submission_id=event.submission_id,
@@ -280,23 +282,34 @@ def create_app():
                     status_code=422,
                     detail="handle_objection intel must be a dict or omitted",
                 )
-            _LOG.info("handle_objection transcript_len=%d has_intel=%s",
-                      len(transcript_text), intel is not None)
+            _LOG.info(
+                "handle_objection transcript_len=%d has_intel=%s",
+                len(transcript_text),
+                intel is not None,
+            )
             return objection_module.handle_objection(transcript_text, intel)
         if action == "advance_call_state":
             check_capability("outreach", "advance_call_state")
             payload = envelope.payload or {}
             if not isinstance(payload, dict):
-                raise HTTPException(status_code=400, detail="advance_call_state_payload_must_be_object")
+                raise HTTPException(
+                    status_code=400, detail="advance_call_state_payload_must_be_object"
+                )
             state = payload.get("state")
             if not isinstance(state, str):
-                raise HTTPException(status_code=422, detail="advance_call_state_requires_state_string")
+                raise HTTPException(
+                    status_code=422, detail="advance_call_state_requires_state_string"
+                )
             user_input = payload.get("user_input")
             if not isinstance(user_input, str):
-                raise HTTPException(status_code=422, detail="advance_call_state_requires_user_input_string")
+                raise HTTPException(
+                    status_code=422, detail="advance_call_state_requires_user_input_string"
+                )
             intel = payload.get("intel")
             if not isinstance(intel, dict) or "products" not in intel:
-                raise HTTPException(status_code=422, detail="advance_call_state_requires_intel_with_products_key")
+                raise HTTPException(
+                    status_code=422, detail="advance_call_state_requires_intel_with_products_key"
+                )
             objection_result: dict | None = payload.get("objection_result")
             _LOG.info(
                 "advance_call_state state=%s user_input_len=%d has_objection_result=%s",
@@ -334,7 +347,10 @@ def create_app():
             result = send_post(post)
             _LOG.info(
                 "send_social_post platform=%s sent=%s dry_run=%s post_id=%s",
-                platform, result.sent, result.dry_run, result.post_id,
+                platform,
+                result.sent,
+                result.dry_run,
+                result.post_id,
             )
             return asdict(result)
         if action == "compose_and_send_social_post":
@@ -364,7 +380,9 @@ def create_app():
             result = send_post(post)
             _LOG.info(
                 "compose_and_send_social_post platform=%s sent=%s dry_run=%s",
-                platform, result.sent, result.dry_run,
+                platform,
+                result.sent,
+                result.dry_run,
             )
             return {**asdict(result), "composed_body": post.body}
         # --- Growth-enrichment Phase D/E (dormant: DRY-RUN / plan-only) -------

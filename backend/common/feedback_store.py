@@ -33,6 +33,7 @@ later sit behind this same API without touching callers — see
 
 ``reset_metrics()`` wipes the store and is a TEST-ISOLATION helper only.
 """
+
 from __future__ import annotations
 
 import json
@@ -92,9 +93,7 @@ def _load() -> dict[str, Any]:
     for section in _COUNTER_SECTIONS:
         block = raw.get(section)
         if isinstance(block, dict):
-            out[section] = {
-                str(k): int(v) for k, v in block.items() if _is_int(v)
-            }
+            out[section] = {str(k): int(v) for k, v in block.items() if _is_int(v)}
     angles = raw.get("angles")
     if isinstance(angles, dict):
         for name, rec in angles.items():
@@ -120,7 +119,9 @@ def _write(data: dict[str, Any]) -> None:
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         fd, tmp = tempfile.mkstemp(
-            prefix="feedback-", suffix=".json.tmp", dir=os.path.dirname(path),
+            prefix="feedback-",
+            suffix=".json.tmp",
+            dir=os.path.dirname(path),
         )
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as fh:

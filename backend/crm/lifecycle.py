@@ -8,10 +8,10 @@ the bandit's credit signal no longer depends on a manual invocation. The hook
 is strictly fail-soft — a reward failure never blocks the CRM transition or
 the operator-task generation it rides on.
 """
+
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from backend.common.dates import hours_from_now
 
@@ -37,6 +37,7 @@ OPPORTUNITY_CLOSED_LOST_TASK_KIND = "follow_up"
 # Automatic reward trigger (Tranche 3 — close the learning loop)
 # ---------------------------------------------------------------------------
 
+
 def trigger_terminal_reward(opportunity_id: str, *, new_stage: str) -> bool:
     """Fire the ADR-004 reward computation for a terminal transition.
 
@@ -58,13 +59,17 @@ def trigger_terminal_reward(opportunity_id: str, *, new_stage: str) -> bool:
         )
         _LOG.info(
             "auto reward computed opp=%s stage=%s reward=%.3f",
-            opportunity_id, new_stage, comp.reward,
+            opportunity_id,
+            new_stage,
+            comp.reward,
         )
         return True
     except Exception as exc:  # noqa: BLE001 — fail-soft by contract
         _LOG.warning(
             "auto reward failed opp=%s stage=%s: %s",
-            opportunity_id, new_stage, exc,
+            opportunity_id,
+            new_stage,
+            exc,
         )
         return False
 
@@ -72,6 +77,7 @@ def trigger_terminal_reward(opportunity_id: str, *, new_stage: str) -> bool:
 # ---------------------------------------------------------------------------
 # Pure lifecycle functions
 # ---------------------------------------------------------------------------
+
 
 def tasks_for_new_opportunity(
     opp: Opportunity,

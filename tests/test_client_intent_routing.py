@@ -1,7 +1,8 @@
 """Tests for backend.crm.client_intent_routing.route_client_intent."""
+
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from backend.crm.client_intent_routing import (
     IntentAction,
@@ -87,10 +88,10 @@ def test_case_insensitive_lookup():
 def test_urgency_ordering_by_due_at():
     # A queue sorted ascending by due_at MUST put urgent tasks first.
     tags = [
-        "service_issue_reported",       # urgent
-        "agreed_to_move_forward",       # high
-        "counter_offered",              # normal
-        "acknowledgment",               # low
+        "service_issue_reported",  # urgent
+        "agreed_to_move_forward",  # high
+        "counter_offered",  # normal
+        "acknowledgment",  # low
     ]
     dues = [route_client_intent(t, now=_NOW).due_at for t in tags]
     assert dues == sorted(dues), (

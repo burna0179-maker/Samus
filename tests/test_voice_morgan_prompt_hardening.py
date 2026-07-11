@@ -12,6 +12,7 @@ detector missed. Two concerns:
    that snapshot, be a DRY-RUN by default (send nothing), and require --apply
    before it PATCHes the live assistant.
 """
+
 from __future__ import annotations
 
 import json
@@ -21,7 +22,10 @@ import pytest
 
 _SNAPSHOT = (
     Path(__file__).resolve().parents[1]
-    / "backend" / "voice" / "assistant_configs" / "morgan_sdr.json"
+    / "backend"
+    / "voice"
+    / "assistant_configs"
+    / "morgan_sdr.json"
 )
 
 # The canonical banned self-narration / meta-reasoning phrases from the
@@ -63,12 +67,15 @@ def _system_prompt() -> str:
 # 1. Snapshot prompt content
 # ---------------------------------------------------------------------------
 
+
 def test_snapshot_is_valid_json_and_ids_intact():
     data = json.loads(_SNAPSHOT.read_text(encoding="utf-8"))
     assert data["id"] == "9538050d-1d94-415b-a537-e59fc4039bc1"
     # firstMessage + voicemailMessage untouched by the hardening.
     assert data["firstMessage"].startswith("Oh, hey")
-    assert data["voicemailMessage"].startswith("Hey, it's Morgan from HustleForge. Sorry I missed you")
+    assert data["voicemailMessage"].startswith(
+        "Hey, it's Morgan from HustleForge. Sorry I missed you"
+    )
     # Template vars preserved.
     prompt = _system_prompt()
     for var in ("{{callsheet_voicemail}}", "{{company_name}}", "{{industry}}", "{{city}}"):
@@ -109,6 +116,7 @@ def test_output_contract_bans_thinking_out_loud():
 # ---------------------------------------------------------------------------
 # Gatekeeper handling (the 2026-07-02 receptionist-pitch leak)
 # ---------------------------------------------------------------------------
+
 
 def test_prompt_has_gatekeeper_section():
     """A dedicated GATEKEEPER HANDLING section exists, distinct from the
@@ -199,6 +207,7 @@ def test_voicemail_detection_not_weakened():
 # Gatekeeper-aware opener + withheld-finding flow (round-2 fix 2026-07-02)
 # ---------------------------------------------------------------------------
 
+
 def test_first_message_is_gatekeeper_aware_and_asks_for_the_owner():
     """The static firstMessage now asks for the owner as its close (honest
     cold-call + value teaser, no specific finding, no time-permission ask)."""
@@ -234,11 +243,13 @@ def test_prompt_reveals_finding_only_after_owner_confirmed():
     maker is on the line."""
     prompt = _system_prompt()
     # The reveal beat uses the specific-finding variable, not the coarse issues.
-    step2 = prompt[prompt.index("Step 2"):prompt.index("Step 3")]
+    step2 = prompt[prompt.index("Step 2") : prompt.index("Step 3")]
     assert "{{callsheet_finding}}" in step2
     # And it is explicitly gated on the owner / decision-maker.
     low = step2.lower()
-    assert "owner" in low and ("only" in low or "not until" in low or "do not speak it until" in low)
+    assert "owner" in low and (
+        "only" in low or "not until" in low or "do not speak it until" in low
+    )
     # It must NOT be revealed to a gatekeeper.
     assert "gatekeeper" in low
 
@@ -248,7 +259,7 @@ def test_opener_section_routes_to_decision_maker_first():
     (gatekeeper handoff vs owner-confirm) instead of a fixed finding-first
     pitch, and it does NOT re-ask 'are you the owner' as a separate beat."""
     prompt = _system_prompt()
-    opener = prompt[prompt.index("# OPENER"):prompt.index("# AFTER PERMISSION")]
+    opener = prompt[prompt.index("# OPENER") : prompt.index("# AFTER PERMISSION")]
     low = opener.lower()
     # Routes explicitly on gatekeeper vs owner.
     assert "gatekeeper" in low
@@ -277,8 +288,10 @@ def test_gatekeeper_section_does_not_double_ask_for_owner():
 # 2. sync_assistant module
 # ---------------------------------------------------------------------------
 
+
 def test_build_patch_body_prompt_only():
     from backend.voice import sync_assistant as sa
+
     snap = sa.load_snapshot()
     body = sa.build_patch_body(snap, include_voicemail=False)
     # Only the model.messages system prompt — nothing else.
@@ -293,6 +306,7 @@ def test_build_patch_body_prompt_only():
 
 def test_build_patch_body_with_voicemail():
     from backend.voice import sync_assistant as sa
+
     snap = sa.load_snapshot()
     body = sa.build_patch_body(snap, include_voicemail=True)
     assert "model" in body

@@ -8,6 +8,7 @@ completes); toggle off -> no strategy call + policy_family="".
 select_best_policy is monkeypatched in every test so the suite stays offline
 and deterministic — it never touches the real DDB-backed bandit.
 """
+
 from __future__ import annotations
 
 
@@ -15,10 +16,14 @@ def _wire_isolated_idempotency(monkeypatch):
     """Give each test its own idempotency store so runs don't cache-collide."""
     from backend.common.idempotency import IdempotencyStore
     import backend.common.idempotency as idem_mod
+
     monkeypatch.setattr(idem_mod, "GLOBAL_IDEMPOTENCY_STORE", IdempotencyStore())
     import backend.prospecting.service as svc_mod
+
     monkeypatch.setattr(
-        svc_mod, "GLOBAL_IDEMPOTENCY_STORE", idem_mod.GLOBAL_IDEMPOTENCY_STORE,
+        svc_mod,
+        "GLOBAL_IDEMPOTENCY_STORE",
+        idem_mod.GLOBAL_IDEMPOTENCY_STORE,
     )
 
 
@@ -33,12 +38,20 @@ def test_policy_family_stamped_when_toggle_on(tmp_path, monkeypatch):
 
     prospects = {
         "95993": [
-            ProspectRecord(prospect_id="pr_a", company_name="A Co",
-                           website_url="https://a.example", industry="hvac",
-                           zipcode="95993"),
-            ProspectRecord(prospect_id="pr_b", company_name="B Co",
-                           website_url="https://b.example", industry="hvac",
-                           zipcode="95993"),
+            ProspectRecord(
+                prospect_id="pr_a",
+                company_name="A Co",
+                website_url="https://a.example",
+                industry="hvac",
+                zipcode="95993",
+            ),
+            ProspectRecord(
+                prospect_id="pr_b",
+                company_name="B Co",
+                website_url="https://b.example",
+                industry="hvac",
+                zipcode="95993",
+            ),
         ],
     }
     monkeypatch.setattr(
@@ -52,10 +65,14 @@ def test_policy_family_stamped_when_toggle_on(tmp_path, monkeypatch):
     )
 
     from backend.prospecting.service import process_discovery
+
     req = DiscoveryRequest(
-        zipcodes=["95993"], industries=["hvac"],
-        enable_seo_audit=False, enable_owner_enrichment=False,
-        enable_full_audit_for_warm=False, enable_strategy_policy=True,
+        zipcodes=["95993"],
+        industries=["hvac"],
+        enable_seo_audit=False,
+        enable_owner_enrichment=False,
+        enable_full_audit_for_warm=False,
+        enable_strategy_policy=True,
         # Predates the signal_filter gate; sparse fixtures would be rejected.
         enable_signal_filter_gate=False,
     )
@@ -78,18 +95,34 @@ def test_select_best_policy_called_once_per_distinct_industry(tmp_path, monkeypa
     # 4 prospects across 2 industries (3x hvac, 1x dentist).
     prospects = {
         "95993": [
-            ProspectRecord(prospect_id="pr_1", company_name="HVAC One",
-                           website_url="https://1.example", industry="hvac",
-                           zipcode="95993"),
-            ProspectRecord(prospect_id="pr_2", company_name="HVAC Two",
-                           website_url="https://2.example", industry="hvac",
-                           zipcode="95993"),
-            ProspectRecord(prospect_id="pr_3", company_name="HVAC Three",
-                           website_url="https://3.example", industry="hvac",
-                           zipcode="95993"),
-            ProspectRecord(prospect_id="pr_4", company_name="Dental Four",
-                           website_url="https://4.example", industry="dentist",
-                           zipcode="95993"),
+            ProspectRecord(
+                prospect_id="pr_1",
+                company_name="HVAC One",
+                website_url="https://1.example",
+                industry="hvac",
+                zipcode="95993",
+            ),
+            ProspectRecord(
+                prospect_id="pr_2",
+                company_name="HVAC Two",
+                website_url="https://2.example",
+                industry="hvac",
+                zipcode="95993",
+            ),
+            ProspectRecord(
+                prospect_id="pr_3",
+                company_name="HVAC Three",
+                website_url="https://3.example",
+                industry="hvac",
+                zipcode="95993",
+            ),
+            ProspectRecord(
+                prospect_id="pr_4",
+                company_name="Dental Four",
+                website_url="https://4.example",
+                industry="dentist",
+                zipcode="95993",
+            ),
         ],
     }
     monkeypatch.setattr(
@@ -109,10 +142,14 @@ def test_select_best_policy_called_once_per_distinct_industry(tmp_path, monkeypa
     )
 
     from backend.prospecting.service import process_discovery
+
     req = DiscoveryRequest(
-        zipcodes=["95993"], industries=["hvac", "dentist"],
-        enable_seo_audit=False, enable_owner_enrichment=False,
-        enable_full_audit_for_warm=False, enable_strategy_policy=True,
+        zipcodes=["95993"],
+        industries=["hvac", "dentist"],
+        enable_seo_audit=False,
+        enable_owner_enrichment=False,
+        enable_full_audit_for_warm=False,
+        enable_strategy_policy=True,
         # Predates the signal_filter gate; sparse fixtures would be rejected.
         enable_signal_filter_gate=False,
     )
@@ -138,25 +175,34 @@ def test_strategy_failure_degrades_to_empty_policy(tmp_path, monkeypatch):
 
     monkeypatch.setattr(
         "backend.prospecting.service.discover_for_zipcode",
-        lambda **kw: [ProspectRecord(
-            prospect_id="pr_boom", company_name="Boom Co",
-            website_url="https://boom.example", industry="hvac",
-            zipcode=kw["zipcode"],
-        )],
+        lambda **kw: [
+            ProspectRecord(
+                prospect_id="pr_boom",
+                company_name="Boom Co",
+                website_url="https://boom.example",
+                industry="hvac",
+                zipcode=kw["zipcode"],
+            )
+        ],
     )
 
     def _boom(industry):
         raise RuntimeError("bandit store catastrophically unavailable")
 
     monkeypatch.setattr(
-        "backend.strategy.portfolio_manager.select_best_policy", _boom,
+        "backend.strategy.portfolio_manager.select_best_policy",
+        _boom,
     )
 
     from backend.prospecting.service import process_discovery
+
     req = DiscoveryRequest(
-        zipcodes=["95993"], industries=["hvac"],
-        enable_seo_audit=False, enable_owner_enrichment=False,
-        enable_full_audit_for_warm=False, enable_strategy_policy=True,
+        zipcodes=["95993"],
+        industries=["hvac"],
+        enable_seo_audit=False,
+        enable_owner_enrichment=False,
+        enable_full_audit_for_warm=False,
+        enable_strategy_policy=True,
         # Predates the signal_filter gate; sparse fixtures would be rejected.
         enable_signal_filter_gate=False,
     )
@@ -182,11 +228,15 @@ def test_toggle_off_skips_strategy_entirely(tmp_path, monkeypatch):
 
     monkeypatch.setattr(
         "backend.prospecting.service.discover_for_zipcode",
-        lambda **kw: [ProspectRecord(
-            prospect_id="pr_off", company_name="Off Co",
-            website_url="https://off.example", industry="hvac",
-            zipcode=kw["zipcode"],
-        )],
+        lambda **kw: [
+            ProspectRecord(
+                prospect_id="pr_off",
+                company_name="Off Co",
+                website_url="https://off.example",
+                industry="hvac",
+                zipcode=kw["zipcode"],
+            )
+        ],
     )
 
     calls: list[str] = []
@@ -196,14 +246,19 @@ def test_toggle_off_skips_strategy_entirely(tmp_path, monkeypatch):
         return "should_not_appear"
 
     monkeypatch.setattr(
-        "backend.strategy.portfolio_manager.select_best_policy", _should_not_run,
+        "backend.strategy.portfolio_manager.select_best_policy",
+        _should_not_run,
     )
 
     from backend.prospecting.service import process_discovery
+
     req = DiscoveryRequest(
-        zipcodes=["95993"], industries=["hvac"],
-        enable_seo_audit=False, enable_owner_enrichment=False,
-        enable_full_audit_for_warm=False, enable_strategy_policy=False,
+        zipcodes=["95993"],
+        industries=["hvac"],
+        enable_seo_audit=False,
+        enable_owner_enrichment=False,
+        enable_full_audit_for_warm=False,
+        enable_strategy_policy=False,
         # Predates the signal_filter gate; sparse fixtures would be rejected.
         enable_signal_filter_gate=False,
     )

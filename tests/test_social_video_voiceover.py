@@ -4,6 +4,7 @@ The edge-tts network/synthesis path is not exercised (it needs the package + a
 network call); these cover the deterministic SRT builder, the timestamp
 formatter, and the empty-input guard, which carry the real logic.
 """
+
 from __future__ import annotations
 
 import pytest

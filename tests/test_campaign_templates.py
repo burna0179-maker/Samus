@@ -1,4 +1,5 @@
 """Campaign template + graph validation tests (deliverable §11)."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -12,7 +13,6 @@ from backend.campaigns.templates import (
     load_instance,
     load_template,
     parse_template,
-    validate_graph_integrity,
 )
 
 _ROOT = Path(__file__).resolve().parents[1]
@@ -74,8 +74,18 @@ def test_loads_school_enrollment_template_from_yaml():
 def test_rejects_duplicate_node_ids():
     data = _min_template(
         nodes=[
-            {"id": "a", "type": "seo_audit", "target_workcell": "seo", "capability": "audit_and_report"},
-            {"id": "a", "type": "seo_audit", "target_workcell": "seo", "capability": "audit_and_report"},
+            {
+                "id": "a",
+                "type": "seo_audit",
+                "target_workcell": "seo",
+                "capability": "audit_and_report",
+            },
+            {
+                "id": "a",
+                "type": "seo_audit",
+                "target_workcell": "seo",
+                "capability": "audit_and_report",
+            },
         ]
     )
     with pytest.raises(TemplateError, match="duplicate node ids"):
@@ -92,8 +102,18 @@ def test_detects_cycles():
     tpl = parse_template(
         _min_template(
             nodes=[
-                {"id": "a", "type": "seo_audit", "target_workcell": "seo", "capability": "audit_and_report"},
-                {"id": "b", "type": "metrics_collection", "target_workcell": "campaigns", "capability": "update_kpis"},
+                {
+                    "id": "a",
+                    "type": "seo_audit",
+                    "target_workcell": "seo",
+                    "capability": "audit_and_report",
+                },
+                {
+                    "id": "b",
+                    "type": "metrics_collection",
+                    "target_workcell": "campaigns",
+                    "capability": "update_kpis",
+                },
             ],
             edges=[{"from": "a", "to": "b"}, {"from": "b", "to": "a"}],
         )
@@ -115,7 +135,9 @@ def test_rejects_unknown_target_workcell():
 
 def test_rejects_capability_not_exposed_by_workcell():
     data = _min_template(
-        nodes=[{"id": "a", "type": "seo_audit", "target_workcell": "seo", "capability": "send_message"}]
+        nodes=[
+            {"id": "a", "type": "seo_audit", "target_workcell": "seo", "capability": "send_message"}
+        ]
     )
     with pytest.raises(TemplateError, match="does not expose capability"):
         parse_template(data)

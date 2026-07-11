@@ -22,12 +22,12 @@ and the journey is reconstructable.  The chosen ring + its outcome are fed
 back to the attribution engine so the system learns which ring pays for
 which prospect type.
 """
+
 from __future__ import annotations
 
 import csv
 import logging
-from dataclasses import asdict, dataclass, field
-from pathlib import Path
+from dataclasses import asdict, dataclass
 from typing import Any, Sequence
 
 from backend.common.business_events_shim import emit_business_event
@@ -39,6 +39,7 @@ _LOG = logging.getLogger("samus.cash_engine.ring_cascade")
 # ---------------------------------------------------------------------------
 # Ring definitions
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class Ring:
@@ -103,6 +104,7 @@ _NON_EMAIL_RINGS = tuple(r for r in RING_LADDER if r.channel != "personal_email"
 # Ring transition record
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class RingTransition:
     """Audit record for one ring transition."""
@@ -123,6 +125,7 @@ class RingTransition:
 # ---------------------------------------------------------------------------
 # Arbiter-ranked channel selection
 # ---------------------------------------------------------------------------
+
 
 def _arbiter_ev_for_channel(
     channel: str,
@@ -181,6 +184,7 @@ def select_next_ring(
 # Ring enrollment -- dispatching to channel adapters
 # ---------------------------------------------------------------------------
 
+
 def _enroll_in_voice_ring(
     prospect: Any,
     opportunity: Any,
@@ -206,6 +210,7 @@ def _enroll_in_voice_ring(
     csv_dir.mkdir(parents=True, exist_ok=True)
 
     from datetime import date
+
     csv_path = csv_dir / f"call_list_{date.today().isoformat()}.csv"
 
     already_enrolled = False
@@ -236,14 +241,16 @@ def _enroll_in_voice_ring(
             _LOG.warning("ring_cascade voice enrollment CSV append failed: %s", exc)
 
     try:
-        crm.upsert_call_state(CallState(
-            prospect_id=prospect_id,
-            state="queued",
-            attempt_count=0,
-            next_attempt_at=iso_now(),
-            last_outcome="ring_cascade: email exhausted, enrolled for voice dial",
-            notes=f"ring_cascade for opp {opp_id}",
-        ))
+        crm.upsert_call_state(
+            CallState(
+                prospect_id=prospect_id,
+                state="queued",
+                attempt_count=0,
+                next_attempt_at=iso_now(),
+                last_outcome="ring_cascade: email exhausted, enrolled for voice dial",
+                notes=f"ring_cascade for opp {opp_id}",
+            )
+        )
     except Exception as exc:  # noqa: BLE001
         _LOG.warning("ring_cascade voice CRM upsert failed: %s", exc)
 
@@ -270,19 +277,21 @@ def _enroll_in_voicemail_ring(
     opp_id = str(getattr(opportunity, "opportunity_id", "") or "")
 
     script = _voicemail(prospect, stake_sentence)
-    artifact = crm.create_artifact(CreateArtifactRequest(
-        kind="voicemail",
-        owner_entity_kind="opportunity",
-        owner_entity_id=opp_id,
-        title="Ring cascade voicemail draft",
-        inline_data={
-            "script": script,
-            "stake_sentence": stake_sentence,
-            "source": "ring_cascade",
-        },
-        source="ring_cascade",
-        created_by="cash_engine",
-    ))
+    artifact = crm.create_artifact(
+        CreateArtifactRequest(
+            kind="voicemail",
+            owner_entity_kind="opportunity",
+            owner_entity_id=opp_id,
+            title="Ring cascade voicemail draft",
+            inline_data={
+                "script": script,
+                "stake_sentence": stake_sentence,
+                "source": "ring_cascade",
+            },
+            source="ring_cascade",
+            created_by="cash_engine",
+        )
+    )
     return {
         "enrolled": True,
         "channel": "voicemail_drop",
@@ -317,21 +326,23 @@ def _enroll_in_social_ring(
 
     from backend.crm.models import CreateArtifactRequest
 
-    artifact = crm.create_artifact(CreateArtifactRequest(
-        kind="content_draft",
-        owner_entity_kind="opportunity",
-        owner_entity_id=str(getattr(opportunity, "opportunity_id", "") or ""),
-        title=f"Social DM draft ({platform})",
-        inline_data={
-            "platform": platform,
-            "handle": handle,
-            "stake_sentence": stake_sentence,
-            "prospect_id": prospect_id,
-            "source": "ring_cascade",
-        },
-        source="ring_cascade",
-        created_by="cash_engine",
-    ))
+    artifact = crm.create_artifact(
+        CreateArtifactRequest(
+            kind="content_draft",
+            owner_entity_kind="opportunity",
+            owner_entity_id=str(getattr(opportunity, "opportunity_id", "") or ""),
+            title=f"Social DM draft ({platform})",
+            inline_data={
+                "platform": platform,
+                "handle": handle,
+                "stake_sentence": stake_sentence,
+                "prospect_id": prospect_id,
+                "source": "ring_cascade",
+            },
+            source="ring_cascade",
+            created_by="cash_engine",
+        )
+    )
     return {
         "enrolled": True,
         "channel": "social_dm",
@@ -361,14 +372,17 @@ def enroll_in_ring(
     if enroller is None:
         return {"enrolled": False, "channel": ring.channel, "reason": "no_adapter"}
     return enroller(
-        prospect, opportunity,
-        stake_sentence=stake_sentence, crm=crm,
+        prospect,
+        opportunity,
+        stake_sentence=stake_sentence,
+        crm=crm,
     )
 
 
 # ---------------------------------------------------------------------------
 # Email cap check
 # ---------------------------------------------------------------------------
+
 
 def is_email_cap_reached() -> bool:
     """True when today's email send count is at or above the daily cap."""
@@ -388,6 +402,7 @@ def is_email_cap_reached() -> bool:
 # ---------------------------------------------------------------------------
 # Cascade entry point
 # ---------------------------------------------------------------------------
+
 
 def cascade_from_email(
     prospect: Any,
@@ -411,13 +426,17 @@ def cascade_from_email(
     opp_id = str(getattr(opportunity, "opportunity_id", "") or "")
 
     ring = select_next_ring(
-        prospect, opportunity, exhausted_channels=exhausted_channels,
+        prospect,
+        opportunity,
+        exhausted_channels=exhausted_channels,
     )
 
     if ring is None:
         _LOG.info(
             "ring_cascade: ALL rings exhausted for prospect=%s opp=%s reason=%s",
-            prospect_id, opp_id, reason,
+            prospect_id,
+            opp_id,
+            reason,
         )
         emit_business_event(
             "decision.made",
@@ -444,14 +463,18 @@ def cascade_from_email(
     )
 
     enrollment = enroll_in_ring(
-        ring, prospect, opportunity,
-        stake_sentence=stake_sentence, crm=crm,
+        ring,
+        prospect,
+        opportunity,
+        stake_sentence=stake_sentence,
+        crm=crm,
     )
 
     if not enrollment.get("enrolled"):
         tried = list(exhausted_channels) + [ring.channel]
         return cascade_from_email(
-            prospect, opportunity,
+            prospect,
+            opportunity,
             stake_sentence=stake_sentence,
             crm=crm,
             reason=reason,
@@ -460,8 +483,12 @@ def cascade_from_email(
 
     _LOG.info(
         "ring_cascade: %s -> %s for prospect=%s opp=%s reason=%s ev=%.2f",
-        transition.from_channel, transition.to_channel,
-        prospect_id, opp_id, reason, ev,
+        transition.from_channel,
+        transition.to_channel,
+        prospect_id,
+        opp_id,
+        reason,
+        ev,
     )
 
     emit_business_event(
@@ -501,6 +528,7 @@ def _feed_attribution(
     """Feed the chosen ring back to the attribution/bandit so the system learns."""
     try:
         from backend.attribution.engine import build_arm_id, select_variant
+
         arm_id = build_arm_id(f"ring_cascade_{channel}")
         select_variant([arm_id])
     except Exception as exc:  # noqa: BLE001

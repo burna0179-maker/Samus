@@ -8,6 +8,7 @@ live send fan-out) without re-testing the reused compose/send internals.
 The Codex registry is loaded session-wide by conftest, so compose_body clears
 the VR-G8 / stake gate for the public_registry warmth signal the batch sets.
 """
+
 from __future__ import annotations
 
 from backend.outreach import morning_batch as mb
@@ -47,6 +48,7 @@ def _cfg(max_send: int = 10) -> CampaignConfig:
 
 def _write_csv(tmp_path, rows: list[dict]):
     import csv
+
     path = tmp_path / "call_list.csv"
     fields = sorted({k for r in rows for k in r})
     with open(path, "w", encoding="utf-8", newline="") as fh:
@@ -59,12 +61,13 @@ def _write_csv(tmp_path, rows: list[dict]):
 
 # --- filtering ---------------------------------------------------------------
 
+
 def test_filter_keeps_only_score_ge_min_with_owner_email(tmp_path):
     rows = [
-        _row("keep@a.test", "70", "A"),          # exactly at threshold -> keep
-        _row("keep2@b.test", "95", "B"),         # above -> keep
-        _row("drop-low@c.test", "69", "C"),      # below -> drop
-        _row("", "88", "D"),                     # no email -> drop
+        _row("keep@a.test", "70", "A"),  # exactly at threshold -> keep
+        _row("keep2@b.test", "95", "B"),  # above -> keep
+        _row("drop-low@c.test", "69", "C"),  # below -> drop
+        _row("", "88", "D"),  # no email -> drop
     ]
     csv_path = _write_csv(tmp_path, rows)
     kept = mb.load_hot_rows(csv_path, min_score=70)
@@ -74,9 +77,9 @@ def test_filter_keeps_only_score_ge_min_with_owner_email(tmp_path):
 
 def test_filter_handles_blank_and_nonnumeric_score(tmp_path):
     rows = [
-        _row("blank@a.test", "", "A"),           # blank score -> drop
-        _row("nan@b.test", "high", "B"),         # non-numeric -> drop
-        _row("ok@c.test", "72", "C"),            # valid -> keep
+        _row("blank@a.test", "", "A"),  # blank score -> drop
+        _row("nan@b.test", "high", "B"),  # non-numeric -> drop
+        _row("ok@c.test", "72", "C"),  # valid -> keep
     ]
     csv_path = _write_csv(tmp_path, rows)
     kept = mb.load_hot_rows(csv_path, min_score=70)
@@ -85,10 +88,13 @@ def test_filter_handles_blank_and_nonnumeric_score(tmp_path):
 
 # --- suppression -------------------------------------------------------------
 
+
 def test_suppression_skips_already_emailed():
     rows = [_row("new@a.test", "80", "A"), _row("old@b.test", "80", "B")]
     result = mb.build_batch(
-        rows, _cfg(), already_sent={"old@b.test"},
+        rows,
+        _cfg(),
+        already_sent={"old@b.test"},
     )
     tos = {m.to for m in result.messages}
     assert tos == {"new@a.test"}
@@ -97,6 +103,7 @@ def test_suppression_skips_already_emailed():
 
 
 # --- cap ---------------------------------------------------------------------
+
 
 def test_cap_respected():
     rows = [_row(f"p{i}@x.test", "80", f"Co{i}") for i in range(5)]
@@ -107,6 +114,7 @@ def test_cap_respected():
 
 
 # --- CAN-SPAM footer ---------------------------------------------------------
+
 
 def test_canspam_footer_present_in_composed_body():
     rows = [_row("footer@a.test", "80", "Acme HVAC")]
@@ -125,6 +133,7 @@ def test_stake_sentence_rendered_at_top_and_names_company():
 
 
 # --- dry-run sends nothing ---------------------------------------------------
+
 
 def test_dry_run_sends_nothing_and_writes_nothing(tmp_path, monkeypatch):
     rows = [_row("dry@a.test", "80", "A"), _row("dry2@b.test", "80", "B")]
@@ -148,6 +157,7 @@ def test_dry_run_sends_nothing_and_writes_nothing(tmp_path, monkeypatch):
 
 # --- live path calls send_email once per kept recipient ----------------------
 
+
 def test_live_calls_send_email_once_per_recipient(tmp_path, monkeypatch):
     rows = [
         _row("live1@a.test", "80", "A"),
@@ -160,9 +170,11 @@ def test_live_calls_send_email_once_per_recipient(tmp_path, monkeypatch):
     # Isolate the audit ledger to a tmp path so the live path doesn't touch
     # the real evidence tree.
     monkeypatch.setenv(
-        "SAMUS_AUDIT_LEDGER_PATH", str(artifact_root / "audit_test.jsonl"),
+        "SAMUS_AUDIT_LEDGER_PATH",
+        str(artifact_root / "audit_test.jsonl"),
     )
     from backend.common import audit_ledger
+
     audit_ledger.reset_default_ledger()
 
     calls = []
@@ -172,7 +184,8 @@ def test_live_calls_send_email_once_per_recipient(tmp_path, monkeypatch):
         return {"message_id": "mid-" + kwargs["to"], "ts": "2026-07-02T08:00:00Z"}
 
     monkeypatch.setattr(
-        "backend.common.email_backend.send_email", _fake_send,
+        "backend.common.email_backend.send_email",
+        _fake_send,
     )
 
     rc = mb.main(["--csv", csv_path])
@@ -195,16 +208,17 @@ def test_live_rerun_does_not_double_send(tmp_path, monkeypatch):
     artifact_root = tmp_path / "artifacts"
     monkeypatch.setenv("SAMUS_ARTIFACT_ROOT", str(artifact_root))
     monkeypatch.setenv(
-        "SAMUS_AUDIT_LEDGER_PATH", str(artifact_root / "audit_test.jsonl"),
+        "SAMUS_AUDIT_LEDGER_PATH",
+        str(artifact_root / "audit_test.jsonl"),
     )
     from backend.common import audit_ledger
+
     audit_ledger.reset_default_ledger()
 
     calls = []
     monkeypatch.setattr(
         "backend.common.email_backend.send_email",
-        lambda **k: (calls.append(k["to"]),
-                     {"message_id": "m", "ts": "2026-07-02T08:00:00Z"})[1],
+        lambda **k: (calls.append(k["to"]), {"message_id": "m", "ts": "2026-07-02T08:00:00Z"})[1],
     )
 
     assert mb.main(["--csv", csv_path]) == 0

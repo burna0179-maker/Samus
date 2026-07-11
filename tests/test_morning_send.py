@@ -4,11 +4,10 @@ Network is fully mocked: the SendGrid adapter is patched at the morning_send
 module level, and httpx.Client is patched for the Discord path. No live
 calls; tests pass in CI / on a clean checkout.
 """
+
 from __future__ import annotations
 
-import io
 import json
-import os
 from datetime import date
 from unittest.mock import MagicMock, patch
 
@@ -63,6 +62,7 @@ def _clean_env(monkeypatch):
 # Pure helpers
 # --------------------------------------------------------------------------
 
+
 class TestExtractHeadline:
     def test_extracts_critical_line(self):
         assert morning_send._extract_headline(_FAKE_BRIEFING) == (
@@ -89,6 +89,7 @@ class TestSubject:
 # Email channel
 # --------------------------------------------------------------------------
 
+
 class TestSendEmail:
     def test_calls_send_email_with_subject_and_html(self):
         sent: dict = {}
@@ -102,7 +103,9 @@ class TestSendEmail:
 
         with patch.object(morning_send, "send_email", side_effect=fake_send_email):
             result = morning_send._send_email(
-                _FAKE_BRIEFING, "alex@example.com", date(2026, 5, 16),
+                _FAKE_BRIEFING,
+                "alex@example.com",
+                date(2026, 5, 16),
             )
 
         assert sent["to"] == "alex@example.com"
@@ -117,6 +120,7 @@ class TestSendEmail:
 # --------------------------------------------------------------------------
 # Discord channel
 # --------------------------------------------------------------------------
+
 
 class TestSendDiscord:
     def _mk_resp(self, status=204, text=""):
@@ -165,14 +169,22 @@ class TestSendDiscord:
     def test_rejects_non_http_url(self):
         with pytest.raises(ValueError, match="http"):
             morning_send._send_discord(
-                _FAKE_BRIEFING, "not-a-url", date(2026, 5, 16),
+                _FAKE_BRIEFING,
+                "not-a-url",
+                date(2026, 5, 16),
             )
 
     def test_raises_on_4xx(self):
         class _FakeClient:
-            def __init__(self_inner, *a, **kw): pass
-            def __enter__(self_inner): return self_inner
-            def __exit__(self_inner, *exc): return False
+            def __init__(self_inner, *a, **kw):
+                pass
+
+            def __enter__(self_inner):
+                return self_inner
+
+            def __exit__(self_inner, *exc):
+                return False
+
             def post(self_inner, url, data=None, files=None):
                 r = MagicMock()
                 r.status_code = 401
@@ -192,14 +204,21 @@ class TestSendDiscord:
 # Telegram channel
 # --------------------------------------------------------------------------
 
+
 class TestSendTelegram:
     def test_posts_senddocument_with_attachment(self):
         captured: dict = {}
 
         class _FakeClient:
-            def __init__(self_inner, *a, **kw): pass
-            def __enter__(self_inner): return self_inner
-            def __exit__(self_inner, *exc): return False
+            def __init__(self_inner, *a, **kw):
+                pass
+
+            def __enter__(self_inner):
+                return self_inner
+
+            def __exit__(self_inner, *exc):
+                return False
+
             def post(self_inner, url, data=None, files=None):
                 captured["url"] = url
                 captured["data"] = data
@@ -211,7 +230,10 @@ class TestSendTelegram:
 
         with patch.object(morning_send.httpx, "Client", _FakeClient):
             result = morning_send._send_telegram(
-                _FAKE_BRIEFING, "botTOKEN", "-100123", date(2026, 5, 16),
+                _FAKE_BRIEFING,
+                "botTOKEN",
+                "-100123",
+                date(2026, 5, 16),
             )
 
         assert captured["url"] == "https://api.telegram.org/botbotTOKEN/sendDocument"
@@ -225,9 +247,15 @@ class TestSendTelegram:
 
     def test_raises_on_4xx(self):
         class _FakeClient:
-            def __init__(self_inner, *a, **kw): pass
-            def __enter__(self_inner): return self_inner
-            def __exit__(self_inner, *exc): return False
+            def __init__(self_inner, *a, **kw):
+                pass
+
+            def __enter__(self_inner):
+                return self_inner
+
+            def __exit__(self_inner, *exc):
+                return False
+
             def post(self_inner, url, data=None, files=None):
                 r = MagicMock()
                 r.status_code = 401
@@ -237,13 +265,17 @@ class TestSendTelegram:
         with patch.object(morning_send.httpx, "Client", _FakeClient):
             with pytest.raises(RuntimeError, match="telegram_http_401"):
                 morning_send._send_telegram(
-                    _FAKE_BRIEFING, "botTOKEN", "-100123", date(2026, 5, 16),
+                    _FAKE_BRIEFING,
+                    "botTOKEN",
+                    "-100123",
+                    date(2026, 5, 16),
                 )
 
 
 # --------------------------------------------------------------------------
 # Orchestration (main) — Telegram channel selection
 # --------------------------------------------------------------------------
+
 
 class TestMainTelegram:
     def test_telegram_channel_succeeds(self, monkeypatch, capsys):
@@ -253,7 +285,8 @@ class TestMainTelegram:
         with (
             patch.object(morning_send, "_build_briefing", return_value=_FAKE_BRIEFING),
             patch.object(
-                morning_send, "_send_telegram",
+                morning_send,
+                "_send_telegram",
                 return_value={"channel": "telegram", "status_code": "200", "to": "-100123"},
             ),
         ):
@@ -271,6 +304,7 @@ class TestMainTelegram:
         assert rc == 0
         out = capsys.readouterr()
         assert "telegram" not in out.out
+
     def test_skips_gracefully_when_no_channels_configured(self, capsys):
         # autouse fixture has scrubbed env, so no channels are set.
         rc = morning_send.main([])
@@ -290,11 +324,13 @@ class TestMainTelegram:
         with (
             patch.object(morning_send, "_build_briefing", return_value=_FAKE_BRIEFING),
             patch.object(
-                morning_send, "_send_email",
+                morning_send,
+                "_send_email",
                 return_value={"message_id": "m1", "channel": "email", "to": "x", "ts": "t"},
             ),
             patch.object(
-                morning_send, "_send_discord",
+                morning_send,
+                "_send_discord",
                 return_value={"channel": "discord", "status_code": "204", "to": "999"},
             ),
         ):
@@ -316,11 +352,13 @@ class TestMainTelegram:
         with (
             patch.object(morning_send, "_build_briefing", return_value=_FAKE_BRIEFING),
             patch.object(
-                morning_send, "_send_email",
+                morning_send,
+                "_send_email",
                 side_effect=morning_send.EmailBackendError("sendgrid_http_401: bad key"),
             ),
             patch.object(
-                morning_send, "_send_discord",
+                morning_send,
+                "_send_discord",
                 return_value={"channel": "discord", "status_code": "204", "to": "999"},
             ),
         ):
@@ -347,7 +385,8 @@ class TestMainTelegram:
         with (
             patch.object(morning_send, "_build_briefing", return_value=_FAKE_BRIEFING),
             patch.object(
-                morning_send, "_send_email",
+                morning_send,
+                "_send_email",
                 return_value={"message_id": "m1", "channel": "email", "to": "x", "ts": "t"},
             ),
             patch.object(morning_send, "_send_discord", side_effect=fake_discord),
@@ -361,6 +400,7 @@ class TestMainTelegram:
 # --------------------------------------------------------------------------
 # Call-list attachment (today's prospect call list -> email + Discord)
 # --------------------------------------------------------------------------
+
 
 class TestTodayCallList:
     """``_today_call_list`` looks up today's prospect call list under the
@@ -401,6 +441,7 @@ class TestTodayCallList:
 
         # Patch storage.root to blow up; helper should return None.
         from backend.common import storage
+
         monkeypatch.setattr(storage, "root", boom_root)
         assert morning_send._today_call_list(date(2026, 5, 16)) is None
 
@@ -411,6 +452,7 @@ class TestSendEmailWithCallList:
 
     def test_call_list_present_attaches_to_send_email(self):
         from pathlib import Path
+
         sent: dict = {}
 
         def fake_send_email(to, subject, body, *, html_body=None, attachments=None, **kw):
@@ -441,7 +483,9 @@ class TestSendEmailWithCallList:
 
         with patch.object(morning_send, "send_email", side_effect=fake_send_email):
             morning_send._send_email(
-                _FAKE_BRIEFING, "alex@example.com", date(2026, 5, 16),
+                _FAKE_BRIEFING,
+                "alex@example.com",
+                date(2026, 5, 16),
             )
 
         # Adapter prefers None over [] when no attachments to send.
@@ -454,9 +498,15 @@ class TestSendDiscordWithCallList:
 
     def _capturing_client_cls(self, captured: dict):
         class _FakeClient:
-            def __init__(self_inner, *a, **kw): pass
-            def __enter__(self_inner): return self_inner
-            def __exit__(self_inner, *exc): return False
+            def __init__(self_inner, *a, **kw):
+                pass
+
+            def __enter__(self_inner):
+                return self_inner
+
+            def __exit__(self_inner, *exc):
+                return False
+
             def post(self_inner, url, data=None, files=None):
                 captured["data"] = data
                 captured["files"] = files
@@ -464,10 +514,12 @@ class TestSendDiscordWithCallList:
                 r.status_code = 204
                 r.text = ""
                 return r
+
         return _FakeClient
 
     def test_call_list_present_attached_as_files_1(self):
         from pathlib import Path
+
         captured: dict = {}
         with patch.object(morning_send.httpx, "Client", self._capturing_client_cls(captured)):
             morning_send._send_discord(
@@ -510,8 +562,11 @@ class TestMainPassesCallListToChannels:
 
     def test_main_passes_call_list_to_both_channels(self, monkeypatch):
         from pathlib import Path
+
         monkeypatch.setenv("SAMUS_BRIEF_EMAIL_TO", "alex@example.com")
-        monkeypatch.setenv("SAMUS_BRIEF_DISCORD_WEBHOOK", "https://discord.com/api/webhooks/999/tok")
+        monkeypatch.setenv(
+            "SAMUS_BRIEF_DISCORD_WEBHOOK", "https://discord.com/api/webhooks/999/tok"
+        )
 
         fake_cl = (Path("morning_call_list_2026-05-16.txt"), b"AAA")
 
@@ -539,7 +594,9 @@ class TestMainPassesCallListToChannels:
 
     def test_main_passes_none_to_both_when_call_list_missing(self, monkeypatch):
         monkeypatch.setenv("SAMUS_BRIEF_EMAIL_TO", "alex@example.com")
-        monkeypatch.setenv("SAMUS_BRIEF_DISCORD_WEBHOOK", "https://discord.com/api/webhooks/999/tok")
+        monkeypatch.setenv(
+            "SAMUS_BRIEF_DISCORD_WEBHOOK", "https://discord.com/api/webhooks/999/tok"
+        )
 
         captured: dict = {}
 

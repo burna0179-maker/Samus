@@ -1,4 +1,5 @@
 """Canonical 4-state /health surface — registry + worst-state aggregation."""
+
 from __future__ import annotations
 
 from pathlib import Path

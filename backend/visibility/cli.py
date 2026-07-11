@@ -14,6 +14,7 @@ Examples
     python -m backend.visibility.cli probe --questions-file icp_questions.txt \\
         --brand "Hustleforge" --platforms claude,openai,perplexity
 """
+
 from __future__ import annotations
 
 import argparse

@@ -26,6 +26,7 @@ Compliance + budget:
   * --dry-run resolves + composes everything but sends nothing and writes no
     ledger — safe to run repeatedly while tuning targeting.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -78,6 +79,7 @@ def _log_diverted_no_warmth(records: list[dict]) -> None:
     if not records:
         return
     import json as _json
+
     path = _diverted_no_warmth_path()
     try:
         with open(path, "a", encoding="utf-8") as fh:
@@ -117,25 +119,24 @@ def _apply_warmth_gate(
             kept.append(contact)
             continue
 
-        prospect_id = (
-            contact.person_id
-            or (contact.email or "").strip().lower()
-            or "apollo_unknown"
-        )
+        prospect_id = contact.person_id or (contact.email or "").strip().lower() or "apollo_unknown"
         try:
             divert(prospect_id, prospect=contact, reason="no_legitimacy_signal")
         except NeedsWarmPathPersistError as exc:
             _LOG.error(
                 "G8 divert FAIL-CLOSED for %s: %s (dropping contact, not sending)",
-                prospect_id, exc,
+                prospect_id,
+                exc,
             )
-        diverted.append({
-            "ts": ts,
-            "prospect_id": prospect_id,
-            "email": contact.email,
-            "company": contact.company,
-            "reason": "no_legitimacy_signal",
-        })
+        diverted.append(
+            {
+                "ts": ts,
+                "prospect_id": prospect_id,
+                "email": contact.email,
+                "company": contact.company,
+                "reason": "no_legitimacy_signal",
+            }
+        )
     return kept, diverted
 
 
@@ -143,6 +144,7 @@ def _log_skipped_no_stake(records: list[dict]) -> None:
     if not records:
         return
     import json as _json
+
     path = _skipped_no_stake_path()
     try:
         with open(path, "a", encoding="utf-8") as fh:
@@ -186,13 +188,15 @@ def _load_stake_sentences_for_contacts(
         if stake:
             resolved[email] = stake
         else:
-            skipped.append({
-                "ts": ts,
-                "email": email,
-                "company": contact.company,
-                "opportunity_id": opp_id,
-                "reason": "no_stake_sentence",
-            })
+            skipped.append(
+                {
+                    "ts": ts,
+                    "email": email,
+                    "company": contact.company,
+                    "opportunity_id": opp_id,
+                    "reason": "no_stake_sentence",
+                }
+            )
     return resolved, skipped
 
 
@@ -263,9 +267,12 @@ def _send_all(
     from .service import _dispatch_outreach_to_crm
 
     sent = failed = 0
-    with open(ledger_path, "a", encoding="utf-8") as ledger, \
-            open(suppression_path, "a", encoding="utf-8") as supp:
+    with (
+        open(ledger_path, "a", encoding="utf-8") as ledger,
+        open(suppression_path, "a", encoding="utf-8") as supp,
+    ):
         from .flyer import flyer_html_for
+
         for req in messages:
             try:
                 # Attach the vibrant buy-now flyer so cold-campaign emails
@@ -287,26 +294,32 @@ def _send_all(
                 )
                 sent += 1
                 ts = str(result.get("ts") or iso_now())
-                ledger.write(_json.dumps({
-                    "ts": ts,
-                    "prospect_id": req.prospect_id,
-                    "email": req.to,
-                    "company": req.company,
-                    "template_id": req.template_id,
-                    "message_id": result.get("message_id", ""),
-                    "backend": "email_backend",
-                    "status": "sent",
-                }, ensure_ascii=False) + "\n")
+                ledger.write(
+                    _json.dumps(
+                        {
+                            "ts": ts,
+                            "prospect_id": req.prospect_id,
+                            "email": req.to,
+                            "company": req.company,
+                            "template_id": req.template_id,
+                            "message_id": result.get("message_id", ""),
+                            "backend": "email_backend",
+                            "status": "sent",
+                        },
+                        ensure_ascii=False,
+                    )
+                    + "\n"
+                )
                 supp.write((req.to or "") + "\n")
                 try:
                     _dispatch_outreach_to_crm(req, ts)
                 except Exception as exc:  # noqa: BLE001 — bookkeeping must not fail a send
-                    _LOG.warning("crm follow-up dispatch failed prospect=%s: %s",
-                                 req.prospect_id, exc)
+                    _LOG.warning(
+                        "crm follow-up dispatch failed prospect=%s: %s", req.prospect_id, exc
+                    )
             except Exception as exc:  # noqa: BLE001 — one bad send must not abort the run
                 failed += 1
-                _LOG.warning("send failed prospect=%s to=%s: %s",
-                             req.prospect_id, req.to, exc)
+                _LOG.warning("send failed prospect=%s to=%s: %s", req.prospect_id, req.to, exc)
     return sent, failed
 
 
@@ -315,25 +328,39 @@ def main(argv: list[str] | None = None) -> int:
         prog="backend.outreach.run_campaign",
         description="Run one Apollo-sourced email outreach campaign.",
     )
-    parser.add_argument("--titles", default="",
-                        help="Comma-separated person titles, e.g. 'owner,founder'")
-    parser.add_argument("--industries", default="",
-                        help="Comma-separated industry keywords")
-    parser.add_argument("--locations", default="",
-                        help="Comma-separated person locations, e.g. 'Yuba City, California, US'")
+    parser.add_argument(
+        "--titles", default="", help="Comma-separated person titles, e.g. 'owner,founder'"
+    )
+    parser.add_argument("--industries", default="", help="Comma-separated industry keywords")
+    parser.add_argument(
+        "--locations",
+        default="",
+        help="Comma-separated person locations, e.g. 'Yuba City, California, US'",
+    )
     parser.add_argument("--per-page", type=int, default=25)
-    parser.add_argument("--pages", type=int, default=1,
-                        help="How many search pages to pull (per_page each)")
-    parser.add_argument("--max-send", type=int, default=25,
-                        help="Hard cap on emails sent this run (SES warmup)")
+    parser.add_argument(
+        "--pages", type=int, default=1, help="How many search pages to pull (per_page each)"
+    )
+    parser.add_argument(
+        "--max-send", type=int, default=25, help="Hard cap on emails sent this run (SES warmup)"
+    )
     parser.add_argument("--template-id", default="apollo_cold_v1")
     parser.add_argument("--subject", default="Quick question about {company}")
-    parser.add_argument("--use-llm", action="store_true",
-                        help="Budget-gated LLM personalisation (default: templated)")
-    parser.add_argument("--allow-unverified", action="store_true",
-                        help="Also email guessed/unverified addresses (default: verified only)")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Resolve + compose but send nothing and write no ledger")
+    parser.add_argument(
+        "--use-llm",
+        action="store_true",
+        help="Budget-gated LLM personalisation (default: templated)",
+    )
+    parser.add_argument(
+        "--allow-unverified",
+        action="store_true",
+        help="Also email guessed/unverified addresses (default: verified only)",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Resolve + compose but send nothing and write no ledger",
+    )
     parser.add_argument(
         "--stake-sentences-json",
         default="",
@@ -356,6 +383,7 @@ def main(argv: list[str] | None = None) -> int:
     # registry isn't loaded. HTTP workcells get this via app_factory; this host
     # CLI must do it explicitly (mirrors backend.cash_engine.worker.main).
     from backend.common.app_factory import _ensure_codex_loaded
+
     _ensure_codex_loaded("outreach")
 
     cfg = _config_from_env(args)
@@ -374,20 +402,18 @@ def main(argv: list[str] | None = None) -> int:
     if args.opportunity_map_json:
         try:
             import json as _json
+
             with open(args.opportunity_map_json, encoding="utf-8") as fh:
-                opportunity_map = {
-                    str(k): str(v) for k, v in (_json.load(fh) or {}).items()
-                }
+                opportunity_map = {str(k): str(v) for k, v in (_json.load(fh) or {}).items()}
         except (OSError, ValueError) as exc:
             _LOG.error("opportunity-map-json read failed: %s", exc)
             return 2
     if args.stake_sentences_json:
         try:
             import json as _json
+
             with open(args.stake_sentences_json, encoding="utf-8") as fh:
-                fallback_stakes = {
-                    str(k): str(v) for k, v in (_json.load(fh) or {}).items()
-                }
+                fallback_stakes = {str(k): str(v) for k, v in (_json.load(fh) or {}).items()}
         except (OSError, ValueError) as exc:
             _LOG.error("stake-sentences-json read failed: %s", exc)
             return 2
@@ -418,7 +444,8 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         result = campaign.build_messages(
-            contacts, cfg,
+            contacts,
+            cfg,
             already_sent=already_sent,
             stake_sentences=stake_lookup,
         )

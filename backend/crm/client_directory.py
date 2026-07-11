@@ -28,11 +28,12 @@ Design notes:
   email falls through to the existing ``business`` path.
 * No LLM, no network. Pure disk read + string normalization.
 """
+
 from __future__ import annotations
 
 import logging
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
 from typing import Any

@@ -20,13 +20,13 @@ Operator/cron entry point::
     python -m backend.voice.client_summary --slug acme_plumbing
     python -m backend.voice.client_summary --slug acme_plumbing --cadence monthly --no-email
 """
+
 from __future__ import annotations
 
 import argparse
 import logging
 import sys
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
 from backend.common import storage
 from backend.common.dates import iso_now
@@ -45,6 +45,7 @@ _CADENCE_DAYS = {"weekly": 7, "monthly": 30}
 # Call-record loading
 # ---------------------------------------------------------------------------
 
+
 def _parse_ts(raw: str | None) -> datetime | None:
     """Parse an iso_now() (``...Z``) or Vapi ISO-8601 timestamp, or None."""
     if not raw or not isinstance(raw, str):
@@ -57,12 +58,14 @@ def _parse_ts(raw: str | None) -> datetime | None:
 
 def _record_ts(rec: InboundCallRecord) -> datetime | None:
     """Best timestamp for windowing a call — persist time, then call times."""
-    return (_parse_ts(rec.written_at) or _parse_ts(rec.ended_at)
-            or _parse_ts(rec.started_at))
+    return _parse_ts(rec.written_at) or _parse_ts(rec.ended_at) or _parse_ts(rec.started_at)
 
 
 def load_calls_in_window(
-    slug: str, *, since: datetime, until: datetime,
+    slug: str,
+    *,
+    since: datetime,
+    until: datetime,
 ) -> list[InboundCallRecord]:
     """Load every persisted inbound call for ``slug`` within [since, until].
 
@@ -94,6 +97,7 @@ def load_calls_in_window(
 # ---------------------------------------------------------------------------
 # Renderer (pure — no I/O)
 # ---------------------------------------------------------------------------
+
 
 def render_call_summary(
     *,
@@ -142,7 +146,8 @@ def render_call_summary(
 
     # ----- Needs attention -----
     follow_ups = [
-        c for c in calls
+        c
+        for c in calls
         if c.inbound_summary.appointment_requested
         or c.inbound_summary.callback_requested
         or c.inbound_summary.urgent
@@ -218,6 +223,7 @@ def _call_outcome_label(c: InboundCallRecord) -> str:
 # Build + send orchestrator
 # ---------------------------------------------------------------------------
 
+
 def build_and_send_summary(
     slug: str,
     *,
@@ -232,8 +238,12 @@ def build_and_send_summary(
     ``ok``, ``slug``, ``calls``, ``report_path``, ``emailed``, ``error``.
     """
     result: dict = {
-        "ok": False, "slug": slug, "calls": 0,
-        "report_path": "", "emailed": False, "error": None,
+        "ok": False,
+        "slug": slug,
+        "calls": 0,
+        "report_path": "",
+        "emailed": False,
+        "error": None,
     }
     config: ReceptionistConfig | None = load_config(slug)
     if config is None:
@@ -272,6 +282,7 @@ def build_and_send_summary(
     to = (config.summary_email or "").strip()
     if send and to:
         from functools import partial
+
         # Periodic call digest to a paying receptionist client = transactional/
         # relationship mail; tag the real-send fallback accordingly.
         sender = send_email_fn or partial(send_email, message_kind="transactional")
@@ -296,16 +307,22 @@ def main(argv: list[str] | None = None) -> int:
         prog="python -m backend.voice.client_summary",
         description="Build + send an AI Digital Receptionist call summary.",
     )
-    parser.add_argument("--slug", required=True,
-                        help="customer slug (customers/<slug>/)")
-    parser.add_argument("--cadence", choices=("weekly", "monthly"), default=None,
-                        help="reporting window (default: the client's config)")
-    parser.add_argument("--no-email", action="store_true",
-                        help="render + write the report but do not email it")
+    parser.add_argument("--slug", required=True, help="customer slug (customers/<slug>/)")
+    parser.add_argument(
+        "--cadence",
+        choices=("weekly", "monthly"),
+        default=None,
+        help="reporting window (default: the client's config)",
+    )
+    parser.add_argument(
+        "--no-email", action="store_true", help="render + write the report but do not email it"
+    )
     args = parser.parse_args(argv)
 
     result = build_and_send_summary(
-        args.slug, cadence=args.cadence, send=not args.no_email,
+        args.slug,
+        cadence=args.cadence,
+        send=not args.no_email,
     )
     if result["ok"]:
         print(f"call summary for {args.slug}: {result['calls']} call(s)")

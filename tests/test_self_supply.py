@@ -4,6 +4,7 @@ Covers the live failure that motivated the module: the idle-drive portfolio
 ran every business-hours tick with ``initiated=0`` and every campaign skipped
 ``ineligible`` (missing daily call list), with no awareness and no remediation.
 """
+
 from __future__ import annotations
 
 import json
@@ -11,7 +12,6 @@ import json
 import pytest
 
 from backend.cash_engine.self_supply import (
-    StarvationDiagnosis,
     diagnose_starvation,
     replenish,
     run_self_supply,
@@ -165,8 +165,7 @@ def test_healthy_actuation_returns_quiet(state_root):
 
 
 def test_hook_never_raises_on_garbage():
-    out = run_self_supply({"channel": "portfolio", "initiated": "weird",
-                           "skipped": "not-a-list"})
+    out = run_self_supply({"channel": "portfolio", "initiated": "weird", "skipped": "not-a-list"})
     assert out["ok"] is True
 
 
@@ -180,8 +179,7 @@ def _flowing_but_suppressed_actuation() -> dict:
         "skipped": [],
         "results": {
             "voice_consent_routed": {"dialed": 0, "drafted": 3},
-            "email_outreach": {"sent": 0, "failed": 0,
-                               "day_tally": {"suppressed": 5}},
+            "email_outreach": {"sent": 0, "failed": 0, "day_tally": {"suppressed": 5}},
         },
     }
 

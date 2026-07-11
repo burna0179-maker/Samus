@@ -5,6 +5,7 @@ Covers the recursive-dict resolution fix: nested ``$``-refs inside a dict
 passing through as literal unresolved strings, while flat-string/literal
 behaviour stays byte-identical to before the fix.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -20,9 +21,7 @@ _ROOT = Path(__file__).resolve().parents[1]
 _SCHOOL_ENROLLMENT = (
     _ROOT / "backend" / "campaigns" / "templates" / "school_enrollment_campaign.yaml"
 )
-_SCHOOL_PHASED = (
-    _ROOT / "backend" / "campaigns" / "templates" / "school_phased_maintenance.yaml"
-)
+_SCHOOL_PHASED = _ROOT / "backend" / "campaigns" / "templates" / "school_phased_maintenance.yaml"
 
 
 def _run(**context_over) -> CampaignRun:
@@ -43,7 +42,9 @@ def _run(**context_over) -> CampaignRun:
 
 def test_flat_string_ref_and_literal_resolve_as_before():
     node = CampaignNode(
-        id="n1", type="content_generation", target_workcell="scaffold",
+        id="n1",
+        type="content_generation",
+        target_workcell="scaffold",
         capability="generate_assets",
         input_mapping={
             "school_name": "$inputs.school_name",
@@ -61,7 +62,9 @@ def test_flat_string_ref_and_literal_resolve_as_before():
 
 def test_missing_ref_resolves_to_none_as_before():
     node = CampaignNode(
-        id="n1", type="content_generation", target_workcell="scaffold",
+        id="n1",
+        type="content_generation",
+        target_workcell="scaffold",
         capability="generate_assets",
         input_mapping={"missing": "$inputs.does_not_exist"},
     )
@@ -74,7 +77,9 @@ def test_missing_ref_resolves_to_none_as_before():
 
 def test_nested_dict_value_resolves_dollar_refs():
     node = CampaignNode(
-        id="n2", type="content_generation", target_workcell="scaffold",
+        id="n2",
+        type="content_generation",
+        target_workcell="scaffold",
         capability="generate_assets",
         input_mapping={
             "inputs": {
@@ -95,7 +100,9 @@ def test_nested_dict_value_resolves_dollar_refs():
 
 def test_nested_dict_mixes_literal_and_ref_values():
     node = CampaignNode(
-        id="n3", type="content_generation", target_workcell="scaffold",
+        id="n3",
+        type="content_generation",
+        target_workcell="scaffold",
         capability="generate_assets",
         input_mapping={
             "inputs": {
@@ -113,7 +120,9 @@ def test_nested_dict_mixes_literal_and_ref_values():
 
 def test_doubly_nested_dict_resolves_all_levels():
     node = CampaignNode(
-        id="n4", type="content_generation", target_workcell="scaffold",
+        id="n4",
+        type="content_generation",
+        target_workcell="scaffold",
         capability="generate_assets",
         input_mapping={
             "inputs": {
@@ -131,7 +140,8 @@ def test_doubly_nested_dict_resolves_all_levels():
 
 def _content_generation_scaffold_nodes(template) -> list[CampaignNode]:
     return [
-        n for n in template.nodes
+        n
+        for n in template.nodes
         if n.type == "content_generation" and n.target_workcell == "scaffold"
     ]
 

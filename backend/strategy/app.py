@@ -1,4 +1,5 @@
 """FastAPI application for the strategy workcell."""
+
 from __future__ import annotations
 
 import logging
@@ -57,13 +58,15 @@ def _forecast_allocation(raw_forecasts: list) -> dict:
     for entry in raw_forecasts:
         if not isinstance(entry, dict):
             raise HTTPException(
-                status_code=422, detail="each forecast must be a dict",
+                status_code=422,
+                detail="each forecast must be a dict",
             )
         try:
             forecasts.append(IndustryForecast(**entry))
         except TypeError as exc:
             raise HTTPException(
-                status_code=422, detail=f"invalid forecast entry: {exc}",
+                status_code=422,
+                detail=f"invalid forecast entry: {exc}",
             ) from exc
 
     scored = [
@@ -76,7 +79,9 @@ def _forecast_allocation(raw_forecasts: list) -> dict:
     ]
     top_score = max((s["forecast_score"] for s in scored), default=0.0)
     _LOG.info(
-        "forecast_allocation: scored %d verticals top=%.4f", len(scored), top_score,
+        "forecast_allocation: scored %d verticals top=%.4f",
+        len(scored),
+        top_score,
     )
     return {
         "forecasts": scored,
@@ -103,7 +108,8 @@ def _compile_policy(payload: dict) -> dict:
             return float(raw)
         except (TypeError, ValueError) as exc:
             raise HTTPException(
-                status_code=422, detail=f"{key} must be numeric: {exc}",
+                status_code=422,
+                detail=f"{key} must be numeric: {exc}",
             ) from exc
 
     profile = build_execution_profile(
@@ -174,14 +180,13 @@ def _bandit_stats(industry: str | None) -> dict:
 
     if industry:
         scoped = get_policy_bandit_stats(industry)
-        arms = [
-            _arm_view(arm_id, row, total_trials)
-            for arm_id, row in sorted(scoped.items())
-        ]
+        arms = [_arm_view(arm_id, row, total_trials) for arm_id, row in sorted(scoped.items())]
         families = list(POLICY_FAMILIES.get(industry, ()))
         _LOG.info(
             "bandit_stats: industry=%s arms=%d total_trials=%d",
-            industry, len(arms), total_trials,
+            industry,
+            len(arms),
+            total_trials,
         )
         return {
             "scope": "industry",
@@ -191,15 +196,14 @@ def _bandit_stats(industry: str | None) -> dict:
             "arms": arms,
         }
 
-    arms = [
-        _arm_view(arm_id, row, total_trials)
-        for arm_id, row in sorted(flat_stats.items())
-    ]
+    arms = [_arm_view(arm_id, row, total_trials) for arm_id, row in sorted(flat_stats.items())]
     flat = [a for a in arms if HIERARCHICAL_ARM_SEP not in a["arm_id"]]
     hierarchical = [a for a in arms if HIERARCHICAL_ARM_SEP in a["arm_id"]]
     _LOG.info(
         "bandit_stats: all arms flat=%d hierarchical=%d total_trials=%d",
-        len(flat), len(hierarchical), total_trials,
+        len(flat),
+        len(hierarchical),
+        total_trials,
     )
     return {
         "scope": "all",
@@ -325,12 +329,7 @@ def create_app() -> object:
                     len(signals),
                     len(rankings),
                 )
-                return {
-                    "ranked": [
-                        {"prospect_id": pid, "action": act}
-                        for pid, act in rankings
-                    ]
-                }
+                return {"ranked": [{"prospect_id": pid, "action": act} for pid, act in rankings]}
 
             if action == "propose_allocation":
                 check_capability(_SERVICE, "propose_allocation")
@@ -384,7 +383,8 @@ def create_app() -> object:
                 raw_forecasts = payload.get("forecasts")
                 if not isinstance(raw_forecasts, list):
                     raise HTTPException(
-                        status_code=422, detail="forecasts must be a list",
+                        status_code=422,
+                        detail="forecasts must be a list",
                     )
                 return _forecast_allocation(raw_forecasts)
 
@@ -397,7 +397,8 @@ def create_app() -> object:
                 raw_industry = payload.get("industry")
                 if raw_industry is not None and not isinstance(raw_industry, str):
                     raise HTTPException(
-                        status_code=422, detail="industry must be a string",
+                        status_code=422,
+                        detail="industry must be a string",
                     )
                 return _bandit_stats(raw_industry or None)
 

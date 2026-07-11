@@ -14,10 +14,10 @@ Coverage targets:
   - First-cycle path correctly flags "no prior month"
   - Registry lookup rejects unknown SKUs
 """
+
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +27,7 @@ import pytest
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(autouse=True)
 def _isolated_artifact_root(monkeypatch, tmp_path):
@@ -44,20 +45,37 @@ def _isolated_artifact_root(monkeypatch, tmp_path):
 # Fakes
 # ---------------------------------------------------------------------------
 
+
 def _make_fake_audit_fn(
     seo_score: int = 78,
     issues: list[dict[str, Any]] | None = None,
     rank_by_keyword: dict[str, int] | None = None,
 ):
     """Build a stub run_audit_fn that returns a controllable snapshot."""
-    issues = issues if issues is not None else [
-        {"id": "missing_meta_desc", "severity": "high", "category": "content",
-         "message": "Missing meta description on homepage"},
-        {"id": "broken_link_1", "severity": "medium", "category": "technical",
-         "message": "Broken internal link /old-page"},
-        {"id": "no_schema", "severity": "high", "category": "technical",
-         "message": "No LocalBusiness schema markup"},
-    ]
+    issues = (
+        issues
+        if issues is not None
+        else [
+            {
+                "id": "missing_meta_desc",
+                "severity": "high",
+                "category": "content",
+                "message": "Missing meta description on homepage",
+            },
+            {
+                "id": "broken_link_1",
+                "severity": "medium",
+                "category": "technical",
+                "message": "Broken internal link /old-page",
+            },
+            {
+                "id": "no_schema",
+                "severity": "high",
+                "category": "technical",
+                "message": "No LocalBusiness schema markup",
+            },
+        ]
+    )
     rank_by_keyword = rank_by_keyword or {"plumber sacramento": 11}
 
     def _fn(audit_url: str) -> dict[str, Any]:
@@ -68,23 +86,33 @@ def _make_fake_audit_fn(
             "gsc_clicks": 250,
             "gsc_impressions": 5000,
         }
+
     return _fn
 
 
 def _make_fake_send_email(captured: list[dict[str, Any]]):
     """Build a stub send_email_fn that records calls."""
+
     def _fn(*, to: str, subject: str, body: str, **kwargs):
-        captured.append({
-            "to": to, "subject": subject, "body": body, "kwargs": kwargs,
-        })
+        captured.append(
+            {
+                "to": to,
+                "subject": subject,
+                "body": body,
+                "kwargs": kwargs,
+            }
+        )
         return {"message_id": "fake_msg_42", "channel": "email", "to": to}
+
     return _fn
 
 
 def _make_fake_fix_log_fn():
     """Build a stub fix_log_fn that mirrors the queue as 'applied'."""
-    def _fn(customer_id: str, sku_id: str, cycle_month: str,
-            fix_queue: list[dict[str, Any]]) -> list[dict[str, str]]:
+
+    def _fn(
+        customer_id: str, sku_id: str, cycle_month: str, fix_queue: list[dict[str, Any]]
+    ) -> list[dict[str, str]]:
         return [
             {
                 "area": (item.get("category") or "general"),
@@ -92,6 +120,7 @@ def _make_fake_fix_log_fn():
             }
             for item in fix_queue
         ]
+
     return _fn
 
 
@@ -104,12 +133,14 @@ def _make_fake_operator_task_fn(created: list[dict[str, Any]]):
         tid = f"task_{counter['n']}"
         created.append({"operator_task_id": tid, "payload": payload})
         return {"operator_task_id": tid}
+
     return _fn
 
 
 # ---------------------------------------------------------------------------
 # SKU registry
 # ---------------------------------------------------------------------------
+
 
 def test_registry_contains_four_retainer_skus():
     from backend.retainer.registry import RETAINER_SKUS, list_retainer_sku_ids
@@ -126,6 +157,7 @@ def test_registry_contains_four_retainer_skus():
 
 def test_get_retainer_sku_unknown_returns_none():
     from backend.retainer.registry import get_retainer_sku
+
     assert get_retainer_sku("retainer_does_not_exist") is None
 
 
@@ -144,19 +176,20 @@ def test_get_retainer_sku_known_returns_config():
     entry = get_retainer_sku("retainer_ai_ops_partner_entry")
     assert entry is not None
     assert entry.cycle_id == "ai_ops_partner_cycle"
-    assert entry.price_usd_cents_low == 200000   # $2,000/mo entry tier
+    assert entry.price_usd_cents_low == 200000  # $2,000/mo entry tier
     assert entry.stripe_product_id == "prod_U913mXXZXG9REI"
 
     premium = get_retainer_sku("retainer_ai_ops_partner_premium")
     assert premium is not None
     assert premium.cycle_id == "ai_ops_partner_cycle"
-    assert premium.price_usd_cents_low == 500000   # $5,000/mo premium tier
+    assert premium.price_usd_cents_low == 500000  # $5,000/mo premium tier
     assert premium.stripe_product_id == "prod_UWt4i2QB7BZlFx"
 
 
 # ---------------------------------------------------------------------------
 # Monthly cycle — SEO Optimization (4-step DAG)
 # ---------------------------------------------------------------------------
+
 
 def test_seo_optimization_cycle_completes_4_step_dag(tmp_path):
     """Happy path: every step runs in order + DAG completes successfully."""
@@ -189,8 +222,9 @@ def test_seo_optimization_cycle_completes_4_step_dag(tmp_path):
         "render_and_send",
     ]
     # No failures or skips
-    assert all(s.status == "done" for s in result.steps), \
+    assert all(s.status == "done" for s in result.steps), (
         f"unexpected non-done step: {[(s.id, s.status) for s in result.steps]}"
+    )
 
 
 def test_seo_cycle_persists_plan_json_to_artifact_dir():
@@ -318,8 +352,11 @@ def test_seo_cycle_snapshot_persisted_for_next_month():
 
     assert result.ok is True
     cycle_dir = (
-        storage.root() / "customers" / "snap_test_cust"
-        / "retainer_seo_optimization" / result.cycle_month
+        storage.root()
+        / "customers"
+        / "snap_test_cust"
+        / "retainer_seo_optimization"
+        / result.cycle_month
     )
     snap = cycle_dir / "snapshot.json"
     assert snap.exists()
@@ -331,6 +368,7 @@ def test_seo_cycle_snapshot_persisted_for_next_month():
 # ---------------------------------------------------------------------------
 # Monthly cycle — AI Ops Partner (4-phase DAG)
 # ---------------------------------------------------------------------------
+
 
 def test_ai_ops_partner_cycle_creates_4_operator_tasks():
     """Week 1-4 each dispatch an OperatorTask via the injected fn."""
@@ -363,6 +401,7 @@ def test_ai_ops_partner_cycle_creates_4_operator_tasks():
 # Bad input — unknown SKU
 # ---------------------------------------------------------------------------
 
+
 def test_run_monthly_cycle_rejects_unknown_sku():
     from backend.retainer.monthly_cycle import run_monthly_cycle
 
@@ -377,6 +416,7 @@ def test_run_monthly_cycle_rejects_unknown_sku():
 # ---------------------------------------------------------------------------
 # Resume / idempotency
 # ---------------------------------------------------------------------------
+
 
 def test_seo_cycle_rerun_reloads_existing_plan():
     """A second run within the same calendar month reuses the existing plan.json."""
@@ -419,6 +459,7 @@ def test_seo_cycle_rerun_reloads_existing_plan():
 # Enroll smoke (uses fake customer store)
 # ---------------------------------------------------------------------------
 
+
 class _FakeCustomer:
     def __init__(self, id_, email, name="", state="prospect"):
         self.id = id_
@@ -437,11 +478,12 @@ class _FakeStore:
     def get_by_email(self, email):
         return self.by_email.get(email.lower())
 
-    def create_customer(self, *, email, name="", company="", source="manual",
-                        metadata=None):
+    def create_customer(self, *, email, name="", company="", source="manual", metadata=None):
         cust = _FakeCustomer(
             id_=email.replace("@", "_at_").replace(".", "_"),
-            email=email, name=name, state="prospect",
+            email=email,
+            name=name,
+            state="prospect",
         )
         self.by_email[email.lower()] = cust
         return cust
@@ -463,8 +505,7 @@ def test_enroll_retainer_happy_path():
     crm_dispatched: list[dict[str, Any]] = []
 
     def _fake_email(*, to, subject, body, html_body=None):
-        sent.append({"to": to, "subject": subject, "body": body,
-                     "html_body": html_body})
+        sent.append({"to": to, "subject": subject, "body": body, "html_body": html_body})
         return {"message_id": "welcome_msg_1", "channel": "email", "to": to}
 
     def _fake_crm(payload):

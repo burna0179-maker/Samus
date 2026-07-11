@@ -9,6 +9,7 @@ These are the manual triage seam that the OpenAI day-start / EOD / CODB-reasoner
 (``control_tick``); wire-not-arm (accept/reject are deliberate transitions and
 touch no effector).
 """
+
 from __future__ import annotations
 
 import pytest
@@ -37,6 +38,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_STATE_ROOT", str(tmp_path))
     monkeypatch.setenv("SAMUS_LEDGER_BACKEND", "jsonl")
     from backend.common.settings import reload_settings
+
     reload_settings()
 
     from fastapi.testclient import TestClient
@@ -56,8 +58,8 @@ def test_list_defaults_to_open_backlog(client):
     body = resp.json()
     assert body["status_filter"] == "open"
     ids = {i["recommendation_id"] for i in body["items"]}
-    assert "g-open" in ids           # non-terminal shows in the backlog
-    assert "g-done" not in ids       # terminal is filtered out of "open"
+    assert "g-open" in ids  # non-terminal shows in the backlog
+    assert "g-done" not in ids  # terminal is filtered out of "open"
     assert "summary" in body and "by_status" in body["summary"]
 
 

@@ -5,6 +5,7 @@ Examples::
     python -m backend.tiktok.cli research --query "kitchen gadgets" --limit 10
     python -m backend.tiktok.cli orders          # tiktok_shop seller orders (dormant)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -18,11 +19,17 @@ def _cmd_research(args: argparse.Namespace) -> int:
 
     settings = get_settings()
     products = rank_by_opportunity(find_trending(args.query, settings=settings, limit=args.limit))
-    print(json.dumps({
-        "provider": getattr(settings, "tiktok_research_provider", "none"),
-        "count": len(products),
-        "products": [p.to_dict() for p in products],
-    }, indent=2, ensure_ascii=False))
+    print(
+        json.dumps(
+            {
+                "provider": getattr(settings, "tiktok_research_provider", "none"),
+                "count": len(products),
+                "products": [p.to_dict() for p in products],
+            },
+            indent=2,
+            ensure_ascii=False,
+        )
+    )
     return 0
 
 
@@ -30,7 +37,11 @@ def _cmd_orders(args: argparse.Namespace) -> int:
     from backend.common.config import get_settings
     from backend.tiktok.shop_seller import fetch_orders
 
-    print(json.dumps(fetch_orders(settings=get_settings(), limit=args.limit), indent=2, ensure_ascii=False))
+    print(
+        json.dumps(
+            fetch_orders(settings=get_settings(), limit=args.limit), indent=2, ensure_ascii=False
+        )
+    )
     return 0
 
 

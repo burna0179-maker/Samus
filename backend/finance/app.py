@@ -1,4 +1,5 @@
 """Finance workcell FastAPI service."""
+
 from __future__ import annotations
 
 import logging
@@ -79,13 +80,16 @@ def _run_upsell_loop() -> None:  # pragma: no cover — daemon thread loop
     # Lazy import keeps the module-load dependency graph small for the
     # workcell when the loop is disabled (tests, CI).
     from .upsell_runner import process_upsell_queue
+
     while True:
         try:
             result = process_upsell_queue()
             if result.due > 0:
                 _LOG.info(
                     "upsell pass: due=%d sent=%d failed=%d",
-                    result.due, result.sent, result.failed,
+                    result.due,
+                    result.sent,
+                    result.failed,
                 )
         except Exception as exc:  # noqa: BLE001 — never let the thread die
             _LOG.warning("upsell loop iter failed: %s", exc)
@@ -183,7 +187,8 @@ def create_app():
                 raise HTTPException(status_code=422, detail="email_required")
             charges_limit = int((payload or {}).get("charges_limit") or 5)
             return get_customer_billing_summary(
-                email, charges_limit=charges_limit,
+                email,
+                charges_limit=charges_limit,
             ).model_dump()
         if action == "report_meter_event":
             check_capability("finance", "report_meter_event")
@@ -341,11 +346,13 @@ def create_app():
         check_capability("finance", "codb_summary")
         from dataclasses import asdict
         from .service_cost_monitor import service_cost_snapshot
+
         return asdict(service_cost_snapshot(force=force))
 
     @app.get("/customer_summary")
     async def customer_summary_get(
-        email: str, charges_limit: int = 5,
+        email: str,
+        charges_limit: int = 5,
     ) -> dict[str, Any]:
         """Per-customer billing posture (paid? subscribed? what amount?).
 
@@ -359,7 +366,8 @@ def create_app():
         if not (email or "").strip():
             raise HTTPException(status_code=422, detail="email_required")
         return get_customer_billing_summary(
-            email, charges_limit=charges_limit,
+            email,
+            charges_limit=charges_limit,
         ).model_dump()
 
     return app

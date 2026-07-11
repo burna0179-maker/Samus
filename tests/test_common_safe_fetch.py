@@ -11,6 +11,7 @@ Pins the contract of ``assert_public_http_url`` + ``safe_get``:
 
 DNS is fully stubbed via the ``resolver`` injection seam — no live network.
 """
+
 from __future__ import annotations
 
 import httpx
@@ -24,10 +25,13 @@ from backend.common.safe_fetch import SsrfBlockedError, assert_public_http_url, 
 # Resolver stubs — getaddrinfo returns (family, type, proto, canonname, addr)
 # --------------------------------------------------------------------------
 
+
 def _resolver_returning(*ips: str):
     """Build a resolver that maps every host to the given IP list."""
+
     def _resolve(host: str, port: int) -> list:
         return [(0, 0, 0, "", (ip, port)) for ip in ips]
+
     return _resolve
 
 
@@ -37,6 +41,7 @@ def _resolver_nxdomain():
 
     def _resolve(host: str, port: int) -> list:
         raise _socket.gaierror("name or service not known")
+
     return _resolve
 
 
@@ -44,12 +49,16 @@ def _resolver_nxdomain():
 # assert_public_http_url — scheme guard
 # --------------------------------------------------------------------------
 
-@pytest.mark.parametrize("url", [
-    "file:///etc/passwd",
-    "gopher://127.0.0.1:6379/_INFO",
-    "ftp://example.com/x",
-    "ldap://internal/",
-])
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "file:///etc/passwd",
+        "gopher://127.0.0.1:6379/_INFO",
+        "ftp://example.com/x",
+        "ldap://internal/",
+    ],
+)
 def test_non_http_scheme_blocked(url):
     with pytest.raises(SsrfBlockedError):
         assert_public_http_url(url, resolver=_resolver_returning("93.184.216.34"))
@@ -64,17 +73,21 @@ def test_missing_host_blocked():
 # assert_public_http_url — literal-IP guard (no DNS involved)
 # --------------------------------------------------------------------------
 
-@pytest.mark.parametrize("ip", [
-    "169.254.169.254",   # AWS / GCP instance metadata
-    "127.0.0.1",         # loopback
-    "10.0.0.5",          # RFC1918
-    "192.168.1.1",       # RFC1918
-    "172.16.0.1",        # RFC1918
-    "100.64.0.1",        # CGNAT (RFC 6598)
-    "0.0.0.0",           # unspecified
-    "::1",               # IPv6 loopback
-    "fd00::1",           # IPv6 unique-local
-])
+
+@pytest.mark.parametrize(
+    "ip",
+    [
+        "169.254.169.254",  # AWS / GCP instance metadata
+        "127.0.0.1",  # loopback
+        "10.0.0.5",  # RFC1918
+        "192.168.1.1",  # RFC1918
+        "172.16.0.1",  # RFC1918
+        "100.64.0.1",  # CGNAT (RFC 6598)
+        "0.0.0.0",  # unspecified
+        "::1",  # IPv6 loopback
+        "fd00::1",  # IPv6 unique-local
+    ],
+)
 def test_literal_private_ip_blocked(ip):
     # Literal IPs are parsed directly; the resolver must never be consulted.
     def _explode(host, port):  # pragma: no cover - asserts resolver unused
@@ -87,13 +100,15 @@ def test_literal_private_ip_blocked(ip):
 def test_ipv4_mapped_ipv6_loopback_blocked():
     with pytest.raises(SsrfBlockedError):
         assert_public_http_url(
-            "http://[::ffff:127.0.0.1]/", resolver=_resolver_returning("8.8.8.8"),
+            "http://[::ffff:127.0.0.1]/",
+            resolver=_resolver_returning("8.8.8.8"),
         )
 
 
 # --------------------------------------------------------------------------
 # assert_public_http_url — hostname guard via DNS
 # --------------------------------------------------------------------------
+
 
 def test_hostname_resolving_to_metadata_blocked():
     """A friendly hostname that resolves to 169.254.169.254 is still blocked."""
@@ -124,7 +139,8 @@ def test_public_hostname_allowed():
 def test_unresolvable_host_is_not_blocked():
     """NXDOMAIN is a transport failure, not an SSRF block — guard lets it pass."""
     assert_public_http_url(
-        "https://does-not-exist.example/", resolver=_resolver_nxdomain(),
+        "https://does-not-exist.example/",
+        resolver=_resolver_nxdomain(),
     )
 
 
@@ -133,6 +149,7 @@ def test_unresolvable_host_is_not_blocked():
 # ``socket.getaddrinfo`` has no timeout; a stalled nameserver would block the
 # whole sequential run. ``_default_resolver`` now enforces a wall-clock cap.
 # --------------------------------------------------------------------------
+
 
 def test_default_resolver_times_out_on_slow_getaddrinfo(monkeypatch):
     """A getaddrinfo that never returns is bounded and reported as gaierror."""
@@ -185,6 +202,7 @@ def test_slow_dns_degrades_to_unresolved_not_blocked(monkeypatch):
 # safe_get — full guarded GET + redirect re-validation
 # --------------------------------------------------------------------------
 
+
 class _StubClient:
     """httpx.Client stand-in. Serves canned responses keyed by URL."""
 
@@ -207,11 +225,15 @@ class _StubClient:
         return httpx.Response(404, text="", request=httpx.Request("GET", url))
 
 
-def _response(status: int, *, url: str, location: str | None = None,
-              text: str = "") -> httpx.Response:
+def _response(
+    status: int, *, url: str, location: str | None = None, text: str = ""
+) -> httpx.Response:
     headers = {"location": location} if location else {}
     return httpx.Response(
-        status, text=text, headers=headers, request=httpx.Request("GET", url),
+        status,
+        text=text,
+        headers=headers,
+        request=httpx.Request("GET", url),
     )
 
 
@@ -219,7 +241,9 @@ def test_safe_get_returns_response_for_public_host():
     url = "https://example.com/"
     client = _StubClient({url: _response(200, url=url, text="hello")})
     resp = safe_get(
-        url, resolver=_resolver_returning("93.184.216.34"), client_factory=client,
+        url,
+        resolver=_resolver_returning("93.184.216.34"),
+        client_factory=client,
     )
     assert resp.status_code == 200
     assert resp.text == "hello"
@@ -239,9 +263,11 @@ def test_safe_get_revalidates_redirect_hop():
     """A 302 toward an internal address is blocked before being followed."""
     start = "https://example.com/"
     # The redirect target is an internal host; the guard must catch it.
-    client = _StubClient({
-        start: _response(302, url=start, location="http://10.0.0.9/secret"),
-    })
+    client = _StubClient(
+        {
+            start: _response(302, url=start, location="http://10.0.0.9/secret"),
+        }
+    )
 
     def _resolver(host: str, port: int) -> list:
         if host == "example.com":
@@ -255,12 +281,16 @@ def test_safe_get_revalidates_redirect_hop():
 def test_safe_get_follows_redirect_to_public_host():
     start = "https://example.com/"
     final = "https://example.com/final"
-    client = _StubClient({
-        start: _response(302, url=start, location="/final"),
-        final: _response(200, url=final, text="done"),
-    })
+    client = _StubClient(
+        {
+            start: _response(302, url=start, location="/final"),
+            final: _response(200, url=final, text="done"),
+        }
+    )
     resp = safe_get(
-        start, resolver=_resolver_returning("93.184.216.34"), client_factory=client,
+        start,
+        resolver=_resolver_returning("93.184.216.34"),
+        client_factory=client,
     )
     assert resp.status_code == 200
     assert resp.text == "done"
@@ -268,13 +298,17 @@ def test_safe_get_follows_redirect_to_public_host():
 
 def test_safe_get_redirect_loop_raises():
     start = "https://example.com/"
-    client = _StubClient({
-        start: _response(302, url=start, location="https://example.com/"),
-    })
+    client = _StubClient(
+        {
+            start: _response(302, url=start, location="https://example.com/"),
+        }
+    )
     with pytest.raises(SsrfBlockedError):
         safe_get(
-            start, max_redirects=3,
-            resolver=_resolver_returning("93.184.216.34"), client_factory=client,
+            start,
+            max_redirects=3,
+            resolver=_resolver_returning("93.184.216.34"),
+            client_factory=client,
         )
 
 
@@ -286,6 +320,7 @@ def test_ssrf_blocked_error_is_value_error():
 # --------------------------------------------------------------------------
 # Browser-equivalent request identity (2026-05-21 crawler false-positive sweep)
 # --------------------------------------------------------------------------
+
 
 def test_browser_user_agent_is_not_a_bot_ua():
     """The shared UA must look like a browser — a self-identifying bot UA is

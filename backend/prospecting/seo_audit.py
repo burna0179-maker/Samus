@@ -10,6 +10,7 @@ Checks (5 total, 20 points each):
   - mobile viewport meta tag
   - phone number OR city/location text on page
 """
+
 from __future__ import annotations
 
 import re

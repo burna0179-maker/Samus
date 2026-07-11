@@ -18,12 +18,12 @@ can compare what was scripted vs what actually happened.
 
 Each result is persisted to <artifact_root>/voice/analyses/<hash>.json.
 """
+
 from __future__ import annotations
 
 import json
 import logging
 from dataclasses import asdict, dataclass, field
-from pathlib import Path
 
 from backend.common import storage
 from backend.common.dates import iso_now
@@ -35,30 +35,32 @@ _LOG = logging.getLogger("samus.voice.transcript_analyzer")
 
 _ANALYSES_SUBDIR = "voice/analyses"
 
-_VALID_OUTCOMES = frozenset({
-    "converted",
-    "warm_lead",
-    "follow_up_scheduled",
-    "call_back_requested",
-    "objection_unresolved",
-    "not_interested",
-    "gatekeeper",
-    "voicemail_left",
-    "no_answer",
-    "dnc_requested",
-})
+_VALID_OUTCOMES = frozenset(
+    {
+        "converted",
+        "warm_lead",
+        "follow_up_scheduled",
+        "call_back_requested",
+        "objection_unresolved",
+        "not_interested",
+        "gatekeeper",
+        "voicemail_left",
+        "no_answer",
+        "dnc_requested",
+    }
+)
 
 _OUTCOME_REWARD: dict[str, float] = {
-    "converted":            1.0,
-    "follow_up_scheduled":  0.8,
-    "call_back_requested":  0.7,
-    "warm_lead":            0.6,
+    "converted": 1.0,
+    "follow_up_scheduled": 0.8,
+    "call_back_requested": 0.7,
+    "warm_lead": 0.6,
     "objection_unresolved": 0.3,
-    "not_interested":       0.1,
-    "gatekeeper":           0.05,
-    "voicemail_left":       0.0,
-    "no_answer":            0.0,
-    "dnc_requested":        0.0,
+    "not_interested": 0.1,
+    "gatekeeper": 0.05,
+    "voicemail_left": 0.0,
+    "no_answer": 0.0,
+    "dnc_requested": 0.0,
 }
 
 
@@ -236,11 +238,13 @@ def analyze_transcript(
             continue
         try:
             eff = float(obj.get("effectiveness_score", 0.5))
-            objections.append(ObjectionRecord(
-                objection_text=str(obj.get("objection_text") or "")[:200],
-                how_handled=str(obj.get("how_handled") or "")[:300],
-                effectiveness_score=max(0.0, min(1.0, eff)),
-            ))
+            objections.append(
+                ObjectionRecord(
+                    objection_text=str(obj.get("objection_text") or "")[:200],
+                    how_handled=str(obj.get("how_handled") or "")[:300],
+                    effectiveness_score=max(0.0, min(1.0, eff)),
+                )
+            )
         except Exception:  # noqa: BLE001
             continue
 
@@ -293,11 +297,15 @@ def _flow_reward_to_bandit(analysis: TranscriptAnalysis) -> str:
         if not arm_id:
             return ""
         record_outcome(
-            arm_id, analysis.reward, won=(analysis.outcome == "converted"),
+            arm_id,
+            analysis.reward,
+            won=(analysis.outcome == "converted"),
         )
         _LOG.info(
             "voice reward -> bandit arm=%s reward=%.2f outcome=%s",
-            arm_id, analysis.reward, analysis.outcome,
+            arm_id,
+            analysis.reward,
+            analysis.outcome,
         )
         return arm_id
     except Exception as exc:  # noqa: BLE001 — learning is never load-bearing
@@ -321,9 +329,7 @@ def _format_objections(raw: str) -> str:
 
 def _build_text(raw: RawTranscript) -> str:
     if raw.turns and raw.parse_format in ("speaker_labeled_range", "speaker_labeled_bare"):
-        return "\n".join(
-            f"[{t.timestamp_offset}] {t.speaker}: {t.text}" for t in raw.turns
-        )
+        return "\n".join(f"[{t.timestamp_offset}] {t.speaker}: {t.text}" for t in raw.turns)
     return raw.raw_text
 
 
@@ -331,9 +337,7 @@ def _parse_json(text: str) -> tuple[dict, str | None]:
     cleaned = text.strip()
     # Strip markdown fences if the model added them despite instructions
     if cleaned.startswith("```"):
-        cleaned = "\n".join(
-            ln for ln in cleaned.splitlines() if not ln.startswith("```")
-        ).strip()
+        cleaned = "\n".join(ln for ln in cleaned.splitlines() if not ln.startswith("```")).strip()
     # Find the first { ... } block
     start = cleaned.find("{")
     end = cleaned.rfind("}")
@@ -375,11 +379,7 @@ def load_all_analyses() -> list[TranscriptAnalysis]:
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
             objs_raw = data.pop("objections_hit", None) or []
-            objs = [
-                ObjectionRecord(**o)
-                for o in objs_raw
-                if isinstance(o, dict)
-            ]
+            objs = [ObjectionRecord(**o) for o in objs_raw if isinstance(o, dict)]
             ta = TranscriptAnalysis(**data)
             ta.objections_hit = objs
             out.append(ta)

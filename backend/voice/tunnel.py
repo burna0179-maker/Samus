@@ -21,6 +21,7 @@ Degraded modes (each logs a warning + returns ``TunnelResult`` with
 The workcell stays healthy in every degraded path; only outbound
 end-of-call events from Vapi are affected.
 """
+
 from __future__ import annotations
 
 import logging
@@ -33,6 +34,7 @@ _LOG = logging.getLogger("samus.voice.tunnel")
 @dataclass
 class TunnelResult:
     """Outcome of one tunnel-startup attempt. Either ``url`` or ``error`` is set."""
+
     url: str | None
     error: str | None
     listener: object | None = None  # opaque ngrok listener handle; kept for shutdown
@@ -83,7 +85,9 @@ def start_ngrok_listener(
     except Exception as exc:  # noqa: BLE001 — defensive: SDK shape may shift
         _LOG.warning("ngrok listener.url() failed: %s", exc)
         return TunnelResult(
-            url=None, error=f"ngrok_url_failed: {exc}", listener=listener,
+            url=None,
+            error=f"ngrok_url_failed: {exc}",
+            listener=listener,
         )
 
     _LOG.info("ngrok tunnel open: %s -> localhost:%d", url, port)
@@ -118,6 +122,7 @@ def patch_vapi_assistant_server_url(
 
     if client is None:
         from .client import VapiClient
+
         client = VapiClient(api_key=vapi_api_key)
 
     try:
@@ -130,10 +135,10 @@ def patch_vapi_assistant_server_url(
         _LOG.warning(
             "vapi assistant patch failed for %s: %s "
             "(tunnel up but end-of-call webhooks won't reach us)",
-            assistant_id, exc,
+            assistant_id,
+            exc,
         )
         return False, f"vapi_patch_failed: {exc}"
 
-    _LOG.info("vapi assistant %s server.url patched to %s",
-              assistant_id, server_url)
+    _LOG.info("vapi assistant %s server.url patched to %s", assistant_id, server_url)
     return True, None

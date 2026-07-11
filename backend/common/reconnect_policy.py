@@ -3,6 +3,7 @@
 Referenced by sqs_worker.poll_loop. Separated so it can be tested
 independently and reused by any reconnecting client.
 """
+
 from __future__ import annotations
 
 import random
@@ -30,7 +31,7 @@ class Backoff:
 
     def next_delay(self) -> float:
         """Return the next backoff delay in seconds and advance the attempt counter."""
-        delay = min(self._base * (2.0 ** self._attempt), self._max)
+        delay = min(self._base * (2.0**self._attempt), self._max)
         self._attempt += 1
         return delay
 

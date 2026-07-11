@@ -10,15 +10,15 @@ The vector's four fields are exactly ``trust_scorer.TrustInputs`` so the scorer
 composes it directly. ``updated_ts`` (epoch seconds) drives time-decay toward
 the baseline (see ``engine``).
 """
+
 from __future__ import annotations
 
 import json
 import logging
 import os
 import threading
-import time
 from dataclasses import asdict, dataclass
-from typing import Any, Callable
+from typing import Any
 
 _LOG = logging.getLogger("samus.governance.karma.store")
 
@@ -52,16 +52,25 @@ class KarmaVector:
     @classmethod
     def baseline(cls, actor: str, *, baseline: float = DEFAULT_BASELINE) -> "KarmaVector":
         b = _clamp(baseline)
-        return cls(actor=actor, success_rate=b, policy_compliance=b,
-                   resource_efficiency=b, stability_score=b, updated_ts=0.0)
+        return cls(
+            actor=actor,
+            success_rate=b,
+            policy_compliance=b,
+            resource_efficiency=b,
+            stability_score=b,
+            updated_ts=0.0,
+        )
 
     @classmethod
-    def from_item(cls, item: dict[str, Any], *, baseline: float = DEFAULT_BASELINE) -> "KarmaVector":
+    def from_item(
+        cls, item: dict[str, Any], *, baseline: float = DEFAULT_BASELINE
+    ) -> "KarmaVector":
         def _f(key: str) -> float:
             try:
                 return _clamp(float(item.get(key, baseline)))
             except (TypeError, ValueError):
                 return _clamp(baseline)
+
         try:
             ts = float(item.get("updated_ts", 0.0) or 0.0)
         except (TypeError, ValueError):
@@ -122,6 +131,7 @@ class _DdbBackend:
 
     def _table(self) -> Any:
         from backend.common import aws
+
         return aws.table(self.table_name, self.region)
 
     def load(self, actor: str) -> KarmaVector | None:
@@ -136,6 +146,7 @@ class _DdbBackend:
     def save(self, vec: KarmaVector) -> bool:
         try:
             from decimal import Decimal
+
             item = {
                 k: (Decimal(str(v)) if isinstance(v, float) else v)
                 for k, v in vec.to_item().items()

@@ -1,4 +1,5 @@
 """Tests for backend.common.quorum_client."""
+
 from __future__ import annotations
 
 import hashlib
@@ -7,7 +8,6 @@ import json
 import urllib.error
 from io import BytesIO
 from typing import Any
-from unittest.mock import patch
 
 import pytest
 
@@ -35,10 +35,19 @@ def test_publish_when_disabled_returns_false(monkeypatch):
     monkeypatch.setenv("SAMUS_QUORUM_PUBLISH_ENABLED", "0")
     qc._reset_for_tests()
     client = qc.QuorumHubClient(base_url="http://x")
-    assert client.publish(
-        caller="samus", action="t", risk_score=0.0, approved=True,
-        approval_score=1.0, threshold=0.5, votes=[], reason="r",
-    ) is False
+    assert (
+        client.publish(
+            caller="samus",
+            action="t",
+            risk_score=0.0,
+            approved=True,
+            approval_score=1.0,
+            threshold=0.5,
+            votes=[],
+            reason="r",
+        )
+        is False
+    )
 
 
 def test_publish_success(monkeypatch):
@@ -51,8 +60,12 @@ def test_publish_success(monkeypatch):
     monkeypatch.setattr(qc.urllib.request, "urlopen", fake_urlopen)
     client = qc.QuorumHubClient(base_url="http://hub.test")
     ok = client.publish(
-        caller="samus", action="efh_veto", risk_score=1.0,
-        approved=False, approval_score=0.0, threshold=1.0,
+        caller="samus",
+        action="efh_veto",
+        risk_score=1.0,
+        approved=False,
+        approval_score=0.0,
+        threshold=1.0,
         votes=[{"voter": "efh", "vote": "VETO", "weight": 1.0}],
         reason="test",
     )
@@ -77,8 +90,14 @@ def test_publish_signs_body_when_hmac_key_set(monkeypatch):
     qc._reset_for_tests()
     client = qc.get_quorum_client()
     client.publish(
-        caller="samus", action="probe", risk_score=0.0, approved=True,
-        approval_score=1.0, threshold=0.5, votes=[], reason="x",
+        caller="samus",
+        action="probe",
+        risk_score=0.0,
+        approved=True,
+        approval_score=1.0,
+        threshold=0.5,
+        votes=[],
+        reason="x",
     )
     # urllib normalizes header keys to title case.
     hdr = {k.lower(): v for k, v in captured["headers"].items()}
@@ -94,10 +113,19 @@ def test_publish_fails_open_on_url_error(monkeypatch):
 
     monkeypatch.setattr(qc.urllib.request, "urlopen", boom)
     client = qc.QuorumHubClient(base_url="http://hub.test")
-    assert client.publish(
-        caller="samus", action="t", risk_score=0.0, approved=True,
-        approval_score=1.0, threshold=0.5, votes=[], reason="r",
-    ) is False
+    assert (
+        client.publish(
+            caller="samus",
+            action="t",
+            risk_score=0.0,
+            approved=True,
+            approval_score=1.0,
+            threshold=0.5,
+            votes=[],
+            reason="r",
+        )
+        is False
+    )
 
 
 def test_publish_fails_open_on_hub_error_payload(monkeypatch):
@@ -106,22 +134,37 @@ def test_publish_fails_open_on_hub_error_payload(monkeypatch):
 
     monkeypatch.setattr(qc.urllib.request, "urlopen", err)
     client = qc.QuorumHubClient(base_url="http://hub.test")
-    assert client.publish(
-        caller="samus", action="t", risk_score=0.0, approved=True,
-        approval_score=1.0, threshold=0.5, votes=[], reason="r",
-    ) is False
+    assert (
+        client.publish(
+            caller="samus",
+            action="t",
+            risk_score=0.0,
+            approved=True,
+            approval_score=1.0,
+            threshold=0.5,
+            votes=[],
+            reason="r",
+        )
+        is False
+    )
 
 
 def test_recent_returns_empty_on_failure(monkeypatch):
-    monkeypatch.setattr(qc.urllib.request, "urlopen",
-                        lambda *a, **k: (_ for _ in ()).throw(urllib.error.URLError("x")))
+    monkeypatch.setattr(
+        qc.urllib.request,
+        "urlopen",
+        lambda *a, **k: (_ for _ in ()).throw(urllib.error.URLError("x")),
+    )
     client = qc.QuorumHubClient(base_url="http://hub.test")
     assert client.recent() == []
 
 
 def test_stats_returns_empty_dict_on_failure(monkeypatch):
-    monkeypatch.setattr(qc.urllib.request, "urlopen",
-                        lambda *a, **k: (_ for _ in ()).throw(urllib.error.URLError("x")))
+    monkeypatch.setattr(
+        qc.urllib.request,
+        "urlopen",
+        lambda *a, **k: (_ for _ in ()).throw(urllib.error.URLError("x")),
+    )
     client = qc.QuorumHubClient(base_url="http://hub.test")
     assert client.stats() == {}
 

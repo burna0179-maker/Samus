@@ -36,11 +36,12 @@ Flag architecture: each group-level flag is read from ``Settings`` (injected
 by ``bootstrap_settings`` / env var). Fail-closed: an unrecognised flag or an
 import error always returns the action as not-live / dry-run.
 """
+
 from __future__ import annotations
 
 import logging
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 _LOG = logging.getLogger("samus.growth.dispatch_policy")
@@ -56,12 +57,15 @@ def _schema_registry():
     global _SCHEMA_REGISTRY_MOD  # noqa: PLW0603
     if _SCHEMA_REGISTRY_MOD is None:
         from backend.growth import schema_registry as _sr
+
         _SCHEMA_REGISTRY_MOD = _sr
     return _SCHEMA_REGISTRY_MOD
+
 
 # ---------------------------------------------------------------------------
 # Policy entries
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class GrowthDispatchEntry:
@@ -69,8 +73,8 @@ class GrowthDispatchEntry:
 
     workcell: str
     action: str
-    flag: str          # settings attribute or env-var name (SAMUS_GROWTH_*_ENABLED)
-    dry_run: bool      # True = the workcell handler itself runs DRY-RUN mode
+    flag: str  # settings attribute or env-var name (SAMUS_GROWTH_*_ENABLED)
+    dry_run: bool  # True = the workcell handler itself runs DRY-RUN mode
     notes: str = ""
 
     @property
@@ -107,7 +111,7 @@ GROWTH_DISPATCH_TABLE: tuple[GrowthDispatchEntry, ...] = (
         workcell="seo",
         action="aio_probe",
         flag="SAMUS_GROWTH_SEO_ENABLED",
-        dry_run=True,   # live probing is further gated by SAMUS_VISIBILITY_PROBE_ENABLED
+        dry_run=True,  # live probing is further gated by SAMUS_VISIBILITY_PROBE_ENABLED
         notes="AIO live probe. Inner flag SAMUS_VISIBILITY_PROBE_ENABLED also required.",
     ),
     # --- Phase D/E: Social calendar + nurture ------------------------------
@@ -129,14 +133,14 @@ GROWTH_DISPATCH_TABLE: tuple[GrowthDispatchEntry, ...] = (
         workcell="outreach",
         action="dispatch_social_calendar",
         flag="SAMUS_GROWTH_SOCIAL_ENABLED",
-        dry_run=True,   # SAMUS_SOCIAL_DRY_RUN gates the actual platform post
+        dry_run=True,  # SAMUS_SOCIAL_DRY_RUN gates the actual platform post
         notes="Social calendar dispatcher. Dry-run until SAMUS_SOCIAL_DRY_RUN=false.",
     ),
     GrowthDispatchEntry(
         workcell="outreach",
         action="plan_nurture",
         flag="SAMUS_GROWTH_SOCIAL_ENABLED",
-        dry_run=True,   # dry_run=True in the sequence handler by default
+        dry_run=True,  # dry_run=True in the sequence handler by default
         notes="Email nurture sequence planner. Sends are dry-run by default.",
     ),
     # --- Phase F: Proof (case studies + proof wall) ------------------------
@@ -185,6 +189,7 @@ _BY_ACTION: dict[str, GrowthDispatchEntry] = {e.action: e for e in GROWTH_DISPAT
 # Flag resolution
 # ---------------------------------------------------------------------------
 
+
 def _flag_enabled(flag: str) -> bool:
     """Resolve a SAMUS_GROWTH_*_ENABLED flag from env or Settings.
 
@@ -198,6 +203,7 @@ def _flag_enabled(flag: str) -> bool:
             return raw in ("1", "true", "yes", "on", "y")
         # Not in env — check the Settings object.
         from backend.common.config import get_settings
+
         s = get_settings()
         # Settings doesn't have growth flags as typed fields (they're env-only
         # at this stage). Return False if not in env.
@@ -209,6 +215,7 @@ def _flag_enabled(flag: str) -> bool:
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def get_entry(action: str) -> GrowthDispatchEntry | None:
     """Return the policy entry for ``action``, or None if not in the table."""
@@ -268,7 +275,8 @@ def route_growth_action(
     if not _flag_enabled(entry.flag):
         _LOG.debug(
             "growth_dispatch_policy: action=%s flag=%s disabled -> skip",
-            action, entry.flag,
+            action,
+            entry.flag,
         )
         return None
 
@@ -281,43 +289,57 @@ def route_growth_action(
 
         if action == "geo_format":
             from backend.seo.geo_format import handle_geo_format
+
             return handle_geo_format(payload)
         if action == "aio_analyze":
             from backend.visibility.probe import handle_aio_analyze
+
             return handle_aio_analyze(payload)
         if action == "aio_probe":
             from backend.visibility.probe import handle_aio_probe
+
             return handle_aio_probe(payload)
         if action == "repurpose_blog_post":
             from backend.social.dispatch import handle_repurpose
+
             return handle_repurpose(payload)
         if action == "plan_social_calendar":
             from backend.social.dispatch import handle_plan
+
             return handle_plan(payload)
         if action == "dispatch_social_calendar":
             from backend.social.dispatch import handle_dispatch
+
             return handle_dispatch(payload)
         if action == "plan_nurture":
             from backend.outreach.sequences import handle_plan_nurture
+
             return handle_plan_nurture(payload)
         if action == "generate_case_study":
             from backend.proof.generator import handle_generate_case_study
+
             return handle_generate_case_study(payload)
         if action == "build_proof_wall":
             from backend.proof.generator import handle_build_proof_wall
+
             return handle_build_proof_wall(payload)
         if action == "referral_code":
             from backend.referral.engine import handle_referral_code
+
             return handle_referral_code(payload)
         if action == "referral_record":
             from backend.referral.engine import handle_referral_record
+
             return handle_referral_record(payload)
         if action == "referral_qualify":
             from backend.referral.engine import handle_referral_qualify
+
             return handle_referral_qualify(payload)
     except Exception as exc:  # noqa: BLE001 — flag-gated; surface as None + log
         _LOG.error(
-            "growth_dispatch_policy: action=%s handler raised: %s", action, exc,
+            "growth_dispatch_policy: action=%s handler raised: %s",
+            action,
+            exc,
         )
         return None
 

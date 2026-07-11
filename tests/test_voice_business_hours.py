@@ -4,6 +4,7 @@ Covers: open-now True, after-hours False, Closed-day False, the exact unicode
 CSV format, missing/garbage/empty -> None (fail-open), and a row that is open
 today vs. a row closed today. All datetimes are fixed + tz-aware.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -37,11 +38,11 @@ CSV_ENDASH_ROW = (
 )
 
 # Mon 2026-06-29, Wed 2026-07-01, Sat 2026-07-04 in LA.
-MON_MIDDAY = datetime(2026, 6, 29, 12, 0, tzinfo=LA)   # weekday() == 0
-MON_EARLY = datetime(2026, 6, 29, 6, 30, tzinfo=LA)    # before 8 AM
-MON_LATE = datetime(2026, 6, 29, 19, 0, tzinfo=LA)     # after 4 PM
-WED_MIDDAY = datetime(2026, 7, 1, 12, 0, tzinfo=LA)    # weekday() == 2
-SAT_MIDDAY = datetime(2026, 7, 4, 12, 0, tzinfo=LA)    # weekday() == 5
+MON_MIDDAY = datetime(2026, 6, 29, 12, 0, tzinfo=LA)  # weekday() == 0
+MON_EARLY = datetime(2026, 6, 29, 6, 30, tzinfo=LA)  # before 8 AM
+MON_LATE = datetime(2026, 6, 29, 19, 0, tzinfo=LA)  # after 4 PM
+WED_MIDDAY = datetime(2026, 7, 1, 12, 0, tzinfo=LA)  # weekday() == 2
+SAT_MIDDAY = datetime(2026, 7, 4, 12, 0, tzinfo=LA)  # weekday() == 5
 
 
 def test_open_now_true():
@@ -91,9 +92,13 @@ def test_missing_day_returns_none():
 
 def test_garbage_returns_none():
     assert is_open_now("not hours at all", now_local=MON_MIDDAY) is None
-    assert is_open_now(
-        "Monday: banana - pancake", now_local=MON_MIDDAY,
-    ) is None
+    assert (
+        is_open_now(
+            "Monday: banana - pancake",
+            now_local=MON_MIDDAY,
+        )
+        is None
+    )
 
 
 def test_none_input_returns_none():
@@ -108,7 +113,7 @@ def test_plain_ascii_hyphen_row():
 
 def test_overnight_window():
     row = "Monday: 8:00 PM - 2:00 AM | Wednesday: 8:00 PM - 2:00 AM"
-    late = datetime(2026, 6, 29, 23, 0, tzinfo=LA)   # 11 PM Monday -> open
+    late = datetime(2026, 6, 29, 23, 0, tzinfo=LA)  # 11 PM Monday -> open
     midday = datetime(2026, 6, 29, 12, 0, tzinfo=LA)  # noon Monday -> closed
     assert is_open_now(row, now_local=late) is True
     assert is_open_now(row, now_local=midday) is False

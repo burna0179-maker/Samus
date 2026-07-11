@@ -21,6 +21,7 @@ a dev shell, an outage) it yields the CONSERVATIVE tier - never an aspirational
 one on missing data. Pure compute (``compute_design_budget``) is separated from
 the I/O read (``read_financial_health``) so the policy is fully unit-testable.
 """
+
 from __future__ import annotations
 
 import logging
@@ -58,7 +59,7 @@ _TIER_STREAK_REQUIRED: dict[str, int] = {
 
 # Per-cycle design spend ceiling by tier (never exceeds the earmarked funds).
 _TIER_SPEND_CAP: dict[str, float] = {
-    "conservative": 0.0,    # no paid design spend - protect runway
+    "conservative": 0.0,  # no paid design spend - protect runway
     "standard": 250.0,
     "premium": 1000.0,
     "flagship": 3000.0,
@@ -88,10 +89,10 @@ class FinancialHealth:
 
     available_balance_usd: Optional[float]
     monthly_burn_usd: Optional[float]
-    days_of_runway: Optional[float]   # None = unknown OR infinite (zero burn)
+    days_of_runway: Optional[float]  # None = unknown OR infinite (zero burn)
     mrr_usd: Optional[float]
     runway_alert: bool
-    ok: bool                          # False = read failed -> fail-safe conservative
+    ok: bool  # False = read failed -> fail-safe conservative
     error: Optional[str] = None
 
 
@@ -101,11 +102,11 @@ class DesignBudget:
 
     tier: str
     rank: int
-    design_funds_usd: float           # liquid funds designated to design
-    spend_cap_usd: float              # max design spend THIS cycle
-    stability_score: float            # 0-1
-    healthy_streak: int               # consecutive healthy passes (drives the ratchet)
-    unlocked: tuple[str, ...]         # cumulative capabilities at this tier
+    design_funds_usd: float  # liquid funds designated to design
+    spend_cap_usd: float  # max design spend THIS cycle
+    stability_score: float  # 0-1
+    healthy_streak: int  # consecutive healthy passes (drives the ratchet)
+    unlocked: tuple[str, ...]  # cumulative capabilities at this tier
     rationale: str
     health: dict[str, Any] = field(default_factory=dict)
 
@@ -182,7 +183,7 @@ def _stability_score(h: FinancialHealth) -> float:
         return 0.0
     days = h.days_of_runway
     if days is None:
-        return 1.0   # ok + zero burn = infinite runway = maximally stable
+        return 1.0  # ok + zero burn = infinite runway = maximally stable
     # full stability at ~2x the floor (e.g. 180 days), linear below.
     return max(0.0, min(1.0, days / (2.0 * runway_floor_days())))
 
@@ -228,7 +229,7 @@ def compute_design_budget(
         new_rank = 0
         reason = "runway below floor / alert / unknown -> conservative (protect runway)"
     else:
-        target = min(eligible, prior_rank + 1)   # rise at most one step per pass
+        target = min(eligible, prior_rank + 1)  # rise at most one step per pass
         if target > prior_rank:
             step_tier = TIERS[target]
             if streak >= _TIER_STREAK_REQUIRED[step_tier]:
@@ -244,7 +245,7 @@ def compute_design_budget(
                     f"{streak} < {_TIER_STREAK_REQUIRED[step_tier]} required; holding {prior_tier}"
                 )
         elif eligible < prior_rank:
-            new_rank = prior_rank - 1   # funds fell below current tier: step down gracefully
+            new_rank = prior_rank - 1  # funds fell below current tier: step down gracefully
             reason = f"${design_funds:,.0f} designated fell below {prior_tier}; step down"
         else:
             new_rank = prior_rank
@@ -272,9 +273,7 @@ def compute_design_budget(
     )
 
 
-def current_design_budget(
-    prior_tier: str = "conservative", prior_streak: int = 0
-) -> DesignBudget:
+def current_design_budget(prior_tier: str = "conservative", prior_streak: int = 0) -> DesignBudget:
     """Read finance (best-effort) + compute the design budget in one call."""
     return compute_design_budget(read_financial_health(), prior_tier, prior_streak)
 

@@ -1,4 +1,5 @@
 """Unit tests for the LegitimacySignal pydantic types + has_warmth helper."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone

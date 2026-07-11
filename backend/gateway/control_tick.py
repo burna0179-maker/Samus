@@ -44,6 +44,7 @@ TTL if the loop stops, so running the tick twice, or on any schedule, stays
 safe and self-healing. It mirrors ``/intake/poll-inbox``: a manual/scheduled
 trigger returning per-pass counters.
 """
+
 from __future__ import annotations
 
 import logging
@@ -90,6 +91,7 @@ def _enforcement_ttl() -> float:
         return ttl if ttl > 0 else _ENFORCE_TTL_DEFAULT
     except (TypeError, ValueError):
         return _ENFORCE_TTL_DEFAULT
+
 
 # Default entropy-scan inputs when the caller supplies none. All-zero is the
 # benign baseline the EntropyScanRequest model itself defaults to — a tick
@@ -144,9 +146,7 @@ def _run_rebalance(task_id: str, workcells: list[dict[str, Any]]) -> dict[str, A
         from backend.portfolio_controller.models import RebalanceRequest
         from backend.portfolio_controller.service import run_rebalance
 
-        req = RebalanceRequest.model_validate(
-            {"workcells": workcells or [], "task_id": task_id}
-        )
+        req = RebalanceRequest.model_validate({"workcells": workcells or [], "task_id": task_id})
         result = run_rebalance(req)
         # Project the per-workcell quota / priority recommendations the
         # operator needs to see. Only the workcells where a rule actually
@@ -213,11 +213,13 @@ def _run_enforcement(task_id: str, portfolio_stage: dict[str, Any]) -> dict[str,
                 continue
             workcell = adj["workcell"]
             b = store.set_quota_override(workcell, int(adj["token_quota"]), ttl)
-            overrides.append({
-                "workcell": workcell,
-                "quota": b.quota_override,
-                "expires_at": b.quota_override_expires_at,
-            })
+            overrides.append(
+                {
+                    "workcell": workcell,
+                    "quota": b.quota_override,
+                    "expires_at": b.quota_override_expires_at,
+                }
+            )
         return {
             "ok": True,
             "enabled": True,
@@ -255,8 +257,13 @@ def _run_auto_stake(task_id: str) -> dict[str, Any]:
     except Exception as exc:  # noqa: BLE001 — never sink the tick
         _LOG.warning("control_tick auto-stake failed task=%s: %s", task_id, exc)
         return {
-            "ok": False, "enabled": False, "scanned": 0, "staked": 0,
-            "skipped": 0, "failed": 0, "results": [],
+            "ok": False,
+            "enabled": False,
+            "scanned": 0,
+            "staked": 0,
+            "skipped": 0,
+            "failed": 0,
+            "results": [],
             "error": f"auto_stake_failed: {exc.__class__.__name__}: {exc}",
         }
 
@@ -281,8 +288,12 @@ def _run_stalled_revival(task_id: str) -> dict[str, Any]:
     except Exception as exc:  # noqa: BLE001 — never sink the tick
         _LOG.warning("control_tick stalled_revival failed task=%s: %s", task_id, exc)
         return {
-            "ok": False, "enabled": False, "scanned": 0, "revived": 0,
-            "skipped": 0, "results": [],
+            "ok": False,
+            "enabled": False,
+            "scanned": 0,
+            "revived": 0,
+            "skipped": 0,
+            "results": [],
             "error": f"stalled_revival_failed: {exc.__class__.__name__}: {exc}",
         }
 
@@ -305,7 +316,9 @@ def _run_idle_drive_stage(task_id: str) -> dict[str, Any]:
     except Exception as exc:  # noqa: BLE001 — never sink the tick
         _LOG.warning("control_tick idle-drive failed task=%s: %s", task_id, exc)
         return {
-            "ok": True, "enabled": False, "produced": False,
+            "ok": True,
+            "enabled": False,
+            "produced": False,
             "reason": f"idle_drive_failed: {exc.__class__.__name__}: {exc}",
         }
 
@@ -376,7 +389,8 @@ def _run_growth_tick(task_id: str) -> dict[str, Any]:
                     "angle": briefs[0].angle,
                     "keywords": briefs[0].primary_keywords[:3],
                 }
-                if briefs else {}
+                if briefs
+                else {}
             ),
             "graph": graph_stats,
             "error": None,
@@ -441,11 +455,14 @@ def run_control_tick(
     crm_stage = _run_stale_sweep(tid)
     growth_stage = _run_growth_tick(tid)
 
-    overall_ok = bool(entropy_stage["ok"] and portfolio_stage["ok"]
-                      and enforcement_stage["ok"]
-                      and auto_stake_stage["ok"]
-                      and stalled_revival_stage["ok"]
-                      and idle_drive_stage["ok"])
+    overall_ok = bool(
+        entropy_stage["ok"]
+        and portfolio_stage["ok"]
+        and enforcement_stage["ok"]
+        and auto_stake_stage["ok"]
+        and stalled_revival_stage["ok"]
+        and idle_drive_stage["ok"]
+    )
 
     # Roll the actionable signal up to the top level so an operator does not
     # have to dig into nested stages: the instability verdict + the quota /

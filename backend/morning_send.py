@@ -27,6 +27,7 @@ Run from the Samus venv (not directly — use the wrapper for secrets):
 
     python -m backend.morning_send
 """
+
 from __future__ import annotations
 
 import json
@@ -54,6 +55,7 @@ _DISCORD_HEADLINE_FALLBACK = "morning briefing ready (see attachment)"
 # Today's prospect call list (optional second attachment)
 # --------------------------------------------------------------------------
 
+
 def _today_call_list(today: date) -> tuple[Path, bytes] | None:
     """Return (path, contents) for today's call list, or None if missing.
 
@@ -64,6 +66,7 @@ def _today_call_list(today: date) -> tuple[Path, bytes] | None:
     """
     try:
         from backend.common import storage
+
         path = storage.root() / "daily_calls" / f"morning_call_list_{today.isoformat()}.txt"
         if not path.exists():
             return None
@@ -75,6 +78,7 @@ def _today_call_list(today: date) -> tuple[Path, bytes] | None:
 # --------------------------------------------------------------------------
 # Briefing capture
 # --------------------------------------------------------------------------
+
 
 def _build_briefing() -> str:
     """Render the briefing with colors off (defensive — we're not a TTY).
@@ -88,6 +92,7 @@ def _build_briefing() -> str:
     try:
         from backend.memory.customers import CustomerStore
         from backend.services import sla_timer
+
         sla_timer.sweep_overdue(CustomerStore())
     except Exception as exc:  # noqa: BLE001
         _LOG.warning("services_sla_sweep_failed: %s", exc)
@@ -110,11 +115,7 @@ def _extract_headline(briefing: str) -> str:
 
 def _html_escape(s: str) -> str:
     """Minimal HTML escape so the briefing's `<` / `>` / `&` render literally."""
-    return (
-        s.replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-    )
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
 def _build_subject(today: date) -> str:
@@ -124,6 +125,7 @@ def _build_subject(today: date) -> str:
 # --------------------------------------------------------------------------
 # Email channel (SendGrid via existing adapter)
 # --------------------------------------------------------------------------
+
 
 def _send_email(
     briefing: str,
@@ -145,18 +147,20 @@ def _send_email(
     html_body = (
         "<html><body>"
         "<pre style=\"font-family: Consolas, 'Courier New', monospace; "
-        "font-size: 12px; line-height: 1.35; white-space: pre;\">"
+        'font-size: 12px; line-height: 1.35; white-space: pre;">'
         f"{_html_escape(briefing)}"
         "</pre></body></html>"
     )
     attachments: list[dict] = []
     if call_list is not None:
         path, contents = call_list
-        attachments.append({
-            "filename": path.name,
-            "content": contents,
-            "mime_type": "text/plain",
-        })
+        attachments.append(
+            {
+                "filename": path.name,
+                "content": contents,
+                "mime_type": "text/plain",
+            }
+        )
     return send_email(
         to=to,
         subject=subject,
@@ -170,6 +174,7 @@ def _send_email(
 # --------------------------------------------------------------------------
 # Discord channel (webhook → multipart with .txt attachment)
 # --------------------------------------------------------------------------
+
 
 def _send_discord(
     briefing: str,
@@ -224,9 +229,7 @@ def _send_discord(
 
     if response.status_code >= 400:
         # Discord 4xx bodies are short JSON; truncate defensively.
-        raise RuntimeError(
-            f"discord_http_{response.status_code}: {response.text[:200]}"
-        )
+        raise RuntimeError(f"discord_http_{response.status_code}: {response.text[:200]}")
 
     return {
         "channel": "discord",
@@ -260,9 +263,7 @@ def _send_telegram(
     means the channel is simply not selected in ``main``).
     """
     headline = _extract_headline(briefing)
-    caption = (
-        f"Samus morning brief — {today.strftime('%a %b %d, %Y')}\n{headline}"
-    )
+    caption = f"Samus morning brief — {today.strftime('%a %b %d, %Y')}\n{headline}"
     if len(caption) > 1000:  # Telegram caption cap is 1024
         caption = caption[:1000] + "…"
 
@@ -282,9 +283,7 @@ def _send_telegram(
         raise RuntimeError(f"telegram_transport_error: {exc}") from exc
 
     if response.status_code >= 400:
-        raise RuntimeError(
-            f"telegram_http_{response.status_code}: {response.text[:200]}"
-        )
+        raise RuntimeError(f"telegram_http_{response.status_code}: {response.text[:200]}")
 
     # Second document — the call list. Best-effort: the brief already landed.
     if call_list is not None:
@@ -309,6 +308,7 @@ def _send_telegram(
 # --------------------------------------------------------------------------
 # Orchestration
 # --------------------------------------------------------------------------
+
 
 def main(argv: list[str] | None = None) -> int:
     today = date.today()
@@ -346,9 +346,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             result = _send_discord(briefing, discord_url, today, call_list=call_list)
             wh_id = result.get("to", "?")
-            successes.append(
-                f"discord -> webhook {wh_id}  http={result['status_code']}{cl_note}"
-            )
+            successes.append(f"discord -> webhook {wh_id}  http={result['status_code']}{cl_note}")
         except (RuntimeError, ValueError) as exc:
             failures.append(f"discord: {exc}")
 

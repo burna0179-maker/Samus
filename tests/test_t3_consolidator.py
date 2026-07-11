@@ -1,5 +1,6 @@
 """Tranche 3 — memory consolidation (distill/promote/calibrate/compress),
 calibration override store, and the nightly timer scheduling math."""
+
 from __future__ import annotations
 
 import json
@@ -22,6 +23,7 @@ def _isolate(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_CONSOLIDATION_LLM_ENABLED", "0")
     monkeypatch.delenv("DDB_ATTRIBUTION_TABLE", raising=False)
     from backend.attribution import store as attr_store
+
     attr_store.reset_store()
     yield
     attr_store.reset_store()
@@ -29,6 +31,7 @@ def _isolate(tmp_path, monkeypatch):
 
 def _seed_funnel(*, leads=0, opportunities=0, closed_won=0, industry="plumbing"):
     from backend.common.conversion_funnel import record_stage
+
     for i in range(leads):
         record_stage("lead", entity_id=f"l{i}", industry=industry)
     for i in range(opportunities):
@@ -40,13 +43,15 @@ def _seed_funnel(*, leads=0, opportunities=0, closed_won=0, industry="plumbing")
 def _seed_rewards(tmp_path, count=3, *, paid=1, day=TODAY):
     rows = []
     for i in range(count):
-        rows.append({
-            "opportunity_id": f"opp-{i}",
-            "reward": 4.0,
-            "components": {"terminal_paid": 1.0 if i < paid else 0.0},
-            "computed_at": f"{day}T10:0{i}:00+00:00",
-            "correlation_id": "",
-        })
+        rows.append(
+            {
+                "opportunity_id": f"opp-{i}",
+                "reward": 4.0,
+                "components": {"terminal_paid": 1.0 if i < paid else 0.0},
+                "computed_at": f"{day}T10:0{i}:00+00:00",
+                "correlation_id": "",
+            }
+        )
     path = tmp_path / "rewards.jsonl"
     path.write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
 
@@ -57,12 +62,14 @@ def _seed_rewards(tmp_path, count=3, *, paid=1, day=TODAY):
 class TestCalibrationStore:
     def test_roundtrip_and_overrides(self):
         from backend.common import calibration
+
         assert calibration.read_calibration() == {}
         assert calibration.calibrated_tier_close_probability("hot", 0.35) == 0.35
         ok = calibration.write_calibration(
             tier_close_probability={"hot": 0.5, "low": 0.02},
             optimizer_seeds={"conversion_prob_default": 0.12},
-            samples={"opportunities": 40}, day=TODAY,
+            samples={"opportunities": 40},
+            day=TODAY,
         )
         assert ok is True
         assert calibration.calibrated_tier_close_probability("hot", 0.35) == 0.5
@@ -72,6 +79,7 @@ class TestCalibrationStore:
 
     def test_malformed_store_fails_open(self, tmp_path, monkeypatch):
         from backend.common import calibration
+
         bad = tmp_path / "cal.json"
         bad.write_text("{not json", encoding="utf-8")
         monkeypatch.setenv(calibration.ENV_CALIBRATION_PATH, str(bad))
@@ -85,6 +93,7 @@ class TestCalibrationStore:
 class TestDistill:
     def test_lessons_written_accepted_and_reach_reason_context(self, tmp_path):
         from backend.cognitive import consolidator
+
         _seed_funnel(leads=10, opportunities=6, closed_won=3)
         _seed_rewards(tmp_path)
         out = consolidator.distill(TODAY)
@@ -95,6 +104,7 @@ class TestDistill:
         # active guidance context the cognitive runner injects.
         from backend.cognitive.guidance import GuidanceLedger
         from backend.cognitive.intelligence_cycle import active_guidance_context
+
         ctx = active_guidance_context(ledger=GuidanceLedger())
         assert "Active Strategic Guidance" in ctx
         assert "pattern:" in ctx
@@ -102,6 +112,7 @@ class TestDistill:
     def test_distilled_records_carry_provenance(self, tmp_path):
         from backend.cognitive import consolidator
         from backend.cognitive.guidance import GuidanceLedger
+
         _seed_funnel(opportunities=4, closed_won=2)
         consolidator.distill(TODAY)
         recs = GuidanceLedger().all_latest()
@@ -113,11 +124,13 @@ class TestDistill:
 
     def test_empty_day_is_noop(self):
         from backend.cognitive import consolidator
+
         out = consolidator.distill(TODAY)
         assert out == {"lessons": 0, "ingested": 0}
 
     def test_llm_rephrase_fallback(self, tmp_path, monkeypatch):
         from backend.cognitive import consolidator
+
         monkeypatch.setenv("SAMUS_CONSOLIDATION_LLM_ENABLED", "1")
 
         def _deny(**kw):
@@ -136,6 +149,7 @@ class TestCalibrate:
     def test_sufficient_sample_writes_overrides(self):
         from backend.cognitive import consolidator
         from backend.common.calibration import read_calibration
+
         _seed_funnel(opportunities=30, closed_won=9)  # observed 0.30 vs warm 0.15
         out = consolidator.calibrate(TODAY)
         assert out["written"] is True
@@ -148,6 +162,7 @@ class TestCalibrate:
     def test_small_sample_writes_nothing(self):
         from backend.cognitive import consolidator
         from backend.common.calibration import read_calibration
+
         _seed_funnel(opportunities=3, closed_won=1)
         out = consolidator.calibrate(TODAY)
         assert out["written"] is False
@@ -155,6 +170,7 @@ class TestCalibrate:
 
     def test_factor_clamped(self):
         from backend.cognitive import consolidator
+
         _seed_funnel(opportunities=40, closed_won=40)  # observed 1.0 -> raw 6.67x
         out = consolidator.calibrate(TODAY)
         assert out["factor"] == consolidator._CALIBRATION_FACTOR_MAX
@@ -166,13 +182,17 @@ class TestCalibrate:
 class TestCompress:
     def test_old_rows_rotate_to_archive(self, tmp_path, monkeypatch):
         from backend.cognitive import consolidator
+
         monkeypatch.setenv("SAMUS_CONSOLIDATION_RETENTION_DAYS", "30")
         old_ts = (datetime.now(timezone.utc) - timedelta(days=90)).isoformat()
         funnel = tmp_path / "funnel.jsonl"
         funnel.write_text(
-            json.dumps({"ts": old_ts, "stage": "lead", "entity_id": "old"}) + "\n"
-            + json.dumps({"ts": datetime.now(timezone.utc).isoformat(),
-                          "stage": "lead", "entity_id": "new"}) + "\n",
+            json.dumps({"ts": old_ts, "stage": "lead", "entity_id": "old"})
+            + "\n"
+            + json.dumps(
+                {"ts": datetime.now(timezone.utc).isoformat(), "stage": "lead", "entity_id": "new"}
+            )
+            + "\n",
             encoding="utf-8",
         )
         out = consolidator.compress()
@@ -184,6 +204,7 @@ class TestCompress:
 
     def test_missing_ledgers_are_zero(self):
         from backend.cognitive import consolidator
+
         out = consolidator.compress()
         assert set(out["rotated"].values()) <= {0}
 
@@ -194,10 +215,18 @@ class TestCompress:
 class TestRunConsolidation:
     def test_all_stages_run_and_never_raise(self, tmp_path, monkeypatch):
         from backend.cognitive import consolidator
+
         _seed_funnel(opportunities=25, closed_won=5)
         _seed_rewards(tmp_path)
         out = consolidator.run_consolidation()
-        assert set(out["stages"]) == {"distill", "promote", "calibrate", "compress", "redteam", "hypothesize"}
+        assert set(out["stages"]) == {
+            "distill",
+            "promote",
+            "calibrate",
+            "compress",
+            "redteam",
+            "hypothesize",
+        }
         assert out["ok"] is True
 
     def test_stage_fault_is_contained(self, monkeypatch):
@@ -214,6 +243,7 @@ class TestRunConsolidation:
 
     def test_cli_main(self, capsys):
         from backend.cognitive import consolidator
+
         rc = consolidator.main(["--day", TODAY])
         assert rc == 0
         payload = json.loads(capsys.readouterr().out)
@@ -223,18 +253,21 @@ class TestRunConsolidation:
 class TestConsolidationTimer:
     def test_seconds_until_next_fire_before_hour(self, monkeypatch):
         from backend.cognitive import consolidation_task as ct
+
         monkeypatch.setenv(ct.ENV_HOUR, "2")
         now = datetime(2026, 7, 5, 0, 0, 0)
         assert ct.seconds_until_next_fire(now) == pytest.approx(2 * 3600)
 
     def test_seconds_until_next_fire_after_hour_rolls_over(self, monkeypatch):
         from backend.cognitive import consolidation_task as ct
+
         monkeypatch.setenv(ct.ENV_HOUR, "2")
         now = datetime(2026, 7, 5, 3, 0, 0)
         assert ct.seconds_until_next_fire(now) == pytest.approx(23 * 3600)
 
     def test_bad_hour_falls_back(self, monkeypatch):
         from backend.cognitive import consolidation_task as ct
+
         monkeypatch.setenv(ct.ENV_HOUR, "99")
         assert ct._fire_hour() == 2
 
@@ -258,6 +291,7 @@ class TestConsolidationTimer:
         import asyncio
         from types import SimpleNamespace
         from backend.cognitive import consolidation_task as ct
+
         monkeypatch.setenv(ct.ENV_ENABLED, "0")
 
         async def scenario():

@@ -3,6 +3,7 @@ Assimilation Plan). Every source reader is injected so the suite is
 deterministic and never touches live org_debt / approvals / saturation /
 regret state.
 """
+
 from __future__ import annotations
 
 import time
@@ -14,12 +15,31 @@ from backend.observability import organizational_economics_report as oer
 # Happy path - all four sources present, non-empty
 # ---------------------------------------------------------------------------
 
+
 def _org_debt_stub():
     return {
         "workcells": [
-            {"workcell": "prospecting", "org_debt": 0.7, "karma_health": 0.3, "efficiency": 0.4, "circuit_penalty": 0.5},
-            {"workcell": "outreach", "org_debt": 0.5, "karma_health": 0.4, "efficiency": 0.6, "circuit_penalty": 0.2},
-            {"workcell": "seo", "org_debt": 0.1, "karma_health": 0.9, "efficiency": 0.9, "circuit_penalty": 0.0},
+            {
+                "workcell": "prospecting",
+                "org_debt": 0.7,
+                "karma_health": 0.3,
+                "efficiency": 0.4,
+                "circuit_penalty": 0.5,
+            },
+            {
+                "workcell": "outreach",
+                "org_debt": 0.5,
+                "karma_health": 0.4,
+                "efficiency": 0.6,
+                "circuit_penalty": 0.2,
+            },
+            {
+                "workcell": "seo",
+                "org_debt": 0.1,
+                "karma_health": 0.9,
+                "efficiency": 0.9,
+                "circuit_penalty": 0.0,
+            },
         ],
         "total_org_debt": 1.3,
         "worst": "prospecting",
@@ -28,9 +48,21 @@ def _org_debt_stub():
 
 def _approvals_pending_stub(now: float):
     return [
-        {"id": "a", "status": "pending", "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now - 3600))},
-        {"id": "b", "status": "pending", "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now - 2 * 3600))},
-        {"id": "c", "status": "pending", "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now - 5 * 3600))},
+        {
+            "id": "a",
+            "status": "pending",
+            "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now - 3600)),
+        },
+        {
+            "id": "b",
+            "status": "pending",
+            "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now - 2 * 3600)),
+        },
+        {
+            "id": "c",
+            "status": "pending",
+            "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now - 5 * 3600)),
+        },
     ]
 
 
@@ -156,6 +188,7 @@ def test_communication_entropy_uses_regret_per_token():
 # Missing-source handling - fail-soft neutrals + sources_missing flag
 # ---------------------------------------------------------------------------
 
+
 def test_missing_org_debt_source_degrades_softly():
     now = 1_000_000.0
 
@@ -216,6 +249,7 @@ def test_broken_approvals_reader_degrades_both_metrics():
 # Edge cases
 # ---------------------------------------------------------------------------
 
+
 def test_empty_pending_queue_yields_zero_latency_without_degrade():
     report = oer.compute_organizational_economics(
         now_ts=1_000_000.0,
@@ -253,7 +287,12 @@ def test_empty_workcells_yields_zero_context_switching():
 
 def test_approvals_with_only_pending_reports_zero_friction():
     def only_pending() -> dict:
-        return {"pending": [{"id": "x", "status": "pending"}], "approved": [], "rejected": [], "expired": []}
+        return {
+            "pending": [{"id": "x", "status": "pending"}],
+            "approved": [],
+            "rejected": [],
+            "expired": [],
+        }
 
     report = oer.compute_organizational_economics(
         now_ts=1_000_000.0,
@@ -291,8 +330,12 @@ def test_as_dict_shape_matches_metrics():
     assert dumped["enabled"] is True
     assert dumped["generated_ts"] == now
     assert set(dumped["metrics"].keys()) == {
-        "coordination_cost", "decision_latency", "context_switching",
-        "cognitive_overhead", "approval_friction", "communication_entropy",
+        "coordination_cost",
+        "decision_latency",
+        "context_switching",
+        "cognitive_overhead",
+        "approval_friction",
+        "communication_entropy",
     }
     coord = dumped["metrics"]["coordination_cost"]
     assert coord["value"] == 1.3

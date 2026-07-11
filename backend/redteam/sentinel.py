@@ -17,6 +17,7 @@ A guidance breach becomes visible to the REASON stage (active_guidance_context)
 and the morning brief on the next cycle -- that is how Red's findings become
 Blue's remediation work.
 """
+
 from __future__ import annotations
 
 import logging
@@ -76,9 +77,7 @@ def _sync_guidance(guidance_ledger: Any, report: ResilienceReport, now: str) -> 
         tag = f"redteam:{r.probe}"
         existing = gl.get(rid)
         is_ours_open = (
-            existing is not None
-            and not existing.is_terminal()
-            and existing.source_question == tag
+            existing is not None and not existing.is_terminal() and existing.source_question == tag
         )
 
         if r.breached:
@@ -158,7 +157,10 @@ def run_redteam_pass(
 
     log.info(
         "redteam %s: score=%.3f breaches=%s antifragility=%+d",
-        d, report.resilience_score, report.breaches, report.antifragility_delta,
+        d,
+        report.resilience_score,
+        report.breaches,
+        report.antifragility_delta,
     )
     return {
         "day": d,

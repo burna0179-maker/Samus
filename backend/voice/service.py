@@ -12,6 +12,7 @@ Two surfaces:
     ``samus_voice_calls`` DDB table) is deferred until the table is
     provisioned — see :mod:`backend.voice.__init__` for status.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -131,7 +132,7 @@ def _fast_ack_enabled() -> bool:
 
 # In-process guard so a Vapi re-delivery (or our own duplicate) of the SAME
 # end-of-call-report is processed once. Bounded ring to avoid unbounded growth.
-_PROCESSED_CALL_IDS: "collections.OrderedDict[str, bool]" = None  # type: ignore[assignment]
+_PROCESSED_CALL_IDS: "collections.OrderedDict[str, bool]" = None  # type: ignore[assignment]  # noqa: F821
 _PROCESSED_MAX = 512
 # Strong refs to in-flight background tasks so the event loop does not GC them
 # mid-flight (asyncio only keeps a weak ref to scheduled tasks).
@@ -145,6 +146,7 @@ def _already_processed(call_id: str | None) -> bool:
     deduped (we can't correlate it) and always returns False.
     """
     import collections
+
     global _PROCESSED_CALL_IDS
     if _PROCESSED_CALL_IDS is None:
         _PROCESSED_CALL_IDS = collections.OrderedDict()
@@ -165,6 +167,7 @@ def _spawn_bg(coro) -> None:
     ACKed Vapi. Any exception is swallowed + logged inside the wrapper so a
     background failure never surfaces as an unhandled task exception.
     """
+
     async def _runner() -> None:
         try:
             await coro
@@ -211,12 +214,10 @@ def _check_call_cap(req: InitiateCallRequest) -> InitiateCallResult | None:
         already = daily_counter.count_today(_CALL_CAP_COUNTER_KEY)
         if already < cap:
             return None
-        why = (
-            f"daily call cap reached: {already} calls today >= cap {cap}; "
-            f"Vapi dial blocked"
-        )
+        why = f"daily call cap reached: {already} calls today >= cap {cap}; Vapi dial blocked"
         _meta = req.metadata or {}
         from backend.common.business_events import DECISION_MADE, emit_business_event
+
         emit_business_event(
             DECISION_MADE,
             workcell="voice",
@@ -232,29 +233,34 @@ def _check_call_cap(req: InitiateCallRequest) -> InitiateCallResult | None:
             from backend.crm import service as crm
             from backend.crm.models import CreateOperatorTaskRequest
 
-            crm.create_operator_task(CreateOperatorTaskRequest(
-                kind="review",
-                title=f"Daily call cap reached ({already}/{cap})",
-                description=why,
-                source="voice_call_cap",
-                source_ref=str(_meta.get("prospect_id") or ""),
-            ))
+            crm.create_operator_task(
+                CreateOperatorTaskRequest(
+                    kind="review",
+                    title=f"Daily call cap reached ({already}/{cap})",
+                    description=why,
+                    source="voice_call_cap",
+                    source_ref=str(_meta.get("prospect_id") or ""),
+                )
+            )
         except Exception as exc:  # noqa: BLE001 — the block itself is the deliverable
             _LOG.warning("call-cap operator-task creation failed: %s", exc)
         ev = events.build_audit_event(
             service="voice",
             task_id="initiate_call",
             action="initiate_call",
-            input_payload={"assistant_id": req.assistant_id,
-                           "phone_number_id": req.phone_number_id},
-            output_payload={"vapi_error": "call_cap_reached",
-                            "calls_today": already, "cap": cap},
+            input_payload={
+                "assistant_id": req.assistant_id,
+                "phone_number_id": req.phone_number_id,
+            },
+            output_payload={"vapi_error": "call_cap_reached", "calls_today": already, "cap": cap},
             status="failed",
         )
         _append_audit(ev)
         _LOG.warning("%s", why)
         return InitiateCallResult(
-            call_id="", status=None, vapi_error="call_cap_reached",
+            call_id="",
+            status=None,
+            vapi_error="call_cap_reached",
         )
     except Exception as exc:  # noqa: BLE001 — a counter fault never wedges dials
         _LOG.warning("call-cap check failed (allowing dial): %s", exc)
@@ -283,14 +289,15 @@ def initiate_call(req: InitiateCallRequest) -> InitiateCallResult:
             service="voice",
             task_id="initiate_call",
             action="initiate_call",
-            input_payload={"assistant_id": req.assistant_id,
-                           "phone_number_id": req.phone_number_id},
+            input_payload={
+                "assistant_id": req.assistant_id,
+                "phone_number_id": req.phone_number_id,
+            },
             output_payload={"vapi_error": "vapi_api_key_unset"},
             status="degraded",
         )
         _append_audit(ev)
-        return InitiateCallResult(call_id="", status=None,
-                                  vapi_error="vapi_api_key_unset")
+        return InitiateCallResult(call_id="", status=None, vapi_error="vapi_api_key_unset")
 
     try:
         call = client.create_call(
@@ -306,8 +313,10 @@ def initiate_call(req: InitiateCallRequest) -> InitiateCallResult:
             service="voice",
             task_id="initiate_call",
             action="initiate_call",
-            input_payload={"assistant_id": req.assistant_id,
-                           "phone_number_id": req.phone_number_id},
+            input_payload={
+                "assistant_id": req.assistant_id,
+                "phone_number_id": req.phone_number_id,
+            },
             output_payload={"vapi_error": str(exc)},
             status="failed",
         )
@@ -318,9 +327,11 @@ def initiate_call(req: InitiateCallRequest) -> InitiateCallResult:
         service="voice",
         task_id=call.id,
         action="initiate_call",
-        input_payload={"assistant_id": req.assistant_id,
-                       "phone_number_id": req.phone_number_id,
-                       "customer_number_tail": req.customer_number[-4:]},
+        input_payload={
+            "assistant_id": req.assistant_id,
+            "phone_number_id": req.phone_number_id,
+            "customer_number_tail": req.customer_number[-4:],
+        },
         output_payload={"call_id": call.id, "status": call.status},
         status="completed",
     )
@@ -330,6 +341,7 @@ def initiate_call(req: InitiateCallRequest) -> InitiateCallResult:
     # metadata (outreach.send_message / dialer both stamp it). Fail-soft by
     # contract: emit_business_event never raises.
     from backend.common.business_events import CALL_PLACED, emit_business_event
+
     _meta = req.metadata or {}
     emit_business_event(
         CALL_PLACED,
@@ -346,6 +358,7 @@ def initiate_call(req: InitiateCallRequest) -> InitiateCallResult:
     # (HOTL T5). Best-effort — a counter fault never fails a placed call.
     try:
         from backend.common import daily_counter
+
         daily_counter.increment(_CALL_CAP_COUNTER_KEY)
     except Exception as exc:  # noqa: BLE001
         _LOG.warning("call-cap counter increment failed: %s", exc)
@@ -382,9 +395,11 @@ def list_recent_calls(limit: int = 10) -> CallListResult:
 # Morning-briefing rollup over voice_events.jsonl (last 24h by default)
 # ---------------------------------------------------------------------------
 
+
 def _parse_audit_ts(raw: str | None) -> Any:
     """Parse an iso_now() string back into a tz-aware UTC datetime, or None."""
     from datetime import datetime, timezone
+
     if not raw:
         return None
     try:
@@ -411,6 +426,7 @@ def get_voice_call_summary(window_hours: int = 24) -> VoiceCallSummary:
     retry_queue_depth = 0
     try:
         from .retry import get_retry_entries
+
         retry_queue_depth = len(get_retry_entries(max_age_hours=48))
     except Exception:  # noqa: BLE001
         pass
@@ -418,15 +434,21 @@ def get_voice_call_summary(window_hours: int = 24) -> VoiceCallSummary:
     if not path.exists():
         return VoiceCallSummary(
             window_hours=window_hours,
-            total_calls=0, initiated_count=0, end_of_call_count=0,
-            dial_attempt_count=0, dial_attempts_by_outcome={},
-            by_recommended_action={}, by_tier={},
+            total_calls=0,
+            initiated_count=0,
+            end_of_call_count=0,
+            dial_attempt_count=0,
+            dial_attempts_by_outcome={},
+            by_recommended_action={},
+            by_tier={},
             avg_intent_score=None,
-            booked_calls=[], recent_high_intent=[],
+            booked_calls=[],
+            recent_high_intent=[],
             answer_rate_by_number={},
             dnc_count=0,
             retry_queue_depth=retry_queue_depth,
-            log_loaded=False, ts=iso_now(),
+            log_loaded=False,
+            ts=iso_now(),
         )
 
     cutoff = datetime.now(timezone.utc) - timedelta(hours=window_hours)
@@ -437,12 +459,18 @@ def get_voice_call_summary(window_hours: int = 24) -> VoiceCallSummary:
     # Per-number tracking: initiated and answered counts.
     # "Answered" = end_of_call that is NOT voicemail/no-answer (endedReason
     # doesn't contain the no-answer family) and duration_sec > 0.
-    _NO_ANSWER_REASONS = frozenset({
-        "no-answer", "voicemail", "machine_detected_silence",
-        "machine_end_beep", "machine_end_silence", "machine_end_other",
-    })
-    num_initiated: dict[str, int] = {}   # outbound_number_id -> initiated count
-    num_answered: dict[str, int] = {}    # outbound_number_id -> answered count
+    _NO_ANSWER_REASONS = frozenset(
+        {
+            "no-answer",
+            "voicemail",
+            "machine_detected_silence",
+            "machine_end_beep",
+            "machine_end_silence",
+            "machine_end_other",
+        }
+    )
+    num_initiated: dict[str, int] = {}  # outbound_number_id -> initiated count
+    num_answered: dict[str, int] = {}  # outbound_number_id -> answered count
 
     with path.open("r", encoding="utf-8") as fh:
         for line in fh:
@@ -534,6 +562,7 @@ def get_voice_call_summary(window_hours: int = 24) -> VoiceCallSummary:
 # Inbound — Vapi pushes a webhook
 # ---------------------------------------------------------------------------
 
+
 def _extract_lead_summary(structured: dict[str, Any] | None) -> LeadSummary | None:
     """Pull Morgan's lead_summary from Vapi's structuredData block.
 
@@ -559,8 +588,9 @@ def _extract_lead_summary(structured: dict[str, Any] | None) -> LeadSummary | No
         return None
 
 
-def _memory_dispatch_payload(call_id: str, lead: LeadSummary,
-                             webhook_msg: dict[str, Any]) -> dict[str, Any]:
+def _memory_dispatch_payload(
+    call_id: str, lead: LeadSummary, webhook_msg: dict[str, Any]
+) -> dict[str, Any]:
     """Shape the body the memory workcell's POST /write expects."""
     return {
         "namespace": _MEMORY_NAMESPACE,
@@ -633,9 +663,9 @@ def _vapi_call_outcome(lead: LeadSummary | None, ended_reason: str | None) -> st
     return ""
 
 
-def _build_conversation_payload(call_id: str, lead: LeadSummary | None,
-                                prospect_id: str,
-                                webhook_msg: dict[str, Any]) -> dict[str, Any]:
+def _build_conversation_payload(
+    call_id: str, lead: LeadSummary | None, prospect_id: str, webhook_msg: dict[str, Any]
+) -> dict[str, Any]:
     """Shape the body samus-crm's POST /crm/conversations expects.
 
     conversation_id is derived from the Vapi call_id so the row is
@@ -675,10 +705,12 @@ def _build_conversation_payload(call_id: str, lead: LeadSummary | None,
     }
 
 
-def _build_call_state_payload(call_id: str, lead: LeadSummary | None,
-                              prospect_id: str,
-                              ended_reason: str | None = None,
-                              ) -> dict[str, Any] | None:
+def _build_call_state_payload(
+    call_id: str,
+    lead: LeadSummary | None,
+    prospect_id: str,
+    ended_reason: str | None = None,
+) -> dict[str, Any] | None:
     """Shape the body samus-crm's POST /crm/call-state/{prospect_id} expects.
 
     Returns None when we lack a prospect_id (CallState PK is prospect_id —
@@ -717,7 +749,10 @@ async def _post_to_crm_conversation(
         return False, "shared_hmac_key_unset"
     try:
         resp = await signed_post_json(
-            crm_url, "/crm/conversations", payload, retries=2,
+            crm_url,
+            "/crm/conversations",
+            payload,
+            retries=2,
         )
     except Exception as exc:  # noqa: BLE001 — network / circuit / 5xx
         _LOG.warning("crm conversation dispatch failed: %s", exc)
@@ -729,7 +764,8 @@ async def _post_to_crm_conversation(
 
 
 async def _post_to_crm_call_state(
-    prospect_id: str, payload: dict[str, Any],
+    prospect_id: str,
+    payload: dict[str, Any],
 ) -> tuple[bool, str | None]:
     """POST a CallState upsert to samus-crm. Best-effort — never raises."""
     settings = get_settings()
@@ -751,8 +787,10 @@ async def _post_to_crm_call_state(
 
 
 async def _dispatch_to_crm(
-    call_id: str, lead: LeadSummary | None,
-    prospect_id: str, webhook_msg: dict[str, Any],
+    call_id: str,
+    lead: LeadSummary | None,
+    prospect_id: str,
+    webhook_msg: dict[str, Any],
 ) -> tuple[bool, str | None]:
     """Fire both CRM writes (Conversation + CallState).
 
@@ -763,12 +801,18 @@ async def _dispatch_to_crm(
     overall result to False so the operator sees the degradation.
     """
     conv_payload = _build_conversation_payload(
-        call_id, lead, prospect_id, webhook_msg,
+        call_id,
+        lead,
+        prospect_id,
+        webhook_msg,
     )
     conv_ok, conv_err = await _post_to_crm_conversation(conv_payload)
 
     state_payload = _build_call_state_payload(
-        call_id, lead, prospect_id, webhook_msg.get("endedReason"),
+        call_id,
+        lead,
+        prospect_id,
+        webhook_msg.get("endedReason"),
     )
     if state_payload is None:
         # No prospect_id -> can't upsert call-state. Treat as a non-error
@@ -777,7 +821,8 @@ async def _dispatch_to_crm(
         state_ok, state_err = True, None
     else:
         state_ok, state_err = await _post_to_crm_call_state(
-            prospect_id, state_payload,
+            prospect_id,
+            state_payload,
         )
 
     if conv_ok and state_ok:
@@ -834,9 +879,8 @@ def _maybe_postcall_remediate(
             is_buying_signal,
             maybe_enroll_buying_signal,
         )
-        threshold = int(
-            getattr(settings, "outreach_buying_signal_intent_threshold", 70)
-        )
+
+        threshold = int(getattr(settings, "outreach_buying_signal_intent_threshold", 70))
         if not is_buying_signal(lead, intent_threshold=threshold):
             return
 
@@ -847,16 +891,14 @@ def _maybe_postcall_remediate(
         if not email:
             email = str(raw_metadata.get("owner_email") or "").strip()
         audit_url = str(raw_metadata.get("website_url") or "").strip()
-        company = (
-            getattr(lead, "company", None)
-            or str(raw_metadata.get("company_name") or "")
-        )
+        company = getattr(lead, "company", None) or str(raw_metadata.get("company_name") or "")
 
         # (a) SEO remediation deliverable — reuse the fulfill seam. Fail-soft:
         # missing email/url just skips delivery (nothing to send to / audit).
         if email and audit_url:
             try:
                 from backend.fulfill import fulfill_customer
+
                 fulfill_customer(
                     email=email,
                     audit_url=audit_url,
@@ -870,7 +912,8 @@ def _maybe_postcall_remediate(
             except Exception as exc:  # noqa: BLE001 — best-effort, never block
                 _LOG.warning(
                     "postcall_remediate delivery failed prospect=%s: %s",
-                    prospect_id, exc,
+                    prospect_id,
+                    exc,
                 )
         else:
             _LOG.info(
@@ -898,7 +941,8 @@ def _maybe_postcall_remediate(
         except Exception as exc:  # noqa: BLE001 — best-effort, never block
             _LOG.warning(
                 "postcall_remediate enroll failed prospect=%s: %s",
-                prospect_id, exc,
+                prospect_id,
+                exc,
             )
     except Exception as exc:  # noqa: BLE001 — defensive top-level guard
         _LOG.warning("postcall_remediate unexpected error: %s", exc)
@@ -918,9 +962,11 @@ def _get_suppression_table():
     if _suppression_table is None:
         try:
             import boto3
+
             table_name = get_settings().ddb_suppression_table or "samus_suppression"
             _suppression_table = boto3.resource(
-                "dynamodb", region_name="us-west-1",
+                "dynamodb",
+                region_name="us-west-1",
             ).Table(table_name)
         except Exception as exc:  # noqa: BLE001
             _LOG.warning("suppression_table: boto3 init failed: %s", exc)
@@ -962,21 +1008,25 @@ def _write_suppression(phone: str, prospect_id: str, call_id: str | None) -> Non
         table.put_item(Item=item)
         _suppression_fail_count = 0
         _LOG.info("suppression: added %s (prospect=%s call=%s)", phone_e164, prospect_id, call_id)
-        _append_event({
-            "ts": iso_now(),
-            "kind": "dnc_write",
-            "phone": phone_e164,
-            "prospect_id": prospect_id or "",
-            "call_id": call_id or "",
-            "source": "morgan_disqualify",
-        })
+        _append_event(
+            {
+                "ts": iso_now(),
+                "kind": "dnc_write",
+                "phone": phone_e164,
+                "prospect_id": prospect_id or "",
+                "call_id": call_id or "",
+                "source": "morgan_disqualify",
+            }
+        )
     except Exception as exc:  # noqa: BLE001
         _suppression_fail_count += 1
         if _suppression_fail_count >= _SUPPRESSION_FAIL_ALERT_THRESHOLD:
             _LOG.error(
                 "ALERT: samus_suppression DynamoDB write has failed %d consecutive times "
                 "(phone=%s, prospect=%s). DNC requests may not be persisted.",
-                _suppression_fail_count, phone_e164, prospect_id,
+                _suppression_fail_count,
+                phone_e164,
+                prospect_id,
             )
         else:
             _LOG.warning("suppression write failed for %s: %s", phone_e164, exc)
@@ -985,6 +1035,7 @@ def _write_suppression(phone: str, prospect_id: str, call_id: str | None) -> Non
 # ---------------------------------------------------------------------------
 # Inbound — AI Digital Receptionist fork
 # ---------------------------------------------------------------------------
+
 
 def _is_inbound_call(raw_call: dict[str, Any], settings: Any) -> bool:
     """True when an end-of-call-report is for an inbound receptionist call.
@@ -1009,7 +1060,9 @@ def _dialed_number(raw_call: dict[str, Any]) -> str:
 
 
 async def _handle_inbound_end_of_call(
-    event: VapiWebhookEvent, raw_call: dict[str, Any], call_id: str | None,
+    event: VapiWebhookEvent,
+    raw_call: dict[str, Any],
+    call_id: str | None,
 ) -> WebhookResult:
     """Route an inbound end-of-call-report to the receptionist handler.
 
@@ -1036,11 +1089,14 @@ async def _handle_inbound_end_of_call(
         _append_audit(ev)
         _LOG.warning("inbound call to unrecognized DID (phone_number_id=%s)", pid)
         return WebhookResult(
-            received=True, message_type="end-of-call-report", call_id=call_id,
+            received=True,
+            message_type="end-of-call-report",
+            call_id=call_id,
             lead_summary=None,
             memory_dispatch_ok=False,
             memory_dispatch_error="inbound_no_matching_receptionist_client",
-            crm_dispatch_ok=False, crm_dispatch_error=None,
+            crm_dispatch_ok=False,
+            crm_dispatch_error=None,
         )
 
     try:
@@ -1075,25 +1131,31 @@ async def _handle_inbound_end_of_call(
     # Distinct ``kind`` from outbound ``end_of_call`` so the outbound morning
     # briefing rollup (get_voice_call_summary) is not inflated by inbound
     # calls; the receptionist call-summary email reads calls/<id>/call.json.
-    _append_event({
-        "ts": iso_now(),
-        "kind": "inbound_end_of_call",
-        "direction": "inbound",
-        "call_id": call_id,
-        "customer_slug": config.customer_slug,
-        "outcome": outcome.outcome if outcome else "",
-        "answered": rec.answered if rec else None,
-        "voicemail_left": rec.voicemail_left if rec else None,
-        "duration_sec": rec.duration_sec if rec else 0,
-        "crm_dispatch_ok": crm_ok,
-        "vapi_cost": raw_call.get("cost"),
-        "duration_seconds": event.message.durationSeconds,
-    })
+    _append_event(
+        {
+            "ts": iso_now(),
+            "kind": "inbound_end_of_call",
+            "direction": "inbound",
+            "call_id": call_id,
+            "customer_slug": config.customer_slug,
+            "outcome": outcome.outcome if outcome else "",
+            "answered": rec.answered if rec else None,
+            "voicemail_left": rec.voicemail_left if rec else None,
+            "duration_sec": rec.duration_sec if rec else 0,
+            "crm_dispatch_ok": crm_ok,
+            "vapi_cost": raw_call.get("cost"),
+            "duration_seconds": event.message.durationSeconds,
+        }
+    )
     return WebhookResult(
-        received=True, message_type="end-of-call-report", call_id=call_id,
+        received=True,
+        message_type="end-of-call-report",
+        call_id=call_id,
         lead_summary=None,
-        memory_dispatch_ok=False, memory_dispatch_error=None,
-        crm_dispatch_ok=crm_ok, crm_dispatch_error=crm_err,
+        memory_dispatch_ok=False,
+        memory_dispatch_error=None,
+        crm_dispatch_ok=crm_ok,
+        crm_dispatch_error=crm_err,
     )
 
 
@@ -1142,10 +1204,14 @@ async def handle_webhook_event(event: VapiWebhookEvent) -> WebhookResult:
         )
         _append_audit(ev)
         return WebhookResult(
-            received=True, message_type=msg.type, call_id=call_id,
-            lead_summary=None, memory_dispatch_ok=False,
+            received=True,
+            message_type=msg.type,
+            call_id=call_id,
+            lead_summary=None,
+            memory_dispatch_ok=False,
             memory_dispatch_error=None,
-            crm_dispatch_ok=False, crm_dispatch_error=None,
+            crm_dispatch_ok=False,
+            crm_dispatch_error=None,
         )
 
     # GAP-9 fast-ACK: an end-of-call-report triggers heavy, slow downstream
@@ -1159,19 +1225,27 @@ async def handle_webhook_event(event: VapiWebhookEvent) -> WebhookResult:
         if _already_processed(call_id):
             _LOG.info("end-of-call-report for %s already processed; ack-only", call_id)
             return WebhookResult(
-                received=True, message_type="end-of-call-report", call_id=call_id,
-                lead_summary=None, memory_dispatch_ok=False,
+                received=True,
+                message_type="end-of-call-report",
+                call_id=call_id,
+                lead_summary=None,
+                memory_dispatch_ok=False,
                 memory_dispatch_error="duplicate_already_processed",
-                crm_dispatch_ok=False, crm_dispatch_error=None,
+                crm_dispatch_ok=False,
+                crm_dispatch_error=None,
             )
         if _is_inbound_call(raw_call, settings):
             _spawn_bg(_handle_inbound_end_of_call(event, raw_call, call_id))
         else:
             _spawn_bg(_process_outbound_end_of_call(event, raw_call, call_id, settings))
         return WebhookResult(
-            received=True, message_type="end-of-call-report", call_id=call_id,
-            lead_summary=None, memory_dispatch_ok=False,
-            memory_dispatch_error="accepted_async", crm_dispatch_ok=False,
+            received=True,
+            message_type="end-of-call-report",
+            call_id=call_id,
+            lead_summary=None,
+            memory_dispatch_ok=False,
+            memory_dispatch_error="accepted_async",
+            crm_dispatch_ok=False,
             crm_dispatch_error=None,
         )
 
@@ -1207,7 +1281,8 @@ async def _process_outbound_end_of_call(
     dispatch_err: str | None = None
     if lead is not None and call_id:
         payload = _memory_dispatch_payload(
-            call_id, lead,
+            call_id,
+            lead,
             {
                 "endedReason": msg.endedReason,
                 "summary": msg.summary,
@@ -1234,7 +1309,10 @@ async def _process_outbound_end_of_call(
         }
         try:
             crm_ok, crm_err = await _dispatch_to_crm(
-                call_id, lead, prospect_id, crm_webhook_msg,
+                call_id,
+                lead,
+                prospect_id,
+                crm_webhook_msg,
             )
         except Exception as exc:  # noqa: BLE001 — defensive, _dispatch_to_crm catches internally
             _LOG.warning("crm dispatch unexpected error: %s", exc)
@@ -1248,6 +1326,7 @@ async def _process_outbound_end_of_call(
     prospect_phone = str(raw_metadata.get("prospect_phone") or "")
     if prospect_phone and call_id:
         from backend.common.dates import iso_now as _iso_now
+
         index_outbound_call(
             prospect_phone=prospect_phone,
             prospect_id=prospect_id,
@@ -1262,6 +1341,7 @@ async def _process_outbound_end_of_call(
     # Enrich the callback lookup record with post-call data if available.
     if prospect_phone and (msg.endedReason or msg.summary):
         from .callback_lookup import enrich_after_call
+
         enrich_after_call(
             prospect_phone=prospect_phone,
             ended_reason=msg.endedReason or "",
@@ -1276,7 +1356,9 @@ async def _process_outbound_end_of_call(
     # WordPress as a draft for Alex to review and publish. Best-effort —
     # a failure here never blocks the webhook response.
     if lead and lead.validated_product_name:
-        call_context = f"{lead.company or 'prospect'} | score={lead.intent_score} | call_id={call_id}"
+        call_context = (
+            f"{lead.company or 'prospect'} | score={lead.intent_score} | call_id={call_id}"
+        )
         try:
             result = submit_product_page(
                 product_name=lead.validated_product_name,
@@ -1299,17 +1381,28 @@ async def _process_outbound_end_of_call(
     # metadata.no_callback (set by the governed dial_fn) or the global
     # SAMUS_VOICE_NO_CALLBACK_ENABLED flag skips the retry enqueue entirely.
     _no_callback = str(raw_metadata.get("no_callback", "")).strip().lower() in (
-        "1", "true", "yes", "on",
-    ) or (os.getenv("SAMUS_VOICE_NO_CALLBACK_ENABLED", "").strip().lower() in (
-        "1", "true", "yes", "on",
-    ))
+        "1",
+        "true",
+        "yes",
+        "on",
+    ) or (
+        os.getenv("SAMUS_VOICE_NO_CALLBACK_ENABLED", "").strip().lower()
+        in (
+            "1",
+            "true",
+            "yes",
+            "on",
+        )
+    )
     from .retry import add_retry_entry, NO_ANSWER_REASONS
+
     ended_reason = msg.endedReason or ""
     if not _no_callback and ended_reason in NO_ANSWER_REASONS and prospect_phone:
         add_retry_entry(
             prospect_id=prospect_id,
             prospect_phone=prospect_phone,
-            company_name=getattr(lead, "company", None) or str(raw_metadata.get("company_name", "")),
+            company_name=getattr(lead, "company", None)
+            or str(raw_metadata.get("company_name", "")),
             priority=str(raw_metadata.get("priority", "warm")),
             run_id=str(raw_metadata.get("run_id", "")),
             ended_reason=ended_reason,
@@ -1323,6 +1416,7 @@ async def _process_outbound_end_of_call(
     if lead and prospect_id:
         try:
             from backend.outreach.buying_signal_route import maybe_enroll_buying_signal
+
             maybe_enroll_buying_signal(
                 prospect_id=prospect_id,
                 lead=lead,
@@ -1367,49 +1461,56 @@ async def _process_outbound_end_of_call(
     # Rich-payload row for the briefing rollup — audit row hashes the fields
     # we need to aggregate (tier/intent_score/recommended_action), so we keep
     # an unhashed copy here.
-    outbound_number_id = (
-        str(raw_metadata.get("phone_number_id") or "")
-        or str(raw_call.get("phoneNumberId") or "")
+    outbound_number_id = str(raw_metadata.get("phone_number_id") or "") or str(
+        raw_call.get("phoneNumberId") or ""
     )
-    _append_event({
-        "ts": iso_now(),
-        "kind": "end_of_call",
-        "call_id": call_id,
-        "ended_reason": msg.endedReason,
-        "company": getattr(lead, "company", None) if lead else None,
-        "tier": getattr(lead, "tier", None) if lead else None,
-        "intent_score": getattr(lead, "intent_score", None) if lead else None,
-        "recommended_action": getattr(lead, "recommended_action", None) if lead else None,
-        "memory_dispatch_ok": dispatched_ok,
-        "memory_dispatch_error": dispatch_err,
-        "crm_dispatch_ok": crm_ok,
-        # Without the error string a dispatch failure is indistinguishable
-        # from a skip — the 7/02 crm_url_unset outage sat invisible for a
-        # full production day because only the boolean landed in the ledger.
-        "crm_dispatch_error": crm_err,
-        "outbound_number_id": outbound_number_id,
-        "vapi_cost": raw_call.get("cost"),
-        "duration_seconds": msg.durationSeconds,
-    })
+    _append_event(
+        {
+            "ts": iso_now(),
+            "kind": "end_of_call",
+            "call_id": call_id,
+            "ended_reason": msg.endedReason,
+            "company": getattr(lead, "company", None) if lead else None,
+            "tier": getattr(lead, "tier", None) if lead else None,
+            "intent_score": getattr(lead, "intent_score", None) if lead else None,
+            "recommended_action": getattr(lead, "recommended_action", None) if lead else None,
+            "memory_dispatch_ok": dispatched_ok,
+            "memory_dispatch_error": dispatch_err,
+            "crm_dispatch_ok": crm_ok,
+            # Without the error string a dispatch failure is indistinguishable
+            # from a skip — the 7/02 crm_url_unset outage sat invisible for a
+            # full production day because only the boolean landed in the ledger.
+            "crm_dispatch_error": crm_err,
+            "outbound_number_id": outbound_number_id,
+            "vapi_cost": raw_call.get("cost"),
+            "duration_seconds": msg.durationSeconds,
+        }
+    )
 
     # Unified business-event ledger (HOTL Tranche 1) — a call.answered row for
     # every outbound end-of-call that a human actually answered. "Answered"
     # mirrors the briefing rollup's definition: endedReason NOT in the
     # voicemail / no-answer family. Fail-soft by contract: emit_business_event
     # never raises.
-    _no_answer_reasons = frozenset({
-        "no-answer", "voicemail", "machine_detected_silence",
-        "machine_end_beep", "machine_end_silence", "machine_end_other",
-    })
+    _no_answer_reasons = frozenset(
+        {
+            "no-answer",
+            "voicemail",
+            "machine_detected_silence",
+            "machine_end_beep",
+            "machine_end_silence",
+            "machine_end_other",
+        }
+    )
     if (ended_reason or "").lower() not in _no_answer_reasons:
         from backend.common.business_events import CALL_ANSWERED, emit_business_event
+
         emit_business_event(
             CALL_ANSWERED,
             workcell="voice",
             prospect_id=(prospect_id or None),
             cost_usd=(
-                float(raw_call["cost"])
-                if isinstance(raw_call.get("cost"), (int, float)) else None
+                float(raw_call["cost"]) if isinstance(raw_call.get("cost"), (int, float)) else None
             ),
             metadata={
                 "call_id": call_id or "",
@@ -1423,11 +1524,13 @@ async def _process_outbound_end_of_call(
     # ── Intraday session monitor (DORMANT: SAMUS_VOICE_SESSION_MONITOR=1 to arm)
     try:
         from .call_session_monitor import check_session
+
         adj = check_session()
         if adj:
             _LOG.info(
                 "session_monitor: mid-session adjustment fired — %s (%d recs)",
-                adj.trigger, len(adj.recommendations),
+                adj.trigger,
+                len(adj.recommendations),
             )
     except Exception as exc:  # noqa: BLE001
         _LOG.debug("session_monitor check skipped: %s", exc)

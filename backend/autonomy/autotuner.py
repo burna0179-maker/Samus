@@ -15,6 +15,7 @@ DORMANCY: constructed no-arg; no live importer; inert unless armed AND the
 (dormant) wrapper constructs it. The knobs are observational; promoting any
 knob to a live runtime parameter is deferred to a later operator-gated phase.
 """
+
 from __future__ import annotations
 
 import json
@@ -74,9 +75,15 @@ class Autotuner:
             err_count = len(errors) if hasattr(errors, "__len__") else int(errors or 0)
             alpha = 0.1
             self._samples += 1
-            self._latency_ema_ms = (1 - alpha) * self._latency_ema_ms + alpha * float(latency or 0.0)
-            self._error_rate_ema = (1 - alpha) * self._error_rate_ema + alpha * (1.0 if err_count else 0.0)
-            self._block_rate_ema = (1 - alpha) * self._block_rate_ema + alpha * (1.0 if compliance_blocked else 0.0)
+            self._latency_ema_ms = (1 - alpha) * self._latency_ema_ms + alpha * float(
+                latency or 0.0
+            )
+            self._error_rate_ema = (1 - alpha) * self._error_rate_ema + alpha * (
+                1.0 if err_count else 0.0
+            )
+            self._block_rate_ema = (1 - alpha) * self._block_rate_ema + alpha * (
+                1.0 if compliance_blocked else 0.0
+            )
             self._save()
         except Exception:  # pragma: no cover — tuning must never break a cycle
             log.exception("Autotuner.adjust failed")

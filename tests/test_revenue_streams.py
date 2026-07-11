@@ -1,4 +1,5 @@
 """Tests for backend.finance.revenue_streams — income partition (active)."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -8,10 +9,15 @@ from backend.finance import revenue_streams as rs
 
 def _settings(**over):
     base = dict(
-        stripe_api_key="sk_default", stripe_api_key_products="", stripe_api_key_tiktok="",
-        stripe_webhook_secret="whsec_default", stripe_webhook_secret_products="",
-        stripe_webhook_secret_tiktok="", revenue_entity_default="HustleForge LLC",
-        revenue_entity_products="", revenue_entity_tiktok="",
+        stripe_api_key="sk_default",
+        stripe_api_key_products="",
+        stripe_api_key_tiktok="",
+        stripe_webhook_secret="whsec_default",
+        stripe_webhook_secret_products="",
+        stripe_webhook_secret_tiktok="",
+        revenue_entity_default="HustleForge LLC",
+        revenue_entity_products="",
+        revenue_entity_tiktok="",
     )
     base.update(over)
     return SimpleNamespace(**base)

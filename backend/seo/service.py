@@ -9,6 +9,7 @@ Three idempotent capabilities, one per pipeline stage:
 Idempotency is keyed on the target URL per stage. Audit events are appended
 to ``SAMUS_SEO_AUDIT_PATH`` on each run.
 """
+
 from __future__ import annotations
 
 import logging
@@ -78,7 +79,10 @@ def _dispatch_artifact_to_crm(payload: dict[str, Any]) -> None:
     }
     try:
         signed_post_json_sync(
-            gateway_url, "/dispatch/crm", envelope, retries=2,
+            gateway_url,
+            "/dispatch/crm",
+            envelope,
+            retries=2,
         )
     except Exception as exc:  # noqa: BLE001 — best-effort, never blocks producer
         _LOG.warning("seo crm artifact dispatch failed: %s", exc)
@@ -99,8 +103,10 @@ def audit_site(req: AuditRequest, *, force_refresh: bool = False) -> AuditResult
 
     # WIRED-DORMANT durable cache (input_hash-keyed). No-op when the flag is
     # off — audit_cache reads settings.seo_audit_cache_enabled itself.
-    hit = None if force_refresh else audit_cache.get_cached(
-        audit_cache.compute_input_hash(req.model_dump())
+    hit = (
+        None
+        if force_refresh
+        else audit_cache.get_cached(audit_cache.compute_input_hash(req.model_dump()))
     )
     if hit is not None:
         _LOG.info("audit_site durable cache hit url=%s", req.url)
@@ -128,28 +134,28 @@ def audit_site(req: AuditRequest, *, force_refresh: bool = False) -> AuditResult
 
     GLOBAL_IDEMPOTENCY_STORE.set(cache_key, result.model_dump())
     # Durable-cache the fresh result (no-op when flag off).
-    audit_cache.put_cached(
-        audit_cache.compute_input_hash(req.model_dump()), result.model_dump()
-    )
+    audit_cache.put_cached(audit_cache.compute_input_hash(req.model_dump()), result.model_dump())
 
     # Phase 5 — best-effort CRM artifact registration. Only fires when the
     # caller supplied a prospect_id so we have something to attach the
     # deliverable to; otherwise this is a URL-only ad-hoc audit and no CRM
     # row exists. Dispatch is non-blocking + never raises.
     if req.prospect_id:
-        _dispatch_artifact_to_crm({
-            "kind": "seo_audit",
-            "owner_entity_kind": "prospect",
-            "owner_entity_id": req.prospect_id,
-            "title": f"SEO audit: {req.url}",
-            "inline_data": {
-                "url": result.url,
-                "seo_score": result.seo_score,
-                "issue_count": len(result.issues),
-            },
-            "source": "seo",
-            "created_by": "samus-seo",
-        })
+        _dispatch_artifact_to_crm(
+            {
+                "kind": "seo_audit",
+                "owner_entity_kind": "prospect",
+                "owner_entity_id": req.prospect_id,
+                "title": f"SEO audit: {req.url}",
+                "inline_data": {
+                    "url": result.url,
+                    "seo_score": result.seo_score,
+                    "issue_count": len(result.issues),
+                },
+                "source": "seo",
+                "created_by": "samus-seo",
+            }
+        )
 
     return result
 
@@ -206,15 +212,26 @@ def audit_and_report(
     audit_event_err: str | None = None
     try:
         audit = audit_site(req)
-        opt = optimize_page(OptimizeRequest(
-            url=audit.url, audit_data=audit, target_keywords=keywords,
-        ))
-        content = generate_content(ContentRequest(
-            url=opt.url, optimization_data=opt,
-            target_keywords=keywords, tone=tone,
-        ))
+        opt = optimize_page(
+            OptimizeRequest(
+                url=audit.url,
+                audit_data=audit,
+                target_keywords=keywords,
+            )
+        )
+        content = generate_content(
+            ContentRequest(
+                url=opt.url,
+                optimization_data=opt,
+                target_keywords=keywords,
+                tone=tone,
+            )
+        )
         report_path = write_seo_report(
-            audit, opt, content, customer_label=customer_label,
+            audit,
+            opt,
+            content,
+            customer_label=customer_label,
         )
         result = {
             "audit": audit.model_dump(),
@@ -275,16 +292,16 @@ def generate_content(req: ContentRequest) -> ContentResult:
     # on-page change recommended by the optimizer. Lower-need pages stay on
     # the templated path even when an API key is configured. Keeps daily LLM
     # spend bounded under the Samus production cap.
-    needs_llm = (
-        len(req.target_keywords) >= 2
-        and len(req.optimization_data.on_page_changes) >= 1
-    )
+    needs_llm = len(req.target_keywords) >= 2 and len(req.optimization_data.on_page_changes) >= 1
     # Business-gate via the anthropic_api_key parameter: None = skip LLM
     # (needs_llm=False -> not worth the invocation). Non-None fires the free
     # local LLM. The actual string is unused -- LM Studio needs no auth.
     key = "unused" if needs_llm else None
     drafts, word_count, used_llm, llm_cost_usd = generate_content_drafts(
-        req.url, req.optimization_data, req.target_keywords, req.tone,
+        req.url,
+        req.optimization_data,
+        req.target_keywords,
+        req.tone,
         anthropic_api_key=key,
     )
     result = ContentResult(

@@ -13,6 +13,7 @@ selection and ``outreach.closer`` angle selection.
 
 ``reset_metrics()`` is a test-isolation helper and is NOT for production use.
 """
+
 from __future__ import annotations
 
 from typing import Any

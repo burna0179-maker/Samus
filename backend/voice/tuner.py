@@ -5,6 +5,7 @@ Called automatically at the end of a dial run (when DialerConfig.auto_tune is
 True and at least 5 calls were initiated) and exposed as POST /voice/tune for
 on-demand operator use.
 """
+
 from __future__ import annotations
 
 import json
@@ -36,6 +37,7 @@ _MAX_PROMPT_GROWTH = 500
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _audit_ledger() -> persistence.JsonlLedger:
     return persistence.JsonlLedger(
         os.getenv("SAMUS_VOICE_AUDIT_PATH", _AUDIT_PATH_DEFAULT),
@@ -66,22 +68,25 @@ def _build_call_digest(calls: list[Any]) -> list[dict[str, Any]]:
     rows = []
     for call in calls:
         transcript_raw = call.transcript or ""
-        rows.append({
-            "call_id": call.id,
-            "ended_reason": call.endedReason or "",
-            "duration_sec": (
-                _duration_seconds(call.startedAt, call.endedAt)
-                if call.startedAt and call.endedAt
-                else None
-            ),
-            "summary": (call.summary or "")[:400],
-            "transcript_snippet": transcript_raw[:600],
-        })
+        rows.append(
+            {
+                "call_id": call.id,
+                "ended_reason": call.endedReason or "",
+                "duration_sec": (
+                    _duration_seconds(call.startedAt, call.endedAt)
+                    if call.startedAt and call.endedAt
+                    else None
+                ),
+                "summary": (call.summary or "")[:400],
+                "transcript_snippet": transcript_raw[:600],
+            }
+        )
     return rows
 
 
 def _duration_seconds(started: str, ended: str) -> int | None:
     from datetime import datetime, timezone
+
     fmt = "%Y-%m-%dT%H:%M:%S.%fZ"
     fmt2 = "%Y-%m-%dT%H:%M:%SZ"
     for f in (fmt, fmt2):
@@ -149,6 +154,7 @@ Constraints:
 # Validation
 # ---------------------------------------------------------------------------
 
+
 def _validate_change(
     change: TuneChange,
     *,
@@ -162,18 +168,12 @@ def _validate_change(
     if change.field == "system_prompt":
         max_len = len(current_system_prompt) + _MAX_PROMPT_GROWTH
         if len(change.new_value) > max_len:
-            return (
-                f"new system_prompt length {len(change.new_value)} exceeds "
-                f"allowed max {max_len}"
-            )
+            return f"new system_prompt length {len(change.new_value)} exceeds allowed max {max_len}"
 
     if change.field == "first_message":
         max_len = len(current_first_message) + _MAX_PROMPT_GROWTH
         if len(change.new_value) > max_len:
-            return (
-                f"new first_message length {len(change.new_value)} exceeds "
-                f"allowed max {max_len}"
-            )
+            return f"new first_message length {len(change.new_value)} exceeds allowed max {max_len}"
 
     if change.field == "voice_speed":
         try:
@@ -200,6 +200,7 @@ def _validate_change(
 # Main entry point
 # ---------------------------------------------------------------------------
 
+
 def tune_assistant(
     *,
     assistant_id: str,
@@ -215,8 +216,9 @@ def tune_assistant(
     """
     ts = iso_now()
 
-    def _empty(*, skip: str | None = None, llm_err: str | None = None,
-                vapi_err: str | None = None) -> TuneResult:
+    def _empty(
+        *, skip: str | None = None, llm_err: str | None = None, vapi_err: str | None = None
+    ) -> TuneResult:
         return TuneResult(
             assistant_id=assistant_id,
             ts=ts,
@@ -240,6 +242,7 @@ def tune_assistant(
         return _empty(vapi_err="vapi_api_key_unset")
 
     from .client import VapiClient, VapiError
+
     client = VapiClient(api_key=vapi_key)
 
     # --- 1. Fetch recent calls from Vapi -----------------------------------
@@ -253,10 +256,7 @@ def tune_assistant(
     calls_with_transcript = [c for c in raw_calls if c.transcript]
     if len(calls_with_transcript) < min_calls:
         return _empty(
-            skip=(
-                f"only {len(calls_with_transcript)} calls with transcripts "
-                f"(min {min_calls})"
-            ),
+            skip=(f"only {len(calls_with_transcript)} calls with transcripts (min {min_calls})"),
         )
 
     # --- 2. Fetch current assistant config ---------------------------------
@@ -304,9 +304,7 @@ def tune_assistant(
         cleaned = text.strip()
         if cleaned.startswith("```"):
             lines = cleaned.splitlines()
-            cleaned = "\n".join(
-                ln for ln in lines if not ln.startswith("```")
-            ).strip()
+            cleaned = "\n".join(ln for ln in lines if not ln.startswith("```")).strip()
         llm_data = json.loads(cleaned)
     except (ValueError, AttributeError) as exc:
         return _empty(llm_err=f"llm_json_parse failed: {exc}; raw={text[:200]!r}")
@@ -360,7 +358,9 @@ def tune_assistant(
                 client.patch_assistant_config(assistant_id, **patch_kwargs)
                 for change in proposed:
                     if not change.rejected_reason and change.field in {
-                        "system_prompt", "first_message", "voice_speed",
+                        "system_prompt",
+                        "first_message",
+                        "voice_speed",
                         "voice_similarity_boost",
                     }:
                         change.applied = True
@@ -440,8 +440,5 @@ def _build_audit_row(result: TuneResult) -> dict[str, Any]:
             "llm_error": result.llm_error,
             "vapi_error": result.vapi_error,
         },
-        status=(
-            "completed" if not result.llm_error and not result.vapi_error
-            else "degraded"
-        ),
+        status=("completed" if not result.llm_error and not result.vapi_error else "degraded"),
     )

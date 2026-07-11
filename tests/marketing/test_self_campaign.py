@@ -1,10 +1,10 @@
 """Tests for backend.marketing self_campaign + campaign_cycle."""
+
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-import pytest
 
 from backend.marketing.self_campaign import (
     HUSTLEFORGE_CAMPAIGN,
@@ -13,7 +13,6 @@ from backend.marketing.self_campaign import (
 from backend.marketing.campaign_cycle import (
     CampaignResult,
     CampaignStep,
-    StepFailure,
     _build_plan,
     _cycle_month_str,
     _exec_plan_topics,
@@ -25,6 +24,7 @@ from backend.marketing.campaign_cycle import (
 # ---------------------------------------------------------------------------
 # SelfMarketingCampaign config
 # ---------------------------------------------------------------------------
+
 
 class TestCampaignConfig:
     def test_hustleforge_campaign_fields(self):
@@ -71,6 +71,7 @@ class TestCampaignConfig:
 # Plan builder
 # ---------------------------------------------------------------------------
 
+
 class TestBuildPlan:
     def test_plan_has_expected_step_ids(self):
         plan = _build_plan(HUSTLEFORGE_CAMPAIGN, "2026-06")
@@ -113,9 +114,12 @@ class TestBuildPlan:
 # Individual step executors (unit tests, no I/O)
 # ---------------------------------------------------------------------------
 
+
 class TestExecPlanTopics:
     def _make_step(self) -> CampaignStep:
-        return CampaignStep(id="plan_topics", type="content.plan_topics", payload={"cycle_month": "2026-06"})
+        return CampaignStep(
+            id="plan_topics", type="content.plan_topics", payload={"cycle_month": "2026-06"}
+        )
 
     def test_returns_topics(self):
         plan = _build_plan(HUSTLEFORGE_CAMPAIGN, "2026-06")
@@ -172,6 +176,7 @@ class TestExecMonthSummary:
 # run_monthly_campaign (integration, mocked I/O)
 # ---------------------------------------------------------------------------
 
+
 class TestRunMonthlyCampaign:
     def test_dry_run_completes(self, tmp_path: Path):
         """dry_run=True should finish all steps without real I/O."""
@@ -193,6 +198,7 @@ class TestRunMonthlyCampaign:
         plan_file = tmp_path / "plan.json"
         assert plan_file.exists()
         import json
+
         data = json.loads(plan_file.read_text())
         assert data["campaign_id"] == "hustleforge"
 
@@ -223,7 +229,7 @@ class TestRunMonthlyCampaign:
             target_keywords=["test"],
             content_themes=["theme"],
             social_platforms=["linkedin"],
-            blogs_per_month=0,   # Triggers downstream failures without crashing
+            blogs_per_month=0,  # Triggers downstream failures without crashing
         )
         with patch("backend.marketing.campaign_cycle._campaign_dir", return_value=tmp_path):
             result = run_monthly_campaign(6, 2026, campaign=bad_campaign, dry_run=True)

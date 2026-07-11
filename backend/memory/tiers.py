@@ -18,6 +18,7 @@ about graph writes changes. ``promote_node`` / ``list_hivemind_nodes`` are
 direct graph operations and work regardless of the mode; the mode only governs
 the default ``tier`` stamped at write time.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -93,7 +94,9 @@ def promote_node(
     error semantics.
     """
     return (client or get_client()).promote_node(
-        label, key_value, key_property=key_property,
+        label,
+        key_value,
+        key_property=key_property,
     )
 
 
@@ -144,5 +147,7 @@ def list_hivemind_nodes(
     driver is unavailable.
     """
     return (client or get_client()).nodes_in_tier(
-        TIER_HIVEMIND, label=label, limit=limit,
+        TIER_HIVEMIND,
+        label=label,
+        limit=limit,
     )

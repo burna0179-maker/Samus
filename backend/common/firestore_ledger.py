@@ -24,6 +24,7 @@ Selected by ``SAMUS_LEDGER_BACKEND=firestore`` — see
 imported lazily inside :func:`_default_client` so the default ``jsonl``
 backend, and every local test, never needs the package installed.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -75,8 +76,7 @@ def _is_already_exists(exc: BaseException) -> bool:
     equivalently-named exception without depending on the real package.
     """
     return (
-        exc.__class__.__name__ in ("AlreadyExists", "Conflict")
-        or getattr(exc, "code", None) == 409
+        exc.__class__.__name__ in ("AlreadyExists", "Conflict") or getattr(exc, "code", None) == 409
     )
 
 
@@ -108,15 +108,9 @@ class FirestoreLedger:
     def scan(self) -> list[dict[str, Any]]:
         """Every row in the ledger, oldest first."""
         out: list[dict[str, Any]] = []
-        for snap in (
-            self._client.collection(self._collection_name)
-            .order_by(_TS_FIELD)
-            .stream()
-        ):
+        for snap in self._client.collection(self._collection_name).order_by(_TS_FIELD).stream():
             data = snap.to_dict() or {}
-            out.append(
-                {k: v for k, v in data.items() if k not in _INTERNAL_FIELDS}
-            )
+            out.append({k: v for k, v in data.items() if k not in _INTERNAL_FIELDS})
         return out
 
     def tail(self, limit: int = 50) -> list[dict[str, Any]]:
@@ -138,9 +132,7 @@ class FirestoreLedger:
         if not key:
             return True
         try:
-            doc = self._client.collection(self._claims_collection_name).document(
-                _claim_doc_id(key)
-            )
+            doc = self._client.collection(self._claims_collection_name).document(_claim_doc_id(key))
             doc.create({"key": key, "claimed_at": time.time()})
         except Exception as exc:  # noqa: BLE001 - classify below
             if _is_already_exists(exc):
@@ -163,9 +155,7 @@ class FirestoreLedger:
         if not key:
             return None
         try:
-            doc = self._client.collection(self._claims_collection_name).document(
-                _claim_doc_id(key)
-            )
+            doc = self._client.collection(self._claims_collection_name).document(_claim_doc_id(key))
             snap = doc.get()
             if not getattr(snap, "exists", False):
                 return None
@@ -189,9 +179,7 @@ class FirestoreLedger:
         if not key:
             return False
         try:
-            doc = self._client.collection(self._claims_collection_name).document(
-                _claim_doc_id(key)
-            )
+            doc = self._client.collection(self._claims_collection_name).document(_claim_doc_id(key))
             snap = doc.get()
             if not getattr(snap, "exists", False):
                 return False

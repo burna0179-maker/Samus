@@ -13,6 +13,7 @@ before any business logic runs — see :mod:`backend.feedback.sns_signature`.
 The verifier is a dependency on the route; a forged or tampered payload
 returns ``403`` and never reaches the suppression handlers.
 """
+
 from __future__ import annotations
 
 import json
@@ -105,7 +106,8 @@ def _replay_ledger() -> persistence.Ledger:
     """
     path = os.getenv("SAMUS_FEEDBACK_REPLAY_PATH", _REPLAY_LEDGER_PATH_DEFAULT)
     return persistence.open_ledger(
-        jsonl_path=path, collection="sns_feedback_replay",
+        jsonl_path=path,
+        collection="sns_feedback_replay",
     )
 
 
@@ -350,13 +352,16 @@ async def ingest_sendgrid_events(request: Request) -> dict[str, Any]:
             ts = request.headers.get("X-Twilio-Email-Event-Webhook-Timestamp", "")
             try:
                 verify_sendgrid_signature(
-                    public_key_b64=key, payload=raw_body,
-                    signature_b64=sig, timestamp=ts,
+                    public_key_b64=key,
+                    payload=raw_body,
+                    signature_b64=sig,
+                    timestamp=ts,
                 )
             except SendGridSignatureError as exc:
                 _LOG.warning("SendGrid event signature rejected: %s", exc)
                 raise HTTPException(
-                    status_code=403, detail=f"sendgrid signature invalid: {exc}",
+                    status_code=403,
+                    detail=f"sendgrid signature invalid: {exc}",
                 ) from exc
         else:
             try:

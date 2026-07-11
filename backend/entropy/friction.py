@@ -17,6 +17,7 @@ pass) and computes two friction metrics over a recent window:
 
 Read-only over telemetry; ``ticks`` is injectable for testing. Fail-soft.
 """
+
 from __future__ import annotations
 
 import logging
@@ -60,8 +61,13 @@ def friction_report(
 
     n = len(ticks)
     if n == 0:
-        return {"ticks_analyzed": 0, "decision_entropy": 0.0,
-                "coordination_cost": 0.0, "per_workcell": {}, "energy_leak": False}
+        return {
+            "ticks_analyzed": 0,
+            "decision_entropy": 0.0,
+            "coordination_cost": 0.0,
+            "per_workcell": {},
+            "energy_leak": False,
+        }
 
     # Per-workcell boolean sequence: was it quota-cut in each tick (oldest->newest)?
     cut_sets = [_tick_cut_set(t) for t in ticks]
@@ -74,14 +80,15 @@ def friction_report(
         flip_rate = round(flips / (n - 1), 4) if n > 1 else 0.0
         flip_rates.append(flip_rate)
         per_workcell[wc] = {
-            "cut_count": sum(seq), "flips": flips, "flip_rate": flip_rate,
+            "cut_count": sum(seq),
+            "flips": flips,
+            "flip_rate": flip_rate,
         }
 
     decision_entropy = round(sum(flip_rates) / len(flip_rates), 4) if flip_rates else 0.0
     coordination_cost = round(sum(_adjustment_count(t) for t in ticks) / n, 4)
     energy_leak = bool(
-        decision_entropy > _DECISION_ENTROPY_LEAK
-        or coordination_cost > _COORDINATION_LEAK
+        decision_entropy > _DECISION_ENTROPY_LEAK or coordination_cost > _COORDINATION_LEAK
     )
     return {
         "ticks_analyzed": n,

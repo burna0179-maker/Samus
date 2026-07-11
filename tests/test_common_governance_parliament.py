@@ -4,17 +4,18 @@ Validates advisory voting behaviour. All tests confirm that the parliament
 is an advisory layer only — it does not claim mutation-governance authority
 (that belongs to Darwin per Canon §8).
 """
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_agent(name, scope, *, confidence=1.0, trust_score=1.0, veto_power=False, weight=1.0):
     from backend.common.governance_parliament import ParliamentAgent
+
     return ParliamentAgent(
         name=name,
         authority_scope=scope,
@@ -28,12 +29,14 @@ def _make_agent(name, scope, *, confidence=1.0, trust_score=1.0, veto_power=Fals
 def _parliament(*agents, quorum=0.0):
     """Build a GovernanceParliament with optional quorum override."""
     from backend.common.governance_parliament import GovernanceParliament
+
     return GovernanceParliament(list(agents), quorum=quorum)
 
 
 # ---------------------------------------------------------------------------
 # add_agent
 # ---------------------------------------------------------------------------
+
 
 def test_add_agent_registers_correctly():
     """add_agent should make the agent available in parliament.agents."""
@@ -64,6 +67,7 @@ def test_add_agent_does_not_affect_existing_agents():
 # vote — three-agent tally
 # ---------------------------------------------------------------------------
 
+
 def test_vote_three_agents_majority_approve():
     """Three eligible agents: two APPROVE → verdict should be 'approve'."""
     # confidence > risk_score → APPROVE; all three have confidence=1.0, risk=0.3
@@ -81,9 +85,7 @@ def test_vote_three_agents_majority_approve():
 
 def test_vote_tally_captures_all_votes():
     """vote_detail must have one entry per eligible agent."""
-    agents = [
-        _make_agent(f"a{i}", ["compute_budget"]) for i in range(4)
-    ]
+    agents = [_make_agent(f"a{i}", ["compute_budget"]) for i in range(4)]
     p = _parliament(*agents, quorum=0.0)
     verdict = p.vote({"action": "compute_budget", "risk_score": 0.2})
 
@@ -107,14 +109,16 @@ def test_vote_with_no_eligible_agents_returns_veto():
 # veto_power hard veto
 # ---------------------------------------------------------------------------
 
+
 def test_veto_power_agent_blocks_majority():
     """A veto_power=True agent casting VETO must force 'veto' outcome even if others APPROVE."""
     # Two approvers + one veto_power agent with low confidence (will VETO).
     approver1 = _make_agent("approver1", ["mutation_apply"], confidence=1.0)
     approver2 = _make_agent("approver2", ["mutation_apply"], confidence=1.0)
     # confidence=0.1 < risk_score=0.8 * 0.5=0.4 → VETO branch
-    blocker = _make_agent("blocker", ["mutation_apply"], confidence=0.1,
-                          veto_power=True, trust_score=1.0)
+    blocker = _make_agent(
+        "blocker", ["mutation_apply"], confidence=0.1, veto_power=True, trust_score=1.0
+    )
 
     p = _parliament(approver1, approver2, blocker, quorum=0.0)
     verdict = p.vote({"action": "mutation_apply", "risk_score": 0.8})
@@ -126,6 +130,7 @@ def test_veto_power_agent_blocks_majority():
 # ---------------------------------------------------------------------------
 # trust_score=0 agent is silenced
 # ---------------------------------------------------------------------------
+
 
 def test_zero_trust_agent_has_no_weight():
     """An agent with trust_score=0 should contribute zero effective weight."""
@@ -160,6 +165,7 @@ def test_vote_ignores_zero_trust_agent():
 # Advisory framing — parliament does not claim Darwin's authority
 # ---------------------------------------------------------------------------
 
+
 def test_parliament_does_not_override_darwin_scope():
     """The parliament module must export no symbol suggesting mutation authority."""
     import backend.common.governance_parliament as gp_mod
@@ -174,9 +180,7 @@ def test_parliament_does_not_override_darwin_scope():
     }
     # None of the mutation-authority names should appear in __all__.
     overlap = public & mutation_authority_names
-    assert not overlap, (
-        f"governance_parliament must not claim mutation authority; found: {overlap}"
-    )
+    assert not overlap, f"governance_parliament must not claim mutation authority; found: {overlap}"
 
 
 def test_parliament_verdict_does_not_bypass_darwin(monkeypatch):

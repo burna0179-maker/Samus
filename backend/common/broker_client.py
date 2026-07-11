@@ -57,6 +57,7 @@ The integration translates :class:`BrokerDenied` into the existing
 exception type. The broker reason is wrapped into the QuotaDecision so
 log lines still surface it.
 """
+
 # canon-carve-out: outbound HTTP boundary — HMAC AgentEnvelope signed
 # before every reserve/release; fail-closed on any failure.
 from __future__ import annotations
@@ -80,6 +81,7 @@ _LOG = logging.getLogger("samus.common.broker_client")
 # ---------------------------------------------------------------------------
 # Frozen public surface — must match RECON.md §6 verbatim.
 # ---------------------------------------------------------------------------
+
 
 class BrokerDenied(Exception):
     """Raised when the broker denies a reservation; FAIL-CLOSED.
@@ -261,6 +263,7 @@ def _build_envelope(payload: dict[str, Any]) -> dict[str, Any]:
 # Settings access — keep import-time side effects minimal.
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class _BrokerConfig:
     enabled: bool
@@ -278,15 +281,9 @@ def _load_config() -> _BrokerConfig:
         s = get_settings()
         cfg = _BrokerConfig(
             enabled=bool(getattr(s, "samus_broker_enabled", True)),
-            base_url=str(
-                getattr(s, "samus_broker_base_url", "https://127.0.0.1:8420")
-            ).rstrip("/"),
-            reserve_timeout_sec=float(
-                getattr(s, "samus_broker_reserve_timeout_sec", 1.5)
-            ),
-            release_timeout_sec=float(
-                getattr(s, "samus_broker_release_timeout_sec", 1.5)
-            ),
+            base_url=str(getattr(s, "samus_broker_base_url", "https://127.0.0.1:8420")).rstrip("/"),
+            reserve_timeout_sec=float(getattr(s, "samus_broker_reserve_timeout_sec", 1.5)),
+            release_timeout_sec=float(getattr(s, "samus_broker_release_timeout_sec", 1.5)),
             disable_in_dev_when_no_key=bool(
                 getattr(s, "samus_broker_disable_in_dev_when_no_key", True)
             ),
@@ -338,6 +335,7 @@ def _is_disabled_reservation(reservation: Reservation) -> bool:
 # HTTP plumbing — keep small + sync. No retries (broker is local + bounded).
 # ---------------------------------------------------------------------------
 
+
 def _post_signed(
     url: str,
     envelope_wire: dict[str, Any],
@@ -378,6 +376,7 @@ def _post_signed(
         # denial. Enforce here so every read site (resp.json/resp.text) is
         # bounded.
         from .net_limits import BROKER_MAX_BYTES, check_httpx_size
+
         check_httpx_size(resp, max_bytes=BROKER_MAX_BYTES, source="broker")
         return resp
 
@@ -385,6 +384,7 @@ def _post_signed(
 # ---------------------------------------------------------------------------
 # Public API — reserve / release.
 # ---------------------------------------------------------------------------
+
 
 def reserve(
     *,
@@ -438,7 +438,9 @@ def reserve(
     except Exception as exc:  # noqa: BLE001
         _LOG.warning(
             "broker_client reserve: envelope build failed (kind=%s workcell=%s): %s",
-            kind, workcell, exc,
+            kind,
+            workcell,
+            exc,
         )
         raise BrokerDenied(
             kind=str(kind),
@@ -451,7 +453,9 @@ def reserve(
     except httpx.HTTPError as exc:
         _LOG.warning(
             "broker_client reserve: transport error (kind=%s workcell=%s): %s",
-            kind, workcell, exc,
+            kind,
+            workcell,
+            exc,
         )
         raise BrokerDenied(
             kind=str(kind),
@@ -461,7 +465,9 @@ def reserve(
         # S3: an over-cap broker reply is malformed/hostile — fail closed.
         _LOG.warning(
             "broker_client reserve: response over cap (kind=%s workcell=%s): %s",
-            kind, workcell, exc,
+            kind,
+            workcell,
+            exc,
         )
         raise BrokerDenied(kind=str(kind), reason="server_error") from exc
 
@@ -472,7 +478,8 @@ def reserve(
         except (ValueError, Exception) as exc:  # noqa: BLE001
             _LOG.warning(
                 "broker_client reserve: 200 with non-JSON body (kind=%s): %s",
-                kind, exc,
+                kind,
+                exc,
             )
             raise BrokerDenied(kind=str(kind), reason="server_error") from exc
         if not isinstance(body, dict):
@@ -488,7 +495,8 @@ def reserve(
         except (KeyError, TypeError, ValueError) as exc:
             _LOG.warning(
                 "broker_client reserve: 200 with malformed grant (kind=%s): %s",
-                kind, exc,
+                kind,
+                exc,
             )
             raise BrokerDenied(kind=str(kind), reason="server_error") from exc
 
@@ -516,7 +524,10 @@ def reserve(
     snippet = (resp.text or "")[:200]
     _LOG.warning(
         "broker_client reserve: unexpected status %s (kind=%s workcell=%s): %s",
-        resp.status_code, kind, workcell, snippet,
+        resp.status_code,
+        kind,
+        workcell,
+        snippet,
     )
     raise BrokerDenied(kind=str(kind), reason="server_error")
 
@@ -553,14 +564,17 @@ def release(
     except Exception as exc:  # noqa: BLE001
         _LOG.warning(
             "broker_client release: envelope build failed (id=%s): %s",
-            reservation.id, exc,
+            reservation.id,
+            exc,
         )
         return
 
     url = cfg.base_url + "/broker/release"
     try:
         resp = _post_signed(
-            url, envelope_wire, timeout_sec=cfg.release_timeout_sec,
+            url,
+            envelope_wire,
+            timeout_sec=cfg.release_timeout_sec,
         )
     except (httpx.HTTPError, _ResponseTooLarge) as exc:
         # release() is intentionally lenient — any failure (transport or an
@@ -568,7 +582,9 @@ def release(
         # at the reservation TTL. Never block the caller on a failed release.
         _LOG.warning(
             "broker_client release: transport error (id=%s outcome=%s): %s",
-            reservation.id, outcome, exc,
+            reservation.id,
+            outcome,
+            exc,
         )
         return
 
@@ -576,7 +592,10 @@ def release(
         snippet = (resp.text or "")[:200]
         _LOG.warning(
             "broker_client release: non-200 status %s (id=%s outcome=%s): %s",
-            resp.status_code, reservation.id, outcome, snippet,
+            resp.status_code,
+            reservation.id,
+            outcome,
+            snippet,
         )
 
 

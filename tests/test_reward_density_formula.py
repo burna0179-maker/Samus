@@ -4,6 +4,7 @@ Feeds synthetic stage / cost / harm / stripe values through
 :func:`backend.strategy.reward_density.compute_reward` and asserts the
 per-term components match the spec.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -38,8 +39,13 @@ class _StubHarmStore:
 
 class _StubStore:
     def __init__(
-        self, *, stage: str, llm_cost_usd: float,
-        retracted: int = 0, unsubs: int = 0, complaints: int = 0,
+        self,
+        *,
+        stage: str,
+        llm_cost_usd: float,
+        retracted: int = 0,
+        unsubs: int = 0,
+        complaints: int = 0,
         stripe_paid: bool = False,
     ):
         self._opp = {
@@ -106,7 +112,9 @@ def test_compute_reward_closed_won_with_stripe(_isolate_persist):
     # terminal = 100
     # reward = 4 - 1 - 0 + 100 = 103
     store = _StubStore(
-        stage="closed_won", llm_cost_usd=1.00, stripe_paid=True,
+        stage="closed_won",
+        llm_cost_usd=1.00,
+        stripe_paid=True,
     )
     comp = rd.compute_reward("op_test", store=store)
     assert comp.reward == pytest.approx(103.0)
@@ -119,8 +127,11 @@ def test_compute_reward_subtracts_each_harm_type(_isolate_persist):
     # harm_term = 4 * 5 = 20
     # reward raw = 1 - 0 - 20 + 0 = -19 -> clipped to 0
     store = _StubStore(
-        stage="qualified", llm_cost_usd=0.0,
-        retracted=1, unsubs=2, complaints=1,
+        stage="qualified",
+        llm_cost_usd=0.0,
+        retracted=1,
+        unsubs=2,
+        complaints=1,
     )
     comp = rd.compute_reward("op_test", store=store)
     assert comp.components["retracted_claims"] == 1.0
@@ -152,10 +163,13 @@ def test_compute_reward_missing_opportunity_raises(_isolate_persist):
     class _Empty:
         def opportunity(self, _id: str):
             return None
+
         def llm_cost_cents(self, _id: str) -> int:
             return 0
+
         def stripe_payment_succeeded(self, _id: str) -> bool:
             return False
+
         def harm_signal_store(self) -> Any:
             return _StubHarmStore()
 

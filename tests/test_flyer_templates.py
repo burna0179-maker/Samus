@@ -1,4 +1,5 @@
 """Tests for backend.outreach.flyer_templates — the reusable flyer library."""
+
 from __future__ import annotations
 
 import json
@@ -47,8 +48,8 @@ def test_featured_template_contains_merge_fields(store):
     ft.save_template(_featured_offer())
     html = ft.load_template("featured_service_workflow_rescue")
     assert html is not None
-    assert "{{first_name}}" in html      # greeting merge field
-    assert "{{buy_now_url}}" in html      # CTA link merge field
+    assert "{{first_name}}" in html  # greeting merge field
+    assert "{{buy_now_url}}" in html  # CTA link merge field
     # the fixed offer copy is baked in
     assert "Start My 48-Hour Automation" in html
     assert "Stop doing that manual task by Friday" in html
@@ -56,14 +57,17 @@ def test_featured_template_contains_merge_fields(store):
 
 def test_matched_template_contains_company_merge_field(store):
     matched = Offer(
-        sku_id="seo_audit", label="Full Website & Security Audit", price_usd=149.0,
-        payment_link="https://buy.stripe.com/live", why="the fixes ranked by impact",
+        sku_id="seo_audit",
+        label="Full Website & Security Audit",
+        price_usd=149.0,
+        payment_link="https://buy.stripe.com/live",
+        why="the fixes ranked by impact",
         kind="matched",
     )
     ft.save_template(matched)
     html = ft.load_template("matched_seo_audit")
     assert html is not None
-    assert "{{company}}" in html          # "When we looked at {{company}}"
+    assert "{{company}}" in html  # "When we looked at {{company}}"
     assert "{{buy_now_url}}" in html
 
 
@@ -81,7 +85,7 @@ def test_save_template_dedupes_unchanged(store):
 def test_new_version_on_content_change(store):
     ft.save_template(_featured_offer())
     changed = _featured_offer()
-    changed.cta_label = "Book My 48-Hour Build"   # copy change -> new version
+    changed.cta_label = "Book My 48-Hour Build"  # copy change -> new version
     r = ft.save_template(changed)
     assert r.changed is True
     manifest = store / "marketing" / "flyer_templates" / "manifest.jsonl"

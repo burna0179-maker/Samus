@@ -8,6 +8,7 @@ get_mention_stats so callers can mock them trivially.
 
 ASCII-only output.  No new external dependencies.
 """
+
 from __future__ import annotations
 
 import json
@@ -32,6 +33,7 @@ def _ledger_path() -> Path:
     """Resolve the ledger path from env or storage root."""
     try:
         from backend.common import storage
+
         base = storage.root()
     except Exception:  # noqa: BLE001
         base = Path(os.getenv("SAMUS_DATA_ROOT", "data"))
@@ -193,6 +195,7 @@ def _cutoff_ts(days: int) -> str:
     """ISO timestamp string for ``days`` ago (UTC). Used for string comparison
     against ledger ts fields stored in the same format."""
     from datetime import timedelta
+
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
     return cutoff.strftime("%Y-%m-%dT%H:%M:%SZ")
 

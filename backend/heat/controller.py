@@ -6,6 +6,7 @@ maps instability to ordered countermeasures. The cadence loop multiplies its
 per-sweep send budget by ``send_multiplier(band)``; ``critical`` trips safe-mode
 (multiplier 0.0 → pause).
 """
+
 from __future__ import annotations
 
 # ── Band identifiers ─────────────────────────────────────────────────────────

@@ -17,6 +17,7 @@ body is still sent alongside as the multipart fallback.
 The buy-now URL carries ``client_reference_id=<prospect_id>`` so the Stripe
 webhook can attribute a purchase back to the prospect.
 """
+
 from __future__ import annotations
 
 import html
@@ -58,7 +59,14 @@ _DEFAULT_SKU = "seo_audit"
 # Findings that indicate a specific cheap fix is MORE relevant than a featured
 # offer — when present, a featured campaign falls back to the matched add-on.
 _SPECIFIC_FINDING_KEYS = (
-    "404", "broken link", "dns", "ssl", "certificate", "deliver", "spf", "dkim",
+    "404",
+    "broken link",
+    "dns",
+    "ssl",
+    "certificate",
+    "deliver",
+    "spf",
+    "dkim",
 )
 
 # Featured-offer copy (proven assets). Keyed by SKU.
@@ -66,9 +74,9 @@ _FEATURED_COPY: dict[str, dict] = {
     "service_workflow_rescue": {
         "headline": "Stop doing that manual task by Friday",
         "pitch": "Pick one repetitive task that eats your team's time every "
-                 "week. In 48 hours we design, build, deploy, and hand off a "
-                 "production-ready automation that does it for you — so you "
-                 "get back to growth instead of busywork.",
+        "week. In 48 hours we design, build, deploy, and hand off a "
+        "production-ready automation that does it for you — so you "
+        "get back to growth instead of busywork.",
         "bullets": (
             "Workflow audit + a clear automation blueprint",
             "End-to-end build, deployed and validated on your real scenarios",
@@ -76,7 +84,7 @@ _FEATURED_COPY: dict[str, dict] = {
         ),
         "cta_label": "Start My 48-Hour Automation",
         "assurance": "Limited to 3 builds per week. If we can't map a viable "
-                     "automation path in the audit, you don't proceed — no risk.",
+        "automation path in the audit, you don't proceed — no risk.",
     },
 }
 
@@ -88,7 +96,7 @@ class Offer:
     price_usd: float
     payment_link: str
     why: str = ""
-    kind: str = "matched"                  # "matched" | "featured"
+    kind: str = "matched"  # "matched" | "featured"
     headline: str = ""
     pitch: str = ""
     cta_label: str = ""
@@ -98,6 +106,7 @@ class Offer:
 
 def _catalog_index() -> dict[str, object]:
     from backend.catalog.registry import CATALOG
+
     return {e.sku_id: e for e in CATALOG}
 
 
@@ -121,11 +130,21 @@ def _matched_offer(row: dict) -> Offer | None:
     # business with no site is both irrelevant (nothing to audit) and leaves the
     # bigger, right-fit build unsold. Checked first: "no website" is the most
     # fundamental gap and overrides the narrower site-issue matches.
-    if any(k in finding for k in (
-        "no working website", "no website", "no real website", "no site",
-        "doesn't have a website", "does not have a website", "no online presence",
-        "website is down", "site is down", "not showing up",
-    )):
+    if any(
+        k in finding
+        for k in (
+            "no working website",
+            "no website",
+            "no real website",
+            "no site",
+            "doesn't have a website",
+            "does not have a website",
+            "no online presence",
+            "website is down",
+            "site is down",
+            "not showing up",
+        )
+    ):
         sku = "service_website_build"
     elif "404" in finding or "broken link" in finding:
         sku = "addon_404_audit"
@@ -139,20 +158,24 @@ def _matched_offer(row: dict) -> Offer | None:
     index = _catalog_index()
     entry = _resolve(sku, index) or _resolve(_DEFAULT_SKU, index)
     if entry is None:
-        entry = next((e for e in index.values()
-                      if getattr(e, "payment_link_url", None)), None)
+        entry = next((e for e in index.values() if getattr(e, "payment_link_url", None)), None)
     if entry is None:
         _LOG.warning("no purchasable SKU with a payment link — flyer skipped")
         return None
 
     label, base_why = _OFFER_COPY.get(
-        entry.sku_id, ("Website Growth Audit", "the highest-impact fixes for your site"))
+        entry.sku_id, ("Website Growth Audit", "the highest-impact fixes for your site")
+    )
     why = base_why
     if grade in ("D", "F"):
         why = f"your site is currently graded {grade} for security — " + base_why
     return Offer(
-        sku_id=entry.sku_id, label=label, price_usd=entry.price_usd_cents / 100.0,
-        payment_link=entry.payment_link_url, why=why, kind="matched",
+        sku_id=entry.sku_id,
+        label=label,
+        price_usd=entry.price_usd_cents / 100.0,
+        payment_link=entry.payment_link_url,
+        why=why,
+        kind="matched",
     )
 
 
@@ -247,7 +270,7 @@ def _feature_grid(bullets: tuple[str, ...] | list[str]) -> str:
     items = [b for b in (bullets or ()) if str(b).strip()]
     if not items:
         return ""
-    check = (f'<span style="color:{_CYAN};font-weight:900;">&#10003;</span> ')
+    check = f'<span style="color:{_CYAN};font-weight:900;">&#10003;</span> '
     cells = ""
     for i in range(0, len(items), 2):
         left = items[i]
@@ -255,19 +278,19 @@ def _feature_grid(bullets: tuple[str, ...] | list[str]) -> str:
         right_td = (
             f'<td width="50%" style="padding:8px 0 8px 8px;color:#e2e8f0;'
             f'font-size:15px;line-height:1.35;">{check}{html.escape(right)}</td>'
-            if right else
-            '<td width="50%"></td>'
+            if right
+            else '<td width="50%"></td>'
         )
         cells += (
-            '<tr>'
+            "<tr>"
             f'<td width="50%" style="padding:8px 8px 8px 0;color:#e2e8f0;'
             f'font-size:15px;line-height:1.35;">{check}{html.escape(left)}</td>'
-            f'{right_td}</tr>'
+            f"{right_td}</tr>"
         )
     return (
         '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" '
         'border="0" style="margin:20px 0 22px;"><tr><td style="background:'
-        'linear-gradient(135deg,rgba(0,229,255,.16),rgba(20,184,166,.10));'
+        "linear-gradient(135deg,rgba(0,229,255,.16),rgba(20,184,166,.10));"
         'border:1px solid rgba(0,229,255,.22);border-radius:18px;padding:18px;">'
         '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" '
         f'border="0">{cells}</table></td></tr></table>'
@@ -287,15 +310,15 @@ def _price_block(price_usd: float, sub: str, badge: str) -> str:
         f'<div style="font-size:12px;color:{_DIM};text-transform:uppercase;'
         'font-weight:800;letter-spacing:1px;margin-bottom:4px;">Your price</div>'
         f'<div style="font-size:36px;line-height:1;font-weight:950;color:{_INK};">'
-        f'{price}</div>'
+        f"{price}</div>"
         f'<div style="font-size:14px;color:{_DIM};margin-top:4px;">{html.escape(sub)}</div>'
-        '</td>'
+        "</td>"
         '<td align="right" style="vertical-align:middle;">'
         '<div style="display:inline-block;background:rgba(0,229,255,.10);'
-        'border:1px solid rgba(0,229,255,.30);border-radius:14px;padding:10px 12px;'
+        "border:1px solid rgba(0,229,255,.30);border-radius:14px;padding:10px 12px;"
         'color:#bae6fd;font-size:13px;font-weight:800;line-height:1.35;">'
-        f'{html.escape(badge)}</div></td>'
-        '</tr></table></td></tr></table>'
+        f"{html.escape(badge)}</div></td>"
+        "</tr></table></td></tr></table>"
     )
 
 
@@ -305,10 +328,10 @@ def _cta(buy_link: str, label: str, price_usd: float) -> str:
     return (
         '<div style="text-align:center;margin:0 0 20px;">'
         f'<a href="{html.escape(buy_link)}" style="display:inline-block;'
-        f'background:linear-gradient(135deg,{_CYAN} 0%,{_TEAL} 100%);color:#02111f;'
-        'text-decoration:none;font-size:17px;font-weight:950;padding:16px 28px;'
+        f"background:linear-gradient(135deg,{_CYAN} 0%,{_TEAL} 100%);color:#02111f;"
+        "text-decoration:none;font-size:17px;font-weight:950;padding:16px 28px;"
         'border-radius:999px;box-shadow:0 0 28px rgba(0,229,255,.30);">'
-        f'{lbl} &mdash; {price} &rarr;</a></div>'
+        f"{lbl} &mdash; {price} &rarr;</a></div>"
     )
 
 
@@ -324,15 +347,16 @@ def _footer_html(postal_address: str, unsubscribe_url: str) -> str:
         'text-decoration:none;">support@hustleforge.tech</a></p>'
         '<p style="margin:0;font-size:11px;line-height:1.45;color:#475569;'
         'text-align:center;">'
-        f'HustleForge LLC &middot; {html.escape(postal_address)}<br>'
-        'You are receiving this because you are a publicly listed local business. '
+        f"HustleForge LLC &middot; {html.escape(postal_address)}<br>"
+        "You are receiving this because you are a publicly listed local business. "
         f'<a href="{html.escape(unsubscribe_url)}" style="color:#64748b;'
         'text-decoration:underline;">Unsubscribe</a>.</p></td></tr>'
     )
 
 
-def _shell(*, preheader: str, eyebrow: str, headline_html: str, body_html: str,
-           footer_html: str) -> str:
+def _shell(
+    *, preheader: str, eyebrow: str, headline_html: str, body_html: str, footer_html: str
+) -> str:
     """Wrap the offer-specific body in the vibrant dark card + header + footer.
 
     ``headline_html`` and ``body_html`` are pre-escaped/assembled by the caller;
@@ -341,24 +365,26 @@ def _shell(*, preheader: str, eyebrow: str, headline_html: str, body_html: str,
     eb = html.escape(eyebrow) if eyebrow else ""
     eyebrow_html = (
         '<div style="display:inline-block;background:rgba(20,184,166,.14);'
-        'border:1px solid rgba(45,212,191,.35);color:#99f6e4;padding:7px 12px;'
-        'border-radius:999px;font-size:12px;font-weight:800;letter-spacing:.9px;'
-        f'text-transform:uppercase;margin-bottom:16px;">{eb}</div>' if eb else ""
+        "border:1px solid rgba(45,212,191,.35);color:#99f6e4;padding:7px 12px;"
+        "border-radius:999px;font-size:12px;font-weight:800;letter-spacing:.9px;"
+        f'text-transform:uppercase;margin-bottom:16px;">{eb}</div>'
+        if eb
+        else ""
     )
     return (
         f'<body style="margin:0;padding:0;background:{_BG};font-family:'
         "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,"
         f'sans-serif;color:{_INK};">'
-        f'{_preheader(preheader)}'
+        f"{_preheader(preheader)}"
         '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" '
         'border="0" style="background:radial-gradient(circle at 15% 10%,'
-        'rgba(0,229,255,.22),transparent 30%),radial-gradient(circle at 85% 0%,'
-        'rgba(20,184,166,.18),transparent 28%),linear-gradient(135deg,#050816 0%,'
+        "rgba(0,229,255,.22),transparent 30%),radial-gradient(circle at 85% 0%,"
+        "rgba(20,184,166,.18),transparent 28%),linear-gradient(135deg,#050816 0%,"
         '#07111f 48%,#020617 100%);margin:0;padding:32px 12px;"><tr>'
         '<td align="center"><table role="presentation" width="100%" '
         'cellspacing="0" cellpadding="0" border="0" style="max-width:640px;'
-        'border-collapse:separate;border-spacing:0;background:' + _CARD + ';'
-        'border:1px solid rgba(0,229,255,.22);border-radius:24px;overflow:hidden;'
+        "border-collapse:separate;border-spacing:0;background:" + _CARD + ";"
+        "border:1px solid rgba(0,229,255,.22);border-radius:24px;overflow:hidden;"
         'box-shadow:0 24px 80px rgba(0,0,0,.45);">'
         # header row
         '<tr><td style="padding:24px 26px 10px;'
@@ -370,13 +396,13 @@ def _shell(*, preheader: str, eyebrow: str, headline_html: str, body_html: str,
         '<span style="color:#ffffff;">Forge</span></td>'
         '<td align="right" style="font-size:11px;font-weight:800;'
         'letter-spacing:1.8px;text-transform:uppercase;color:#7dd3fc;">'
-        'Websites &bull; Automation &bull; Results</td>'
-        '</tr></table></td></tr>'
+        "Websites &bull; Automation &bull; Results</td>"
+        "</tr></table></td></tr>"
         # content row
         '<tr><td style="padding:30px 26px 16px;">'
-        f'{eyebrow_html}{headline_html}{body_html}</td></tr>'
-        f'{footer_html}'
-        '</table></td></tr></table></body>'
+        f"{eyebrow_html}{headline_html}{body_html}</td></tr>"
+        f"{footer_html}"
+        "</table></td></tr></table></body>"
     )
 
 
@@ -406,11 +432,11 @@ def render_flyer_html(
         headline_html = (
             '<h1 style="margin:0 0 14px;font-size:38px;line-height:1.04;'
             'font-weight:950;letter-spacing:-1.2px;color:#ffffff;">'
-            f'{html.escape(headline_txt)}</h1>'
+            f"{html.escape(headline_txt)}</h1>"
         )
         body_html = (
             f'<p style="margin:0 0 22px;font-size:18px;line-height:1.55;color:{_MUTE};">'
-            f'Hi {greet}, {html.escape(offer.pitch)}</p>'
+            f"Hi {greet}, {html.escape(offer.pitch)}</p>"
             + _feature_grid(offer.bullets)
             + _price_block(
                 offer.price_usd,
@@ -421,7 +447,8 @@ def render_flyer_html(
             + (
                 '<p style="margin:0;text-align:center;font-size:14px;line-height:1.55;'
                 f'color:{_DIM};">{html.escape(offer.assurance)}</p>'
-                if offer.assurance else ""
+                if offer.assurance
+                else ""
             )
         )
         return _shell(
@@ -438,19 +465,21 @@ def render_flyer_html(
     headline_html = (
         '<h1 style="margin:0 0 14px;font-size:34px;line-height:1.06;'
         'font-weight:950;letter-spacing:-1.1px;color:#ffffff;">'
-        f'{html.escape(label_txt)}</h1>'
+        f"{html.escape(label_txt)}</h1>"
     )
     stake_line = (
         f'<p style="margin:0 0 16px;font-size:17px;line-height:1.5;color:{_MUTE};">'
-        f'{html.escape(stake)}</p>' if stake else ""
+        f"{html.escape(stake)}</p>"
+        if stake
+        else ""
     )
     body_html = (
         f'<p style="margin:0 0 18px;font-size:18px;line-height:1.55;color:{_MUTE};">'
-        f'Hi {greet},</p>'
-        f'{stake_line}'
+        f"Hi {greet},</p>"
+        f"{stake_line}"
         f'<p style="margin:0 0 20px;font-size:18px;line-height:1.55;color:{_MUTE};">'
         f'When we looked at <strong style="color:#ffffff;">{c}</strong>, '
-        f'we found {why}.</p>'
+        f"we found {why}.</p>"
         + _price_block(
             offer.price_usd,
             sub="Flat one-time price, delivered digitally",
@@ -460,7 +489,7 @@ def render_flyer_html(
         + (
             '<p style="margin:0;text-align:center;font-size:14px;line-height:1.55;'
             f'color:{_DIM};">If it is not useful, just reply and tell us &mdash; '
-            'no hard feelings.</p>'
+            "no hard feelings.</p>"
         )
     )
     return _shell(
@@ -477,6 +506,7 @@ def render_flyer_html(
 # silently regress to text-only. Accepts a dict row OR an object prospect
 # (getattr fallback), renders the vibrant flyer, returns "" on no-offer/fault.
 # ---------------------------------------------------------------------------
+
 
 def flyer_html_for(
     *,
@@ -498,6 +528,7 @@ def flyer_html_for(
     present. The buy-now CTA carries per-prospect Stripe attribution.
     """
     try:
+
         def _g(key: str, default: str = "") -> object:
             if row is not None:
                 v = row.get(key)
@@ -523,6 +554,7 @@ def flyer_html_for(
             return ""
         if settings is None:
             from backend.common.config import get_settings
+
             settings = get_settings()
         return render_flyer_html(
             company=r["company_name"],
@@ -534,8 +566,9 @@ def flyer_html_for(
             stake=str(stake or ""),
         )
     except Exception as exc:  # noqa: BLE001 — flyer is additive; text still sends
-        _LOG.warning("flyer_html_for failed for prospect=%s (text still sends): %s",
-                     prospect_id, exc)
+        _LOG.warning(
+            "flyer_html_for failed for prospect=%s (text still sends): %s", prospect_id, exc
+        )
         return ""
 
 

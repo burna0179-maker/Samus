@@ -1,10 +1,12 @@
 """Hardship loader."""
+
 from __future__ import annotations
 
 
 def test_missing_file_returns_empty_context(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_HARDSHIP_PATH", str(tmp_path / "x.yaml"))
     from backend.finance.hardship import load_context
+
     ctx = load_context()
     assert ctx.registry_loaded is False
     assert ctx.calfresh.approved is False
@@ -25,6 +27,7 @@ def test_load_calfresh(tmp_path, monkeypatch):
     )
     monkeypatch.setenv("SAMUS_HARDSHIP_PATH", str(p))
     from backend.finance.hardship import load_context
+
     ctx = load_context()
     assert ctx.registry_loaded is True
     assert ctx.calfresh.approved is True
@@ -47,6 +50,7 @@ def test_load_banking_vehicle(tmp_path, monkeypatch):
     )
     monkeypatch.setenv("SAMUS_HARDSHIP_PATH", str(p))
     from backend.finance.hardship import load_context
+
     ctx = load_context()
     assert len(ctx.banking_vehicles) == 1
     v = ctx.banking_vehicles[0]

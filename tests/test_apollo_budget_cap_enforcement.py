@@ -3,6 +3,7 @@
 assert_allows must raise BEFORE any HTTP request is made; record_spend
 must catch a concurrent racer that snuck past assert_allows.
 """
+
 from __future__ import annotations
 
 import pytest

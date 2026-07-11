@@ -17,6 +17,7 @@ fold-the-log read sees the failed row as the current state, which is not
 Tests inject ``send_email_fn`` to avoid hitting SendGrid. Production uses
 ``backend.common.email_backend.send_email``.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -26,7 +27,6 @@ from datetime import datetime, timezone
 from typing import Any, Callable
 
 from .upsell_queue import (
-    UpsellQueueRow,
     due_upsells,
     mark_failed,
     mark_sent,
@@ -55,6 +55,7 @@ def _real_send_email(
     """Lazy default for the email backend so importing this module doesn't
     drag in the SendGrid adapter when tests inject a stub instead."""
     from backend.common.email_backend import send_email
+
     return send_email(to=to, subject=subject, body=body, html_body=html_body)
 
 
@@ -112,7 +113,9 @@ def process_upsell_queue(
         except Exception as exc:  # noqa: BLE001 — best-effort dispatch
             _LOG.warning(
                 "upsell send failed for %s touch %d: %s",
-                row.customer_email, row.touch_num, exc,
+                row.customer_email,
+                row.touch_num,
+                exc,
             )
             mark_failed(queued_row=row, error=f"{type(exc).__name__}: {exc}")
             failed += 1
@@ -138,14 +141,16 @@ def main(argv: list[str] | None = None) -> int:
         description="Drain the upsell queue (audit-to-monthly nurture sequence).",
     )
     parser.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="Show due rows but do not send emails or write transition rows",
     )
     parser.add_argument(
-        "--now", default=None,
+        "--now",
+        default=None,
         help="Override 'now' for due-window calc (ISO UTC, e.g. 2026-05-20T10:00:00Z). "
-             "Useful for smoke testing — set a date AFTER your most recent enqueue's "
-             "due_at to force-fire it.",
+        "Useful for smoke testing — set a date AFTER your most recent enqueue's "
+        "due_at to force-fire it.",
     )
     args = parser.parse_args(argv)
 
@@ -156,8 +161,10 @@ def main(argv: list[str] | None = None) -> int:
                 tzinfo=timezone.utc,
             )
         except ValueError:
-            print(f"ERROR: --now must be ISO UTC like 2026-05-20T10:00:00Z; got {args.now!r}",
-                  flush=True)
+            print(
+                f"ERROR: --now must be ISO UTC like 2026-05-20T10:00:00Z; got {args.now!r}",
+                flush=True,
+            )
             return 2
 
     if args.dry_run:
@@ -173,8 +180,7 @@ def main(argv: list[str] | None = None) -> int:
 
     result = process_upsell_queue(now=override_now)
     print(
-        f"==> Processed: due={result.due}  sent={result.sent}  "
-        f"failed={result.failed}",
+        f"==> Processed: due={result.due}  sent={result.sent}  failed={result.failed}",
         flush=True,
     )
     return 0 if result.failed == 0 else 1
@@ -182,6 +188,7 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     import sys
+
     sys.exit(main())
 
 

@@ -10,6 +10,7 @@ The rendered report is written to a file under the state root and returned as a
 :class:`CampaignArtifact` whose ``ref`` points at that file — only the reference
 travels through the run/ledger, never the full body.
 """
+
 from __future__ import annotations
 
 import json
@@ -82,9 +83,7 @@ def build_report(run: CampaignRun, ledger: CampaignAuditLedger) -> dict[str, Any
     }
 
 
-def generate_weekly_report(
-    run: CampaignRun, ledger: CampaignAuditLedger
-) -> CampaignArtifact:
+def generate_weekly_report(run: CampaignRun, ledger: CampaignAuditLedger) -> CampaignArtifact:
     """Build the report, persist it, and return the artifact reference."""
     body = build_report(run, ledger)
     reports = _reports_dir()

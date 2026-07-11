@@ -1,4 +1,5 @@
 """Tests for Samus's immutable integrity gate (manifest + Ed25519 + fail-closed)."""
+
 from __future__ import annotations
 
 import json
@@ -92,6 +93,7 @@ def test_manifest_rejects_traversal(tmp_path: Path):
 
 # --- baseline signature (operator-Ed25519) --------------------------------
 
+
 def test_unsigned_baseline_is_non_production(tmp_path: Path):
     """A baseline with NO signature sidecar must never be production trust.
 
@@ -111,19 +113,23 @@ def test_unsigned_baseline_is_non_production(tmp_path: Path):
 
 def _signed_sidecar(tmp_path, payload):
     from backend.identity.shared_bootstrap import ensure_shared_importable
+
     assert ensure_shared_importable()
     from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
     from _shared.security.operator_signed_envelope import canonical_bytes
 
     priv = Ed25519PrivateKey.generate()
-    pub_hex = priv.public_key().public_bytes(
-        encoding=serialization.Encoding.Raw,
-        format=serialization.PublicFormat.Raw,
-    ).hex()
+    pub_hex = (
+        priv.public_key()
+        .public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw,
+        )
+        .hex()
+    )
     pubkey_file = tmp_path / "operator_root_pubkey.json"
-    pubkey_file.write_text(json.dumps({"operator_root_pubkey_hex": pub_hex}),
-                           encoding="utf-8")
+    pubkey_file.write_text(json.dumps({"operator_root_pubkey_hex": pub_hex}), encoding="utf-8")
     signed_at = time.time()
     signing = canonical_bytes(
         {"payload": payload, "signed_at_ts": signed_at, "key_id": "operator_root"}
@@ -136,10 +142,17 @@ def test_baseline_signature_valid_verifies(tmp_path: Path):
     baseline.write_text(json.dumps({"hashes": {"a": "b"}}), encoding="utf-8")
     payload = bs.build_signing_payload(baseline.read_bytes())
     signed_at, sig_hex, pubkey_file = _signed_sidecar(tmp_path, payload)
-    bs.ed25519_sig_path_for(baseline).write_text(json.dumps({
-        "payload": payload, "signed_at_ts": signed_at,
-        "signature_hex": sig_hex, "key_id": "operator_root",
-    }), encoding="utf-8")
+    bs.ed25519_sig_path_for(baseline).write_text(
+        json.dumps(
+            {
+                "payload": payload,
+                "signed_at_ts": signed_at,
+                "signature_hex": sig_hex,
+                "key_id": "operator_root",
+            }
+        ),
+        encoding="utf-8",
+    )
 
     res = bs.check_baseline_signature(baseline, operator_pubkey_path_override=pubkey_file)
     assert res.production_ready is True
@@ -151,10 +164,17 @@ def test_baseline_signature_tamper_fails_closed(tmp_path: Path):
     baseline.write_text(json.dumps({"hashes": {"a": "b"}}), encoding="utf-8")
     payload = bs.build_signing_payload(baseline.read_bytes())
     signed_at, sig_hex, pubkey_file = _signed_sidecar(tmp_path, payload)
-    bs.ed25519_sig_path_for(baseline).write_text(json.dumps({
-        "payload": payload, "signed_at_ts": signed_at,
-        "signature_hex": sig_hex, "key_id": "operator_root",
-    }), encoding="utf-8")
+    bs.ed25519_sig_path_for(baseline).write_text(
+        json.dumps(
+            {
+                "payload": payload,
+                "signed_at_ts": signed_at,
+                "signature_hex": sig_hex,
+                "key_id": "operator_root",
+            }
+        ),
+        encoding="utf-8",
+    )
     # Mutate baseline after signing.
     baseline.write_text(json.dumps({"hashes": {"a": "EVIL"}}), encoding="utf-8")
     res = bs.check_baseline_signature(baseline, operator_pubkey_path_override=pubkey_file)

@@ -4,6 +4,7 @@ OrderedDict-backed LRU. Thread-safe. ``first_seen`` returns True on the first
 call for a key (sets a None placeholder), False on every subsequent call —
 the standard "claim once" pattern used by workcell service entry points.
 """
+
 from __future__ import annotations
 
 import threading

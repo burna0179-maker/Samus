@@ -16,6 +16,7 @@ mirroring the isolation philosophy of ``test_broker_client.py``. Major
 envelopes are signed for real with the shared ``security_client`` exactly as
 ``test_broker_client._broker_enabled_with_key`` signs Samus envelopes.
 """
+
 from __future__ import annotations
 
 import sys
@@ -66,6 +67,7 @@ def _proposal(**overrides):
 # decide_ballot — pure policy logic
 # ===========================================================================
 
+
 def test_ballot_shape_is_well_formed():
     """The ballot carries exactly the spec's keys + method=='policy'."""
     b = decide_ballot(_proposal())
@@ -82,10 +84,12 @@ def test_ballot_shape_is_well_formed():
 
 def test_harm_or_high_axis_rejects():
     """A privilege/security/secrets token drives abuse_risk=high → REJECT."""
-    b = decide_ballot(_proposal(
-        action="grant samus secret key scope to optimus",
-        impact="HIGH",
-    ))
+    b = decide_ballot(
+        _proposal(
+            action="grant samus secret key scope to optimus",
+            impact="HIGH",
+        )
+    )
     assert b["abuse_risk"] == "high"
     assert b["vote"] == "REJECT"
     # security-first: a high-abuse proposal is also harm to Samus's posture.
@@ -94,10 +98,12 @@ def test_harm_or_high_axis_rejects():
 
 def test_disable_control_rejects():
     """'disable'/'bypass' a control → harm to ecosystem axioms → REJECT."""
-    b = decide_ballot(_proposal(
-        proposer="optimus",
-        action="disable fail-closed auth check on shared broker",
-    ))
+    b = decide_ballot(
+        _proposal(
+            proposer="optimus",
+            action="disable fail-closed auth check on shared broker",
+        )
+    )
     assert b["vote"] == "REJECT"
     assert b["ecosystem_benefit"] == "harm"
 
@@ -109,12 +115,14 @@ def test_all_good_approves():
     privilege/secret/Samus-revenue token: self=benefit, ecosystem=benefit,
     abuse=low.
     """
-    b = decide_ballot(_proposal(
-        proposer="darwin",
-        impact="LOW",
-        action="add sandboxed observability metrics audit dashboard",
-        rationale="strengthens auditability and resilience across the mesh",
-    ))
+    b = decide_ballot(
+        _proposal(
+            proposer="darwin",
+            impact="LOW",
+            action="add sandboxed observability metrics audit dashboard",
+            rationale="strengthens auditability and resilience across the mesh",
+        )
+    )
     assert b["abuse_risk"] == "low"
     assert b["self_benefit"] != "harm"
     assert b["ecosystem_benefit"] == "benefit"
@@ -127,12 +135,14 @@ def test_mixed_neutral_ecosystem_abstains():
     No harm/high signal, but ecosystem_benefit is only 'neutral' (no shared
     upside keyword), so it cannot reach APPROVE → ABSTAIN.
     """
-    b = decide_ballot(_proposal(
-        proposer="anita",
-        impact="LOW",
-        action="rename internal widget alpha to beta",
-        rationale="cosmetic relabel",
-    ))
+    b = decide_ballot(
+        _proposal(
+            proposer="anita",
+            impact="LOW",
+            action="rename internal widget alpha to beta",
+            rationale="cosmetic relabel",
+        )
+    )
     assert b["abuse_risk"] == "low"
     assert b["self_benefit"] == "neutral"
     assert b["ecosystem_benefit"] == "neutral"
@@ -157,23 +167,27 @@ def test_malformed_proposal_fails_closed():
 
 def test_samus_revenue_surface_reach_is_harm():
     """An external reach into Samus's customer/outreach surface → self=harm → not APPROVE."""
-    b = decide_ballot(_proposal(
-        proposer="optimus",
-        action="read samus customer outreach campaign pipeline",
-        impact="MEDIUM",
-    ))
+    b = decide_ballot(
+        _proposal(
+            proposer="optimus",
+            action="read samus customer outreach campaign pipeline",
+            impact="MEDIUM",
+        )
+    )
     assert b["self_benefit"] == "harm"
     assert b["vote"] == "REJECT"
 
 
 def test_high_impact_alone_does_not_force_approve():
     """HIGH impact raises abuse_risk to at least medium → blocks APPROVE."""
-    b = decide_ballot(_proposal(
-        proposer="darwin",
-        impact="HIGH",
-        action="restructure shared coordination layer",
-        rationale="improves interop and resilience",
-    ))
+    b = decide_ballot(
+        _proposal(
+            proposer="darwin",
+            impact="HIGH",
+            action="restructure shared coordination layer",
+            rationale="improves interop and resilience",
+        )
+    )
     # ecosystem may read 'benefit' (interop/resilience) but abuse_risk>=medium
     # because impact==HIGH, so APPROVE (which needs abuse=low) is impossible.
     assert b["abuse_risk"] != "low"
@@ -183,6 +197,7 @@ def test_high_impact_alone_does_not_force_approve():
 # ===========================================================================
 # Route — dormant gate + HMAC fail-closed + happy path
 # ===========================================================================
+
 
 def _make_app() -> FastAPI:
     app = FastAPI()
@@ -221,6 +236,7 @@ def _sign_major_envelope(payload: dict, *, from_agent: str = "major") -> dict:
 
 # ----- dormant gate -----
 
+
 def test_route_dormant_returns_503_when_flag_unset(monkeypatch):
     """Flag unset → 503 BEFORE any work (even with no body)."""
     monkeypatch.delenv(ENV_VOTING_ENABLED, raising=False)
@@ -232,6 +248,7 @@ def test_route_dormant_returns_503_when_flag_unset(monkeypatch):
 
 
 # ----- HMAC fail-closed -----
+
 
 def test_route_missing_envelope_is_rejected_not_200(monkeypatch, _reset_envelope_state):
     """Flag ON but a non-envelope body (no signature) → 4xx, never 200."""
@@ -253,14 +270,17 @@ def test_route_forged_signature_is_rejected(monkeypatch, _reset_envelope_state):
     # ...but we sign with a DIFFERENT key for 'major'. Init the major
     # thumbprint, then craft a wire envelope whose signature won't match.
     from security_client import thumbprint as _tp
+
     _tp.init_thumbprint("major")
     from security_client.agent_envelope import AgentEnvelope
     from security_client.rotating_hmac import RotatingHMACKey
 
     wrong_key = RotatingHMACKey("c" * 64, agent_id="major")
     env = AgentEnvelope.create(
-        from_agent="major", to_agent="samus",
-        payload=_proposal(), signing_key=wrong_key,
+        from_agent="major",
+        to_agent="samus",
+        payload=_proposal(),
+        signing_key=wrong_key,
     )
     resp = client.post("/quorum/vote", json=env.to_wire())
     assert resp.status_code == 403
@@ -274,6 +294,7 @@ def test_route_non_major_sender_is_rejected(monkeypatch, _reset_envelope_state):
     client = TestClient(_make_app())
 
     from security_client import thumbprint as _tp
+
     _tp.init_thumbprint("darwin")
     wire = _sign_major_envelope(_proposal(), from_agent="darwin")
     resp = client.post("/quorum/vote", json=wire)
@@ -287,15 +308,25 @@ def test_route_key_unprovisioned_returns_503(monkeypatch, _reset_envelope_state)
     monkeypatch.delenv("MAJOR_AGENT_HMAC_SECRET", raising=False)
     client = TestClient(_make_app())
     # Even a structurally-valid-looking envelope can't be verified with no key.
-    resp = client.post("/quorum/vote", json={
-        "version": 1, "from_agent": "major", "to_agent": "samus",
-        "ts": 0.0, "nonce": "x", "fingerprint": "y",
-        "payload": {}, "epoch": 0, "signature": "z",
-    })
+    resp = client.post(
+        "/quorum/vote",
+        json={
+            "version": 1,
+            "from_agent": "major",
+            "to_agent": "samus",
+            "ts": 0.0,
+            "nonce": "x",
+            "fingerprint": "y",
+            "payload": {},
+            "epoch": 0,
+            "signature": "z",
+        },
+    )
     assert resp.status_code == 503
 
 
 # ----- happy path -----
+
 
 def test_route_valid_major_envelope_returns_ballot(monkeypatch, _reset_envelope_state):
     """Flag ON + valid Major envelope → 200 + well-formed ballot."""
@@ -304,6 +335,7 @@ def test_route_valid_major_envelope_returns_ballot(monkeypatch, _reset_envelope_
     client = TestClient(_make_app())
 
     from security_client import thumbprint as _tp
+
     _tp.init_thumbprint("major")
 
     proposal = _proposal(
@@ -332,6 +364,7 @@ def test_route_valid_envelope_harm_proposal_votes_reject(monkeypatch, _reset_env
     client = TestClient(_make_app())
 
     from security_client import thumbprint as _tp
+
     _tp.init_thumbprint("major")
 
     proposal = _proposal(

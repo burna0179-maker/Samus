@@ -31,6 +31,7 @@ flat ``backend/common/`` layout: the Fernet key comes from Samus's own
 ``backend.common.state_paths``; the atomic write reuses the package's
 ``os.replace`` helper. No secret material is embedded.
 """
+
 from __future__ import annotations
 
 import base64
@@ -61,9 +62,7 @@ class SecretHandle:
         if isinstance(secret, str):
             secret = secret.encode("utf-8")
         if not isinstance(secret, (bytes, bytearray)):
-            raise TypeError(
-                f"secret must be bytes/bytearray/str, got {type(secret).__name__}"
-            )
+            raise TypeError(f"secret must be bytes/bytearray/str, got {type(secret).__name__}")
         # Copy into a mutable buffer we own so we can overwrite it in place.
         self._buf: bytearray | None = bytearray(secret)
         self._cleared = False
@@ -206,9 +205,7 @@ def get_memory_enclave() -> MemoryEnclave:
     if _ENCLAVE is None:
         with _LOCK:
             if _ENCLAVE is None:
-                enclave = MemoryEnclave(
-                    state_path("security", "enclave", "enclave.seal")
-                )
+                enclave = MemoryEnclave(state_path("security", "enclave", "enclave.seal"))
                 enclave.load()
                 _ENCLAVE = enclave
     return _ENCLAVE

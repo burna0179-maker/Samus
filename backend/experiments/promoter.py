@@ -22,6 +22,7 @@ Every promotion/demotion is appended to a promotions JSONL ledger and emitted
 as a ``decision.made`` unified business event (via the Tranche-1 shim).
 All effects are fail-soft; the nightly run never raises.
 """
+
 from __future__ import annotations
 
 import json
@@ -51,8 +52,8 @@ ENV_ALPHA = "SAMUS_EXP_SIGNIFICANCE_ALPHA"
 # gating the promotion decision on it is an explicit operator opt-in.
 ENV_UPLIFT_GATE = "SAMUS_EXP_UPLIFT_GATE"
 
-DEFAULT_STOP_CONVERSION_RATE = 0.01   # overall closed_won/lead below this...
-DEFAULT_STOP_MIN_SAMPLE = 50          # ...with at least this many leads -> halt
+DEFAULT_STOP_CONVERSION_RATE = 0.01  # overall closed_won/lead below this...
+DEFAULT_STOP_MIN_SAMPLE = 50  # ...with at least this many leads -> halt
 DEFAULT_ALPHA = 0.05
 WINNER_ALLOCATION_FLOOR = 0.5
 
@@ -233,17 +234,17 @@ def read_guidance_laws(limit: int = 50) -> list[GuidanceLaw]:
         if not isinstance(row, dict):
             continue
         try:
-            out.append(GuidanceLaw(
-                law_id=str(row.get("law_id") or ""),
-                law=str(row.get("law") or ""),
-                evidence_count=int(row.get("evidence_count") or 0),
-                confidence=float(row.get("confidence") or 0.0),
-                promoted_at=str(row.get("promoted_at") or ""),
-                source_pattern_ids=[
-                    str(pid) for pid in (row.get("source_pattern_ids") or [])
-                ],
-                category=str(row.get("category") or ""),
-            ))
+            out.append(
+                GuidanceLaw(
+                    law_id=str(row.get("law_id") or ""),
+                    law=str(row.get("law") or ""),
+                    evidence_count=int(row.get("evidence_count") or 0),
+                    confidence=float(row.get("confidence") or 0.0),
+                    promoted_at=str(row.get("promoted_at") or ""),
+                    source_pattern_ids=[str(pid) for pid in (row.get("source_pattern_ids") or [])],
+                    category=str(row.get("category") or ""),
+                )
+            )
         except (TypeError, ValueError) as exc:
             _LOG.warning("guidance_laws row skipped (bad shape): %s", exc)
             continue
@@ -313,16 +314,24 @@ def check_campaign_stop() -> dict[str, Any]:
     rate = float(snap.get("overall_conversion_rate", 0.0) or 0.0)
     if leads < min_sample or rate >= threshold:
         return {
-            "halted": False, "leads": leads,
-            "conversion_rate": rate, "threshold": threshold,
+            "halted": False,
+            "leads": leads,
+            "conversion_rate": rate,
+            "threshold": threshold,
         }
 
     reason = (
         f"campaign stop rule: overall conversion {rate:.4f} < {threshold:.4f} "
         f"with {leads} leads (min sample {min_sample})"
     )
-    halt = {"halted": True, "reason": reason, "ts": iso_now(),
-            "leads": leads, "conversion_rate": rate, "threshold": threshold}
+    halt = {
+        "halted": True,
+        "reason": reason,
+        "ts": iso_now(),
+        "leads": leads,
+        "conversion_rate": rate,
+        "threshold": threshold,
+    }
     try:
         path = state_path(*_CAMPAIGN_HALT_JSON)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -333,19 +342,26 @@ def check_campaign_stop() -> dict[str, Any]:
         from backend.crm.models import CreateOperatorTaskRequest
         from backend.crm.service import create_operator_task
 
-        create_operator_task(CreateOperatorTaskRequest(
-            kind="other",
-            title="Campaign halted by experiment stop rule — review funnel",
-            description=reason,
-            source="experiments_promoter",
-            source_ref="campaign_stop_rule",
-        ))
+        create_operator_task(
+            CreateOperatorTaskRequest(
+                kind="other",
+                title="Campaign halted by experiment stop rule — review funnel",
+                description=reason,
+                source="experiments_promoter",
+                source_ref="campaign_stop_rule",
+            )
+        )
     except Exception as exc:  # noqa: BLE001
         _LOG.warning("halt operator task creation failed: %s", exc)
-    _append_promotion({
-        "ts": halt["ts"], "kind": "campaign_halt", "reason": reason,
-        "leads": leads, "conversion_rate": rate,
-    })
+    _append_promotion(
+        {
+            "ts": halt["ts"],
+            "kind": "campaign_halt",
+            "reason": reason,
+            "leads": leads,
+            "conversion_rate": rate,
+        }
+    )
     return halt
 
 
@@ -381,8 +397,11 @@ def run_nightly_promotion(*, alpha: float | None = None) -> dict[str, Any]:
     """
     a = alpha if alpha is not None else _env_float(ENV_ALPHA, DEFAULT_ALPHA)
     summary: dict[str, Any] = {
-        "ts": iso_now(), "alpha": a,
-        "experiments": {}, "promoted": [], "archived": [],
+        "ts": iso_now(),
+        "alpha": a,
+        "experiments": {},
+        "promoted": [],
+        "archived": [],
     }
     for exp in registry.list_experiments(status="active"):
         try:
@@ -395,14 +414,18 @@ def run_nightly_promotion(*, alpha: float | None = None) -> dict[str, Any]:
 
 
 def _promote_one(
-    exp: registry.Experiment, alpha: float, summary: dict[str, Any],
+    exp: registry.Experiment,
+    alpha: float,
+    summary: dict[str, Any],
 ) -> dict[str, Any]:
     stats = registry.arm_stats(exp.experiment_id)
     live = [a for a in exp.arms if a not in set(exp.archived_arms)]
     eligible = [a for a in live if stats.get(a, {}).get("trials", 0) >= exp.min_trials]
     result: dict[str, Any] = {
-        "live_arms": live, "eligible": eligible,
-        "winner": None, "archived": [],
+        "live_arms": live,
+        "eligible": eligible,
+        "winner": None,
+        "archived": [],
     }
     if len(eligible) < 2:
         result["skipped"] = "fewer than 2 arms past min_trials"
@@ -426,7 +449,7 @@ def _promote_one(
         result["uplift_error"] = str(exc)
 
     gate_on = _uplift_gate_enabled()
-    best_beats_control = (causal_best_arm == best)
+    best_beats_control = causal_best_arm == best
 
     changed = False
     # --- winner: significant vs runner-up (and, when gated, vs control) ------
@@ -436,32 +459,39 @@ def _promote_one(
         and (not gate_on or best_beats_control)
     ):
         exp.allocation_floors[best] = max(
-            exp.allocation_floors.get(best, 0.0), WINNER_ALLOCATION_FLOOR,
+            exp.allocation_floors.get(best, 0.0),
+            WINNER_ALLOCATION_FLOOR,
         )
         register_template_default(exp.dimension, exp.experiment_id, best)
         result["winner"] = best
         summary["promoted"].append(f"{exp.experiment_id}::{best}")
         changed = True
-        _append_promotion({
-            "ts": iso_now(), "kind": "winner_promoted",
-            "experiment_id": exp.experiment_id, "dimension": exp.dimension,
-            "arm": best,
-            "arm_id": registry.build_experiment_arm_id(exp.experiment_id, best),
-            "win_rate": round(_win_rate(stats[best]), 4),
-            "allocation_floor": exp.allocation_floors[best],
-            "causal_uplift": next(
-                (a for a in (result.get("uplift") or {}).get("arms", []) if a["arm"] == best),
-                None,
-            ),
-            "uplift_gated": gate_on,
-        })
+        _append_promotion(
+            {
+                "ts": iso_now(),
+                "kind": "winner_promoted",
+                "experiment_id": exp.experiment_id,
+                "dimension": exp.dimension,
+                "arm": best,
+                "arm_id": registry.build_experiment_arm_id(exp.experiment_id, best),
+                "win_rate": round(_win_rate(stats[best]), 4),
+                "allocation_floor": exp.allocation_floors[best],
+                "causal_uplift": next(
+                    (a for a in (result.get("uplift") or {}).get("arms", []) if a["arm"] == best),
+                    None,
+                ),
+                "uplift_gated": gate_on,
+            }
+        )
 
     # --- losers: significantly below the best arm -> archive + replace
     for arm in eligible:
         if arm == best or arm in set(exp.archived_arms):
             continue
         if _win_rate(stats[arm]) < _win_rate(stats[best]) and is_significant(
-            stats[best], stats[arm], alpha=alpha,
+            stats[best],
+            stats[arm],
+            alpha=alpha,
         ):
             exp.archived_arms.append(arm)
             replacement = _generate_replacement(exp, arm)
@@ -470,14 +500,18 @@ def _promote_one(
             result["archived"].append({"arm": arm, "replacement": replacement})
             summary["archived"].append(f"{exp.experiment_id}::{arm}")
             changed = True
-            _append_promotion({
-                "ts": iso_now(), "kind": "loser_archived",
-                "experiment_id": exp.experiment_id, "dimension": exp.dimension,
-                "arm": arm,
-                "arm_id": registry.build_experiment_arm_id(exp.experiment_id, arm),
-                "win_rate": round(_win_rate(stats[arm]), 4),
-                "replacement": replacement,
-            })
+            _append_promotion(
+                {
+                    "ts": iso_now(),
+                    "kind": "loser_archived",
+                    "experiment_id": exp.experiment_id,
+                    "dimension": exp.dimension,
+                    "arm": arm,
+                    "arm_id": registry.build_experiment_arm_id(exp.experiment_id, arm),
+                    "win_rate": round(_win_rate(stats[arm]), 4),
+                    "replacement": replacement,
+                }
+            )
 
     if changed:
         registry.save_experiment(exp)

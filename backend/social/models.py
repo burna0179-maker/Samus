@@ -4,6 +4,7 @@ Kept dependency-free (stdlib only) so they can be imported anywhere — the
 repurposing generator, the calendar planner, the adapters, the CLI, and the
 tests all share these shapes.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -15,16 +16,16 @@ Platform = Literal["linkedin", "instagram", "x", "facebook"]
 
 # Native content formats. The prefix encodes the platform the format belongs to.
 SocialFormat = Literal[
-    "li_text",      # LinkedIn hook+insight text post
+    "li_text",  # LinkedIn hook+insight text post
     "li_carousel",  # LinkedIn swipeable carousel (slide outline)
-    "li_link",      # LinkedIn link post (summary; link in first comment)
+    "li_link",  # LinkedIn link post (summary; link in first comment)
     "ig_carousel",  # Instagram educational carousel (slide outline)
-    "ig_reel",      # Instagram reel (60-90s script)
-    "ig_story",     # Instagram story (poll / Q&A)
-    "x_thread",     # X / Twitter thread (5-10 tweets)
-    "x_tweet",      # X single insight tweet
-    "fb_post",      # Facebook Page text post (community engagement)
-    "fb_link",      # Facebook Page link post (drives traffic to blog)
+    "ig_reel",  # Instagram reel (60-90s script)
+    "ig_story",  # Instagram story (poll / Q&A)
+    "x_thread",  # X / Twitter thread (5-10 tweets)
+    "x_tweet",  # X single insight tweet
+    "fb_post",  # Facebook Page text post (community engagement)
+    "fb_link",  # Facebook Page link post (drives traffic to blog)
 ]
 
 # Every post serves exactly one pipeline function. The calendar enforces the

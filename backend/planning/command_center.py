@@ -19,6 +19,7 @@ Every section is independently best-effort — a broken source degrades to an
 ``error`` note on THAT section, never a raise. The top-level ``ok`` is True
 unless the whole build fails.
 """
+
 from __future__ import annotations
 
 import datetime as _dt
@@ -37,7 +38,9 @@ def _section_what_happened(prospect_id: str | None, since: str) -> dict[str, Any
         from backend.common.business_events import read_events
 
         events = read_events(
-            prospect_id=prospect_id, since=since, limit=2000,
+            prospect_id=prospect_id,
+            since=since,
+            limit=2000,
         )
         by_type: Counter = Counter(str(e.get("event_type") or "") for e in events)
         recent = list(reversed(events))[:20]  # newest first
@@ -97,10 +100,7 @@ def _section_running_now() -> dict[str, Any]:
 
         result = crm_service.list_operator_tasks(status="open", limit=50)
         tasks = getattr(result, "tasks", None) or []
-        task_list = [
-            t.model_dump() if hasattr(t, "model_dump") else dict(t)
-            for t in tasks
-        ]
+        task_list = [t.model_dump() if hasattr(t, "model_dump") else dict(t) for t in tasks]
         out["open_task_count"] = int(getattr(result, "count", 0) or len(task_list))
         out["open_tasks"] = task_list[:10]
     except Exception as exc:  # noqa: BLE001
@@ -174,7 +174,8 @@ def _section_health() -> dict[str, Any]:
         if isinstance(latest, dict):
             entropy = latest.get("entropy") or (
                 (latest.get("result") or {}).get("entropy")
-                if isinstance(latest.get("result"), dict) else None
+                if isinstance(latest.get("result"), dict)
+                else None
             )
         out["entropy"] = entropy
     except Exception as exc:  # noqa: BLE001
@@ -184,7 +185,9 @@ def _section_health() -> dict[str, Any]:
 
 
 def build_command_center(
-    *, prospect_id: str | None = None, day: str | None = None,
+    *,
+    prospect_id: str | None = None,
+    day: str | None = None,
     since: str | None = None,
 ) -> dict[str, Any]:
     """Compose the executive aggregate. Never raises.
@@ -194,9 +197,9 @@ def build_command_center(
     the event digest (default: last 24h).
     """
     if since is None:
-        since = (
-            _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(days=1)
-        ).strftime("%Y-%m-%dT%H:%M:%SZ")
+        since = (_dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(days=1)).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
     try:
         return {
             "ok": True,

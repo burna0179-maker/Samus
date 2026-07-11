@@ -1,9 +1,9 @@
 """SEO + security enrichment: package builder, deterministic gate, live gate."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
 
-import pytest
 
 from backend.website import seo_enrich
 from backend.website import stages as stages_mod
@@ -21,9 +21,17 @@ def _brief(**over):
         address="<street>, <city>, <state> 97624",
         brand_colors=["#0E7C8B", "#5CB544", "#F2EC4F"],
         pages=[
-            WebsitePage(slug="home", title="Home", content={"intro": "If you want a mighty clean, call us."}),
-            WebsitePage(slug="about", title="About", content={"body": "Family owned, 10 years experience."}),
-            WebsitePage(slug="services", title="Services", content={"list": "Deep Cleaning | Airbnb Turnovers"}),
+            WebsitePage(
+                slug="home", title="Home", content={"intro": "If you want a mighty clean, call us."}
+            ),
+            WebsitePage(
+                slug="about", title="About", content={"body": "Family owned, 10 years experience."}
+            ),
+            WebsitePage(
+                slug="services",
+                title="Services",
+                content={"list": "Deep Cleaning | Airbnb Turnovers"},
+            ),
             WebsitePage(slug="contact", title="Contact", content={"body": "Call <phone>."}),
         ],
     )
@@ -34,6 +42,7 @@ def _brief(**over):
 # ---------------------------------------------------------------------------
 # build_seo_package
 # ---------------------------------------------------------------------------
+
 
 def test_package_has_localbusiness_and_organization_jsonld():
     pkg = seo_enrich.build_seo_package(_brief(), public_url="https://x.wixstudio.com/mysite")
@@ -88,7 +97,9 @@ def test_check_flags_bad_package():
 
 
 def test_no_em_dash_in_meta():
-    b = _brief(business_description="Cleaning — fast — reliable service for homes and rentals nearby.")
+    b = _brief(
+        business_description="Cleaning — fast — reliable service for homes and rentals nearby."
+    )
     pkg = seo_enrich.build_seo_package(b, public_url="https://x.wixstudio.com/mysite")
     blob = " ".join(m["title"] + m["description"] for m in pkg["page_meta"].values())
     assert "—" not in blob and "–" not in blob
@@ -98,17 +109,25 @@ def test_no_em_dash_in_meta():
 # live gate
 # ---------------------------------------------------------------------------
 
+
 def test_live_gate_passes_clean_site():
     live = {"ok": True, "seo_score": 88, "security_grade": "A", "critical_findings": []}
     problems = seo_enrich.live_gate_violations(
-        live, seo_min_score=70, security_min_grade="B", seo_gate="enforce", security_gate="enforce")
+        live, seo_min_score=70, security_min_grade="B", seo_gate="enforce", security_gate="enforce"
+    )
     assert problems == []
 
 
 def test_live_gate_blocks_low_seo_and_bad_security():
-    live = {"ok": True, "seo_score": 40, "security_grade": "D", "critical_findings": ["tls_certificate_expired"]}
+    live = {
+        "ok": True,
+        "seo_score": 40,
+        "security_grade": "D",
+        "critical_findings": ["tls_certificate_expired"],
+    }
     problems = seo_enrich.live_gate_violations(
-        live, seo_min_score=70, security_min_grade="B", seo_gate="enforce", security_gate="enforce")
+        live, seo_min_score=70, security_min_grade="B", seo_gate="enforce", security_gate="enforce"
+    )
     assert any("seo_score" in p for p in problems)
     assert any("security grade" in p for p in problems)
     assert any("critical" in p for p in problems)
@@ -117,16 +136,28 @@ def test_live_gate_blocks_low_seo_and_bad_security():
 def test_live_gate_unavailable_is_fail_closed():
     problems = seo_enrich.live_gate_violations(
         {"ok": False, "reason": "audit_failed:Timeout"},
-        seo_min_score=70, security_min_grade="B", seo_gate="enforce", security_gate="enforce")
+        seo_min_score=70,
+        security_min_grade="B",
+        seo_gate="enforce",
+        security_gate="enforce",
+    )
     assert problems and "unavailable" in problems[0]
 
 
 def test_evaluate_live_reads_audit(monkeypatch):
     fake = SimpleNamespace(
-        seo_score=82, issues=[1, 2],
-        findings={"security": {"grade": "B", "findings": [
-            {"id": "x", "severity": "medium"}, {"id": "y", "severity": "critical"}],
-            "infrastructure_health": {"score": 0.8}}},
+        seo_score=82,
+        issues=[1, 2],
+        findings={
+            "security": {
+                "grade": "B",
+                "findings": [
+                    {"id": "x", "severity": "medium"},
+                    {"id": "y", "severity": "critical"},
+                ],
+                "infrastructure_health": {"score": 0.8},
+            }
+        },
     )
     monkeypatch.setattr("backend.seo.audit.audit_url", lambda *a, **k: fake)
     out = seo_enrich.evaluate_live("https://x.test", keywords=["cleaning"], industry="cleaning")
@@ -137,6 +168,7 @@ def test_evaluate_live_reads_audit(monkeypatch):
 def test_evaluate_live_failure_is_fail_closed(monkeypatch):
     def boom(*a, **k):
         raise RuntimeError("network down")
+
     monkeypatch.setattr("backend.seo.audit.audit_url", boom)
     out = seo_enrich.evaluate_live("https://x.test")
     assert out["ok"] is False and "audit_failed" in out["reason"]
@@ -146,11 +178,15 @@ def test_evaluate_live_failure_is_fail_closed(monkeypatch):
 # stage wiring
 # ---------------------------------------------------------------------------
 
+
 def _settings(**over):
     base = dict(
-        website_seo_enrich_enabled=True, website_seo_gate="enforce",
-        website_security_gate="enforce", website_seo_min_score=70,
-        website_security_min_grade="B", website_live_publish_enabled=True,
+        website_seo_enrich_enabled=True,
+        website_seo_gate="enforce",
+        website_security_gate="enforce",
+        website_seo_min_score=70,
+        website_security_min_grade="B",
+        website_live_publish_enabled=True,
     )
     base.update(over)
     return SimpleNamespace(**base)
@@ -159,8 +195,9 @@ def _settings(**over):
 def _ctx(brief, settings, **state_over):
     order = WebsiteOrder(customer_name="Harmony", brief=brief)
     st = WebsiteBuildState(order_id="wb-x", order=order, site_id="site-1", **state_over)
-    return stages_mod.StageContext(state=st, order=order, settings=settings,
-                                   live_publish_enabled=True), st
+    return stages_mod.StageContext(
+        state=st, order=order, settings=settings, live_publish_enabled=True
+    ), st
 
 
 def test_seo_stage_enforce_passes_and_stores_package():
@@ -185,17 +222,31 @@ def test_deliver_gate_blocks_when_public_url_missing():
 
 def test_deliver_gate_blocks_failing_live_audit(monkeypatch):
     ctx, _ = _ctx(_brief(public_url="https://x.wixstudio.com/mysite"), _settings())
-    monkeypatch.setattr(seo_enrich, "evaluate_live",
-                        lambda *a, **k: {"ok": True, "seo_score": 30, "security_grade": "F",
-                                         "critical_findings": []})
+    monkeypatch.setattr(
+        seo_enrich,
+        "evaluate_live",
+        lambda *a, **k: {
+            "ok": True,
+            "seo_score": 30,
+            "security_grade": "F",
+            "critical_findings": [],
+        },
+    )
     res = stages_mod._deliver_stage(ctx)
     assert res.parked and res.park_reason.startswith("quality_gate_failed:")
 
 
 def test_deliver_gate_passes_clean_live_audit(monkeypatch):
     ctx, _ = _ctx(_brief(public_url="https://x.wixstudio.com/mysite"), _settings())
-    monkeypatch.setattr(seo_enrich, "evaluate_live",
-                        lambda *a, **k: {"ok": True, "seo_score": 92, "security_grade": "A",
-                                         "critical_findings": []})
+    monkeypatch.setattr(
+        seo_enrich,
+        "evaluate_live",
+        lambda *a, **k: {
+            "ok": True,
+            "seo_score": 92,
+            "security_grade": "A",
+            "critical_findings": [],
+        },
+    )
     res = stages_mod._deliver_stage(ctx)
     assert res.ok and res.detail["delivered_url"]

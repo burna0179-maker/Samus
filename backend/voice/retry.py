@@ -7,6 +7,7 @@ retry candidates ahead of fresh prospects in the next run.
 File: <artifact_root>/voice/retry_queue.jsonl
 Format: one JSON object per line, newest last.
 """
+
 from __future__ import annotations
 
 import json

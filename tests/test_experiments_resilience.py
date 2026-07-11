@@ -1,4 +1,5 @@
 """Self-generated resilience benchmarks (backend/experiments/resilience.py)."""
+
 from __future__ import annotations
 
 import pytest
@@ -13,18 +14,31 @@ def _isolate(tmp_path, monkeypatch):
 
 
 def _stub(monkeypatch, *, stable, countermeasures, quota_cuts):
-    monkeypatch.setattr(r, "_run_entropy", lambda _i: {
-        "stable": stable, "entropy_score": 0.9 if not stable else 0.0,
-        "countermeasures": countermeasures,
-    })
-    monkeypatch.setattr(r, "_run_rebalance", lambda _w: {
-        "quota_cuts": quota_cuts, "priority_boosts": 0,
-    })
+    monkeypatch.setattr(
+        r,
+        "_run_entropy",
+        lambda _i: {
+            "stable": stable,
+            "entropy_score": 0.9 if not stable else 0.0,
+            "countermeasures": countermeasures,
+        },
+    )
+    monkeypatch.setattr(
+        r,
+        "_run_rebalance",
+        lambda _w: {
+            "quota_cuts": quota_cuts,
+            "priority_boosts": 0,
+        },
+    )
 
 
 _STRESS = r.Scenario(
-    name="s", description="d",
-    expect_unstable=True, expect_countermeasures=True, expect_quota_cut=True,
+    name="s",
+    description="d",
+    expect_unstable=True,
+    expect_countermeasures=True,
+    expect_quota_cut=True,
 )
 
 
@@ -44,8 +58,7 @@ def test_scenario_fails_when_loop_does_not_react(monkeypatch):
 
 
 def test_calm_baseline_must_not_overreact(monkeypatch):
-    calm = r.Scenario(name="calm", description="d",
-                      expect_stable=True, expect_no_quota_cut=True)
+    calm = r.Scenario(name="calm", description="d", expect_stable=True, expect_no_quota_cut=True)
     _stub(monkeypatch, stable=True, countermeasures=[], quota_cuts=0)
     out = r.run_scenario(calm)
     assert out["passed"] is True
@@ -73,6 +86,7 @@ def test_suite_flags_degraded_and_records(monkeypatch):
     # A benchmarks ledger row was written.
     from backend.common.persistence import open_ledger
     from backend.common.state_paths import state_path
+
     rows = open_ledger(
         jsonl_path=state_path("experiments", "benchmarks.jsonl"),
         collection="resilience_benchmarks",
@@ -88,6 +102,7 @@ def test_suite_healthy_when_protective(monkeypatch):
 
 
 # --- integration: the REAL control loop must stay protective ----------------
+
 
 def test_default_suite_passes_against_real_control_loop():
     """Regression guard: the shipped entropy + portfolio_controller must respond

@@ -1,4 +1,5 @@
 """Tests for backend.leadgen.service."""
+
 from __future__ import annotations
 
 
@@ -9,6 +10,7 @@ def _reset_idempotency(monkeypatch):
     fresh = IdempotencyStore()
     monkeypatch.setattr(idem_mod, "GLOBAL_IDEMPOTENCY_STORE", fresh)
     import backend.leadgen.service as svc_mod
+
     monkeypatch.setattr(svc_mod, "GLOBAL_IDEMPOTENCY_STORE", fresh)
     return fresh
 

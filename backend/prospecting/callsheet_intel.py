@@ -34,6 +34,7 @@ Consumed by :mod:`backend.prospecting.callsheet` (fills the ``callsheet_*``
 record fields) and rendered into the morning call list by
 :mod:`backend.prospecting.text_export`.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -49,11 +50,20 @@ __all__ = ["CallsheetIntel", "derive_callsheet_intel"]
 # ``access_blocked`` is deliberately excluded: a WAF stopped our crawl but the
 # site is healthy for a human visitor — pitching "you have no website" there
 # would be wrong (the 2026-05-21 false-positive sweep).
-_NO_PRESENCE_STATUSES: frozenset[str] = frozenset({
-    "domain_unresolved", "unreachable_timeout", "unreachable",
-    "server_error", "gone", "http_error", "empty", "parked",
-    "social_only", "no_website",
-})
+_NO_PRESENCE_STATUSES: frozenset[str] = frozenset(
+    {
+        "domain_unresolved",
+        "unreachable_timeout",
+        "unreachable",
+        "server_error",
+        "gone",
+        "http_error",
+        "empty",
+        "parked",
+        "social_only",
+        "no_website",
+    }
+)
 
 # A real, generic fallback for "WHY WE CALLED" when no per-prospect signal was
 # observed (cold prospect, enrichment + audit disabled). Mirrors the prior
@@ -76,7 +86,11 @@ _SECONDARY_FLOOR = 40
 # business (see _score_manual_ops), and for one of those the automation angle
 # outweighs a trust / visibility gap — so on a tie it should win the lead.
 _GAP_PRIORITY: tuple[str, ...] = (
-    "no_presence", "manual_ops", "trust_posture", "reputation", "weak_visibility",
+    "no_presence",
+    "manual_ops",
+    "trust_posture",
+    "reputation",
+    "weak_visibility",
 )
 
 
@@ -138,7 +152,7 @@ def _score_no_presence(p: ProspectRecord) -> int:
     if status in ("no_website", "parked", "social_only", "gone"):
         return 100  # there is no working owned site at all — the loudest hook
     if status in _NO_PRESENCE_STATUSES:
-        return 85   # a site exists but is down/broken — they may not know
+        return 85  # a site exists but is down/broken — they may not know
     return 0
 
 
@@ -374,16 +388,16 @@ def _observed_issues(p: ProspectRecord, scores: dict[str, int]) -> list[str]:
     count = _review_count(p)
     if scores["reputation"] > 0:
         if rating is not None and rating < 4.0:
-            issues.append(
-                f"Review rating {rating:.1f}★ — below the bar most buyers screen for"
-            )
+            issues.append(f"Review rating {rating:.1f}★ — below the bar most buyers screen for")
         if count is not None and count < 25:
             issues.append(
                 f"Only {count} review{'s' if count != 1 else ''} — too little social proof to close on"
             )
     grade = (p.security_grade or "").strip().upper()
     if grade in ("C", "D", "F"):
-        issues.append(f"Security & trust-posture grade {grade} — visible gaps that erode buyer confidence")
+        issues.append(
+            f"Security & trust-posture grade {grade} — visible gaps that erode buyer confidence"
+        )
     if scores["manual_ops"] >= _PRIMARY_FLOOR:
         vol = f"~{count} reviews" if count is not None else "steady demand"
         issues.append(

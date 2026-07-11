@@ -5,6 +5,7 @@ Motivation: cognition exhausted its 200k paid token quota and got DENIED on
 work that could run free on local LM Studio. A free-routed call must never
 touch the budget stores.
 """
+
 from __future__ import annotations
 
 import backend.common.llm_client as lc
@@ -54,8 +55,7 @@ def test_free_workcell_env_parsing(monkeypatch):
 
 def test_lm_studio_url_normalisation(monkeypatch):
     monkeypatch.setenv("SAMUS_LM_STUDIO_URL", "http://host.docker.internal:1234/v1")
-    assert lc._lm_studio_completions_url() == \
-        "http://host.docker.internal:1234/v1/chat/completions"
+    assert lc._lm_studio_completions_url() == "http://host.docker.internal:1234/v1/chat/completions"
     monkeypatch.setenv("SAMUS_LM_STUDIO_URL", "http://x:1234/v1/chat/completions")
     assert lc._lm_studio_completions_url() == "http://x:1234/v1/chat/completions"
 
@@ -76,7 +76,9 @@ def test_free_routed_call_bypasses_budget(monkeypatch):
     monkeypatch.setattr(lc, "get_global_store", lambda: _Boom())
 
     text, usage = lc.anthropic_messages(
-        workcell="cognition", api_key="", prompt="hi",
+        workcell="cognition",
+        api_key="",
+        prompt="hi",
     )
     assert text == "free local answer"
     assert usage["input_tokens"] == 10 and usage["output_tokens"] == 5
@@ -100,7 +102,10 @@ def test_prefer_local_routes_free_for_any_workcell(monkeypatch):
     monkeypatch.setattr(lc, "get_global_store", lambda: _Boom())
 
     text, _ = lc.anthropic_messages(
-        workcell="anything", api_key="", prompt="hi", prefer_local=True,
+        workcell="anything",
+        api_key="",
+        prompt="hi",
+        prefer_local=True,
     )
     assert text == "free local answer"
     assert fake.posted_url == "http://lm:1234/v1/chat/completions"

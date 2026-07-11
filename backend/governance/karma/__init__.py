@@ -24,6 +24,7 @@ Doctrine:
   * **Tamper-evident** — every karma delta is written through
     ``backend.common.audit.record`` (the HMAC-chained ledger).
 """
+
 from __future__ import annotations
 
 __all__: list[str] = []

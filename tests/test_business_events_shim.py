@@ -9,6 +9,7 @@ should never happen in a healthy checkout). The former ``test_premerge_*``
 cases were rewritten to assert the post-merge delegation behavior instead of
 deleted — behavioral coverage is preserved.
 """
+
 from __future__ import annotations
 
 import sys
@@ -29,7 +30,9 @@ def test_emit_delegates_and_returns_real_record_shape():
     conftest points the ledger path at a tmp file so this is a clean write.
     """
     ev = emit_business_event(
-        "payment.received", workcell="finance", prospect_id="p_1",
+        "payment.received",
+        workcell="finance",
+        prospect_id="p_1",
         revenue_usd=10.0,
     )
     # Post-merge shape — real module returns the persisted record.
@@ -47,7 +50,9 @@ def test_emit_delegates_and_returns_real_record_shape():
 def test_read_returns_persisted_events_and_available_true():
     """Post-merge: the real stream is importable and returns what was emitted."""
     emit_business_event(
-        "email.sent", workcell="outreach", prospect_id="p_read",
+        "email.sent",
+        workcell="outreach",
+        prospect_id="p_read",
     )
     events = read_events(prospect_id="p_read")
     assert events_available() is True
@@ -68,9 +73,15 @@ def test_delegates_when_real_module_present(monkeypatch):
     assert events_available() is True
     ev = emit_business_event("call.placed", workcell="voice", cost_usd=0.3)
     assert ev == {
-        "event_type": "call.placed", "workcell": "voice", "prospect_id": None,
-        "opportunity_id": None, "campaign_id": None, "variant_arm_id": None,
-        "cost_usd": 0.3, "revenue_usd": None, "metadata": None,
+        "event_type": "call.placed",
+        "workcell": "voice",
+        "prospect_id": None,
+        "opportunity_id": None,
+        "campaign_id": None,
+        "variant_arm_id": None,
+        "cost_usd": 0.3,
+        "revenue_usd": None,
+        "metadata": None,
     }
     assert read_events() == [{"event_type": "email.sent"}]
 
@@ -82,6 +93,7 @@ def test_broken_real_module_degrades_per_call(monkeypatch):
     no-op event shape (for emit) or an empty list (for read). This is the same
     fail-soft contract ``llm_budget`` / ``bandit_store`` follow.
     """
+
     def boom(*a, **kw):
         raise RuntimeError("stream down")
 

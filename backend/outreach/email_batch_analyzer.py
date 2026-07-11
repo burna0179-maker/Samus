@@ -20,6 +20,7 @@ CLI::
 
     python -m backend.outreach.email_batch_analyzer [--days N] [--no-persist]
 """
+
 from __future__ import annotations
 
 import argparse
@@ -44,9 +45,9 @@ _STORE_FILE = "outreach/email_stats_analyses.jsonl"
 # Reputation guards (industry-standard sender-health thresholds). Breaching any
 # of these is what gets a sender throttled or blocklisted — the exact failure
 # mode that killed the SES account.
-_SPAM_RATE_MAX = 0.001     # 0.1% complaint rate — Gmail/Yahoo danger line
-_BOUNCE_RATE_MAX = 0.05    # 5% hard-bounce rate — SendGrid pauses above this
-_BLOCK_RATE_MAX = 0.05     # 5% blocks — reputation/authentication trouble
+_SPAM_RATE_MAX = 0.001  # 0.1% complaint rate — Gmail/Yahoo danger line
+_BOUNCE_RATE_MAX = 0.05  # 5% hard-bounce rate — SendGrid pauses above this
+_BLOCK_RATE_MAX = 0.05  # 5% blocks — reputation/authentication trouble
 _DELIVERY_RATE_MIN = 0.90  # <90% delivered (once events accrue) is a red flag
 # Floor of requested emails before "zero delivered" is treated as a total
 # outage rather than a just-sent batch still mid-accrual. Daily batches are ~87.
@@ -91,9 +92,21 @@ def fetch_stats(
 
 
 _METRIC_KEYS = (
-    "requests", "processed", "delivered", "deferred", "bounces", "bounce_drops",
-    "blocks", "spam_reports", "spam_report_drops", "invalid_emails",
-    "opens", "unique_opens", "clicks", "unique_clicks", "unsubscribes",
+    "requests",
+    "processed",
+    "delivered",
+    "deferred",
+    "bounces",
+    "bounce_drops",
+    "blocks",
+    "spam_reports",
+    "spam_report_drops",
+    "invalid_emails",
+    "opens",
+    "unique_opens",
+    "clicks",
+    "unique_clicks",
+    "unsubscribes",
 )
 
 
@@ -101,7 +114,7 @@ def _flatten(daily: list[dict[str, Any]]) -> dict[str, int]:
     """Sum every metric across all days/stat-rows into one totals dict."""
     totals: dict[str, int] = {k: 0 for k in _METRIC_KEYS}
     for day in daily or []:
-        for row in (day.get("stats") or []):
+        for row in day.get("stats") or []:
             metrics = row.get("metrics") or {}
             for k in _METRIC_KEYS:
                 try:
@@ -178,7 +191,7 @@ def aggregate(
 # ---------------------------------------------------------------------------
 @dataclass
 class RepAlert:
-    severity: str   # "critical" | "warning"
+    severity: str  # "critical" | "warning"
     metric: str
     message: str
 
@@ -187,24 +200,33 @@ def reputation_alerts(m: EmailMetrics) -> list[RepAlert]:
     """Threshold breaches that threaten sender reputation. Empty == healthy."""
     out: list[RepAlert] = []
     if m.spam_reports > 0 or m.spam_rate > _SPAM_RATE_MAX:
-        out.append(RepAlert(
-            "critical", "spam_rate",
-            f"{m.spam_reports} spam complaint(s) (rate {m.spam_rate:.2%}). Complaints "
-            f"are the fastest way to a blocklist — PAUSE sending, review targeting/"
-            f"content, and confirm every recipient is genuinely opted-appropriate.",
-        ))
+        out.append(
+            RepAlert(
+                "critical",
+                "spam_rate",
+                f"{m.spam_reports} spam complaint(s) (rate {m.spam_rate:.2%}). Complaints "
+                f"are the fastest way to a blocklist — PAUSE sending, review targeting/"
+                f"content, and confirm every recipient is genuinely opted-appropriate.",
+            )
+        )
     if m.requests and m.bounce_rate > _BOUNCE_RATE_MAX:
-        out.append(RepAlert(
-            "warning", "bounce_rate",
-            f"Bounce rate {m.bounce_rate:.1%} exceeds {_BOUNCE_RATE_MAX:.0%}. Tighten "
-            f"email verification before send; SendGrid throttles high-bounce senders.",
-        ))
+        out.append(
+            RepAlert(
+                "warning",
+                "bounce_rate",
+                f"Bounce rate {m.bounce_rate:.1%} exceeds {_BOUNCE_RATE_MAX:.0%}. Tighten "
+                f"email verification before send; SendGrid throttles high-bounce senders.",
+            )
+        )
     if m.requests and m.block_rate > _BLOCK_RATE_MAX:
-        out.append(RepAlert(
-            "warning", "block_rate",
-            f"Block rate {m.block_rate:.1%} exceeds {_BLOCK_RATE_MAX:.0%}. Check domain "
-            f"authentication (SPF/DKIM/DMARC) and recipient-domain reputation.",
-        ))
+        out.append(
+            RepAlert(
+                "warning",
+                "block_rate",
+                f"Block rate {m.block_rate:.1%} exceeds {_BLOCK_RATE_MAX:.0%}. Check domain "
+                f"authentication (SPF/DKIM/DMARC) and recipient-domain reputation.",
+            )
+        )
     # Total delivery failure: mail was requested but NONE delivered. This is the
     # worst case — e.g. a SendGrid sending hold (billing pause / account review /
     # IP provisioning) leaves every message stuck in "processing": accepted but
@@ -212,20 +234,26 @@ def reputation_alerts(m: EmailMetrics) -> list[RepAlert]:
     # this case (delivered==0 is falsy), so a total outage read as "healthy".
     # Require a request floor so a tiny just-sent batch mid-accrual doesn't alarm.
     if m.requests >= _ZERO_DELIVERY_MIN_REQUESTS and not m.delivered:
-        out.append(RepAlert(
-            "critical", "delivery_rate",
-            f"ZERO delivered of {m.requests} requested ({m.window_start}..{m.window_end}). "
-            f"Total email outage — messages accepted by SendGrid but not delivered "
-            f"(likely a sending hold: billing pause, account review, or IP provisioning). "
-            f"PAUSE outbound email and resolve the SendGrid account state before sending more.",
-        ))
+        out.append(
+            RepAlert(
+                "critical",
+                "delivery_rate",
+                f"ZERO delivered of {m.requests} requested ({m.window_start}..{m.window_end}). "
+                f"Total email outage — messages accepted by SendGrid but not delivered "
+                f"(likely a sending hold: billing pause, account review, or IP provisioning). "
+                f"PAUSE outbound email and resolve the SendGrid account state before sending more.",
+            )
+        )
     # Partial degradation: some mail delivered, but rate below the health floor.
     elif m.delivered and m.delivery_rate < _DELIVERY_RATE_MIN:
-        out.append(RepAlert(
-            "warning", "delivery_rate",
-            f"Delivery rate {m.delivery_rate:.1%} below {_DELIVERY_RATE_MIN:.0%}. "
-            f"Investigate bounces/blocks/deferrals.",
-        ))
+        out.append(
+            RepAlert(
+                "warning",
+                "delivery_rate",
+                f"Delivery rate {m.delivery_rate:.1%} below {_DELIVERY_RATE_MIN:.0%}. "
+                f"Investigate bounces/blocks/deferrals.",
+            )
+        )
     return out
 
 
@@ -314,7 +342,8 @@ def _write_alert(m: EmailMetrics, alerts: list[RepAlert]) -> None:
             "metrics": asdict(m),
         }
         (d / f"alert_{safe}.json").write_text(
-            json.dumps(payload, indent=2, default=str), encoding="utf-8")
+            json.dumps(payload, indent=2, default=str), encoding="utf-8"
+        )
     except OSError as exc:
         _LOG.warning("email audit alert write failed: %s", exc)
 
@@ -340,14 +369,16 @@ def autonomous_audit(
             _LOG.warning("no SendGrid API key — email audit skipped")
             return None
         resolved_base = (
-            base_url if base_url is not None
+            base_url
+            if base_url is not None
             else (getattr(settings, "sendgrid_base_url", "") or "https://api.sendgrid.com")
         )
         now = datetime.now(timezone.utc)
         start = (now - timedelta(days=days_back)).strftime("%Y-%m-%d")
         end = now.strftime("%Y-%m-%d")
-        daily = fetch_stats(key, start_date=start, end_date=end,
-                            base_url=resolved_base, http_client=http_client)
+        daily = fetch_stats(
+            key, start_date=start, end_date=end, base_url=resolved_base, http_client=http_client
+        )
         m = aggregate(daily, window_start=start, window_end=end)
         alerts = reputation_alerts(m)
 
@@ -362,8 +393,12 @@ def autonomous_audit(
             _LOG.warning(
                 "EMAIL REPUTATION %s: spam=%d bounce=%.1f%% block=%.1f%% "
                 "(window %s..%s) — see email_audit_alerts/",
-                worst.upper(), m.spam_reports, m.bounce_rate * 100,
-                m.block_rate * 100, m.window_start, m.window_end,
+                worst.upper(),
+                m.spam_reports,
+                m.bounce_rate * 100,
+                m.block_rate * 100,
+                m.window_start,
+                m.window_end,
             )
         return m
     except Exception as exc:  # noqa: BLE001 — never disturb the caller
@@ -378,7 +413,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m backend.outreach.email_batch_analyzer",
         description="Email outcome audit — deliverability/reputation trend + "
-                    "alerts. Read-only SendGrid Stats API.",
+        "alerts. Read-only SendGrid Stats API.",
     )
     parser.add_argument("--days", type=int, default=7, help="Lookback window (default 7).")
     parser.add_argument("--no-persist", action="store_true", help="Do not append to trend store.")
@@ -391,8 +426,10 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     alerts = reputation_alerts(m)
     print(f"=== EMAIL OUTCOME AUDIT {m.window_start}..{m.window_end} ===")
-    print(f"requests={m.requests} delivered={m.delivered} delivery={m.delivery_rate:.0%} "
-          f"bounce={m.bounce_rate:.1%} spam={m.spam_rate:.2%} open={m.open_rate:.0%}")
+    print(
+        f"requests={m.requests} delivered={m.delivered} delivery={m.delivery_rate:.0%} "
+        f"bounce={m.bounce_rate:.1%} spam={m.spam_rate:.2%} open={m.open_rate:.0%}"
+    )
     if alerts:
         for a in alerts:
             print(f"  [{a.severity}] {a.metric}: {a.message}")

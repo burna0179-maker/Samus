@@ -12,6 +12,7 @@ threading + retry machinery we already handle at the workcell layer. The
 REST surface for this workcell is tiny — keeping it httpx-only keeps the
 finance image lean and stays consistent with seo/content + memory/llm.
 """
+
 from __future__ import annotations
 
 import logging
@@ -46,8 +47,9 @@ class StripeClient:
     inject a fake without touching get_settings().
     """
 
-    def __init__(self, api_key: str, *, base_url: str = _BASE_URL,
-                 timeout: float = _HTTP_TIMEOUT) -> None:
+    def __init__(
+        self, api_key: str, *, base_url: str = _BASE_URL, timeout: float = _HTTP_TIMEOUT
+    ) -> None:
         if not api_key:
             raise ValueError("StripeClient requires a non-empty api_key")
         self._api_key = api_key
@@ -75,9 +77,7 @@ class StripeClient:
             except ValueError:
                 err = {}
             message = err.get("message") or response.text[:200]
-            raise StripeError(
-                f"stripe_http_{response.status_code}: {message}"
-            )
+            raise StripeError(f"stripe_http_{response.status_code}: {message}")
         try:
             return response.json()
         except ValueError as exc:
@@ -110,9 +110,7 @@ class StripeClient:
             except ValueError:
                 err = {}
             message = err.get("message") or response.text[:200]
-            raise StripeError(
-                f"stripe_http_{response.status_code}: {message}"
-            )
+            raise StripeError(f"stripe_http_{response.status_code}: {message}")
         try:
             return response.json()
         except ValueError as exc:
@@ -239,8 +237,7 @@ class StripeClient:
         """GET /v1/balance -> typed StripeBalance."""
         return StripeBalance.model_validate(self._get("/balance"))
 
-    def fetch_charges(self, limit: int = 10, *,
-                      customer: str | None = None) -> list[StripeCharge]:
+    def fetch_charges(self, limit: int = 10, *, customer: str | None = None) -> list[StripeCharge]:
         """GET /v1/charges?limit=N&customer=X -> typed StripeCharge list.
 
         ``customer`` (optional) scopes the query to one customer id; without
@@ -272,18 +269,22 @@ class StripeClient:
                 _LOG.warning("skipping malformed payout row: %s", exc)
         return out
 
-    def fetch_payment_links(self, *, active: bool = True,
-                            limit: int = 100) -> list[StripePaymentLink]:
+    def fetch_payment_links(
+        self, *, active: bool = True, limit: int = 100
+    ) -> list[StripePaymentLink]:
         """GET /v1/payment_links?active=X -> list of typed StripePaymentLink.
 
         The ``active`` query filter is sticky — Stripe defaults to returning
         all links including archived. Filter at the API level so callers don't
         get a polluted result set.
         """
-        data = self._get("/payment_links", {
-            "active": "true" if active else "false",
-            "limit": max(1, min(100, int(limit))),
-        })
+        data = self._get(
+            "/payment_links",
+            {
+                "active": "true" if active else "false",
+                "limit": max(1, min(100, int(limit))),
+            },
+        )
         rows = data.get("data", []) or []
         out: list[StripePaymentLink] = []
         for row in rows:
@@ -293,9 +294,9 @@ class StripeClient:
                 _LOG.warning("skipping malformed payment_link row: %s", exc)
         return out
 
-    def fetch_subscriptions(self, *, status: str = "active",
-                            limit: int = 100,
-                            customer: str | None = None) -> list[StripeSubscription]:
+    def fetch_subscriptions(
+        self, *, status: str = "active", limit: int = 100, customer: str | None = None
+    ) -> list[StripeSubscription]:
         """GET /v1/subscriptions?status=X with items.price expanded.
 
         Stripe requires ``expand[]=data.items.data.price`` to inline the full
@@ -360,8 +361,7 @@ class StripeClient:
             return None
         return StripeCustomer.model_validate(raw)
 
-    def fetch_customers_by_email(self, email: str, *,
-                                 limit: int = 10) -> list[StripeCustomer]:
+    def fetch_customers_by_email(self, email: str, *, limit: int = 10) -> list[StripeCustomer]:
         """GET /v1/customers?email=X — Stripe's exact-match email search.
 
         Returns zero, one, or multiple customer rows: Stripe permits a single
@@ -371,10 +371,13 @@ class StripeClient:
         """
         if not email or not email.strip():
             return []
-        data = self._get("/customers", {
-            "email": email.strip(),
-            "limit": max(1, min(100, int(limit))),
-        })
+        data = self._get(
+            "/customers",
+            {
+                "email": email.strip(),
+                "limit": max(1, min(100, int(limit))),
+            },
+        )
         rows = data.get("data", []) or []
         out: list[StripeCustomer] = []
         for row in rows:
@@ -389,6 +392,7 @@ class StripeClient:
 # Pure-function helpers
 # ---------------------------------------------------------------------------
 
+
 def monthly_recurring_revenue_usd(subscriptions: list[StripeSubscription]) -> float:
     """Sum per-item amount normalized to monthly. USD-only.
 
@@ -400,7 +404,10 @@ def monthly_recurring_revenue_usd(subscriptions: list[StripeSubscription]) -> fl
     Returns dollars (not cents).
     """
     factors: dict[str, float] = {
-        "day": 30.0, "week": 4.33, "month": 1.0, "year": 1.0 / 12.0,
+        "day": 30.0,
+        "week": 4.33,
+        "month": 1.0,
+        "year": 1.0 / 12.0,
     }
     cents = 0.0
     for sub in subscriptions:

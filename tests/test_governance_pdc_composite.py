@@ -1,11 +1,11 @@
 """Tests for backend.governance.pdc_composite."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 
 from backend.governance.pdc_composite import PDCFinding, run_pdc
 
@@ -57,9 +57,10 @@ def test_efh_veto_blocks(tmp_path):
     )
     assert finding.verdict == "BLOCK"
     assert finding.efh_veto is not None
-    assert "axiom.inviolable.no_unconsented_influence" in finding.efh_veto[
-        "inviolable_axioms_breached"
-    ]
+    assert (
+        "axiom.inviolable.no_unconsented_influence"
+        in finding.efh_veto["inviolable_axioms_breached"]
+    )
 
 
 def test_saturated_confusion_blocks(tmp_path):
@@ -68,8 +69,12 @@ def test_saturated_confusion_blocks(tmp_path):
         _benign_action(),
         plan=_elegant_plan(),
         confusion_events=[
-            {"kind": "axiom_violation", "delta": 1.0,
-             "threshold_breach": True, "ts": now.isoformat()},
+            {
+                "kind": "axiom_violation",
+                "delta": 1.0,
+                "threshold_breach": True,
+                "ts": now.isoformat(),
+            },
         ],
         sink=tmp_path,
     )
@@ -150,7 +155,7 @@ def test_adversarial_self_assert_without_evidence_does_not_classify(tmp_path):
     action = _benign_action()
     action["target"] = {
         "matches_criterion": "intrusion_signature_match",
-        "evidence_refs": [],   # NO evidence
+        "evidence_refs": [],  # NO evidence
     }
     finding = run_pdc(
         action,
@@ -209,8 +214,7 @@ def test_block_verdict_calls_quorum_publisher(tmp_path):
     action = _benign_action()
     action["body"] = {"plan": "use a manipulative dark-pattern email"}
     with patch("backend.common.quorum_publisher.publish_pdc_finding") as pub:
-        finding = run_pdc(action, plan=_elegant_plan(),
-                          confusion_events=[], sink=tmp_path)
+        finding = run_pdc(action, plan=_elegant_plan(), confusion_events=[], sink=tmp_path)
         assert finding.verdict == "BLOCK"
         pub.assert_called_once()
         assert pub.call_args.args[0] is finding
@@ -218,8 +222,9 @@ def test_block_verdict_calls_quorum_publisher(tmp_path):
 
 def test_pass_verdict_does_not_call_quorum_publisher(tmp_path):
     with patch("backend.common.quorum_publisher.publish_pdc_finding") as pub:
-        finding = run_pdc(_benign_action(), plan=_elegant_plan(),
-                          confusion_events=[], sink=tmp_path)
+        finding = run_pdc(
+            _benign_action(), plan=_elegant_plan(), confusion_events=[], sink=tmp_path
+        )
         assert finding.verdict == "PASS"
         pub.assert_not_called()
 
@@ -232,8 +237,7 @@ def test_quorum_publish_failure_does_not_crash_pdc(tmp_path):
         "backend.common.quorum_publisher.publish_pdc_finding",
         side_effect=RuntimeError("hub on fire"),
     ):
-        finding = run_pdc(action, plan=_elegant_plan(),
-                          confusion_events=[], sink=tmp_path)
+        finding = run_pdc(action, plan=_elegant_plan(), confusion_events=[], sink=tmp_path)
         assert finding.verdict == "BLOCK"  # still produced
 
 

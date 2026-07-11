@@ -1,4 +1,5 @@
 """TestClient smoke tests for backend.feedback.app."""
+
 from __future__ import annotations
 
 import json
@@ -24,6 +25,7 @@ def _reset_idempotency(monkeypatch):
     fresh = IdempotencyStore()
     monkeypatch.setattr(idem_mod, "GLOBAL_IDEMPOTENCY_STORE", fresh)
     import backend.feedback.service as svc_mod
+
     monkeypatch.setattr(svc_mod, "GLOBAL_IDEMPOTENCY_STORE", fresh)
     return fresh
 
@@ -32,6 +34,7 @@ def _install_fake_tables(monkeypatch) -> tuple[_FakeTable, _FakeTable]:
     suppression = _FakeTable()
     feedback_events = _FakeTable()
     import backend.feedback.handlers as handlers_mod
+
     monkeypatch.setattr(handlers_mod, "_suppression_table", lambda: suppression)
     monkeypatch.setattr(handlers_mod, "_feedback_events_table", lambda: feedback_events)
     return suppression, feedback_events
@@ -250,6 +253,7 @@ def test_taskenvelope_wrapper_accepted(tmp_path, monkeypatch):
 # M4 — SubscribeURL SSRF allowlist (CWE-918)
 # ---------------------------------------------------------------------------
 
+
 def test_subscribe_url_aws_sns_allowlist():
     """_subscribe_url_is_aws_sns admits only HTTPS AWS SNS hosts."""
     from backend.feedback.app import _subscribe_url_is_aws_sns
@@ -267,9 +271,7 @@ def test_subscribe_url_aws_sns_allowlist():
     )
     assert not _subscribe_url_is_aws_sns("https://evil.example.com/?Action=Confirm")
     assert not _subscribe_url_is_aws_sns("https://169.254.169.254/latest/meta-data/")
-    assert not _subscribe_url_is_aws_sns(
-        "https://sns.us-west-1.amazonaws.com.evil.example/"
-    )
+    assert not _subscribe_url_is_aws_sns("https://sns.us-west-1.amazonaws.com.evil.example/")
     assert not _subscribe_url_is_aws_sns("https://snsxus-west-1.amazonaws.com/")
     assert not _subscribe_url_is_aws_sns("")
 
@@ -313,6 +315,7 @@ def test_confirm_subscription_fetches_aws_url(monkeypatch):
 # L2 — production guard on SAMUS_FEEDBACK_VERIFY_SNS (CWE-294)
 # ---------------------------------------------------------------------------
 
+
 def test_verify_flag_cannot_be_disabled_in_production(monkeypatch):
     """In a production env, disabling SNS verification fails closed."""
     from backend.common.settings import reload_settings
@@ -341,6 +344,7 @@ def test_verify_flag_disable_allowed_outside_production(monkeypatch):
 # ---------------------------------------------------------------------------
 # FIN-05 — SNS replay gate is persistent (survives container restart)
 # ---------------------------------------------------------------------------
+
 
 def test_replay_claim_survives_inprocess_store_reset(tmp_path, monkeypatch):
     """A persistent claim blocks a replay even after the in-process store is

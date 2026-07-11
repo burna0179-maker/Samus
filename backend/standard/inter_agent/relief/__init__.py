@@ -6,6 +6,7 @@ operator-pending deals (CRM opportunities awaiting a Stake Sentence) to Anita's
 operator is away. Dormant until ``samus_agora_relief_forward_enabled`` (and
 Anita's intake flag) are flipped; never resolves anything (Axiom A).
 """
+
 from __future__ import annotations
 
 from .task import (

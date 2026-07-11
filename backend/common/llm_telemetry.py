@@ -34,6 +34,7 @@ GRACEFUL DEGRADATION (non-negotiable)
 mirrors ``emit_business_event`` / ``record_decision``. A telemetry hiccup must
 not break the reasoning call it instruments.
 """
+
 from __future__ import annotations
 
 import logging
@@ -56,16 +57,16 @@ DENIED: Final[str] = "denied"
 # --- Control taxonomy (which gate denied a call) ------------------------
 # Kept low-cardinality so the ``control`` counter label stays a small, stable
 # set an operator can alert on.
-CONTROL_GLOBAL_CAP: Final[str] = "global_cap"        # Control A: global $-cap
+CONTROL_GLOBAL_CAP: Final[str] = "global_cap"  # Control A: global $-cap
 CONTROL_WORKCELL_QUOTA: Final[str] = "workcell_quota"  # per-workcell token quota
-CONTROL_CIRCUIT: Final[str] = "circuit"              # Control C: circuit breaker
-CONTROL_FROZEN: Final[str] = "frozen"                # nonessential freeze
-CONTROL_BROKER: Final[str] = "broker"                # meta-governance broker
-CONTROL_MODEL_FLOOR: Final[str] = "model_floor"      # Control B: expensive model
+CONTROL_CIRCUIT: Final[str] = "circuit"  # Control C: circuit breaker
+CONTROL_FROZEN: Final[str] = "frozen"  # nonessential freeze
+CONTROL_BROKER: Final[str] = "broker"  # meta-governance broker
+CONTROL_MODEL_FLOOR: Final[str] = "model_floor"  # Control B: expensive model
 
 # --- Backend taxonomy ---------------------------------------------------
 BACKEND_OPENAI: Final[str] = "openai"  # paid
-BACKEND_LOCAL: Final[str] = "local"    # free LM Studio
+BACKEND_LOCAL: Final[str] = "local"  # free LM Studio
 
 # --- Ledger plumbing ----------------------------------------------------
 # Same convention as business_events / control_tick_ledger: env override ->
@@ -83,7 +84,8 @@ def _ledger_path() -> str:
 
 def _ledger():
     return open_ledger(
-        jsonl_path=_ledger_path(), collection=_FIRESTORE_COLLECTION,
+        jsonl_path=_ledger_path(),
+        collection=_FIRESTORE_COLLECTION,
     )
 
 
@@ -108,7 +110,11 @@ def classify_deny_control(reason: str) -> str:
 
 
 def _inc_counters(
-    *, decision: str, workcell: str, backend: str, control: str,
+    *,
+    decision: str,
+    workcell: str,
+    backend: str,
+    control: str,
 ) -> None:
     """Best-effort Prometheus counter increment. Never raises."""
     try:
@@ -116,11 +122,13 @@ def _inc_counters(
 
         if decision == ROUTED:
             _metrics.SAMUS_LLM_ROUTING_TOTAL.labels(
-                workcell=workcell or "", backend=backend or "",
+                workcell=workcell or "",
+                backend=backend or "",
             ).inc()
         elif decision == DENIED:
             _metrics.SAMUS_LLM_DENIALS_TOTAL.labels(
-                workcell=workcell or "", control=control or "",
+                workcell=workcell or "",
+                control=control or "",
             ).inc()
     except Exception as exc:  # noqa: BLE001 -- telemetry must never break callers
         _LOG.debug("llm_telemetry counter publish skipped: %s", exc)
@@ -177,7 +185,10 @@ def record_llm_call(
         _LOG.debug("llm_telemetry append failed workcell=%s: %s", workcell, exc)
 
     _inc_counters(
-        decision=decision, workcell=workcell, backend=backend, control=control,
+        decision=decision,
+        workcell=workcell,
+        backend=backend,
+        control=control,
     )
 
     try:
@@ -185,15 +196,24 @@ def record_llm_call(
             _LOG.info(
                 "llm_call workcell=%s backend=%s model=%s outcome=%s "
                 "cost=$%.6f used=%s/%s lat=%.0fms",
-                workcell, backend, model, outcome or "?",
-                record["actual_cost_usd"], used_tokens, quota_tokens, latency_ms,
+                workcell,
+                backend,
+                model,
+                outcome or "?",
+                record["actual_cost_usd"],
+                used_tokens,
+                quota_tokens,
+                latency_ms,
             )
         else:
             _LOG.debug(
-                "llm_call DENIED workcell=%s backend=%s control=%s reason=%s "
-                "used=%s/%s",
-                workcell, backend, control, record["reason"],
-                used_tokens, quota_tokens,
+                "llm_call DENIED workcell=%s backend=%s control=%s reason=%s used=%s/%s",
+                workcell,
+                backend,
+                control,
+                record["reason"],
+                used_tokens,
+                quota_tokens,
             )
     except Exception:  # noqa: BLE001 -- a logging fault must not break callers
         pass

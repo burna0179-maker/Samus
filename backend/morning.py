@@ -22,6 +22,7 @@ The companion PowerShell wrapper (``scripts/Show-Morning.ps1``) pulls
 STRIPE_API_KEY from DPAPI before invoking this module so the live Stripe
 roundtrip works without leaking secrets into shell history.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -56,6 +57,7 @@ from backend.voice.service import get_voice_call_summary
 # Color helpers -- ANSI escapes when stdout is a TTY and NO_COLOR is unset
 # -- -------------------------------------------------------------------------
 
+
 def _color_on() -> bool:
     if os.getenv("SAMUS_MORNING_NO_COLOR"):
         return False
@@ -68,17 +70,34 @@ def _c(text: str, code: str) -> str:
     return f"\033[{code}m{text}\033[0m" if _color_on() else text
 
 
-def red(t: str) -> str:    return _c(t, "31")
-def green(t: str) -> str:  return _c(t, "32")
-def yellow(t: str) -> str: return _c(t, "33")
-def cyan(t: str) -> str:   return _c(t, "36")
-def bold(t: str) -> str:   return _c(t, "1")
-def dim(t: str) -> str:    return _c(t, "2")
+def red(t: str) -> str:
+    return _c(t, "31")
+
+
+def green(t: str) -> str:
+    return _c(t, "32")
+
+
+def yellow(t: str) -> str:
+    return _c(t, "33")
+
+
+def cyan(t: str) -> str:
+    return _c(t, "36")
+
+
+def bold(t: str) -> str:
+    return _c(t, "1")
+
+
+def dim(t: str) -> str:
+    return _c(t, "2")
 
 
 # -- -------------------------------------------------------------------------
 # Live data pulls
 # -- -------------------------------------------------------------------------
+
 
 def _fetch_stripe_cash() -> tuple[float, float, int, str | None]:
     """Return (available_usd, mrr_usd, active_sub_count, error_or_none)."""
@@ -103,6 +122,7 @@ def _fetch_stripe_cash() -> tuple[float, float, int, str | None]:
 def _today_call_list_path(today: date) -> Path | None:
     try:
         from backend.common import storage
+
         return storage.root() / "daily_calls" / f"morning_call_list_{today.isoformat()}.txt"
     except Exception:  # noqa: BLE001
         return None
@@ -112,6 +132,7 @@ def _today_call_list_csv(today: date) -> Path | None:
     """Path to the structured ``call_list_<date>.csv`` the prospecting run writes."""
     try:
         from backend.common import storage
+
         return storage.root() / "daily_calls" / f"call_list_{today.isoformat()}.csv"
     except Exception:  # noqa: BLE001
         return None
@@ -155,20 +176,24 @@ def _render_call_list(today: date) -> list[str]:
     def _priority(row: dict[str, str]) -> str:
         return (row.get("call_priority") or "low").lower()
 
-    rows.sort(key=lambda r: (
-        rank.get(_priority(r), 9),
-        -_num(r.get("lead_score")),
-        grade_rank.get((r.get("security_grade") or "").upper(), 9),
-        _num(r.get("seo_score")),
-    ))
+    rows.sort(
+        key=lambda r: (
+            rank.get(_priority(r), 9),
+            -_num(r.get("lead_score")),
+            grade_rank.get((r.get("security_grade") or "").upper(), 9),
+            _num(r.get("seo_score")),
+        )
+    )
     counts = {"hot": 0, "warm": 0, "low": 0}
     for r in rows:
         counts[_priority(r)] = counts.get(_priority(r), 0) + 1
 
-    out: list[str] = [green(
-        f"  {len(rows)} prospects ready — "
-        f"{counts['hot']} hot, {counts['warm']} warm, {counts['low']} low"
-    )]
+    out: list[str] = [
+        green(
+            f"  {len(rows)} prospects ready — "
+            f"{counts['hot']} hot, {counts['warm']} warm, {counts['low']} low"
+        )
+    ]
     for idx, r in enumerate(rows, start=1):
         name = (r.get("company_name") or "(unnamed)")[:32]
         phone = r.get("phone") or "—"
@@ -177,16 +202,20 @@ def _render_call_list(today: date) -> list[str]:
         owner = r.get("owner_name") or ""
         sec = (r.get("security_grade") or "").strip()
         sec_tag = f" · sec {sec}" if sec else ""
-        line = (f"  {dot.get(_priority(r), '⚪')} {idx:>2}. {name:<32}  "
-                f"{phone:<16}  {loc} · {industry}  "
-                f"[lead {_num(r.get('lead_score'))} · seo {_num(r.get('seo_score'))}{sec_tag}]")
+        line = (
+            f"  {dot.get(_priority(r), '⚪')} {idx:>2}. {name:<32}  "
+            f"{phone:<16}  {loc} · {industry}  "
+            f"[lead {_num(r.get('lead_score'))} · seo {_num(r.get('seo_score'))}{sec_tag}]"
+        )
         if owner:
             line += f"  — ask for {owner}"
         out.append(line)
-    out.append(dim(
-        "     full call scripts + website investigation: "
-        f"attached morning_call_list_{today.isoformat()}.txt"
-    ))
+    out.append(
+        dim(
+            "     full call scripts + website investigation: "
+            f"attached morning_call_list_{today.isoformat()}.txt"
+        )
+    )
     return out
 
 
@@ -204,8 +233,7 @@ def _render_logged_calls(today: date) -> list[str]:
     from backend.common import storage
 
     yesterday = today - timedelta(days=1)
-    path = (storage.root() / "daily_calls"
-            / f"call_outcomes_{yesterday.isoformat()}.jsonl")
+    path = storage.root() / "daily_calls" / f"call_outcomes_{yesterday.isoformat()}.jsonl"
     if not path.exists():
         return []
     try:
@@ -223,12 +251,8 @@ def _render_logged_calls(today: date) -> list[str]:
     for r in records:
         oc = str(r.get("outcome") or "?")
         counts[oc] = counts.get(oc, 0) + 1
-    breakdown = ", ".join(
-        f"{n} {oc}" for oc, n in sorted(counts.items(), key=lambda kv: -kv[1])
-    )
-    out: list[str] = [
-        green(f"  Calls logged yesterday: {len(records)}  -  {breakdown}")
-    ]
+    breakdown = ", ".join(f"{n} {oc}" for oc, n in sorted(counts.items(), key=lambda kv: -kv[1]))
+    out: list[str] = [green(f"  Calls logged yesterday: {len(records)}  -  {breakdown}")]
     for r in records:
         oc = str(r.get("outcome") or "")
         if oc not in ("booked", "follow_up"):
@@ -254,16 +278,16 @@ def _render_follow_ups(today: date) -> list[str]:
     """
     try:
         from backend.crm import service as crm_service
+
         result = crm_service.list_follow_ups_due(today=today.isoformat())
     except Exception:  # noqa: BLE001 — CRM is an optional input to the brief
         return []
     if result.ddb_error or not result.follow_ups:
         return []
 
-    out: list[str] = [green(
-        f"  Follow-ups due: {result.count}  "
-        "(outreach sent earlier — time to call)"
-    )]
+    out: list[str] = [
+        green(f"  Follow-ups due: {result.count}  (outreach sent earlier — time to call)")
+    ]
     for fu in result.follow_ups:
         company = (fu.company or fu.prospect_id)[:32]
         phone = fu.phone or "—"
@@ -310,8 +334,7 @@ def _render_command_center(today: date) -> list[str]:
     goal_count = int(running.get("goal_count") or 0)
     open_tasks = int(running.get("open_task_count") or 0)
     lines.append(
-        f"  Plans active: {plan_count}   Goals tracked: {goal_count}   "
-        f"Open tasks: {open_tasks}"
+        f"  Plans active: {plan_count}   Goals tracked: {goal_count}   Open tasks: {open_tasks}"
     )
 
     # -- what needs approval --------------------------------------------------
@@ -340,8 +363,10 @@ def _render_command_center(today: date) -> list[str]:
     state = str(health.get("state") or "")
     if state:
         palette = {
-            "ok": green, "degraded": yellow,
-            "awaiting_operator_action": yellow, "fail": red,
+            "ok": green,
+            "degraded": yellow,
+            "awaiting_operator_action": yellow,
+            "fail": red,
         }
         color = palette.get(state, lambda x: x)
         lines.append(f"  System health: {color(state.upper())}")
@@ -371,6 +396,7 @@ def _render_economics(today: date) -> list[str]:
     # -- ROI roll-up ----------------------------------------------------------
     try:
         from backend.finance.roi import get_rollup
+
         rollup = get_rollup(today.isoformat())
     except Exception:  # noqa: BLE001 — economics is an optional input
         rollup = None
@@ -391,14 +417,17 @@ def _render_economics(today: date) -> list[str]:
                 key=lambda kv: float(kv[1].get("net_usd") or 0.0),
                 reverse=True,
             )[:5]:
-                lines.append(dim(
-                    f"     {channel:<12} rev ${float(row.get('revenue_usd') or 0):.2f}"
-                    f"  cost ${float(row.get('cost_usd') or 0):.2f}"
-                    f"  net ${float(row.get('net_usd') or 0):.2f}"
-                ))
+                lines.append(
+                    dim(
+                        f"     {channel:<12} rev ${float(row.get('revenue_usd') or 0):.2f}"
+                        f"  cost ${float(row.get('cost_usd') or 0):.2f}"
+                        f"  net ${float(row.get('net_usd') or 0):.2f}"
+                    )
+                )
     # -- arbitrated queue -------------------------------------------------------
     try:
         from backend.strategy.arbiter import latest_arbitration
+
         arb = latest_arbitration()
     except Exception:  # noqa: BLE001
         arb = None
@@ -441,6 +470,7 @@ def _render_system_health(today: date) -> list[str]:
     # -- open diagnostic findings --------------------------------------------
     try:
         from backend.entropy.diagnostics import run_diagnostics
+
         report = run_diagnostics(remediate=False)
     except Exception:  # noqa: BLE001 — health is an optional input
         report = None
@@ -448,10 +478,11 @@ def _render_system_health(today: date) -> list[str]:
     if findings:
         lines.append(bold("SYSTEM HEALTH"))
         counts = (report or {}).get("counts") or {}
-        lines.append(red(
-            f"  Diagnostics: {counts.get('critical', 0)} critical, "
-            f"{counts.get('warn', 0)} warn"
-        ))
+        lines.append(
+            red(
+                f"  Diagnostics: {counts.get('critical', 0)} critical, {counts.get('warn', 0)} warn"
+            )
+        )
         for f in findings[:6]:
             sev = str(f.get("severity") or "")
             paint = red if sev == "critical" else yellow
@@ -461,6 +492,7 @@ def _render_system_health(today: date) -> list[str]:
     # -- weakest workcells by reputation -------------------------------------
     try:
         from backend.common.reputation import get_reputation
+
         rep = get_reputation(recompute=True, day=today.isoformat())
     except Exception:  # noqa: BLE001
         rep = None
@@ -468,7 +500,8 @@ def _render_system_health(today: date) -> list[str]:
     # Surface only genuinely weak ones (score < 0.9) with real evidence.
     weak = sorted(
         (
-            r for r in workcells.values()
+            r
+            for r in workcells.values()
             if float(r.get("score") or 1.0) < 0.9 and int(r.get("sample_size") or 0) > 0
         ),
         key=lambda r: float(r.get("score") or 1.0),
@@ -478,12 +511,14 @@ def _render_system_health(today: date) -> list[str]:
             lines.append(bold("SYSTEM HEALTH"))
         lines.append(yellow("  Lowest-reputation workcells:"))
         for r in weak:
-            lines.append(dim(
-                f"     {str(r.get('workcell')):<12} score {float(r.get('score') or 0):.2f}"
-                f"  success {float(r.get('success_rate') or 0):.2f}"
-                f"  reliab {float(r.get('reliability') or 0):.2f}"
-                f"  net ${float(r.get('profitability_usd') or 0):.2f}"
-            ))
+            lines.append(
+                dim(
+                    f"     {str(r.get('workcell')):<12} score {float(r.get('score') or 0):.2f}"
+                    f"  success {float(r.get('success_rate') or 0):.2f}"
+                    f"  reliab {float(r.get('reliability') or 0):.2f}"
+                    f"  net ${float(r.get('profitability_usd') or 0):.2f}"
+                )
+            )
     if lines:
         lines.append("")
     return lines
@@ -501,6 +536,7 @@ def _render_production_health(today: date) -> list[str]:
     read-only (they never actuate production)."""
     try:
         from backend.observability.production_health import check_production_health
+
         report = check_production_health()
     except Exception:  # noqa: BLE001 - health is an optional input
         return []
@@ -553,29 +589,37 @@ def _render_autonomous_gate(today: date) -> list[str]:
         attested = False
     lines: list[str] = []
     if attested:
-        lines.append(green(bold(
-            "AUTONOMOUS DAY GATE -- ATTESTED (autonomous B2B live dial UNLOCKED for today)"
-        )))
-        lines.append(dim(
-            "  Governed dial fences (call-hours / DNC / cooldown / cap) still apply per prospect."
-        ))
+        lines.append(
+            green(
+                bold(
+                    "AUTONOMOUS DAY GATE -- ATTESTED (autonomous B2B live dial UNLOCKED for today)"
+                )
+            )
+        )
+        lines.append(
+            dim(
+                "  Governed dial fences (call-hours / DNC / cooldown / cap) still apply per prospect."
+            )
+        )
     else:
-        lines.append(red(bold(
-            "AUTONOMOUS DAY GATE -- NOT ATTESTED (autonomous live dial WILL NOT FIRE)"
-        )))
-        lines.append(red(
-            "  Every cold prospect routes to VOICEMAIL DRAFT instead of a live call."
-        ))
+        lines.append(
+            red(bold("AUTONOMOUS DAY GATE -- NOT ATTESTED (autonomous live dial WILL NOT FIRE)"))
+        )
+        lines.append(red("  Every cold prospect routes to VOICEMAIL DRAFT instead of a live call."))
         lines.append("")
         lines.append(bold("  ATTEST NOW (one command, unlocks the day):"))
-        lines.append(dim(
-            "    Invoke-RestMethod -Method Post -Uri "
-            "http://127.0.0.1:8100/api/gateway/pre_shift_briefing -TimeoutSec 60"
-        ))
-        lines.append(dim(
-            "  (ADR-018: running the pre-shift briefing IS your acknowledgement of "
-            "the day's autonomous execution.)"
-        ))
+        lines.append(
+            dim(
+                "    Invoke-RestMethod -Method Post -Uri "
+                "http://127.0.0.1:8100/api/gateway/pre_shift_briefing -TimeoutSec 60"
+            )
+        )
+        lines.append(
+            dim(
+                "  (ADR-018: running the pre-shift briefing IS your acknowledgement of "
+                "the day's autonomous execution.)"
+            )
+        )
     lines.append("")
     return lines
 
@@ -599,23 +643,29 @@ def _render_production_readiness(today: date) -> list[str]:
     # (1) Dial list — the day-shape input for every other autonomous action.
     try:
         from backend.common import storage
+
         csv_path = storage.root() / "daily_calls" / f"call_list_{today.isoformat()}.csv"
         if csv_path.is_file():
             import csv as _csv
+
             with csv_path.open(encoding="utf-8") as f:
                 rows = list(_csv.DictReader(f))
             n_total = len(rows)
             n_phone = sum(1 for r in rows if (r.get("phone") or "").strip())
             n_email = sum(1 for r in rows if (r.get("owner_email") or "").strip())
             n_stake_ready = sum(
-                1 for r in rows
-                if (r.get("owner_email") or "").strip()
-                and int(r.get("lead_score") or 0) >= 70
+                1
+                for r in rows
+                if (r.get("owner_email") or "").strip() and int(r.get("lead_score") or 0) >= 70
             )
             if n_total == 0:
-                lines.append(red(f"  X  dial list:       EMPTY ({csv_path.name}) -- self-supply starved"))
+                lines.append(
+                    red(f"  X  dial list:       EMPTY ({csv_path.name}) -- self-supply starved")
+                )
             elif n_total < 15:
-                lines.append(yellow(f"  !  dial list:       {n_total} prospects (THIN; typical day is 60+)"))
+                lines.append(
+                    yellow(f"  !  dial list:       {n_total} prospects (THIN; typical day is 60+)")
+                )
             else:
                 lines.append(green(f"  ok dial list:       {n_total} prospects"))
             if n_phone < n_total:
@@ -623,34 +673,50 @@ def _render_production_readiness(today: date) -> list[str]:
             lines.append(dim(f"     email-eligible:  {n_email}/{n_total}"))
             lines.append(dim(f"     auto-stake ready (email + score>=70): {n_stake_ready}"))
         else:
-            lines.append(red(f"  X  dial list:       MISSING ({csv_path.name}) -- prospecting daily_supply did not fire"))
+            lines.append(
+                red(
+                    f"  X  dial list:       MISSING ({csv_path.name}) -- prospecting daily_supply did not fire"
+                )
+            )
     except Exception as exc:  # noqa: BLE001
         lines.append(dim(f"  ?  dial list:       read failed ({exc})"))
 
     # (2) Email composer — one of the two send lanes. sendgrid key absent =
     # every send-attempt fails-closed. Check the env the running processes see.
     import os as _os
+
     sg_key = (_os.environ.get("SENDGRID_API_KEY") or "").strip()
     sg_from = (_os.environ.get("SENDGRID_FROM_EMAIL") or "").strip()
     if sg_key and sg_from:
         lines.append(green(f"  ok email lane:      SendGrid armed (from {sg_from})"))
     elif sg_key:
-        lines.append(yellow("  !  email lane:      key armed but SENDGRID_FROM_EMAIL unset -- sends will fail"))
+        lines.append(
+            yellow(
+                "  !  email lane:      key armed but SENDGRID_FROM_EMAIL unset -- sends will fail"
+            )
+        )
     else:
-        lines.append(red("  X  email lane:      SendGrid key not visible in env -- outreach disabled"))
+        lines.append(
+            red("  X  email lane:      SendGrid key not visible in env -- outreach disabled")
+        )
 
     # (3) Apollo posture (last-resort enrichment). Not fatal when disabled; the
     # free cascade covers primary enrichment. But an operator seeing "?/2540 credits"
     # can react before it's silently zero. Cheap check: read the local budget store.
     try:
         from backend.common.apollo_budget import get_credit_ceiling, get_store
+
         try:
             budget = get_store().load()
             spent = float(getattr(budget, "spent_today_usd", 0.0) or 0.0)
             lifetime = int(getattr(budget, "lifetime_credits", 0) or 0)
             ceiling = get_credit_ceiling()
             if ceiling and lifetime >= ceiling:
-                lines.append(red(f"  X  apollo:          credit ceiling hit ({lifetime}/{ceiling}) -- adapter disabled"))
+                lines.append(
+                    red(
+                        f"  X  apollo:          credit ceiling hit ({lifetime}/{ceiling}) -- adapter disabled"
+                    )
+                )
             elif spent > 0:
                 lines.append(green(f"  ok apollo:          today spend ${spent:.2f}"))
             else:
@@ -677,6 +743,7 @@ def _render_codex_drafts() -> list[str]:
     """
     import re as _re
     import time as _time
+
     try:
         from backend.common.codex.registry import _default_codex_dir
     except Exception:  # noqa: BLE001
@@ -709,10 +776,7 @@ def _render_codex_drafts() -> list[str]:
         except OSError:
             rule = "(unknown rule)"
             age_h = 0.0
-        lines.append(
-            red(f"  *  {path.name}  ")
-            + dim(f"rule={rule}  age={age_h:.1f}h")
-        )
+        lines.append(red(f"  *  {path.name}  ") + dim(f"rule={rule}  age={age_h:.1f}h"))
     lines.append(dim("     resolve via /api/console/codex/drafts/<name>/resolve"))
     lines.append("")
     return lines
@@ -743,9 +807,9 @@ def _render_guidance_laws(limit: int = 3) -> list[str]:
         conf_pct = int(round(max(0.0, min(1.0, law.confidence)) * 100))
         lines.append(f"  *  {law.law}")
         cat = law.category or "n/a"
-        lines.append(dim(
-            f"       evidence={law.evidence_count}  confidence={conf_pct}%  category={cat}"
-        ))
+        lines.append(
+            dim(f"       evidence={law.evidence_count}  confidence={conf_pct}%  category={cat}")
+        )
     lines.append("")
     return lines
 
@@ -894,11 +958,15 @@ def render_briefing(*, today: date | None = None) -> str:
 
     # -- -------- 1. CRITICAL -- ----------------------------------------------
     crit_count = actions.due_today_count + len(info_gaps.critical_open)
-    lines.append(red(bold(
-        f"CRITICAL -- TODAY ({actions.due_today_count} actions, "
-        f"{len(info_gaps.critical_open)} critical gaps, "
-        f"{actions.overdue_count} overdue)"
-    )))
+    lines.append(
+        red(
+            bold(
+                f"CRITICAL -- TODAY ({actions.due_today_count} actions, "
+                f"{len(info_gaps.critical_open)} critical gaps, "
+                f"{actions.overdue_count} overdue)"
+            )
+        )
+    )
     if actions.overdue_count:
         lines.append("")
         lines.append(red("  ! OVERDUE -- address first"))
@@ -926,7 +994,9 @@ def render_briefing(*, today: date | None = None) -> str:
     # -- -------- 2. CASH -- --------------------------------------------------
     lines.append(bold("CASH"))
     if stripe_err:
-        lines.append(f"  Available (Stripe):   {_fmt_usd(available_usd)}  {dim('(' + stripe_err + ')')}")
+        lines.append(
+            f"  Available (Stripe):   {_fmt_usd(available_usd)}  {dim('(' + stripe_err + ')')}"
+        )
         lines.append(f"  MRR (active subs):    {dim('unavailable')}")
     else:
         lines.append(f"  Available (Stripe):   {_fmt_usd(available_usd)}")
@@ -946,7 +1016,9 @@ def render_briefing(*, today: date | None = None) -> str:
     lines.append(f"  Days of runway:       {runway_color(runway_text.rjust(11))}")
     distress_palette = {"ok": green, "degraded": yellow, "critical": red}
     distress_color = distress_palette.get(declines.cash_distress, lambda x: x)
-    lines.append(f"  Cash distress flag:   {distress_color(declines.cash_distress.upper().rjust(11))}")
+    lines.append(
+        f"  Cash distress flag:   {distress_color(declines.cash_distress.upper().rjust(11))}"
+    )
     for reason in declines.distress_reasons[:3]:
         lines.append(dim(f"     - {reason}"))
     # MRR added in the last 7d from new subscription webhooks. Surfaced
@@ -992,14 +1064,14 @@ def render_briefing(*, today: date | None = None) -> str:
                 f"  {color(label.ljust(22))} {_fmt_usd(tier.confirmed_total_usd)}  "
                 f"({tier.debt_count} debt{'s' if tier.debt_count != 1 else ''}{unk})"
             )
-        lines.append(
-            f"  {bold('TOTAL CONFIRMED:'.ljust(22))} {_fmt_usd(debt.confirmed_total_usd)}"
-        )
+        lines.append(f"  {bold('TOTAL CONFIRMED:'.ljust(22))} {_fmt_usd(debt.confirmed_total_usd)}")
         if debt.unknown_balance_count:
-            lines.append(dim(
-                f"  ({debt.unknown_balance_count} debt{'s' if debt.unknown_balance_count != 1 else ''} "
-                f"with unknown balances -- see /info_gaps)"
-            ))
+            lines.append(
+                dim(
+                    f"  ({debt.unknown_balance_count} debt{'s' if debt.unknown_balance_count != 1 else ''} "
+                    f"with unknown balances -- see /info_gaps)"
+                )
+            )
     lines.append("")
 
     # -- -------- 4. SALES / CALL LIST -- ------------------------------------
@@ -1044,15 +1116,19 @@ def render_briefing(*, today: date | None = None) -> str:
         # confirmation; surface failures separately and loudly so they don't
         # get lost in the awaiting bucket below.
         if payments.auto_fulfilled_count:
-            lines.append(green(
-                f"  v  {payments.auto_fulfilled_count} auto-fulfilled "
-                f"(SEO deliverable + receipt sent without operator)"
-            ))
+            lines.append(
+                green(
+                    f"  v  {payments.auto_fulfilled_count} auto-fulfilled "
+                    f"(SEO deliverable + receipt sent without operator)"
+                )
+            )
         if payments.auto_fulfill_failed_count:
-            lines.append(red(
-                f"  !  {payments.auto_fulfill_failed_count} auto-fulfill "
-                f"FAILED -- inspect stripe_events.jsonl + re-run manually"
-            ))
+            lines.append(
+                red(
+                    f"  !  {payments.auto_fulfill_failed_count} auto-fulfill "
+                    f"FAILED -- inspect stripe_events.jsonl + re-run manually"
+                )
+            )
         if payments.awaiting_fulfillment_count > 0:
             line = (
                 f"  {yellow('->')} {payments.awaiting_fulfillment_count} "
@@ -1073,14 +1149,13 @@ def render_briefing(*, today: date | None = None) -> str:
                 # If the customer supplied a URL via custom_fields but the
                 # offer wasn't whitelisted (or auto-fulfill failed), include
                 # it so the operator can copy-paste straight into Run-Fulfill.
-                url_hint = (
-                    f", url={ev.customer_website_url}"
-                    if ev.customer_website_url else ""
+                url_hint = f", url={ev.customer_website_url}" if ev.customer_website_url else ""
+                lines.append(
+                    dim(
+                        f"     - {ev.customer_email}  "
+                        f"({amt} {ev.currency.upper()}, offer={offer}{url_hint})"
+                    )
                 )
-                lines.append(dim(
-                    f"     - {ev.customer_email}  "
-                    f"({amt} {ev.currency.upper()}, offer={offer}{url_hint})"
-                ))
                 shown += 1
     else:
         lines.append(dim("  Recent payments: (no webhook events yet)"))
@@ -1102,6 +1177,7 @@ def render_briefing(*, today: date | None = None) -> str:
     _funnel_lines: list[str] = []
     try:
         from backend.intake.form_schema import get_form_schema
+
         _schema = get_form_schema()
         if _schema.fields:
             _funnel_lines.append(green("  v  form schema: OK"))
@@ -1118,6 +1194,7 @@ def render_briefing(*, today: date | None = None) -> str:
     try:
         from datetime import datetime, timedelta, timezone
         from backend.intake.service import list_recent_leads
+
         _leads_res = list_recent_leads(limit=100)
         _leads = list(getattr(_leads_res, "leads", None) or [])
         _cutoff = datetime.now(timezone.utc) - timedelta(hours=48)
@@ -1125,58 +1202,56 @@ def render_briefing(*, today: date | None = None) -> str:
         for _l in _leads:
             _created_raw = getattr(_l, "created_at", "") or ""
             try:
-                _created = datetime.fromisoformat(
-                    _created_raw.replace("Z", "+00:00")
-                )
+                _created = datetime.fromisoformat(_created_raw.replace("Z", "+00:00"))
                 if _created >= _cutoff:
                     _recent += 1
             except Exception:  # noqa: BLE001
                 continue
         if _recent == 0:
-            _funnel_lines.append(red(
-                "  !  ZERO onboarding submissions in last 48h -- "
-                "SUSPECT_FUNNEL_BROKEN",
-            ))
-            _funnel_lines.append(dim(
-                "     verify hustleforge.tech onboarding page + "
-                "POST /intake/onboarding + form-schema fetch"
-            ))
+            _funnel_lines.append(
+                red(
+                    "  !  ZERO onboarding submissions in last 48h -- SUSPECT_FUNNEL_BROKEN",
+                )
+            )
+            _funnel_lines.append(
+                dim(
+                    "     verify hustleforge.tech onboarding page + "
+                    "POST /intake/onboarding + form-schema fetch"
+                )
+            )
         else:
-            _funnel_lines.append(dim(
-                f"  form submissions (48h): {_recent}"
-            ))
+            _funnel_lines.append(dim(f"  form submissions (48h): {_recent}"))
     except Exception as _lead_exc:  # noqa: BLE001
-        _funnel_lines.append(dim(
-            f"  form submissions: unavailable ({_lead_exc!s})"
-        ))
+        _funnel_lines.append(dim(f"  form submissions: unavailable ({_lead_exc!s})"))
     # Checkout funnel signals — the recording added in webhook.py for
     # checkout.session.created (started) and checkout.session.expired
     # (abandoned). Abandons prove buyers clicked; missing abandons AGAINST
     # missing completions is the "dead buy link" signature.
     try:
         from backend.finance.webhook import load_recent_events
+
         _fev = load_recent_events(7)
-        _started = sum(
-            1 for e in _fev if e.event_type == "checkout.session.created"
-        )
-        _expired = sum(
-            1 for e in _fev if e.event_type == "checkout.session.expired"
-        )
+        _started = sum(1 for e in _fev if e.event_type == "checkout.session.created")
+        _expired = sum(1 for e in _fev if e.event_type == "checkout.session.expired")
         _completed = sum(
-            1 for e in _fev
-            if e.event_type == "checkout.session.completed"
-            and e.process_status == "processed"
+            1
+            for e in _fev
+            if e.event_type == "checkout.session.completed" and e.process_status == "processed"
         )
         if _started and _completed == 0:
-            _funnel_lines.append(red(
-                f"  !  checkouts started (7d): {_started}, "
-                f"completed: 0 -- SUSPECT_CHECKOUT_BROKEN"
-            ))
+            _funnel_lines.append(
+                red(
+                    f"  !  checkouts started (7d): {_started}, "
+                    f"completed: 0 -- SUSPECT_CHECKOUT_BROKEN"
+                )
+            )
         elif _started or _expired:
-            _funnel_lines.append(dim(
-                f"  checkouts (7d): started={_started}, "
-                f"abandoned={_expired}, completed={_completed}"
-            ))
+            _funnel_lines.append(
+                dim(
+                    f"  checkouts (7d): started={_started}, "
+                    f"abandoned={_expired}, completed={_completed}"
+                )
+            )
     except Exception:  # noqa: BLE001 — funnel signals are best-effort surface
         pass
     lines.extend(_funnel_lines)
@@ -1185,10 +1260,7 @@ def render_briefing(*, today: date | None = None) -> str:
     # -- -------- 4b1. UPSELL NURTURE (post-audit) ---------------------------
     upsell = get_upsell_summary(window_days=14)
     if upsell.log_loaded and (
-        upsell.queued_count
-        or upsell.sent_count
-        or upsell.failed_count
-        or upsell.converted_count
+        upsell.queued_count or upsell.sent_count or upsell.failed_count or upsell.converted_count
     ):
         header = (
             f"  Upsells (14d): {upsell.queued_count} queued, "
@@ -1197,20 +1269,23 @@ def render_briefing(*, today: date | None = None) -> str:
         )
         lines.append(dim(header))
         if upsell.due_now_count > 0:
-            lines.append(yellow(
-                f"  -> {upsell.due_now_count} due now "
-                f"(next runner pass within the hour)"
-            ))
+            lines.append(
+                yellow(f"  -> {upsell.due_now_count} due now (next runner pass within the hour)")
+            )
         if upsell.failed_count > 0:
-            lines.append(red(
-                f"  !  {upsell.failed_count} upsell email(s) FAILED "
-                f"(check finance container logs)"
-            ))
+            lines.append(
+                red(
+                    f"  !  {upsell.failed_count} upsell email(s) FAILED "
+                    f"(check finance container logs)"
+                )
+            )
         for r in upsell.recent_sent[:3]:
-            lines.append(dim(
-                f"     v {r.customer_email}  "
-                f"(touch {r.touch_num} {r.source_offer_code} -> {r.target_offer_code})"
-            ))
+            lines.append(
+                dim(
+                    f"     v {r.customer_email}  "
+                    f"(touch {r.touch_num} {r.source_offer_code} -> {r.target_offer_code})"
+                )
+            )
     lines.append("")
 
     # -- -------- 4c. VOICE (Vapi) -- ----------------------------------------
@@ -1224,12 +1299,20 @@ def render_briefing(*, today: date | None = None) -> str:
         # operator (or autonomous schedule) kicked off today.
         if voice.dial_attempt_count > 0:
             dial_bits: list[str] = []
-            for outcome in ("initiated", "dry_run", "skipped_hours",
-                            "skipped_phone", "skipped_priority", "vapi_error"):
+            for outcome in (
+                "initiated",
+                "dry_run",
+                "skipped_hours",
+                "skipped_phone",
+                "skipped_priority",
+                "vapi_error",
+            ):
                 n = voice.dial_attempts_by_outcome.get(outcome)
                 if n:
-                    color = green if outcome == "initiated" else (
-                        red if outcome == "vapi_error" else dim
+                    color = (
+                        green
+                        if outcome == "initiated"
+                        else (red if outcome == "vapi_error" else dim)
                     )
                     dial_bits.append(color(f"{n} {outcome}"))
             if dial_bits:
@@ -1249,8 +1332,10 @@ def render_briefing(*, today: date | None = None) -> str:
             for action in ("book_call", "follow_up", "disqualify"):
                 n = voice.by_recommended_action.get(action)
                 if n:
-                    color = green if action == "book_call" else (
-                        yellow if action == "follow_up" else dim
+                    color = (
+                        green
+                        if action == "book_call"
+                        else (yellow if action == "follow_up" else dim)
                     )
                     parts.append(color(f"{n} {action}"))
             none_count = voice.by_recommended_action.get("(none)", 0)
@@ -1263,14 +1348,14 @@ def render_briefing(*, today: date | None = None) -> str:
             for tier in ("priority", "high", "medium", "low"):
                 n = voice.by_tier.get(tier)
                 if n:
-                    color = green if tier in ("priority", "high") else (
-                        yellow if tier == "medium" else dim
+                    color = (
+                        green
+                        if tier in ("priority", "high")
+                        else (yellow if tier == "medium" else dim)
                     )
                     tier_bits.append(color(f"{n} {tier}"))
             tier_str = ", ".join(tier_bits) if tier_bits else dim("none scored")
-            lines.append(
-                f"  Avg intent: {voice.avg_intent_score:.0f}/100 | Tiers: {tier_str}"
-            )
+            lines.append(f"  Avg intent: {voice.avg_intent_score:.0f}/100 | Tiers: {tier_str}")
         if voice.booked_calls:
             lines.append(green("  Booked from yesterday's calls:"))
             for r in voice.booked_calls:
@@ -1305,12 +1390,14 @@ def render_briefing(*, today: date | None = None) -> str:
 # CLI entrypoint
 # -- -------------------------------------------------------------------------
 
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Samus morning briefing -- debt + cash + sales + gaps on one screen",
     )
     parser.add_argument(
-        "--no-color", action="store_true",
+        "--no-color",
+        action="store_true",
         help="Disable ANSI colors (for piping to a file / log)",
     )
     args = parser.parse_args(argv)

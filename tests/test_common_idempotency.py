@@ -1,4 +1,5 @@
 """Doc §3.10 — in-process IdempotencyStore + GLOBAL_IDEMPOTENCY_STORE."""
+
 from __future__ import annotations
 
 import threading

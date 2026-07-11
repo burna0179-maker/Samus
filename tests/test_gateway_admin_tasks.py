@@ -8,10 +8,11 @@ The gateway app pulls in the same Phase-A dependencies as test_gateway_app
 (governance / autonomy / dlq); we skip the module if any are still missing
 so this test never blocks an in-flight rewrite.
 """
+
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import httpx
 import pytest
@@ -23,8 +24,7 @@ _pending_reason = ""
 try:
     from backend.common import dlq, governance, autonomy  # noqa: F401
 
-    if not (hasattr(governance, "classify_risk")
-            and hasattr(governance, "approval_decision")):
+    if not (hasattr(governance, "classify_risk") and hasattr(governance, "approval_decision")):
         _phase_a_pending = True
         _pending_reason = "governance interface incomplete"
 
@@ -57,10 +57,12 @@ def client(monkeypatch):
     # the test inspects matches production.
     monkeypatch.setenv("SAMUS_SERVICE", "gateway")
     from backend.common.settings import reload_settings
+
     reload_settings()
 
     from fastapi.testclient import TestClient
     from backend.gateway.app import create_app
+
     return TestClient(create_app())
 
 
@@ -142,7 +144,8 @@ def test_admin_tasks_returns_proxied_list(client, monkeypatch):
         "ddb_error": None,
     }
     last = _patch_httpx(
-        monkeypatch, lambda u, p: _canned_response(200, canned),
+        monkeypatch,
+        lambda u, p: _canned_response(200, canned),
     )
 
     resp = client.get("/admin/tasks")
@@ -166,10 +169,13 @@ def test_admin_tasks_query_params_are_advisory(client, monkeypatch):
     the CRM workcell directly."""
     canned = {
         "tasks": [],
-        "count": 0, "scan_truncated": False, "ddb_error": None,
+        "count": 0,
+        "scan_truncated": False,
+        "ddb_error": None,
     }
     last = _patch_httpx(
-        monkeypatch, lambda u, p: _canned_response(200, canned),
+        monkeypatch,
+        lambda u, p: _canned_response(200, canned),
     )
 
     resp = client.get("/admin/tasks?status=done&limit=10")
@@ -184,9 +190,11 @@ def test_admin_tasks_503_when_crm_url_unset(monkeypatch):
     monkeypatch.delenv("CRM_URL", raising=False)
     monkeypatch.setenv("SAMUS_GATEWAY_URLS", "")  # blow away any cached map
     from backend.common.settings import reload_settings
+
     reload_settings()
     from fastapi.testclient import TestClient
     from backend.gateway.app import create_app
+
     c = TestClient(create_app())
     resp = c.get("/admin/tasks")
     assert resp.status_code == 503
@@ -208,6 +216,7 @@ def test_admin_tasks_degrades_on_crm_unreachable(client, monkeypatch):
 
 def test_admin_tasks_degrades_on_bad_response(client, monkeypatch):
     """Non-JSON body from CRM -> structured error, not 500."""
+
     def _bad_json(url, params):
         resp = MagicMock(spec=httpx.Response)
         resp.status_code = 502
@@ -227,15 +236,20 @@ def test_admin_tasks_proxy_signs_call(client, monkeypatch):
     """The CRM workcell rejects unsigned reads with
     ``{"error":"hmac_headers_missing"}``. Confirm the proxy attaches all
     five Samus HMAC headers before sending."""
-    canned = {"tasks": [], "count": 0,
-              "scan_truncated": False, "ddb_error": None}
+    canned = {"tasks": [], "count": 0, "scan_truncated": False, "ddb_error": None}
     last = _patch_httpx(
-        monkeypatch, lambda u, p: _canned_response(200, canned),
+        monkeypatch,
+        lambda u, p: _canned_response(200, canned),
     )
     resp = client.get("/admin/tasks")
     assert resp.status_code == 200
     headers = last["headers"]
-    for key in ("X-Samus-Timestamp", "X-Samus-Nonce", "X-Samus-Signature",
-                "X-Samus-Caller", "X-Samus-Trace-Id"):
+    for key in (
+        "X-Samus-Timestamp",
+        "X-Samus-Nonce",
+        "X-Samus-Signature",
+        "X-Samus-Caller",
+        "X-Samus-Trace-Id",
+    ):
         assert key in headers, f"missing {key} in {sorted(headers)}"
     assert headers["X-Samus-Caller"] == "gateway"

@@ -18,6 +18,7 @@ Honest TODOs:
   - The layer is wrapped in try/except at module import so a broken
     governance boot does NOT block revenue-bearing workcells.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -122,8 +123,11 @@ class ProtocolLayer:
                     except Exception as exc:  # noqa: BLE001
                         _LOG.warning("samus.isv.poll_exc(thread): %s", exc)
                     self._stop.wait(interval_sec)
+
             self._poll_thread = threading.Thread(
-                target=_run, name="samus-isv-poll", daemon=True,
+                target=_run,
+                name="samus-isv-poll",
+                daemon=True,
             )
             self._poll_thread.start()
 
@@ -165,18 +169,13 @@ class ProtocolLayer:
             ),
             "dual_channel": self.dual_channel is not None,
             "audit_blackout_frozen": (
-                self.dual_channel.is_blackout_frozen()
-                if self.dual_channel else False
+                self.dual_channel.is_blackout_frozen() if self.dual_channel else False
             ),
             "template_registry": self.template_registry is not None,
             "loaded_templates": (
-                self.template_registry.loaded_ids()
-                if self.template_registry else []
+                self.template_registry.loaded_ids() if self.template_registry else []
             ),
-            "rbl_band": (
-                self.rbl_consumer.current_band()
-                if self.rbl_consumer else "unknown"
-            ),
+            "rbl_band": (self.rbl_consumer.current_band() if self.rbl_consumer else "unknown"),
         }
 
 

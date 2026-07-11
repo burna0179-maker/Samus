@@ -8,6 +8,7 @@ This module is the single chokepoint that maps EFH vetoes + PDC findings
 onto that shape. All publishes are best-effort and fail open — a hub
 outage never blocks the caller.
 """
+
 from __future__ import annotations
 
 import logging
@@ -109,35 +110,38 @@ def publish_pdc_finding(finding: Any) -> bool:
         votes.append({"voter": "efh", "vote": "VETO", "weight": 1.0})
     confusion = record.get("confusion") or {}
     if confusion.get("score", 0.0) >= 0.4:
-        votes.append({
-            "voter": "confusion_meter",
-            "vote": "REVIEW" if confusion["score"] < 0.8 else "BLOCK",
-            "weight": float(confusion["score"]),
-        })
+        votes.append(
+            {
+                "voter": "confusion_meter",
+                "vote": "REVIEW" if confusion["score"] < 0.8 else "BLOCK",
+                "weight": float(confusion["score"]),
+            }
+        )
     elegance = record.get("elegance") or {}
     if elegance.get("score", 1.0) < 0.4:
-        votes.append({
-            "voter": "elegance_scorer",
-            "vote": "REVIEW",
-            "weight": 1.0 - float(elegance["score"]),
-        })
+        votes.append(
+            {
+                "voter": "elegance_scorer",
+                "vote": "REVIEW",
+                "weight": 1.0 - float(elegance["score"]),
+            }
+        )
     adversarial = record.get("adversarial") or {}
     if adversarial.get("classified"):
-        votes.append({
-            "voter": "adversarial_actor",
-            "vote": "BLOCK" if adversarial.get("target_is_internal") else "ESCALATE",
-            "weight": 1.0,
-        })
+        votes.append(
+            {
+                "voter": "adversarial_actor",
+                "vote": "BLOCK" if adversarial.get("target_is_internal") else "ESCALATE",
+                "weight": 1.0,
+            }
+        )
     if not votes:
         # Defensive: every BLOCK/ESCALATE should have at least one contributing
         # signal, but if the upstream record is malformed, still publish with a
         # synthetic vote so the hub sees the verdict.
         votes.append({"voter": "pdc_composite", "vote": verdict, "weight": 1.0})
 
-    reason = (
-        f"finding={record.get('finding_id', '<unknown>')}; "
-        f"verdict={verdict}; {headline}"
-    )
+    reason = f"finding={record.get('finding_id', '<unknown>')}; verdict={verdict}; {headline}"
     try:
         return get_quorum_client().publish(
             caller=caller,
@@ -219,11 +223,7 @@ def publish_parliament_verdict(
             # escalation rather than dropping it silently.
             votes.append({"voter": "parliament", "vote": outcome.upper(), "weight": 1.0})
 
-        risk = (
-            float(risk_score)
-            if risk_score is not None
-            else _PARLIAMENT_RISK.get(outcome, 0.5)
-        )
+        risk = float(risk_score) if risk_score is not None else _PARLIAMENT_RISK.get(outcome, 0.5)
         reason = f"parliament={outcome}; {getattr(verdict, 'reason', '')}"
 
         return get_quorum_client().publish(

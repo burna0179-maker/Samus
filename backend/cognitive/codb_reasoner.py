@@ -30,6 +30,7 @@ Everything is fail-safe: a degraded finance source or a missing catalog yields
 a partial/empty result, never an exception that could crash a scheduled EOD job
 or a webhook thread.
 """
+
 from __future__ import annotations
 
 import logging
@@ -117,9 +118,9 @@ def read_financials() -> Financials:
         from backend.common.config import get_settings
         from backend.common.http_client import signed_post_json_sync
 
-        fin_url = os.environ.get("FINANCE_URL") or (
-            get_settings().gateway_urls or {}
-        ).get("finance")
+        fin_url = os.environ.get("FINANCE_URL") or (get_settings().gateway_urls or {}).get(
+            "finance"
+        )
         if fin_url:
             resp = signed_post_json_sync(fin_url, "/runway", {}, timeout=8.0)
             if resp.status_code == 200:
@@ -138,7 +139,8 @@ def read_financials() -> Financials:
                         try:
                             avail = sj["balance"].get("available") or []
                             cents = sum(
-                                l.get("amount", 0) for l in avail
+                                l.get("amount", 0)
+                                for l in avail
                                 if str(l.get("currency", "")).lower() == "usd"
                             )
                             cash = round(cents / 100.0, 2)
@@ -198,9 +200,9 @@ class InvestmentRecommendation:
     effective_cost_usd: float
     bottleneck: str
     capability_gain: float
-    roi_per_dollar: float          # capability_gain / effective_cost
-    bottleneck_match: bool         # relieves the current binding constraint
-    rationale: str                 # plain-English "why this, why now"
+    roi_per_dollar: float  # capability_gain / effective_cost
+    bottleneck_match: bool  # relieves the current binding constraint
+    rationale: str  # plain-English "why this, why now"
     numbers: dict = field(default_factory=dict)  # the figures used
 
     def to_dict(self) -> dict:
@@ -244,17 +246,15 @@ def _build_rationale(opt: Any, fin: Financials, is_match: bool) -> str:
     """Plain-English 'why this, why now' string with the numbers inline."""
     cost = opt.effective_cost_usd()
     cost_phrase = (
-        f"${opt.monthly_cost_usd:.0f}/mo" if opt.monthly_cost_usd > 0
+        f"${opt.monthly_cost_usd:.0f}/mo"
+        if opt.monthly_cost_usd > 0
         else f"${opt.one_time_cost_usd:.0f} one-time"
     )
     cash_phrase = (
         f"available headroom ${fin.headroom_usd:.0f} "
         f"(cash ${fin.available_cash_usd:.0f}, MRR ${fin.mrr_usd:.0f}/mo)"
     )
-    lead = (
-        f"{opt.bottleneck.replace('-', ' ')} is the binding constraint; "
-        if is_match else ""
-    )
+    lead = f"{opt.bottleneck.replace('-', ' ')} is the binding constraint; " if is_match else ""
     gain = (
         f"~{opt.capability_gain:.0f}x capability gain toward {opt.bottleneck}"
         if opt.capability_gain and opt.capability_gain != 1.0
@@ -329,8 +329,9 @@ def recommend_codb_investments(
         out.append(rec)
 
     # bottleneck-matching options first, then by score desc, then cheapest.
-    out.sort(key=lambda r: (r.bottleneck_match, r.roi_per_dollar, -r.effective_cost_usd),
-             reverse=True)
+    out.sort(
+        key=lambda r: (r.bottleneck_match, r.roi_per_dollar, -r.effective_cost_usd), reverse=True
+    )
     return out
 
 
@@ -366,26 +367,29 @@ def emit_recommendations_to_guidance(
     items = []
     for rec in recommendations[:top_n]:
         cost_phrase = (
-            f"${rec.monthly_cost_usd:.0f}/mo" if rec.monthly_cost_usd > 0
+            f"${rec.monthly_cost_usd:.0f}/mo"
+            if rec.monthly_cost_usd > 0
             else f"${rec.one_time_cost_usd:.0f} one-time"
         )
-        items.append({
-            "category": "resource_efficiency",
-            "recommendation": (
-                f"Scale CODB: upgrade to {rec.name} ({cost_phrase}) to relieve "
-                f"the {rec.bottleneck} bottleneck (operator approves spend)."
-            ),
-            "rationale": rec.rationale,
-            "expected_impact": "high" if rec.bottleneck_match else "medium",
-            "feasibility": "high",
-            "risk_level": "low",
-            "suggested_owner": "finance",
-            "action_steps": [
-                f"Operator: approve + purchase {rec.name} ({cost_phrase}).",
-                f"Confirm the {rec.bottleneck} constraint is relieved after upgrade.",
-            ],
-            "source_question": "codb_investment_reasoner",
-        })
+        items.append(
+            {
+                "category": "resource_efficiency",
+                "recommendation": (
+                    f"Scale CODB: upgrade to {rec.name} ({cost_phrase}) to relieve "
+                    f"the {rec.bottleneck} bottleneck (operator approves spend)."
+                ),
+                "rationale": rec.rationale,
+                "expected_impact": "high" if rec.bottleneck_match else "medium",
+                "feasibility": "high",
+                "risk_level": "low",
+                "suggested_owner": "finance",
+                "action_steps": [
+                    f"Operator: approve + purchase {rec.name} ({cost_phrase}).",
+                    f"Confirm the {rec.bottleneck} constraint is relieved after upgrade.",
+                ],
+                "source_question": "codb_investment_reasoner",
+            }
+        )
 
     try:
         records = ingest_guidance(bid, {"recommendations": items}, ledger=led)
@@ -416,9 +420,7 @@ def build_eod_section(
         recs = recommend_codb_investments(fin, bottleneck_hint=bottleneck_hint)
         emitted: List[str] = []
         if emit and recs:
-            emitted = emit_recommendations_to_guidance(
-                recs, ledger=ledger, top_n=top_n
-            )
+            emitted = emit_recommendations_to_guidance(recs, ledger=ledger, top_n=top_n)
         # Observed bill signals — the reasoner + operator both see actual
         # vendor charges from Gmail alongside the estimated CODB, so an
         # investment decision can be judged against real burn and any
@@ -426,6 +428,7 @@ def build_eod_section(
         observed: dict = {}
         try:
             from backend.finance.observed_bills import summarize_observed_bills
+
             observed = summarize_observed_bills().to_dict()
         except Exception as _obs_exc:  # noqa: BLE001
             log.debug("codb_reasoner: observed_bills read failed: %s", _obs_exc)
@@ -434,8 +437,7 @@ def build_eod_section(
         # Attaches a compact precedent block to the EOD section so the human
         # reviewer sees "we already recommended X for this bottleneck last
         # month" rather than treating every recommendation as fresh.
-        precedent_summary: dict = {"mode": "proceed_novel", "beliefs": [],
-                                   "decisions": []}
+        precedent_summary: dict = {"mode": "proceed_novel", "beliefs": [], "decisions": []}
         try:
             from backend.cognitive.intelligence_cycle import consult_precedent
 
@@ -444,11 +446,14 @@ def build_eod_section(
             precedent_summary = {
                 "mode": p.get("mode", "proceed_novel"),
                 "rationale": p.get("rationale", ""),
-                "belief_ids": [getattr(b, "belief_id", "")
-                               for b in (p.get("beliefs") or [])
-                               if getattr(b, "belief_id", "")],
-                "decision_ids": [getattr(d, "adr_id", "") or ""
-                                 for d in (p.get("decisions") or [])],
+                "belief_ids": [
+                    getattr(b, "belief_id", "")
+                    for b in (p.get("beliefs") or [])
+                    if getattr(b, "belief_id", "")
+                ],
+                "decision_ids": [
+                    getattr(d, "adr_id", "") or "" for d in (p.get("decisions") or [])
+                ],
             }
         except Exception as _p_exc:  # noqa: BLE001
             log.debug("codb_reasoner: precedent unavailable: %s", _p_exc)
@@ -495,13 +500,13 @@ def on_deal_closed(
     fin = read_financials()
     recs = recommend_codb_investments(fin, bottleneck_hint=bottleneck_hint)
     bid = f"deal-closed-{iso_now()[:10]}-{uuid.uuid4().hex[:8]}"
-    emitted = emit_recommendations_to_guidance(
-        recs, briefing_id=bid, ledger=ledger, top_n=top_n
-    )
+    emitted = emit_recommendations_to_guidance(recs, briefing_id=bid, ledger=ledger, top_n=top_n)
     log.info(
-        "codb_reasoner: deal-closed stimulus mrr_delta=%.2f amount=%.2f "
-        "-> %d recs, %d emitted",
-        mrr_delta_usd, amount_usd, len(recs), len(emitted),
+        "codb_reasoner: deal-closed stimulus mrr_delta=%.2f amount=%.2f -> %d recs, %d emitted",
+        mrr_delta_usd,
+        amount_usd,
+        len(recs),
+        len(emitted),
     )
     return {
         "enabled": True,

@@ -2,6 +2,7 @@
 
 Exact-formula tests + the missing-telemetry default-token-spend path.
 """
+
 from __future__ import annotations
 
 import pytest

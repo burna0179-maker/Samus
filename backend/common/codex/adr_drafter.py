@@ -6,6 +6,7 @@ proposed action, the rule it tripped, and the choices the operator has
 to resolve it. Draft filenames are suffixed `.draft.md` so they can't be
 confused with real ADRs and are gitignored (see `.gitignore`).
 """
+
 from __future__ import annotations
 
 import json

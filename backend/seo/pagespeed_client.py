@@ -22,6 +22,7 @@ Why a dedicated module rather than extending stripe/vapi-style clients:
   - The audit module already has its own httpx singleton; this module's
     fetch path is monkeypatched independently in tests
 """
+
 from __future__ import annotations
 
 import logging
@@ -59,10 +60,13 @@ def _get_shared_client() -> httpx.Client:
             except Exception:  # noqa: BLE001 — rotation never raises
                 pass
         _SHARED_CLIENT = Client(
-            timeout=_PSI_TIMEOUT, follow_redirects=True, max_redirects=3,
+            timeout=_PSI_TIMEOUT,
+            follow_redirects=True,
+            max_redirects=3,
         )
         _SHARED_CLIENT_CLASS = Client
     return _SHARED_CLIENT
+
 
 _PSI_ENDPOINT = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed"
 # Phase-split budget (2026-07-01 hang fix). A scalar 30s is defeated by a
@@ -74,7 +78,10 @@ _PSI_ENDPOINT = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed"
 # googleapis→CDN redirect chain so ``follow_redirects=True`` can't multiply the
 # wall clock.
 _PSI_TIMEOUT: httpx.Timeout = safe_fetch.bounded_timeout(
-    connect=5.0, read=30.0, write=10.0, pool=5.0,
+    connect=5.0,
+    read=30.0,
+    write=10.0,
+    pool=5.0,
 )
 _DEFAULT_STRATEGY = "mobile"  # mobile-first; mobile rankings dominate locally
 
@@ -88,9 +95,10 @@ class PageSpeedResult(BaseModel):
     API was unreachable / unauthorized. CWV are reported as the metrics
     Google publishes for ranking — LCP / CLS / TBT (lab proxy for INP).
     """
+
     model_config = ConfigDict(extra="forbid")
 
-    strategy: str = _DEFAULT_STRATEGY    # 'mobile' or 'desktop'
+    strategy: str = _DEFAULT_STRATEGY  # 'mobile' or 'desktop'
     performance_score: int | None = None
     accessibility_score: int | None = None
     seo_score: int | None = None
@@ -129,8 +137,9 @@ def _safe_score(category: dict[str, Any] | None) -> int | None:
         return None
 
 
-def _audit_metric(audits: dict[str, Any], audit_id: str,
-                  *, field: str = "numericValue") -> float | None:
+def _audit_metric(
+    audits: dict[str, Any], audit_id: str, *, field: str = "numericValue"
+) -> float | None:
     """Pull a single numeric audit value (e.g. largest-contentful-paint's
     numericValue is the LCP in milliseconds)."""
     a = audits.get(audit_id)

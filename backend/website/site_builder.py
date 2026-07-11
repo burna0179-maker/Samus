@@ -20,6 +20,7 @@ CDN; self-contained single ``index.html``.
 The generated HTML is run through the taste audit FAIL-CLOSED. Pure-Python +
 deterministic; no network. Dormant/flag-gated via ``website_headless_enabled``.
 """
+
 from __future__ import annotations
 
 import html as _html
@@ -38,6 +39,7 @@ _DASH_RE = re.compile("[—–]")
 _CTA = "Get a Free Quote"
 _FONT = "Outfit"  # brand-safe default (NOT Inter / Fraunces / Instrument_Serif)
 
+
 # Cleaning line-icons recreated from the <sample-client> business card
 # (spray bottle, bucket/caddy, squeegee, push-broom). stroke=currentColor so
 # they inherit the surrounding text color. Reused as service-card icons + a
@@ -48,15 +50,22 @@ def _svg(paths: str) -> str:
         f'stroke-linecap="round" stroke-linejoin="round" class="w-full h-full">{paths}</svg>'
     )
 
+
 _ICONS: dict[str, str] = {
-    "spray": _svg('<path d="M10 9h4v9.5a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1z"/><path d="M10 9V6h3v3"/>'
-                  '<path d="M13 6h3l1.5 1.5"/><path d="M10 6H7v2"/>'
-                  '<path d="M18 5l1.8.6M18 7l1.8-.6M18.4 6h1.8"/>'),
-    "bucket": _svg('<path d="M6 9h12l-1.1 9.3a1.4 1.4 0 0 1-1.4 1.2H8.5a1.4 1.4 0 0 1-1.4-1.2z"/>'
-                   '<path d="M7 9a5 5 0 0 1 10 0"/>'),
+    "spray": _svg(
+        '<path d="M10 9h4v9.5a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1z"/><path d="M10 9V6h3v3"/>'
+        '<path d="M13 6h3l1.5 1.5"/><path d="M10 6H7v2"/>'
+        '<path d="M18 5l1.8.6M18 7l1.8-.6M18.4 6h1.8"/>'
+    ),
+    "bucket": _svg(
+        '<path d="M6 9h12l-1.1 9.3a1.4 1.4 0 0 1-1.4 1.2H8.5a1.4 1.4 0 0 1-1.4-1.2z"/>'
+        '<path d="M7 9a5 5 0 0 1 10 0"/>'
+    ),
     "squeegee": _svg('<path d="M12 3v10"/><path d="M6 13h12"/><path d="M7.5 13l1 4h7l1-4"/>'),
-    "broom": _svg('<path d="M12 3v11"/><path d="M6 14h12l1 4H5z"/>'
-                  '<path d="M8 18v2M10.5 18v2.6M12 18v3M13.5 18v2.6M16 18v2"/>'),
+    "broom": _svg(
+        '<path d="M12 3v11"/><path d="M6 14h12l1 4H5z"/>'
+        '<path d="M8 18v2M10.5 18v2.6M12 18v3M13.5 18v2.6M16 18v2"/>'
+    ),
 }
 _ICON_ORDER = ("spray", "bucket", "squeegee", "broom")
 
@@ -69,7 +78,7 @@ class GeneratedSite:
     sanitized: bool = False
     warnings: list[str] = field(default_factory=list)
     design_system: dict[str, Any] | None = None
-    compliance: dict[str, Any] | None = None   # jurisdiction + legal obligations report
+    compliance: dict[str, Any] | None = None  # jurisdiction + legal obligations report
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -123,6 +132,7 @@ def _content_by_slug(brief: WebsiteBrief) -> dict[str, dict[str, str]]:
 # section renderers (glassmorphism + gradients + scroll-reveal)
 # --------------------------------------------------------------------------
 
+
 def _tel_href(phone: str) -> str:
     """A safe tel: href for a display phone number, or "" when unusable."""
     digits = re.sub(r"[^0-9+]", "", phone or "")
@@ -139,21 +149,29 @@ def _nav(name: str, links: list[tuple[str, str]], *, home: bool = False, phone: 
         for label, href in links
     )
     links_div = f'<div class="hidden md:flex items-center gap-6 text-sm">{linkhtml}</div>'
-    left = links_div if home else f'<a href="/" class="font-semibold tracking-tight text-white">{_esc(name)}</a>'
+    left = (
+        links_div
+        if home
+        else f'<a href="/" class="font-semibold tracking-tight text-white">{_esc(name)}</a>'
+    )
     mid = "" if home else links_div
     tel = ""
     href = _tel_href(phone)
     if href:
-        tel = (f'<a href="{_esc(href)}" class="text-sm font-semibold text-white/90 hover:text-white '
-               f'whitespace-nowrap">&#9742; {_esc(phone)}</a>')
-    quote = ('<a href="/#contact" data-quote class="rounded-full px-4 py-2 text-sm font-semibold text-slate-900" '
-             'style="background:linear-gradient(90deg,var(--accent2),var(--accent))">Quote</a>')
+        tel = (
+            f'<a href="{_esc(href)}" class="text-sm font-semibold text-white/90 hover:text-white '
+            f'whitespace-nowrap">&#9742; {_esc(phone)}</a>'
+        )
+    quote = (
+        '<a href="/#contact" data-quote class="rounded-full px-4 py-2 text-sm font-semibold text-slate-900" '
+        'style="background:linear-gradient(90deg,var(--accent2),var(--accent))">Quote</a>'
+    )
     right = f'<div class="flex items-center gap-4">{tel}{quote}</div>'
     return (
         '<header class="fixed top-0 inset-x-0 z-30">'
         '<nav class="glass mx-auto mt-4 max-w-6xl rounded-full bg-slate-900/40 border border-white/15 '
         'px-5 h-14 flex items-center justify-between text-white shadow-lg shadow-black/10">'
-        f'{left}{mid}{right}</nav></header>'
+        f"{left}{mid}{right}</nav></header>"
     )
 
 
@@ -162,7 +180,7 @@ def _cta_buttons(scheduling_url: str, phone: str = "") -> str:
     quote = (
         '<a href="#contact" data-quote class="inline-block rounded-full px-8 py-4 font-semibold '
         'text-slate-900 shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl" '
-        'style="background:linear-gradient(90deg,var(--accent2),var(--accent))">' + _CTA + '</a>'
+        'style="background:linear-gradient(90deg,var(--accent2),var(--accent))">' + _CTA + "</a>"
     )
     call = ""
     _th = _tel_href(phone)
@@ -182,8 +200,16 @@ def _cta_buttons(scheduling_url: str, phone: str = "") -> str:
     return f'<div class="flex flex-wrap gap-4 justify-center">{quote}{call}{sched}</div>'
 
 
-def _hero(name: str, headline: str, intro: str, hero_media: str, hero_video: str,
-          accent: str, accent2: str, cta_html: str) -> str:
+def _hero(
+    name: str,
+    headline: str,
+    intro: str,
+    hero_media: str,
+    hero_video: str,
+    accent: str,
+    accent2: str,
+    cta_html: str,
+) -> str:
     # Background pushed DOWN (object-position lower) to leave headroom up top for
     # the 3D animated company name — replaces the redundant name/CTA nav banner.
     _hv = _safe_url(hero_video)  # WEB-D8-01 — drop javascript:/data: schemes
@@ -195,8 +221,10 @@ def _hero(name: str, headline: str, intro: str, hero_media: str, hero_video: str
             f'<source src="{_esc(_hv)}" type="video/mp4"></video>'
         )
     elif _hm:
-        bg = (f'<img src="{_esc(_hm)}" alt="{_esc(name)}" '
-              'class="absolute inset-0 w-full h-full object-cover" style="object-position:center 82%">')
+        bg = (
+            f'<img src="{_esc(_hm)}" alt="{_esc(name)}" '
+            'class="absolute inset-0 w-full h-full object-cover" style="object-position:center 82%">'
+        )
     else:
         bg = '<div class="absolute inset-0" style="background:linear-gradient(135deg,var(--accent),#0b2f35)"></div>'
 
@@ -207,18 +235,18 @@ def _hero(name: str, headline: str, intro: str, hero_media: str, hero_video: str
     )
     return (
         '<section class="relative min-h-[100dvh] overflow-hidden">'
-        f'{bg}'
+        f"{bg}"
         # lighter scrim: enough contrast for the title/card, but the video reads clearly
         '<div class="absolute inset-0 bg-gradient-to-b from-slate-950/60 via-slate-900/10 to-slate-950/55"></div>'
         '<div class="mesh absolute inset-0 opacity-50" style="background:'
-        'radial-gradient(40rem 40rem at 20% 15%,var(--accent)40,transparent 60%),'
+        "radial-gradient(40rem 40rem at 20% 15%,var(--accent)40,transparent 60%),"
         'radial-gradient(36rem 36rem at 85% 70%,var(--accent2)33,transparent 60%)"></div>'
         '<div class="relative z-10 min-h-[100dvh] flex flex-col items-center px-6">'
         # headroom: icon strip + 3D animated company name
         '<div class="pt-24 md:pt-28 text-center">'
         f'<div class="flex justify-center gap-5 md:gap-8 mb-7">{icons}</div>'
         f'<div class="hero3d"><h1 class="name3d">{_esc(name)}</h1></div>'
-        '</div>'
+        "</div>"
         # value-prop glass card near the bottom (tagline + CTA, not the name)
         '<div class="mt-auto mb-14 w-full max-w-2xl">'
         # mobile: extra-transparent so the video reads through the card; the glass
@@ -227,18 +255,20 @@ def _hero(name: str, headline: str, intro: str, hero_media: str, hero_video: str
         f'<p class="text-2xl md:text-3xl font-semibold text-white leading-snug drop-shadow">{_esc(headline)}</p>'
         f'<p class="mt-3 text-white/85 max-w-[46ch] mx-auto">{_esc(intro)}</p>'
         f'<div class="mt-8">{cta_html}</div></div></div>'
-        '</div></section>'
+        "</div></section>"
     )
 
 
 def _services(name: str, heading: str, body: str, items: list[str], section_img: str) -> str:
     if items:
         cards = "".join(
-            ('<div class="reveal glass rounded-2xl bg-white/70 border border-slate-200/70 p-6 shadow-sm '
-             'transition duration-300 hover:-translate-y-1.5 hover:shadow-xl" style="--d:%dms">'
-             '<div class="h-12 w-12 rounded-xl flex items-center justify-center p-2.5 text-white" '
-             'style="background:linear-gradient(135deg,var(--accent),var(--accent2))">%s</div>'
-             '<h3 class="mt-4 text-lg font-semibold text-slate-900">%s</h3></div>')
+            (
+                '<div class="reveal glass rounded-2xl bg-white/70 border border-slate-200/70 p-6 shadow-sm '
+                'transition duration-300 hover:-translate-y-1.5 hover:shadow-xl" style="--d:%dms">'
+                '<div class="h-12 w-12 rounded-xl flex items-center justify-center p-2.5 text-white" '
+                'style="background:linear-gradient(135deg,var(--accent),var(--accent2))">%s</div>'
+                '<h3 class="mt-4 text-lg font-semibold text-slate-900">%s</h3></div>'
+            )
             % (i * 80, _ICONS[_ICON_ORDER[i % len(_ICON_ORDER)]], _esc(it))
             for i, it in enumerate(items)
         )
@@ -250,7 +280,8 @@ def _services(name: str, heading: str, body: str, items: list[str], section_img:
         f'<div class="reveal mt-12 overflow-hidden rounded-3xl shadow-xl">'
         f'<img src="{_esc(_si)}" alt="{_esc(name)} team" loading="lazy" '
         f'class="w-full h-72 md:h-96 object-cover transition duration-700 hover:scale-[1.03]"></div>'
-        if _si else ""
+        if _si
+        else ""
     )
     return (
         '<section id="services" class="relative py-24 md:py-32 px-6 bg-gradient-to-b from-slate-50 to-white">'
@@ -258,7 +289,7 @@ def _services(name: str, heading: str, body: str, items: list[str], section_img:
         '<div class="reveal max-w-2xl">'
         f'<h2 class="text-3xl md:text-5xl font-semibold tracking-tight grad-text inline-block">{_esc(heading)}</h2>'
         f'<p class="mt-4 text-lg text-slate-600 max-w-[60ch]">{_esc(body)}</p></div>'
-        f'{grid}{img}</div></section>'
+        f"{grid}{img}</div></section>"
     )
 
 
@@ -268,7 +299,8 @@ def _trust_strip(items: list[str]) -> str:
         return ""
     pills = "".join(
         '<span class="reveal glass rounded-full bg-white/70 border border-slate-200/70 px-5 py-2 '
-        f'text-sm font-medium text-slate-700 shadow-sm">{_esc(t)}</span>' for t in items
+        f'text-sm font-medium text-slate-700 shadow-sm">{_esc(t)}</span>'
+        for t in items
     )
     return (
         '<section class="relative -mt-2 px-6"><div class="mx-auto max-w-6xl flex flex-wrap justify-center '
@@ -284,17 +316,23 @@ def _promo_band(text: str, phone: str = "") -> str:
         return ""
     _th = _tel_href(phone)
     if _th:
-        btn = (f'<a href="{_esc(_th)}" class="inline-block rounded-full bg-white px-7 py-3 font-semibold '
-               f'text-slate-900 shadow-md transition hover:-translate-y-0.5">Call {_esc(phone)}</a>')
+        btn = (
+            f'<a href="{_esc(_th)}" class="inline-block rounded-full bg-white px-7 py-3 font-semibold '
+            f'text-slate-900 shadow-md transition hover:-translate-y-0.5">Call {_esc(phone)}</a>'
+        )
     else:
-        btn = ('<a href="/#contact" data-quote class="inline-block rounded-full bg-white px-7 py-3 '
-               'font-semibold text-slate-900 shadow-md transition hover:-translate-y-0.5">' + _CTA + '</a>')
+        btn = (
+            '<a href="/#contact" data-quote class="inline-block rounded-full bg-white px-7 py-3 '
+            'font-semibold text-slate-900 shadow-md transition hover:-translate-y-0.5">'
+            + _CTA
+            + "</a>"
+        )
     return (
         '<section id="promo" class="px-6 py-10" '
         'style="background:linear-gradient(90deg,var(--accent),var(--accent2))">'
         '<div class="mx-auto max-w-6xl flex flex-col sm:flex-row items-center justify-center gap-6 text-center">'
         f'<p class="text-xl md:text-2xl font-semibold text-white drop-shadow">{_esc(text)}</p>'
-        f'{btn}</div></section>'
+        f"{btn}</div></section>"
     )
 
 
@@ -330,7 +368,7 @@ def _social_proof(trust_line: str, reviews_ph: str, credentials_ph: str) -> str:
         '<section id="reviews" class="py-24 px-6 bg-slate-50">'
         '<div class="mx-auto max-w-4xl">'
         '<h2 class="reveal text-3xl md:text-4xl font-semibold tracking-tight text-slate-900 text-center">'
-        'Trusted by your neighbors</h2>'
+        "Trusted by your neighbors</h2>"
         f'<div class="stagger mt-10 grid gap-6">{"".join(blocks)}</div></div></section>'
     )
 
@@ -344,7 +382,7 @@ def _portfolio(placeholder: str) -> str:
         '<section id="portfolio" class="py-24 px-6">'
         '<div class="mx-auto max-w-4xl">'
         '<h2 class="reveal text-3xl md:text-4xl font-semibold tracking-tight text-slate-900 text-center">'
-        'Our Work</h2>'
+        "Our Work</h2>"
         f'<div class="mt-10">{_placeholder_card("Demo preview", placeholder)}</div></div></section>'
     )
 
@@ -380,18 +418,22 @@ def _contact(name: str, body: str, phone: str, email: str, address: str, cta_htm
             f'<a href="{sms_href}" class="text-white/90 break-words max-w-full font-semibold hover:text-white">{_esc(phone)}</a>'
             f'<span class="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-medium text-white/80">'
             f'&#128172; Text preferred &mdash; <a href="{tel_href}" class="underline underline-offset-2 hover:text-white">call also OK</a>'
-            f'</span></span>'
+            f"</span></span>"
         )
     if email:
-        contact_items.append(f'<span class="text-white/90 break-words max-w-full">{_wrap(email)}</span>')
+        contact_items.append(
+            f'<span class="text-white/90 break-words max-w-full">{_wrap(email)}</span>'
+        )
     if address:
-        contact_items.append(f'<span class="text-white/90 break-words max-w-full">{_wrap(address)}</span>')
+        contact_items.append(
+            f'<span class="text-white/90 break-words max-w-full">{_wrap(address)}</span>'
+        )
     bits = "".join(contact_items)
     return (
         '<section id="contact" class="relative py-24 md:py-32 px-6 overflow-hidden '
         'bg-gradient-to-br from-slate-950 to-slate-900">'
         '<div class="mesh absolute inset-0 opacity-50" style="background:'
-        'radial-gradient(40rem 40rem at 80% 20%,var(--accent)40,transparent 60%),'
+        "radial-gradient(40rem 40rem at 80% 20%,var(--accent)40,transparent 60%),"
         'radial-gradient(36rem 36rem at 10% 90%,var(--accent2)33,transparent 60%)"></div>'
         '<div class="relative z-10 reveal glass mx-auto max-w-3xl rounded-3xl bg-white/5 border border-white/15 '
         'p-10 md:p-14 text-center shadow-2xl">'
@@ -402,8 +444,10 @@ def _contact(name: str, body: str, phone: str, email: str, address: str, cta_htm
     )
 
 
-_INPUT = ("w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 "
-          "focus:outline-none focus:ring-2 focus:ring-[var(--accent)]")
+_INPUT = (
+    "w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 "
+    "focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+)
 
 
 def _quote_modal(brief: Any, services_list: list[str]) -> str:
@@ -415,9 +459,13 @@ def _quote_modal(brief: Any, services_list: list[str]) -> str:
         for s in services_list
     )
     svc_block = (
-        '<fieldset class="rounded-lg border border-slate-200 p-3"><legend class="px-1 text-sm text-slate-500">'
-        f'Services needed</legend><div class="mt-1 grid grid-cols-2 gap-2">{svc}</div></fieldset>'
-    ) if svc else ""
+        (
+            '<fieldset class="rounded-lg border border-slate-200 p-3"><legend class="px-1 text-sm text-slate-500">'
+            f'Services needed</legend><div class="mt-1 grid grid-cols-2 gap-2">{svc}</div></fieldset>'
+        )
+        if svc
+        else ""
+    )
     return (
         '<dialog id="quoteModal" class="w-[92vw] max-w-lg rounded-2xl p-0 backdrop:bg-slate-950/60">'
         f'<form id="quoteForm" data-endpoint="{_esc(brief.intake_endpoint)}" '
@@ -434,20 +482,23 @@ def _quote_modal(brief: Any, services_list: list[str]) -> str:
         '<div class="grid grid-cols-2 gap-3">'
         f'<input name="state" placeholder="State / Province" class="{_INPUT}">'
         f'<input name="country" value="US" placeholder="Country" class="{_INPUT}"></div>'
-        f'{svc_block}'
+        f"{svc_block}"
         f'<textarea name="message" rows="3" placeholder="Tell us about the job" class="{_INPUT}"></textarea>'
-        '</div>'
+        "</div>"
         '<button type="submit" class="mt-6 w-full rounded-full px-6 py-3 font-semibold text-slate-900 '
         'transition hover:brightness-110" style="background:linear-gradient(90deg,var(--accent2),var(--accent))">'
-        'Send Request</button>'
+        "Send Request</button>"
         '<p id="quoteThanks" class="hidden mt-4 text-center font-medium text-emerald-700">'
-        'Thank you. We will be in touch shortly.</p>'
-        '</form></dialog>'
+        "Thank you. We will be in touch shortly.</p>"
+        "</form></dialog>"
     )
 
 
 def build_static_site(
-    brief: WebsiteBrief, *, settings: Any = None, media: dict[str, str] | None = None,
+    brief: WebsiteBrief,
+    *,
+    settings: Any = None,
+    media: dict[str, str] | None = None,
     public_url: str = "",
 ) -> GeneratedSite:
     """Generate a self-contained, professional, taste-governed static site."""
@@ -455,7 +506,11 @@ def build_static_site(
     name = brief.business_name
 
     # --- industry design intelligence (fonts + palette + anti-patterns) ----
-    di_enabled = True if settings is None else bool(getattr(settings, "website_design_intelligence_enabled", True))
+    di_enabled = (
+        True
+        if settings is None
+        else bool(getattr(settings, "website_design_intelligence_enabled", True))
+    )
     ds = None
     heading_font, body_font = _FONT, _FONT
     font_import = (
@@ -465,6 +520,7 @@ def build_static_site(
     if di_enabled:
         try:
             from . import design_intelligence as _di
+
             ds = _di.recommend(brief.industry, brief.business_description)
             typ = ds.typography or {}
             if typ.get("heading") and typ.get("css_import"):
@@ -503,11 +559,14 @@ def build_static_site(
     # below through the shared sub-page chrome (nav + footer + quote modal).
     sub_pages: list[dict[str, Any]] = []
     legal_link_html = ""
-    legal_enabled = True if settings is None else bool(getattr(settings, "website_legal_pages_enabled", True))
+    legal_enabled = (
+        True if settings is None else bool(getattr(settings, "website_legal_pages_enabled", True))
+    )
     compliance: dict[str, Any] | None = None
     if legal_enabled:
         try:
             from . import legal as _legal
+
             country = (brief.registered_country or "US").strip()
             state = (brief.registered_state or _derive_state(brief.address)).strip()
             juris = _legal.resolve_jurisdiction(country, state)
@@ -517,11 +576,16 @@ def build_static_site(
                 ("terms.html", "Terms & Conditions", _legal.terms_html(brief, juris)),
                 ("disclaimer.html", "Disclaimer", _legal.disclaimer_html(brief, juris)),
             ):
-                sub_pages.append({
-                    "file": fname, "title": f"{ltitle} | {name}",
-                    "description": f"{ltitle} for {name}.", "content": lcontent,
-                    "head": "", "main_class": "max-w-3xl",
-                })
+                sub_pages.append(
+                    {
+                        "file": fname,
+                        "title": f"{ltitle} | {name}",
+                        "description": f"{ltitle} for {name}.",
+                        "content": lcontent,
+                        "head": "",
+                        "main_class": "max-w-3xl",
+                    }
+                )
             legal_link_html = (
                 '<a href="/privacy" class="hover:text-white transition">Privacy Policy</a>'
                 '<span class="mx-3 text-slate-600">|</span>'
@@ -534,25 +598,33 @@ def build_static_site(
             sub_pages, compliance, legal_link_html = [], None, ""
 
     # --- marketing depth: Services / Gallery / FAQ / Reviews / areas -------
-    multipage = True if settings is None else bool(getattr(settings, "website_multipage_enabled", True))
+    multipage = (
+        True if settings is None else bool(getattr(settings, "website_multipage_enabled", True))
+    )
     nav_links: list[tuple[str, str]] = []
     area_links: list[tuple[str, str]] = []
     if multipage:
         try:
             from . import pages as _pages
+
             for p in _pages.build_marketing_pages(brief, media=media):
                 href = _clean_href(p["file"])
                 if p.get("area"):
                     area_links.append((p["label"], href))
                 else:
                     nav_links.append((p["label"], href))
-                sub_pages.append({
-                    "file": p["file"], "title": p["title"],
-                    "description": _page_desc(p["label"], name) if not p.get("area")
-                    else p["title"].split(" | ")[0],
-                    "content": p["content"], "head": p.get("head", ""),
-                    "main_class": "max-w-4xl" if p.get("area") else "max-w-6xl",
-                })
+                sub_pages.append(
+                    {
+                        "file": p["file"],
+                        "title": p["title"],
+                        "description": _page_desc(p["label"], name)
+                        if not p.get("area")
+                        else p["title"].split(" | ")[0],
+                        "content": p["content"],
+                        "head": p.get("head", ""),
+                        "main_class": "max-w-4xl" if p.get("area") else "max-w-6xl",
+                    }
+                )
         except Exception as exc:  # noqa: BLE001 — marketing pages are additive
             _LOG.warning("marketing page generation failed: %s", exc)
             nav_links, area_links = [], []
@@ -565,8 +637,12 @@ def build_static_site(
     nav_links.append(("Contact", "/#contact"))
 
     # Footer: page links + service-area links + legal.
-    _foot = [f'<a href="{h}" class="hover:text-white transition">{_esc(l)}</a>' for l, h in nav_links]
-    _foot += [f'<a href="{h}" class="hover:text-white transition">{_esc(l)}</a>' for l, h in area_links]
+    _foot = [
+        f'<a href="{h}" class="hover:text-white transition">{_esc(l)}</a>' for l, h in nav_links
+    ]
+    _foot += [
+        f'<a href="{h}" class="hover:text-white transition">{_esc(l)}</a>' for l, h in area_links
+    ]
     footer_links = '<span class="mx-2 text-slate-600">&middot;</span>'.join(_foot)
     if legal_link_html:
         if footer_links:
@@ -591,25 +667,48 @@ def build_static_site(
         _hero(name, headline, intro, hero_media, hero_video, accent, accent2, cta_html)
         + _trust_strip(trust)
         + _promo_band(home.get("promo", ""), brief.contact_phone)
-        + _services(name, services.get("heading") or "What we do", services.get("body") or "",
-                    services_list, section_img)
+        + _services(
+            name,
+            services.get("heading") or "What we do",
+            services.get("body") or "",
+            services_list,
+            section_img,
+        )
         + _portfolio(home.get("portfolio_placeholder", ""))
         + _about(name, about.get("body") or "")
-        + _social_proof(home.get("trust_line", ""), home.get("testimonials_placeholder", ""),
-                        home.get("credentials_placeholder", ""))
-        + _contact(name, contact.get("body") or "", brief.contact_phone, brief.contact_email,
-                   brief.address, cta_html)
+        + _social_proof(
+            home.get("trust_line", ""),
+            home.get("testimonials_placeholder", ""),
+            home.get("credentials_placeholder", ""),
+        )
+        + _contact(
+            name,
+            contact.get("body") or "",
+            brief.contact_phone,
+            brief.contact_email,
+            brief.address,
+            cta_html,
+        )
     )
     # Homepage nav shows page LINKS only (the 3D animated name is the header —
     # the operator flagged a name+CTA banner as redundant with the hero).
     modal_html = _quote_modal(brief, services_list)
     page = _PAGE_TEMPLATE.format(
-        lang="en", title=_esc(title), description=_esc(description),
-        font_import=font_import, heading_font=heading_font, body_font=body_font,
-        accent=accent, accent2=accent2, og_img=_esc(_safe_url(og_img)), jsonld=seo["jsonld_script"],
-        name=_esc(name), nav=_nav(name, nav_links, home=True, phone=brief.contact_phone),
+        lang="en",
+        title=_esc(title),
+        description=_esc(description),
+        font_import=font_import,
+        heading_font=heading_font,
+        body_font=body_font,
+        accent=accent,
+        accent2=accent2,
+        og_img=_esc(_safe_url(og_img)),
+        jsonld=seo["jsonld_script"],
+        name=_esc(name),
+        nav=_nav(name, nav_links, home=True, phone=brief.contact_phone),
         body=body_html,
-        footer_links=footer_links, modal=modal_html,
+        footer_links=footer_links,
+        modal=modal_html,
     )
 
     from backend.taste.audit import audit_text
@@ -627,11 +726,21 @@ def build_static_site(
     subnav = _nav(name, nav_links, home=False, phone=brief.contact_phone)
     for sp in sub_pages:
         rendered = _SUBPAGE_TEMPLATE.format(
-            lang="en", title=_esc(sp["title"]), description=_esc(sp["description"]),
-            font_import=font_import, heading_font=heading_font, body_font=body_font,
-            accent=accent, accent2=accent2, name=_esc(name), nav=subnav,
-            content=sp["content"], head=sp.get("head", ""), modal=modal_html,
-            footer_links=footer_links, main_class=sp.get("main_class", "max-w-3xl"),
+            lang="en",
+            title=_esc(sp["title"]),
+            description=_esc(sp["description"]),
+            font_import=font_import,
+            heading_font=heading_font,
+            body_font=body_font,
+            accent=accent,
+            accent2=accent2,
+            name=_esc(name),
+            nav=subnav,
+            content=sp["content"],
+            head=sp.get("head", ""),
+            modal=modal_html,
+            footer_links=footer_links,
+            main_class=sp.get("main_class", "max-w-3xl"),
         )
         rendered, _r, rsan = _audit_fix(rendered)
         files[sp["file"]] = rendered
@@ -640,12 +749,18 @@ def build_static_site(
 
     warnings: list[str] = []
     if not hero_media and not hero_video:
-        warnings.append("no hero media supplied — used a brand gradient (run media_gen for a real hero)")
+        warnings.append(
+            "no hero media supplied — used a brand gradient (run media_gen for a real hero)"
+        )
 
     return GeneratedSite(
-        files=files, taste_audit=result.to_dict(), pages=pages,
-        sanitized=sanitized, warnings=warnings,
-        design_system=ds.to_dict() if ds else None, compliance=compliance,
+        files=files,
+        taste_audit=result.to_dict(),
+        pages=pages,
+        sanitized=sanitized,
+        warnings=warnings,
+        design_system=ds.to_dict() if ds else None,
+        compliance=compliance,
     )
 
 

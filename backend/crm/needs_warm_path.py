@@ -14,6 +14,7 @@ Fail-CLOSED on write — a divert that cannot persist raises
 :class:`NeedsWarmPathPersistError` so the outreach pre-flight bails the
 batch rather than silently dropping prospects on the floor.
 """
+
 from __future__ import annotations
 
 import json
@@ -76,6 +77,7 @@ def _ddb_table() -> Any | None:
         return None
     try:
         from backend.common import aws
+
         s = get_settings()
         return aws.table(name, s.aws_region)
     except Exception as exc:  # noqa: BLE001
@@ -86,6 +88,7 @@ def _ddb_table() -> Any | None:
 # ---------------------------------------------------------------------------
 # JSON-fallback store (atomic-replace write so a crash mid-write is recoverable)
 # ---------------------------------------------------------------------------
+
 
 def _read_json() -> list[dict[str, Any]]:
     path = _json_path()
@@ -105,7 +108,8 @@ def _write_json(rows: list[dict[str, Any]]) -> None:
     path = _json_path()
     os.makedirs(os.path.dirname(path), exist_ok=True)
     fd, tmp = tempfile.mkstemp(
-        prefix="needs_warm_path-", suffix=".json.tmp",
+        prefix="needs_warm_path-",
+        suffix=".json.tmp",
         dir=os.path.dirname(path),
     )
     try:
@@ -125,6 +129,7 @@ def _write_json(rows: list[dict[str, Any]]) -> None:
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def _build_record(prospect_id: str, prospect: Any, reason: str) -> NeedsWarmPathRecord:
     def _g(*names: str) -> str:
@@ -184,7 +189,8 @@ def divert(
             ddb_ok = True
         except Exception as exc:  # noqa: BLE001
             _LOG.warning(
-                "needs_warm_path DDB put failed (will fall back to JSON): %s", exc,
+                "needs_warm_path DDB put failed (will fall back to JSON): %s",
+                exc,
             )
 
     if not ddb_ok:

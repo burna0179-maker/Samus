@@ -1,4 +1,5 @@
 """Site telemetry ingest — wire-not-arm gating + JSONL persistence."""
+
 from __future__ import annotations
 
 import json
@@ -11,6 +12,7 @@ from backend.intake.models import TelemetryEventRequest
 def _fake_get_settings(*, enabled: bool):
     def _gs():
         return SimpleNamespace(intake_telemetry_ingest_enabled=enabled)
+
     _gs.cache_clear = lambda: None
     return _gs
 
@@ -46,7 +48,8 @@ def test_persists_when_armed(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_INTAKE_TELEMETRY_PATH", str(ledger))
     out = tel.record_event(
         _req(event="buy_click", path="/pricing", sku_id="seo_audit"),
-        source_ip="1.2.3.4", user_agent="Mozilla/5.0",
+        source_ip="1.2.3.4",
+        user_agent="Mozilla/5.0",
     )
     assert out.status == "accepted"
     assert ledger.exists()
@@ -64,6 +67,7 @@ def test_extra_field_rejected():
     """extra='forbid' — a compromised site can't sneak arbitrary keys into
     the ledger row."""
     import pytest
+
     with pytest.raises(Exception):
         TelemetryEventRequest(event="page_view", sneaky_field="hack")
 
@@ -72,5 +76,6 @@ def test_bounded_event_types():
     """Only whitelisted events accepted. A future ad-hoc event would need to
     be added to the SiteEventType Literal deliberately."""
     import pytest
+
     with pytest.raises(Exception):
         TelemetryEventRequest(event="arbitrary_key")

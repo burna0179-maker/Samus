@@ -1,4 +1,5 @@
 """VapiClient — httpx mocked at the module level."""
+
 from __future__ import annotations
 
 import json
@@ -9,6 +10,7 @@ import pytest
 
 class _FakeHttpx:
     """Per-module httpx stub. Falls through to real httpx for exception classes."""
+
     def __init__(self, client_cls):
         self.Client = client_cls
 
@@ -16,10 +18,14 @@ class _FakeHttpx:
         return getattr(httpx, name)
 
 
-def _build_client(monkeypatch, *, status: int = 200,
-                  body: dict | list | None = None,
-                  raise_exc: Exception | None = None,
-                  capture: dict | None = None):
+def _build_client(
+    monkeypatch,
+    *,
+    status: int = 200,
+    body: dict | list | None = None,
+    raise_exc: Exception | None = None,
+    capture: dict | None = None,
+):
     """Patch backend.voice.client.httpx with a controllable fake."""
 
     class _Resp:
@@ -54,20 +60,21 @@ def _build_client(monkeypatch, *, status: int = 200,
             return _Resp()
 
     import backend.voice.client as mod
+
     monkeypatch.setattr(mod, "httpx", _FakeHttpx(_Client))
     return mod.VapiClient(api_key="vapi_unit_key")
 
 
 def test_client_rejects_empty_key():
     from backend.voice.client import VapiClient
+
     with pytest.raises(ValueError):
         VapiClient(api_key="")
 
 
 def test_create_call_posts_expected_body(monkeypatch):
     capture: dict = {}
-    body = {"id": "call_123", "status": "queued",
-            "assistantId": "asst_x", "phoneNumberId": "phn_y"}
+    body = {"id": "call_123", "status": "queued", "assistantId": "asst_x", "phoneNumberId": "phn_y"}
     client = _build_client(monkeypatch, body=body, capture=capture)
     call = client.create_call(
         assistant_id="asst_x",
@@ -103,9 +110,13 @@ def test_create_call_omits_optional_fields(monkeypatch):
 
 
 def test_get_call_parses_typed(monkeypatch):
-    body = {"id": "call_xyz", "status": "ended",
-            "endedReason": "customer-ended-call",
-            "transcript": "...", "cost": 0.12}
+    body = {
+        "id": "call_xyz",
+        "status": "ended",
+        "endedReason": "customer-ended-call",
+        "transcript": "...",
+        "cost": 0.12,
+    }
     client = _build_client(monkeypatch, body=body)
     call = client.get_call("call_xyz")
     assert call.id == "call_xyz"
@@ -115,6 +126,7 @@ def test_get_call_parses_typed(monkeypatch):
 
 def test_get_call_requires_id():
     from backend.voice.client import VapiClient
+
     c = VapiClient(api_key="vapi_unit_key")
     with pytest.raises(ValueError):
         c.get_call("")
@@ -177,6 +189,7 @@ def test_list_assistants(monkeypatch):
 
 def test_http_error_raises_vapi_error(monkeypatch):
     from backend.voice.client import VapiError
+
     body = {"message": "Unauthorized", "error": "invalid_api_key"}
     client = _build_client(monkeypatch, status=401, body=body)
     with pytest.raises(VapiError) as ei:
@@ -187,6 +200,7 @@ def test_http_error_raises_vapi_error(monkeypatch):
 
 def test_transport_error_raises_vapi_error(monkeypatch):
     from backend.voice.client import VapiError
+
     client = _build_client(monkeypatch, raise_exc=httpx.ConnectError("down"))
     with pytest.raises(VapiError) as ei:
         client.get_call("call_x")
@@ -195,6 +209,7 @@ def test_transport_error_raises_vapi_error(monkeypatch):
 
 def test_path_must_start_with_slash():
     from backend.voice.client import VapiClient
+
     c = VapiClient(api_key="vapi_unit_key")
     with pytest.raises(ValueError):
         c._get("call")  # missing leading slash
@@ -221,9 +236,13 @@ def test_import_twilio_number_posts_camelcase_fields(monkeypatch):
     body = {"id": "phn_t", "number": "+15305551234", "assistantId": "asst_x"}
     client = _build_client(monkeypatch, body=body, capture=capture)
     pn = client.create_phone_number(
-        assistant_id="asst_x", name="Main Line", provider="twilio",
-        number="+15305551234", twilio_account_sid="ACxxx",
-        twilio_auth_token="tok_secret", sms_enabled=True,
+        assistant_id="asst_x",
+        name="Main Line",
+        provider="twilio",
+        number="+15305551234",
+        twilio_account_sid="ACxxx",
+        twilio_auth_token="tok_secret",
+        sms_enabled=True,
     )
     assert pn.id == "phn_t"
     payload = capture["json"]
@@ -243,9 +262,12 @@ def test_import_twilio_number_with_api_key(monkeypatch):
     body = {"id": "phn_t3", "number": "+15005550006"}
     client = _build_client(monkeypatch, body=body, capture=capture)
     client.create_phone_number(
-        assistant_id="asst_x", provider="twilio",
-        number="+15005550006", twilio_account_sid="AC0b77",
-        twilio_api_key="SKabc", twilio_api_secret="sek_secret",
+        assistant_id="asst_x",
+        provider="twilio",
+        number="+15005550006",
+        twilio_account_sid="AC0b77",
+        twilio_api_key="SKabc",
+        twilio_api_secret="sek_secret",
     )
     payload = capture["json"]
     assert payload["twilioAccountSid"] == "AC0b77"
@@ -258,9 +280,13 @@ def test_import_twilio_api_key_takes_precedence_over_auth_token(monkeypatch):
     capture: dict = {}
     client = _build_client(monkeypatch, body={"id": "phn_t4"}, capture=capture)
     client.create_phone_number(
-        assistant_id="asst_x", provider="twilio", number="+15005550006",
-        twilio_account_sid="AC0b77", twilio_auth_token="tok_x",
-        twilio_api_key="SKabc", twilio_api_secret="sek",
+        assistant_id="asst_x",
+        provider="twilio",
+        number="+15005550006",
+        twilio_account_sid="AC0b77",
+        twilio_auth_token="tok_x",
+        twilio_api_key="SKabc",
+        twilio_api_secret="sek",
     )
     payload = capture["json"]
     assert payload["twilioApiKey"] == "SKabc"
@@ -270,10 +296,13 @@ def test_import_twilio_api_key_takes_precedence_over_auth_token(monkeypatch):
 def test_import_twilio_rejects_sk_as_account_sid():
     """The exact mis-seed we hit live: an SK API-Key SID in the account slot."""
     from backend.voice.client import VapiClient
+
     c = VapiClient(api_key="vapi_unit_key")
     with pytest.raises(ValueError) as ei:
         c.create_phone_number(
-            assistant_id="asst_x", provider="twilio", number="+15005550006",
+            assistant_id="asst_x",
+            provider="twilio",
+            number="+15005550006",
             twilio_account_sid="SK00000000000000000000000000000000",
             twilio_auth_token="tok",
         )
@@ -285,10 +314,13 @@ def test_import_twilio_rejects_sk_as_account_sid():
 def test_import_twilio_fails_closed_without_any_auth():
     """AC sid present but neither auth token nor api-key pair -> raise."""
     from backend.voice.client import VapiClient
+
     c = VapiClient(api_key="vapi_unit_key")
     with pytest.raises(ValueError) as ei:
         c.create_phone_number(
-            assistant_id="asst_x", provider="twilio", number="+15005550006",
+            assistant_id="asst_x",
+            provider="twilio",
+            number="+15005550006",
             twilio_account_sid="AC0b77",  # no auth of any kind
         )
     assert "twilio_api_key" in str(ei.value) or "twilio_auth_token" in str(ei.value)
@@ -299,8 +331,10 @@ def test_import_twilio_number_omits_sms_when_unset(monkeypatch):
     body = {"id": "phn_t2", "number": "+15305555678"}
     client = _build_client(monkeypatch, body=body, capture=capture)
     client.create_phone_number(
-        assistant_id="asst_x", provider="twilio",
-        number="+15305555678", twilio_account_sid="ACyyy",
+        assistant_id="asst_x",
+        provider="twilio",
+        number="+15305555678",
+        twilio_account_sid="ACyyy",
         twilio_auth_token="tok2",  # sms_enabled left None
     )
     assert "smsEnabled" not in capture["json"]
@@ -309,6 +343,7 @@ def test_import_twilio_number_omits_sms_when_unset(monkeypatch):
 # ---------------------------------------------------------------------------
 # patch_assistant_config — fetch-and-merge model PATCH (Vapi model.provider fix)
 # ---------------------------------------------------------------------------
+
 
 def _build_routing_client(monkeypatch, *, get_body: dict, record: dict):
     """Fake httpx that routes by METHOD: GETs return ``get_body``; every
@@ -350,6 +385,7 @@ def _build_routing_client(monkeypatch, *, get_body: dict, record: dict):
             return _Resp({"id": "asst_x", "ok": True})
 
     import backend.voice.client as mod
+
     monkeypatch.setattr(mod, "httpx", _FakeHttpx(_Client))
     return mod.VapiClient(api_key="vapi_unit_key")
 
@@ -369,7 +405,8 @@ def test_patch_system_prompt_fetch_merges_full_model(monkeypatch):
     swapped to the new system content."""
     record: dict = {}
     client = _build_routing_client(
-        monkeypatch, get_body={"id": "asst_x", "model": dict(_LIVE_MODEL)},
+        monkeypatch,
+        get_body={"id": "asst_x", "model": dict(_LIVE_MODEL)},
         record=record,
     )
     client.patch_assistant_config("asst_x", system_prompt="NEW")
@@ -395,7 +432,8 @@ def test_patch_first_message_only_no_model_no_get(monkeypatch):
     """firstMessage-only patch touches no model and issues NO fetch GET."""
     record: dict = {}
     client = _build_routing_client(
-        monkeypatch, get_body={"id": "asst_x", "model": dict(_LIVE_MODEL)},
+        monkeypatch,
+        get_body={"id": "asst_x", "model": dict(_LIVE_MODEL)},
         record=record,
     )
     client.patch_assistant_config("asst_x", first_message="Hi there")
@@ -411,11 +449,14 @@ def test_patch_voice_only_no_model_no_get(monkeypatch):
     """voice-only patch touches no model and issues NO fetch GET."""
     record: dict = {}
     client = _build_routing_client(
-        monkeypatch, get_body={"id": "asst_x", "model": dict(_LIVE_MODEL)},
+        monkeypatch,
+        get_body={"id": "asst_x", "model": dict(_LIVE_MODEL)},
         record=record,
     )
     client.patch_assistant_config(
-        "asst_x", voice_speed=1.1, voice_similarity_boost=0.8,
+        "asst_x",
+        voice_speed=1.1,
+        voice_similarity_boost=0.8,
     )
 
     reqs = record["requests"]
@@ -431,15 +472,14 @@ def test_patch_system_prompt_with_missing_live_model_falls_back(monkeypatch):
     crashing on a None model."""
     record: dict = {}
     client = _build_routing_client(
-        monkeypatch, get_body={"id": "asst_x"},  # no 'model'
+        monkeypatch,
+        get_body={"id": "asst_x"},  # no 'model'
         record=record,
     )
     client.patch_assistant_config("asst_x", system_prompt="NEW")
     reqs = record["requests"]
     assert [r["method"] for r in reqs] == ["GET", "PATCH"]
-    assert reqs[1]["json"]["model"] == {
-        "messages": [{"role": "system", "content": "NEW"}]
-    }
+    assert reqs[1]["json"]["model"] == {"messages": [{"role": "system", "content": "NEW"}]}
 
 
 def test_patch_system_prompt_and_voice_combined(monkeypatch):
@@ -447,11 +487,14 @@ def test_patch_system_prompt_and_voice_combined(monkeypatch):
     included in the same PATCH (one GET, one PATCH)."""
     record: dict = {}
     client = _build_routing_client(
-        monkeypatch, get_body={"id": "asst_x", "model": dict(_LIVE_MODEL)},
+        monkeypatch,
+        get_body={"id": "asst_x", "model": dict(_LIVE_MODEL)},
         record=record,
     )
     client.patch_assistant_config(
-        "asst_x", system_prompt="NEW", voice_speed=0.95,
+        "asst_x",
+        system_prompt="NEW",
+        voice_speed=0.95,
     )
     reqs = record["requests"]
     assert [r["method"] for r in reqs] == ["GET", "PATCH"]
@@ -463,6 +506,7 @@ def test_patch_system_prompt_and_voice_combined(monkeypatch):
 
 def test_patch_requires_assistant_id():
     from backend.voice.client import VapiClient
+
     c = VapiClient(api_key="vapi_unit_key")
     with pytest.raises(ValueError):
         c.patch_assistant_config("", system_prompt="NEW")
@@ -472,7 +516,8 @@ def test_patch_requires_at_least_one_field(monkeypatch):
     """No fields → ValueError, and NO network request (no fetch GET)."""
     record: dict = {}
     client = _build_routing_client(
-        monkeypatch, get_body={"id": "asst_x", "model": dict(_LIVE_MODEL)},
+        monkeypatch,
+        get_body={"id": "asst_x", "model": dict(_LIVE_MODEL)},
         record=record,
     )
     with pytest.raises(ValueError):
@@ -488,7 +533,8 @@ def test_mid_session_monitor_path_builds_provider_bearing_body(monkeypatch):
 
     record: dict = {}
     fake = _build_routing_client(
-        monkeypatch, get_body={"id": "asst_x", "model": dict(_LIVE_MODEL)},
+        monkeypatch,
+        get_body={"id": "asst_x", "model": dict(_LIVE_MODEL)},
         record=record,
     )
 
@@ -496,12 +542,14 @@ def test_mid_session_monitor_path_builds_provider_bearing_body(monkeypatch):
     # (don't replace get_settings itself — that would break the conftest
     # reload_settings() teardown, which calls get_settings.cache_clear()).
     from backend.common.config import get_settings
+
     real_settings = get_settings()
     monkeypatch.setattr(real_settings, "vapi_assistant_id", "asst_x", raising=False)
     monkeypatch.setattr(real_settings, "vapi_api_key", "vapi_unit_key", raising=False)
     # The monitor imports VapiClient inside the function via `from .client import
     # VapiClient`; patch it at the source module so the fake is picked up.
     import backend.voice.client as client_mod
+
     monkeypatch.setattr(client_mod, "VapiClient", lambda api_key: fake)
 
     adj = csm.SessionAdjustment(

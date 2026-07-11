@@ -17,14 +17,20 @@ Public API
 detect_objection(transcript_text) -> str | None
 handle_objection(transcript_text, intel) -> dict
 """
+
 from __future__ import annotations
 
 import re
 import logging
 from typing import Final
 
-__all__: list[str] = ["detect_objection", "handle_objection",
-                       "OBJECTION_KEYWORDS", "RESPONSE_TABLE", "PIVOT_TABLE"]
+__all__: list[str] = [
+    "detect_objection",
+    "handle_objection",
+    "OBJECTION_KEYWORDS",
+    "RESPONSE_TABLE",
+    "PIVOT_TABLE",
+]
 
 _LOG = logging.getLogger("samus.outreach.objection")
 
@@ -165,8 +171,7 @@ def detect_objection(transcript_text: str) -> str | None:
     for category in _PRIORITY_ORDER:
         for pattern in _COMPILED[category]:
             if pattern.search(lowered):
-                _LOG.debug("objection detected category=%s pattern=%s",
-                           category, pattern.pattern)
+                _LOG.debug("objection detected category=%s pattern=%s", category, pattern.pattern)
                 return category
     return None
 
@@ -207,9 +212,10 @@ def handle_objection(
         override = intel.get("recommended_secondary_product")
         if override:
             _LOG.debug(
-                "handle_objection: pivot overridden by intel "
-                "category=%s original=%s override=%s",
-                category, pivot, override,
+                "handle_objection: pivot overridden by intel category=%s original=%s override=%s",
+                category,
+                pivot,
+                override,
             )
             pivot = override
 

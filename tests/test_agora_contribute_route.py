@@ -6,6 +6,7 @@ non-Anita sender / tampered payload, and an honest inadmissible contribution whe
 the flag is off. Uses the real shared security_client envelope (wire-compatible
 with Anita's HmacHttpContributor).
 """
+
 import sys
 from pathlib import Path
 
@@ -54,7 +55,8 @@ def _anita_envelope(*, topic="GPU serialization protocol", deliberation_id="d-1"
     thumbprint.init_thumbprint("anita")
     key = RotatingHMACKey.for_agent("anita")
     env = AgentEnvelope.create(
-        from_agent="anita", to_agent="samus",
+        from_agent="anita",
+        to_agent="samus",
         payload={"deliberation_id": deliberation_id, "topic": topic, "round": round_},
         signing_key=key,
     )
@@ -70,7 +72,7 @@ def test_enabled_returns_commercial_evidence(monkeypatch):
     assert body["source_kind"] == SOURCE_KIND
     ev = body["evidence_payload"]
     assert ev["have_evidence"] is True
-    assert ev["local_gpu_contender"] is False     # Samus's distinct evidence
+    assert ev["local_gpu_contender"] is False  # Samus's distinct evidence
     assert ev["inference_path"] == "anthropic-only"
     assert len(body["evidence_hash"]) == 64
     assert "contend for the local 4090" in body["stance"]
@@ -92,8 +94,9 @@ def test_non_anita_sender_is_403(monkeypatch):
     thumbprint.reset_thumbprint_for_testing()
     thumbprint.init_thumbprint("major")
     key = RotatingHMACKey.for_agent("major")
-    env = AgentEnvelope.create(from_agent="major", to_agent="samus",
-                               payload={"topic": "x"}, signing_key=key)
+    env = AgentEnvelope.create(
+        from_agent="major", to_agent="samus", payload={"topic": "x"}, signing_key=key
+    )
     r = _client().post("/agora/contribute", json=env.to_wire())
     assert r.status_code == 403
 

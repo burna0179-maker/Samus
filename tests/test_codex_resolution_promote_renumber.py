@@ -1,4 +1,5 @@
 """promote_to_decisions_log renumbers to next sequential ADR-NNN."""
+
 from __future__ import annotations
 
 import shutil
@@ -50,7 +51,8 @@ def test_next_real_adr_number_walks_registry_and_resolved(tmp_path: Path):
     resolved = codex / "_resolved"
     resolved.mkdir(parents=True, exist_ok=True)
     (resolved / f"ADR-{base:03d}_pretend.resolved.md").write_text(
-        "# ADR-NNN (placeholder)\n", encoding="utf-8",
+        "# ADR-NNN (placeholder)\n",
+        encoding="utf-8",
     )
     base2 = next_real_adr_number(registry, codex_dir=codex)
     assert base2 == base + 1
@@ -62,13 +64,17 @@ def test_promote_appends_before_template_marker(tmp_path: Path):
     registry.load(codex)
     draft = _seed_draft(codex)
     resolved = resolve_draft(
-        draft, decision="allow",
-        rationale="operator approved", operator="alex",
+        draft,
+        decision="allow",
+        rationale="operator approved",
+        operator="alex",
         codex_dir=codex,
     )
     expected_id = f"ADR-{next_real_adr_number(registry, codex_dir=codex):03d}"
     new_id = promote_to_decisions_log(
-        resolved, registry=registry, codex_dir=codex,
+        resolved,
+        registry=registry,
+        codex_dir=codex,
         decisions_log=codex / "08_decisions_log.md",
         title="new action constrained by G1",
         date_iso="2026-05-30",

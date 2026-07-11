@@ -2,6 +2,7 @@
 
 No network, no state: this is the testable heart of the workcell.
 """
+
 from __future__ import annotations
 
 import re
@@ -33,9 +34,7 @@ def extract_domains(text: str) -> list[str]:
     return seen
 
 
-def analyze_answer(
-    text: str, brand_terms: list[str], competitor_terms: list[str]
-) -> dict:
+def analyze_answer(text: str, brand_terms: list[str], competitor_terms: list[str]) -> dict:
     """Analyze one answer. Returns ``{brand_cited, competitor_hits (Counter-like
     dict), cited_domains}``.
 

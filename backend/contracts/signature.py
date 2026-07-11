@@ -9,6 +9,7 @@ attacker who cannot read ``DOCUSEAL_WEBHOOK_SECRET`` cannot forge a completion.
 Header name is ``X-Docuseal-Secret`` by convention (set it in DocuSeal's webhook
 "custom headers", e.g. ``X-Docuseal-Secret: <secret>``).
 """
+
 from __future__ import annotations
 
 import hmac
@@ -38,7 +39,5 @@ def verify_docuseal_webhook(
     presented = (secret_header or "").strip() or (query_secret or "").strip()
     if not presented:
         raise DocuSealSignatureError("missing_webhook_secret")
-    if not hmac.compare_digest(
-        presented.encode("utf-8"), secret.strip().encode("utf-8")
-    ):
+    if not hmac.compare_digest(presented.encode("utf-8"), secret.strip().encode("utf-8")):
         raise DocuSealSignatureError("webhook_secret_mismatch")

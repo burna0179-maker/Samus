@@ -23,6 +23,7 @@ Plan shape (caller's responsibility — duck-typed dict):
 Any missing field defaults conservatively (treats unknown complexity as high,
 unknown impact as low) so a half-filled plan never scores artificially well.
 """
+
 from __future__ import annotations
 
 import math
@@ -33,7 +34,7 @@ from typing import Any
 _COMPLEXITY_WEIGHT: dict[str, float] = {
     "step_count": 1.0,
     "branch_count": 1.5,
-    "llm_calls_required": 2.0,           # LLM use is expensive + non-deterministic
+    "llm_calls_required": 2.0,  # LLM use is expensive + non-deterministic
     "external_api_calls": 1.0,
     "novel_capabilities_required": 3.0,  # building new capability is the heaviest
 }
@@ -46,11 +47,11 @@ _COMPLEXITY_SATURATION = 30.0
 class ElegancePlan:
     """Result of scoring one plan."""
 
-    score: float                          # 0.0..1.0  (higher is more elegant)
-    complexity: float                     # raw weighted complexity (pre-clamp)
-    normalized_complexity: float          # 0.0..1.0 after clamp
-    projected_impact: float               # 0.0..1.0 echoed back
-    reversibility: float                  # 0.0..1.0 echoed back
+    score: float  # 0.0..1.0  (higher is more elegant)
+    complexity: float  # raw weighted complexity (pre-clamp)
+    normalized_complexity: float  # 0.0..1.0 after clamp
+    projected_impact: float  # 0.0..1.0 echoed back
+    reversibility: float  # 0.0..1.0 echoed back
     components: dict[str, int] = field(default_factory=dict)
     grade: str = "A"
     rationale: list[str] = field(default_factory=list)

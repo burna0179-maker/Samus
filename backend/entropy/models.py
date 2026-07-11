@@ -1,4 +1,5 @@
 """Pydantic I/O models for the entropy workcell."""
+
 from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field

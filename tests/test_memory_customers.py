@@ -1,4 +1,5 @@
 """Customer lifecycle tests — uses a stub GraphClient, no real Neo4j."""
+
 from __future__ import annotations
 
 import time
@@ -9,6 +10,7 @@ import pytest
 
 
 # --- fake graph client ------------------------------------------------------
+
 
 class _FakeGraphClient:
     """Drop-in stand-in for GraphClient that records cypher + emulates a tiny graph."""
@@ -70,7 +72,11 @@ class _FakeGraphClient:
                 if cust["email"] == params["email"]:
                     return [{"c": dict(cust)}]
             return []
-        if "MATCH (c:Customer)" in cypher and "RETURN c" in cypher and "current_state" not in cypher:
+        if (
+            "MATCH (c:Customer)" in cypher
+            and "RETURN c" in cypher
+            and "current_state" not in cypher
+        ):
             ordered = sorted(self.customers.values(), key=lambda c: -c["created_at"])
             return [{"c": dict(c)} for c in ordered[: params.get("limit", 100)]]
         if "MATCH (c:Customer {current_state: $state})" in cypher:
@@ -94,6 +100,7 @@ class _UnavailableClient:
 
 # --- fixtures ---------------------------------------------------------------
 
+
 @pytest.fixture
 def fake_client():
     return _FakeGraphClient(available=True)
@@ -102,16 +109,19 @@ def fake_client():
 @pytest.fixture
 def store(fake_client):
     from backend.memory.customers import CustomerStore
+
     return CustomerStore(client=fake_client)
 
 
 @pytest.fixture
 def unavailable_store():
     from backend.memory.customers import CustomerStore
+
     return CustomerStore(client=_UnavailableClient())
 
 
 # --- unit tests on CustomerStore -------------------------------------------
+
 
 def test_create_customer_returns_typed_customer(store):
     cust = store.create_customer(email="alex@hustleforge.tech", name="Alex", company="HF")
@@ -225,12 +235,14 @@ def test_neo4j_unavailable_returns_none(unavailable_store):
 
 # --- app-level round-trip --------------------------------------------------
 
+
 def _wire_app(monkeypatch, fake) -> Any:
     import backend.memory.app as app_mod
     from backend.memory.customers import CustomerStore
 
     monkeypatch.setattr(app_mod, "_resolve_customer_store", lambda: CustomerStore(client=fake))
     from fastapi.testclient import TestClient
+
     return TestClient(app_mod.app)
 
 
@@ -332,4 +344,5 @@ def test_app_work_envelope_dispatch(monkeypatch):
 
 def test_app_capability_registered():
     from backend.common.capabilities import SERVICE_CAPABILITIES
+
     assert "customers" in SERVICE_CAPABILITIES["memory"]

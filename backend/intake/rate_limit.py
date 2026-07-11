@@ -27,6 +27,7 @@ misconfig, network), the limiter returns *allow* and logs a warning. A
 rate-limit backend hiccup must never block a legitimate onboarding lead —
 losing a sale is worse than briefly tolerating abuse.
 """
+
 from __future__ import annotations
 
 import logging
@@ -60,6 +61,7 @@ class RateLimitDecision:
     ``backend_error`` is set when the limiter failed open so the breach (or
     non-breach) was not actually counted.
     """
+
     allowed: bool
     scope: str = ""
     limit: int = 0
@@ -141,10 +143,14 @@ def _check_window(
     except Exception as exc:  # noqa: BLE001 — fail OPEN on backend trouble
         _LOG.warning(
             "intake rate-limit backend error (scope=%s window=%ss): %s — failing open",
-            scope, window_seconds, exc,
+            scope,
+            window_seconds,
+            exc,
         )
         return RateLimitDecision(
-            allowed=True, scope=scope, limit=limit,
+            allowed=True,
+            scope=scope,
+            limit=limit,
             backend_error=f"rate_limit_backend_error: {exc}",
         )
     if count > limit:
@@ -152,10 +158,16 @@ def _check_window(
         retry_after = window_seconds - int(now % window_seconds)
         _LOG.info(
             "intake rate-limit breach scope=%s id=%s window=%ss count=%d limit=%d",
-            scope, identifier, window_seconds, count, limit,
+            scope,
+            identifier,
+            window_seconds,
+            count,
+            limit,
         )
         return RateLimitDecision(
-            allowed=False, scope=scope, limit=limit,
+            allowed=False,
+            scope=scope,
+            limit=limit,
             retry_after_seconds=max(1, retry_after),
         )
     return RateLimitDecision(allowed=True, scope=scope, limit=limit)
@@ -185,7 +197,8 @@ def check_rate_limit(source_ip: str, *, now: float | None = None) -> RateLimitDe
     identifier = (source_ip or "unknown").strip() or "unknown"
 
     minute_decision = _check_window(
-        _SCOPE_IP, identifier,
+        _SCOPE_IP,
+        identifier,
         window_seconds=_MINUTE,
         limit=settings.intake_rate_limit_per_minute,
         now=clock,
@@ -194,7 +207,8 @@ def check_rate_limit(source_ip: str, *, now: float | None = None) -> RateLimitDe
         return minute_decision
 
     hour_decision = _check_window(
-        _SCOPE_IP, identifier,
+        _SCOPE_IP,
+        identifier,
         window_seconds=_HOUR,
         limit=settings.intake_rate_limit_per_hour,
         now=clock,
@@ -203,7 +217,8 @@ def check_rate_limit(source_ip: str, *, now: float | None = None) -> RateLimitDe
         return hour_decision
 
     global_decision = _check_window(
-        _SCOPE_GLOBAL, _SCOPE_GLOBAL,
+        _SCOPE_GLOBAL,
+        _SCOPE_GLOBAL,
         window_seconds=_HOUR,
         limit=settings.intake_rate_limit_global_per_hour,
         now=clock,

@@ -1,4 +1,5 @@
 """Tests for backend.fulfillment.logic."""
+
 from __future__ import annotations
 
 
@@ -9,6 +10,7 @@ def _reset_idempotency(monkeypatch):
     fresh = IdempotencyStore()
     monkeypatch.setattr(idem_mod, "GLOBAL_IDEMPOTENCY_STORE", fresh)
     import backend.fulfillment.logic as logic_mod
+
     monkeypatch.setattr(logic_mod, "GLOBAL_IDEMPOTENCY_STORE", fresh)
     return fresh
 

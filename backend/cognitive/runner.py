@@ -56,6 +56,7 @@ cadence attach point is documented at the bottom of this module
 (:func:`_future_cadence_attach_point`) but intentionally left unwired — that is a
 later operator-gated step.
 """
+
 from __future__ import annotations
 
 import logging
@@ -376,12 +377,8 @@ async def run_one_cycle(
 
         _s = get_settings()
         summary.meta_enabled = bool(getattr(_s, "autonomy_meta_enabled", False))
-        summary.act_proposals_enabled = bool(
-            getattr(_s, "cognitive_act_proposals_enabled", False)
-        )
-        summary.promotion_enabled = bool(
-            getattr(_s, "cognition_proposal_promotion_enabled", False)
-        )
+        summary.act_proposals_enabled = bool(getattr(_s, "cognitive_act_proposals_enabled", False))
+        summary.promotion_enabled = bool(getattr(_s, "cognition_proposal_promotion_enabled", False))
     except Exception:  # noqa: BLE001 — visibility only; never fail the cycle
         pass
 

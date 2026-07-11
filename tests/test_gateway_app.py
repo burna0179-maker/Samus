@@ -5,6 +5,7 @@ The app imports modules that are partly rewritten by the main session
 ``backend.common.dlq.enqueue_failure / read_pending / read_archive``).
 If those interfaces aren't ready, the whole module is skipped.
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock

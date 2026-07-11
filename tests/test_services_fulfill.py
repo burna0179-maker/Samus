@@ -3,6 +3,7 @@
 All downstream services (CustomerStore, send_email) injected as fakes so tests
 run without Neo4j, SendGrid, or the artifact filesystem.
 """
+
 from __future__ import annotations
 
 import json
@@ -17,9 +18,9 @@ import pytest
 # Fakes — match the surface used by backend.memory.customers.CustomerStore
 # ---------------------------------------------------------------------------
 
+
 class _FakeCustomer:
-    def __init__(self, id_: str, email: str, name: str = "",
-                 current_state: str = "prospect"):
+    def __init__(self, id_: str, email: str, name: str = "", current_state: str = "prospect"):
         self.id = id_
         self.email = email
         self.name = name
@@ -44,7 +45,7 @@ class _FakeEvent:
 
 class _FakeCustomerStore:
     def __init__(self):
-        self.customers: dict[str, _FakeCustomer] = {}   # by email
+        self.customers: dict[str, _FakeCustomer] = {}  # by email
         self.by_id: dict[str, _FakeCustomer] = {}
         self.calls: list[tuple] = []
 
@@ -84,12 +85,14 @@ def _fake_send_email_fn(captured: list):
     def _fn(*, to, subject, body, html_body=None):
         captured.append({"to": to, "subject": subject, "body": body, "html_body": html_body})
         return {"message_id": "msg_test_123", "channel": "sendgrid", "to": to, "ts": "now"}
+
     return _fn
 
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def fake_store():
@@ -113,6 +116,7 @@ def tmp_alert_ledger(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 # Tests — Workflow Rescue chain (the primary contract)
 # ---------------------------------------------------------------------------
+
 
 def test_workflow_rescue_chain_succeeds(fake_store, tmp_artifact_root):
     """End-to-end: new customer + small bottleneck → all steps OK, SLA armed at 48h."""
@@ -140,11 +144,14 @@ def test_workflow_rescue_chain_succeeds(fake_store, tmp_artifact_root):
     assert os.path.exists(result.scope_path), "scope.md must be written to disk"
     # SLA deadline ~48h out
     assert result.sla_deadline is not None
-    deadline = datetime.strptime(result.sla_deadline, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    deadline = datetime.strptime(result.sla_deadline, "%Y-%m-%dT%H:%M:%SZ").replace(
+        tzinfo=timezone.utc
+    )
     now = datetime.now(timezone.utc)
     delta = deadline - now
-    assert timedelta(hours=47, minutes=30) < delta < timedelta(hours=48, minutes=30), \
+    assert timedelta(hours=47, minutes=30) < delta < timedelta(hours=48, minutes=30), (
         f"SLA deadline should be ~48h out, got {delta}"
+    )
     # Email captured
     assert len(sent) == 1
     assert "Scope confirmation" in sent[0]["subject"]
@@ -221,7 +228,7 @@ def test_workflow_rescue_scope_gate_flag_set_when_exceeded(fake_store, tmp_artif
         send_email_fn=_fake_send_email_fn(sent),
     )
 
-    assert result.ok is True   # chain completes; flag is informational
+    assert result.ok is True  # chain completes; flag is informational
     assert result.out_of_scope_reason is not None, (
         "expected scope gate to flag; result was "
         f"{result.out_of_scope_reason!r}, steps={result.steps}"
@@ -254,6 +261,7 @@ def test_unknown_sku_rejected(fake_store):
 # Tests — other SKUs wire through
 # ---------------------------------------------------------------------------
 
+
 def test_workflow_buildout_chain_runs(fake_store, tmp_artifact_root):
     from backend.services.fulfill_service import fulfill_service
 
@@ -261,13 +269,18 @@ def test_workflow_buildout_chain_runs(fake_store, tmp_artifact_root):
     result = fulfill_service(
         sku_id="service_workflow_buildout",
         email="biz@example.com",
-        intake_payload={"bottleneck": "everything is manual", "needs": ["Workflow System Buildout"]},
+        intake_payload={
+            "bottleneck": "everything is manual",
+            "needs": ["Workflow System Buildout"],
+        },
         customer_store=fake_store,
         send_email_fn=_fake_send_email_fn(sent),
     )
     assert result.ok is True
     # Buildout has 14-day SLA = 336h
-    deadline = datetime.strptime(result.sla_deadline, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    deadline = datetime.strptime(result.sla_deadline, "%Y-%m-%dT%H:%M:%SZ").replace(
+        tzinfo=timezone.utc
+    )
     delta = deadline - datetime.now(timezone.utc)
     assert timedelta(hours=335) < delta < timedelta(hours=337)
     # Scope gates DO NOT enforce for Buildout
@@ -287,14 +300,17 @@ def test_seo_implementation_chain_runs(fake_store, tmp_artifact_root):
         send_email_fn=_fake_send_email_fn(sent),
     )
     assert result.ok is True
-    deadline = datetime.strptime(result.sla_deadline, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    deadline = datetime.strptime(result.sla_deadline, "%Y-%m-%dT%H:%M:%SZ").replace(
+        tzinfo=timezone.utc
+    )
     delta = deadline - datetime.now(timezone.utc)
-    assert timedelta(hours=167) < delta < timedelta(hours=169)   # 7d = 168h
+    assert timedelta(hours=167) < delta < timedelta(hours=169)  # 7d = 168h
 
 
 # ---------------------------------------------------------------------------
 # Tests — SLA timer overdue sweep
 # ---------------------------------------------------------------------------
+
 
 def test_sla_check_overdue_returns_true_after_deadline(fake_store, tmp_artifact_root):
     """check_overdue must return True when deadline passed and customer not delivered."""
@@ -349,7 +365,9 @@ def test_sla_sweep_overdue_fires_alert_and_dedups(fake_store, tmp_artifact_root,
     assert a["customer_id"] == cust.id
     # Ledger file written
     assert tmp_alert_ledger.exists()
-    ledger_lines = [json.loads(line) for line in tmp_alert_ledger.read_text().splitlines() if line.strip()]
+    ledger_lines = [
+        json.loads(line) for line in tmp_alert_ledger.read_text().splitlines() if line.strip()
+    ]
     assert len(ledger_lines) == 1
     # Re-sweep should NOT re-fire (alert_fired_at gates it)
     alerts2 = sla_timer.sweep_overdue(fake_store)

@@ -27,6 +27,7 @@ number; the transcript analyzer uses it to credit the right arm.
 All writes/reads are fail-soft — arm stamping is an optimization and must
 never block or fail a dial.
 """
+
 from __future__ import annotations
 
 import hashlib

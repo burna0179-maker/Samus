@@ -4,6 +4,7 @@ Per doc Section 10 (Neo4j Knowledge Graph Layer). Encodes the common write
 patterns the rest of the agent reaches for so callers don't have to hand-roll
 sequences of write_node + write_relationship calls.
 """
+
 from __future__ import annotations
 
 import logging
@@ -64,13 +65,9 @@ class Neo4jRuntime:
                 "ts": ts,
             },
         )
-        self.client.write_relationship(
-            "Task", task_id, "EMITTED", "AuditEvent", audit_event_id
-        )
+        self.client.write_relationship("Task", task_id, "EMITTED", "AuditEvent", audit_event_id)
         if target_label and target_key:
-            self.client.write_relationship(
-                "Task", task_id, "TARGETED", target_label, target_key
-            )
+            self.client.write_relationship("Task", task_id, "TARGETED", target_label, target_key)
         return True
 
 

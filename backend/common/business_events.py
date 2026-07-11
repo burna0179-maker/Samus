@@ -21,6 +21,7 @@ warning and returns ``{}``; a ledger append failure logs a warning and returns
 the record dict anyway. ``read_events`` never raises (returns ``[]``). A
 telemetry hiccup must never break the send / call / payment it instruments.
 """
+
 from __future__ import annotations
 
 import logging
@@ -75,29 +76,31 @@ CALENDAR_EVENT_SCHEDULED: Final[str] = "calendar.event_scheduled"
 # per-client calendars.
 CALENDAR_EVENT_COMPLETED: Final[str] = "calendar.event_completed"
 
-BUSINESS_EVENT_TYPES: Final[frozenset[str]] = frozenset({
-    LEAD_CREATED,
-    LEAD_ENRICHED,
-    EMAIL_SENT,
-    EMAIL_OPENED,
-    EMAIL_CLICKED,
-    CALL_PLACED,
-    CALL_ANSWERED,
-    MEETING_BOOKED,
-    PROPOSAL_SENT,
-    CONTRACT_SENT,
-    CONTRACT_SIGNED,
-    INVOICE_SENT,
-    PAYMENT_RECEIVED,
-    CUSTOMER_RETAINED,
-    CUSTOMER_CHURNED,
-    DECISION_MADE,
-    EXPERIMENT_ASSIGNED,
-    LAW_PROMOTED,
-    CLIENT_CORRESPONDENCE,
-    CALENDAR_EVENT_SCHEDULED,
-    CALENDAR_EVENT_COMPLETED,
-})
+BUSINESS_EVENT_TYPES: Final[frozenset[str]] = frozenset(
+    {
+        LEAD_CREATED,
+        LEAD_ENRICHED,
+        EMAIL_SENT,
+        EMAIL_OPENED,
+        EMAIL_CLICKED,
+        CALL_PLACED,
+        CALL_ANSWERED,
+        MEETING_BOOKED,
+        PROPOSAL_SENT,
+        CONTRACT_SENT,
+        CONTRACT_SIGNED,
+        INVOICE_SENT,
+        PAYMENT_RECEIVED,
+        CUSTOMER_RETAINED,
+        CUSTOMER_CHURNED,
+        DECISION_MADE,
+        EXPERIMENT_ASSIGNED,
+        LAW_PROMOTED,
+        CLIENT_CORRESPONDENCE,
+        CALENDAR_EVENT_SCHEDULED,
+        CALENDAR_EVENT_COMPLETED,
+    }
+)
 
 # --- Ledger plumbing ------------------------------------------------------
 # Same path convention as conversion_funnel.py / control_tick_ledger.py:
@@ -119,7 +122,8 @@ def _ledger_path() -> str:
 
 def _ledger():
     return open_ledger(
-        jsonl_path=_ledger_path(), collection=_FIRESTORE_COLLECTION,
+        jsonl_path=_ledger_path(),
+        collection=_FIRESTORE_COLLECTION,
     )
 
 
@@ -148,7 +152,8 @@ def emit_business_event(
     if event_type not in BUSINESS_EVENT_TYPES:
         _LOG.warning(
             "business_events: rejecting unknown event_type=%r (workcell=%s)",
-            event_type, workcell,
+            event_type,
+            workcell,
         )
         return {}
     record: dict[str, Any] = {
@@ -162,9 +167,7 @@ def emit_business_event(
         "campaign_id": campaign_id or "",
         "variant_arm_id": variant_arm_id or "",
         "cost_usd": None if cost_usd is None else round(float(cost_usd), 4),
-        "revenue_usd": (
-            None if revenue_usd is None else round(float(revenue_usd), 2)
-        ),
+        "revenue_usd": (None if revenue_usd is None else round(float(revenue_usd), 2)),
         "metadata": dict(metadata) if metadata else {},
     }
     try:
@@ -172,7 +175,9 @@ def emit_business_event(
     except Exception as exc:  # noqa: BLE001 — telemetry must never break callers
         _LOG.warning(
             "business_events append failed type=%s workcell=%s: %s",
-            event_type, workcell, exc,
+            event_type,
+            workcell,
+            exc,
         )
     return record
 

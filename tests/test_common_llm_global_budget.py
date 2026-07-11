@@ -4,6 +4,7 @@ token-cost-hardening 2026-05-18. Mock-only: no DDB, JSON backend only.
 Deterministic time via the injectable ``now_func`` so daily-reset
 behaviour can be tested without sleep / freezegun.
 """
+
 from __future__ import annotations
 
 import time
@@ -11,7 +12,6 @@ import time
 import pytest
 
 from backend.common.llm_global_budget import (
-    GlobalBudget,
     LlmGlobalBudgetStore,
 )
 
@@ -19,6 +19,7 @@ from backend.common.llm_global_budget import (
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _store(tmp_path, *, cap: float = 25.0, now=None) -> LlmGlobalBudgetStore:
     return LlmGlobalBudgetStore(
@@ -44,10 +45,13 @@ def _fixed_now(ts: float):
 # can_spend_global — pre-flight estimate vs cap
 # ---------------------------------------------------------------------------
 
+
 def test_can_spend_global_allows_first_call(tmp_path):
     s = _store(tmp_path, cap=25.0)
     d = s.can_spend_global(
-        "claude-haiku-4-5", est_input_tokens=1000, est_output_tokens=500,
+        "claude-haiku-4-5",
+        est_input_tokens=1000,
+        est_output_tokens=500,
     )
     assert d.allowed is True
     assert d.cap_usd == 25.0
@@ -60,7 +64,8 @@ def test_can_spend_global_denies_when_over_cap(tmp_path):
     # 1M input tokens on Haiku = $0.80
     d = s.can_spend_global(
         "claude-haiku-4-5",
-        est_input_tokens=1_000_000, est_output_tokens=0,
+        est_input_tokens=1_000_000,
+        est_output_tokens=0,
     )
     assert d.allowed is False
     assert "global_cap_exceeded" in (d.reason or "")
@@ -79,6 +84,7 @@ def test_can_spend_global_with_unknown_model_allows_and_logs(tmp_path, caplog):
 # ---------------------------------------------------------------------------
 # record_spend_global — adds $ to today's row
 # ---------------------------------------------------------------------------
+
 
 def test_record_spend_global_accumulates_dollars(tmp_path):
     s = _store(tmp_path, cap=25.0)
@@ -113,7 +119,8 @@ def test_record_spend_global_with_cache_tokens(tmp_path):
     # 1M cache_write Haiku = $1.00; 1M cache_read = $0.08
     s.record_spend_global(
         "claude-haiku-4-5",
-        actual_input=0, actual_output=0,
+        actual_input=0,
+        actual_output=0,
         cache_write_tokens=1_000_000,
         cache_read_tokens=1_000_000,
     )
@@ -125,6 +132,7 @@ def test_record_spend_global_with_cache_tokens(tmp_path):
 # Cap enforcement after spending
 # ---------------------------------------------------------------------------
 
+
 def test_cap_breached_after_record_blocks_next_call(tmp_path):
     """Spend right up to cap, next call must be denied."""
     s = _store(tmp_path, cap=1.00)
@@ -132,7 +140,9 @@ def test_cap_breached_after_record_blocks_next_call(tmp_path):
     s.record_spend_global("claude-haiku-4-5", actual_input=1_000_000, actual_output=0)
     # Next call estimating $0.40 (500k input on Haiku) would total $1.20 > $1.00
     d = s.can_spend_global(
-        "claude-haiku-4-5", est_input_tokens=500_000, est_output_tokens=0,
+        "claude-haiku-4-5",
+        est_input_tokens=500_000,
+        est_output_tokens=0,
     )
     assert d.allowed is False
     assert d.used_usd == pytest.approx(0.80)
@@ -143,7 +153,9 @@ def test_under_cap_still_allows(tmp_path):
     # Spend $0.10
     s.record_spend_global("claude-haiku-4-5", actual_input=125_000, actual_output=0)
     d = s.can_spend_global(
-        "claude-haiku-4-5", est_input_tokens=100_000, est_output_tokens=0,
+        "claude-haiku-4-5",
+        est_input_tokens=100_000,
+        est_output_tokens=0,
     )
     assert d.allowed is True
 
@@ -152,11 +164,11 @@ def test_under_cap_still_allows(tmp_path):
 # Daily reset (deterministic via now_func injection)
 # ---------------------------------------------------------------------------
 
+
 def test_daily_reset_zeroes_dollars_on_new_day(tmp_path):
     """Roll the clock 24h forward — dollars_today must reset."""
     # 2026-05-18 12:00 UTC
-    now = _fixed_now(time.mktime(time.strptime("2026-05-18 12:00:00 UTC",
-                                               "%Y-%m-%d %H:%M:%S %Z")))
+    now = _fixed_now(time.mktime(time.strptime("2026-05-18 12:00:00 UTC", "%Y-%m-%d %H:%M:%S %Z")))
     s = _store(tmp_path, cap=25.0, now=now)
     s.record_spend_global("claude-haiku-4-5", actual_input=1_000_000, actual_output=0)
     assert s.snapshot().dollars_today == pytest.approx(0.80)
@@ -169,8 +181,7 @@ def test_daily_reset_zeroes_dollars_on_new_day(tmp_path):
 
 
 def test_same_day_no_reset(tmp_path):
-    now = _fixed_now(time.mktime(time.strptime("2026-05-18 12:00:00 UTC",
-                                               "%Y-%m-%d %H:%M:%S %Z")))
+    now = _fixed_now(time.mktime(time.strptime("2026-05-18 12:00:00 UTC", "%Y-%m-%d %H:%M:%S %Z")))
     s = _store(tmp_path, cap=25.0, now=now)
     s.record_spend_global("claude-haiku-4-5", actual_input=1_000_000, actual_output=0)
     # Advance 1 hour same day — but bust the 30s cache by going past TTL.
@@ -182,6 +193,7 @@ def test_same_day_no_reset(tmp_path):
 # ---------------------------------------------------------------------------
 # Persistence round-trip
 # ---------------------------------------------------------------------------
+
 
 def test_json_round_trip(tmp_path):
     s1 = _store(tmp_path, cap=25.0)
@@ -199,14 +211,19 @@ def test_json_round_trip(tmp_path):
 # Allow-on-persistence-failure (brief's hard rule)
 # ---------------------------------------------------------------------------
 
+
 def test_store_failure_still_allows(tmp_path, monkeypatch):
     """If load() throws, can_spend_global must return allowed=True with reason."""
     s = _store(tmp_path, cap=25.0)
+
     def _explode():
         raise RuntimeError("ddb gone")
+
     monkeypatch.setattr(s, "_load", _explode)
     d = s.can_spend_global(
-        "claude-haiku-4-5", est_input_tokens=100, est_output_tokens=100,
+        "claude-haiku-4-5",
+        est_input_tokens=100,
+        est_output_tokens=100,
     )
     assert d.allowed is True
     assert "store_unavailable" in (d.reason or "")
@@ -215,6 +232,7 @@ def test_store_failure_still_allows(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 # Constructor validation
 # ---------------------------------------------------------------------------
+
 
 def test_constructor_rejects_negative_cap(tmp_path):
     with pytest.raises(ValueError):
@@ -236,5 +254,6 @@ def test_default_cap_one_dollar():
     moves.
     """
     from backend.common.config import Settings
+
     s = Settings()
     assert s.llm_global_daily_dollar_cap == 1.0

@@ -3,6 +3,7 @@
 The single source of truth shared by the operator hand-call path
 (``log_call``) and the automated Vapi agent path (``voice.service``).
 """
+
 from __future__ import annotations
 
 from backend.crm.call_outcomes import (
@@ -17,8 +18,16 @@ def test_taxonomy_carries_the_canonical_outcomes():
     # 9 call outcomes + "noted" (operator-engaged-but-no-classification,
     # added 2026-06-22 for the forge-ui cc-notes surface) = 10 total.
     assert set(OUTCOME_TO_STATE) == {
-        "booked", "follow_up", "disqualified", "gatekeeper", "not_interested",
-        "hung_up", "no_answer", "voicemail", "do_not_call", "noted",
+        "booked",
+        "follow_up",
+        "disqualified",
+        "gatekeeper",
+        "not_interested",
+        "hung_up",
+        "no_answer",
+        "voicemail",
+        "do_not_call",
+        "noted",
     }
     assert VALID_OUTCOMES == tuple(OUTCOME_TO_STATE)
 
@@ -26,8 +35,7 @@ def test_taxonomy_carries_the_canonical_outcomes():
 def test_connected_outcomes_conclude_the_call():
     """Connected-call outcomes map to 'completed' — the nuance rides in
     last_outcome (the booked / follow_up / disqualified precedent)."""
-    for outcome in ("booked", "follow_up", "disqualified",
-                    "not_interested", "hung_up"):
+    for outcome in ("booked", "follow_up", "disqualified", "not_interested", "hung_up"):
         assert state_for_outcome(outcome) == "completed", outcome
 
 
@@ -52,4 +60,4 @@ def test_is_valid_outcome():
     assert is_valid_outcome("gatekeeper") is True
     assert is_valid_outcome("booked") is True
     assert is_valid_outcome("") is False
-    assert is_valid_outcome("book_call") is False   # Vapi verb, not canonical
+    assert is_valid_outcome("book_call") is False  # Vapi verb, not canonical

@@ -12,6 +12,7 @@ intelligence_cycle's REASON-stage seam) can ask "has this been decided
 before?" without pulling in embeddings or an LLM. Local-first: pure Python,
 runs in the intelligence cycle inner loop.
 """
+
 from __future__ import annotations
 
 import re
@@ -32,15 +33,72 @@ _RECENCY_HALF_LIFE_DAYS = 180.0
 # Words below this length or on the stop-word list are ignored for scoring —
 # they'd dominate frequency counts without carrying meaning.
 _MIN_TOKEN_LEN = 3
-_STOPWORDS = frozenset({
-    "the", "and", "for", "with", "this", "that", "not", "but", "are", "was",
-    "has", "had", "have", "from", "into", "onto", "off", "out", "all", "any",
-    "can", "may", "will", "shall", "should", "would", "could", "does", "did",
-    "been", "being", "its", "our", "your", "their", "his", "her", "him",
-    "she", "they", "them", "who", "whom", "what", "which", "when", "where",
-    "why", "how", "then", "than", "too", "also", "such", "some", "each",
-    "one", "two", "new", "old", "yes", "you",
-})
+_STOPWORDS = frozenset(
+    {
+        "the",
+        "and",
+        "for",
+        "with",
+        "this",
+        "that",
+        "not",
+        "but",
+        "are",
+        "was",
+        "has",
+        "had",
+        "have",
+        "from",
+        "into",
+        "onto",
+        "off",
+        "out",
+        "all",
+        "any",
+        "can",
+        "may",
+        "will",
+        "shall",
+        "should",
+        "would",
+        "could",
+        "does",
+        "did",
+        "been",
+        "being",
+        "its",
+        "our",
+        "your",
+        "their",
+        "his",
+        "her",
+        "him",
+        "she",
+        "they",
+        "them",
+        "who",
+        "whom",
+        "what",
+        "which",
+        "when",
+        "where",
+        "why",
+        "how",
+        "then",
+        "than",
+        "too",
+        "also",
+        "such",
+        "some",
+        "each",
+        "one",
+        "two",
+        "new",
+        "old",
+        "yes",
+        "you",
+    }
+)
 _TOKEN_RE = re.compile(r"[a-z0-9][a-z0-9_-]*")
 
 
@@ -68,6 +126,7 @@ class DecisionMatch:
 # Scoring helpers (module-private).
 # ---------------------------------------------------------------------------
 
+
 def _tokenize(text: str) -> list[str]:
     if not text:
         return []
@@ -85,8 +144,9 @@ def _recency_multiplier(iso_date: str, *, _now: datetime | None = None) -> float
         parsed = datetime.fromisoformat(iso_date.replace("Z", "+00:00"))
     except ValueError:
         try:
-            parsed = datetime.combine(date.fromisoformat(iso_date[:10]),
-                                      datetime.min.time(), tzinfo=timezone.utc)
+            parsed = datetime.combine(
+                date.fromisoformat(iso_date[:10]), datetime.min.time(), tzinfo=timezone.utc
+            )
         except ValueError:
             return 0.5
     if parsed.tzinfo is None:
@@ -95,6 +155,7 @@ def _recency_multiplier(iso_date: str, *, _now: datetime | None = None) -> float
     age_days = max(0.0, (now - parsed).total_seconds() / 86400.0)
     # Exponential decay: 1.0 today, ~0.5 at 180 days, ~0.25 at 360 days.
     import math
+
     return math.exp(-age_days / _RECENCY_HALF_LIFE_DAYS)
 
 
@@ -131,6 +192,7 @@ def _score_document(
             # log-dampen frequency so a spammy body word doesn't crush a
             # short high-precision one.
             import math
+
             score += 1.0 + math.log1p(body_counts[q])
             got = True
         if got:
@@ -294,9 +356,7 @@ class CodexRegistry:
         try:
             if resolved_dir.is_dir():
                 for path in sorted(resolved_dir.glob("*.md")):
-                    matches.extend(
-                        _score_resolved_file(path, query_tokens, now=_now)
-                    )
+                    matches.extend(_score_resolved_file(path, query_tokens, now=_now))
         except OSError:
             # I/O error walking the resolved corpus is not fatal — the ADR
             # log source above still yields results.
@@ -363,7 +423,8 @@ def _score_resolved_file(
     # Body is often big; return a short decision blurb (first paragraph)
     # rather than the whole file.
     body_lines = [
-        ln for ln in text.splitlines()
+        ln
+        for ln in text.splitlines()
         if ln.strip() and not ln.lstrip().startswith(("#", ">", "**", "-"))
     ]
     decision_blurb = " ".join(body_lines[:3])[:400]

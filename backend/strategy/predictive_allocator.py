@@ -13,6 +13,7 @@ Phase-2 interface
 consume. The closer itself lives in ``recovery/`` and is NOT a deployed
 workcell — this helper is a pure mapping only, it wires nothing live.
 """
+
 from __future__ import annotations
 
 from .momentum_tracker import IndustryForecast

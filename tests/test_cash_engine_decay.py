@@ -1,4 +1,5 @@
 """DecayRiskScore — the signal_decay trigger's core computation."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
@@ -74,7 +75,10 @@ def test_qualified_at_window_is_half_risk():
 def test_external_factor_raises_risk_monotonically():
     base = compute_decay_risk(_Opp("new", age_days=7), stall_days=7, now=NOW)
     lifted = compute_decay_risk(
-        _Opp("new", age_days=7), stall_days=7, external_factor=0.8, now=NOW,
+        _Opp("new", age_days=7),
+        stall_days=7,
+        external_factor=0.8,
+        now=NOW,
     )
     # base = 0.25 * 1.0 = 0.25 ; lifted = 0.25 + 0.8*(1-0.25) = 0.85
     assert base.decay_risk == 0.25
@@ -85,7 +89,10 @@ def test_external_factor_raises_risk_monotonically():
 
 def test_external_factor_clamped_to_one():
     a = compute_decay_risk(
-        _Opp("new", age_days=7), stall_days=7, external_factor=5.0, now=NOW,
+        _Opp("new", age_days=7),
+        stall_days=7,
+        external_factor=5.0,
+        now=NOW,
     )
     assert a.external_factor == 1.0
     assert a.decay_risk == 1.0
@@ -104,7 +111,10 @@ def test_call_state_last_attempt_counts_as_contact():
         last_attempt_at = NOW.strftime(FMT)
 
     a = compute_decay_risk(
-        _Opp("proposal", age_days=30), call_state=_CS(), stall_days=7, now=NOW,
+        _Opp("proposal", age_days=30),
+        call_state=_CS(),
+        stall_days=7,
+        now=NOW,
     )
     assert a.staleness_days == 0.0
     assert a.decay_risk == 0.0

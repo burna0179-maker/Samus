@@ -1,4 +1,5 @@
 """Persona registry (Samus STANDARD)."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -51,4 +52,9 @@ def test_persona_bag_returns_validated_chat_enrichment_bag():
 
 
 def test_persona_bag_falls_back_to_defaults_when_dict_is_bad():
-    assert type(Persona(persona_id="bad", display_name="X", default_bag={"spice_turns": -5}).bag()).__name__ == "ChatEnrichmentBag"
+    assert (
+        type(
+            Persona(persona_id="bad", display_name="X", default_bag={"spice_turns": -5}).bag()
+        ).__name__
+        == "ChatEnrichmentBag"
+    )

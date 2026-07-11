@@ -4,6 +4,7 @@ Verifies that consecutive auth failures suppress further calls for the
 cooldown period, preventing credit drain when the key is invalid or the
 account is credit-exhausted.
 """
+
 from __future__ import annotations
 
 import time
@@ -40,8 +41,11 @@ class FakeResp:
 def _patch_stack(resp_status):
     """Return a stack of patches that let enrich_via_apollo reach the HTTP path."""
     return [
-        patch("backend.prospecting.apollo_adapter.get_settings",
-              create=True, return_value=FakeSettings()),
+        patch(
+            "backend.prospecting.apollo_adapter.get_settings",
+            create=True,
+            return_value=FakeSettings(),
+        ),
         patch("backend.common.config.get_settings", return_value=FakeSettings()),
         patch("httpx.post", return_value=FakeResp(resp_status, "mock error")),
         patch("backend.common.apollo_budget.get_store"),

@@ -16,6 +16,7 @@ Distinct from the legacy ``backend.common.dynamodb.is_suppressed`` (which
 references a stale ``ddb_tables`` settings shape); this mirrors the live
 feedback-handler access path: ``aws.table(ddb_suppression_table, aws_region)``.
 """
+
 from __future__ import annotations
 
 import logging

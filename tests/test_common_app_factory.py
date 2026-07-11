@@ -1,4 +1,5 @@
 """create_base_app composition smoke test."""
+
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
@@ -6,6 +7,7 @@ from fastapi.testclient import TestClient
 
 def test_create_base_app_has_health():
     from backend.common.app_factory import create_base_app
+
     app = create_base_app(service_name="prospecting")
     client = TestClient(app)
     resp = client.get("/health")
@@ -18,6 +20,7 @@ def test_create_base_app_has_health():
 
 def test_create_base_app_propagates_trace_id():
     from backend.common.app_factory import create_base_app
+
     app = create_base_app(service_name="x")
     client = TestClient(app)
     resp = client.get("/health", headers={"X-Samus-Trace-Id": "trace-abc"})
@@ -26,6 +29,7 @@ def test_create_base_app_propagates_trace_id():
 
 def test_create_base_app_generates_trace_id_when_absent():
     from backend.common.app_factory import create_base_app
+
     app = create_base_app(service_name="x")
     client = TestClient(app)
     resp = client.get("/health")
@@ -34,6 +38,7 @@ def test_create_base_app_generates_trace_id_when_absent():
 
 def test_metrics_endpoint_returns_prometheus_format():
     from backend.common.app_factory import create_base_app
+
     app = create_base_app(service_name="x")
     client = TestClient(app)
     resp = client.get("/metrics")

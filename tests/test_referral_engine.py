@@ -1,8 +1,8 @@
 """Tests for backend.referral.engine — codes, trigger, attribution, rewards."""
+
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 from backend.referral.engine import (
     build_link,
@@ -47,7 +47,9 @@ def test_should_offer_referral_gated_and_irrelevant():
 
 def test_record_referral_pending_and_ledger(tmp_path):
     ledger = tmp_path / "ref.jsonl"
-    ref = record_referral("ABCD2345", "cust_42", "lead_7", _PROGRAM, now_iso=_NOW, ledger_path=ledger)
+    ref = record_referral(
+        "ABCD2345", "cust_42", "lead_7", _PROGRAM, now_iso=_NOW, ledger_path=ledger
+    )
     assert ref.status == "pending"
     assert ref.referrer_id == "cust_42" and ref.referee_id == "lead_7"
     lines = [ln for ln in ledger.read_text(encoding="utf-8").splitlines() if ln.strip()]
@@ -56,13 +58,17 @@ def test_record_referral_pending_and_ledger(tmp_path):
 
 
 def test_self_referral_rejected(tmp_path):
-    ref = record_referral("ABCD2345", "cust_42", "cust_42", _PROGRAM, now_iso=_NOW, ledger_path=tmp_path / "r.jsonl")
+    ref = record_referral(
+        "ABCD2345", "cust_42", "cust_42", _PROGRAM, now_iso=_NOW, ledger_path=tmp_path / "r.jsonl"
+    )
     assert ref.status == "rejected"
 
 
 def test_qualify_referral_on_matching_event(tmp_path):
     ref = record_referral("C", "r1", "e1", _PROGRAM, now_iso=_NOW, ledger_path=tmp_path / "r.jsonl")
-    out = qualify_referral(ref, "subscription_started", _PROGRAM, now_iso=_NOW, ledger_path=tmp_path / "r.jsonl")
+    out = qualify_referral(
+        ref, "subscription_started", _PROGRAM, now_iso=_NOW, ledger_path=tmp_path / "r.jsonl"
+    )
     assert out.status == "qualified"
     assert out.referrer_reward == _PROGRAM.referrer_reward
     assert out.referee_reward == _PROGRAM.referee_reward
@@ -76,7 +82,9 @@ def test_qualify_referral_wrong_event_noop(tmp_path):
 
 
 def test_qualify_referral_rejected_stays_rejected():
-    ref = record_referral("C", "r1", "r1", _PROGRAM, now_iso=_NOW, persist=False)  # self -> rejected
+    ref = record_referral(
+        "C", "r1", "r1", _PROGRAM, now_iso=_NOW, persist=False
+    )  # self -> rejected
     out = qualify_referral(ref, "subscription_started", _PROGRAM, now_iso=_NOW, persist=False)
     assert out.status == "rejected"  # non-pending -> unchanged
 

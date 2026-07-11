@@ -3,6 +3,7 @@
 Layers: the PURE decision (decide_idle_production), the real observer helpers
 (ledger reads + business-hours window), and the orchestrator (run_idle_drive)
 with injected observer/producer so no real production fires."""
+
 from __future__ import annotations
 
 import json
@@ -12,7 +13,6 @@ import pytest
 
 from backend.cash_engine import idle_production as idp
 from backend.cash_engine.idle_production import (
-    IdleDriveDecision,
     IdleObservation,
     decide_idle_production,
     run_idle_drive,
@@ -26,9 +26,16 @@ JUST_NOW = NOW - 60.0
 
 # --- pure decision -----------------------------------------------------------
 
+
 def _decide(**over):
-    kw = dict(enabled=True, now_ts=NOW, last_activity_ts=LONG_AGO,
-              in_business_hours=True, behind_pace=None, idle_threshold_s=THRESH)
+    kw = dict(
+        enabled=True,
+        now_ts=NOW,
+        last_activity_ts=LONG_AGO,
+        in_business_hours=True,
+        behind_pace=None,
+        idle_threshold_s=THRESH,
+    )
     kw.update(over)
     return decide_idle_production(**kw)
 
@@ -75,6 +82,7 @@ def test_boundary_just_under_threshold_holds():
 
 # --- real observer helpers ---------------------------------------------------
 
+
 def test_parse_iso_epoch_handles_z_and_naive():
     z = idp._parse_iso_epoch("2026-07-02T15:00:00Z")
     off = idp._parse_iso_epoch("2026-07-02T15:00:00+00:00")
@@ -88,13 +96,18 @@ def test_last_call_activity_reads_initiated_attempt(monkeypatch, tmp_path):
     now = datetime(2026, 7, 2, 20, 0, tzinfo=timezone.utc)
     runs = tmp_path / "voice" / "dial_runs"
     runs.mkdir(parents=True)
-    (runs / "dial_run_20260702_1.json").write_text(json.dumps({
-        "attempts": [
-            {"outcome": "skipped_cooldown", "initiated_at": "2026-07-02T18:00:00Z"},
-            {"outcome": "initiated", "initiated_at": "2026-07-02T19:30:00Z"},
-            {"outcome": "initiated", "initiated_at": "2026-07-02T19:45:00Z"},
-        ]
-    }), encoding="utf-8")
+    (runs / "dial_run_20260702_1.json").write_text(
+        json.dumps(
+            {
+                "attempts": [
+                    {"outcome": "skipped_cooldown", "initiated_at": "2026-07-02T18:00:00Z"},
+                    {"outcome": "initiated", "initiated_at": "2026-07-02T19:30:00Z"},
+                    {"outcome": "initiated", "initiated_at": "2026-07-02T19:45:00Z"},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
     ts = idp._last_call_activity_ts(now)
     assert ts == idp._parse_iso_epoch("2026-07-02T19:45:00Z")  # newest initiated only
 
@@ -104,9 +117,10 @@ def test_last_call_activity_none_when_only_skips(monkeypatch, tmp_path):
     now = datetime(2026, 7, 2, 20, 0, tzinfo=timezone.utc)
     runs = tmp_path / "voice" / "dial_runs"
     runs.mkdir(parents=True)
-    (runs / "dial_run_20260702_1.json").write_text(json.dumps({
-        "attempts": [{"outcome": "dry_run", "initiated_at": "2026-07-02T19:00:00Z"}]
-    }), encoding="utf-8")
+    (runs / "dial_run_20260702_1.json").write_text(
+        json.dumps({"attempts": [{"outcome": "dry_run", "initiated_at": "2026-07-02T19:00:00Z"}]}),
+        encoding="utf-8",
+    )
     assert idp._last_call_activity_ts(now) is None
 
 
@@ -117,8 +131,10 @@ def test_last_email_activity_reads_sent_row(monkeypatch, tmp_path):
     # test used the compact form (morning_batch_20260702) which is precisely
     # the name the reader never matched: it asserted the bug.
     (tmp_path / "morning_batch_2026-07-02.jsonl").write_text(
-        json.dumps({"status": "failed", "ts": "2026-07-02T17:00:00Z"}) + "\n" +
-        json.dumps({"status": "sent", "ts": "2026-07-02T18:15:00Z"}) + "\n",
+        json.dumps({"status": "failed", "ts": "2026-07-02T17:00:00Z"})
+        + "\n"
+        + json.dumps({"status": "sent", "ts": "2026-07-02T18:15:00Z"})
+        + "\n",
         encoding="utf-8",
     )
     ts = idp._last_email_activity_ts(now)
@@ -148,6 +164,7 @@ def test_last_voicemail_draft_activity_reads_newest(monkeypatch, tmp_path):
     f1.write_text("draft a", encoding="utf-8")
     f2.write_text("draft b", encoding="utf-8")
     import os as _os
+
     _os.utime(f1, (1_700_000_000, 1_700_000_000))
     _os.utime(f2, (1_700_000_500, 1_700_000_500))  # newer
     assert idp._last_voicemail_draft_activity_ts(now) == 1_700_000_500.0
@@ -162,12 +179,15 @@ def test_last_activity_missing_ledgers_is_none(monkeypatch, tmp_path):
     assert idp._last_email_activity_ts(now) is None
 
 
-@pytest.mark.parametrize("hour_utc,expect", [
-    (16, True),   # 09:00 PDT Thu — inside 08–18 window
-    (23, True),   # 16:00 PDT Thu — inside window
-    (2, False),   # 19:00 PDT Wed — past 18:00, out of window
-    (13, False),  # 06:00 PDT Thu — before 08:00, out of window
-])
+@pytest.mark.parametrize(
+    "hour_utc,expect",
+    [
+        (16, True),  # 09:00 PDT Thu — inside 08–18 window
+        (23, True),  # 16:00 PDT Thu — inside window
+        (2, False),  # 19:00 PDT Wed — past 18:00, out of window
+        (13, False),  # 06:00 PDT Thu — before 08:00, out of window
+    ],
+)
 def test_drive_business_hours_weekday(hour_utc, expect):
     # 2026-07-02 is a Thursday; Pacific is UTC-7 in July (PDT).
     now = datetime(2026, 7, 2, hour_utc, 0, tzinfo=timezone.utc)
@@ -182,8 +202,10 @@ def test_drive_business_hours_excludes_weekend(monkeypatch):
 
 # --- orchestrator ------------------------------------------------------------
 
+
 def _arm(monkeypatch, on: bool) -> None:
     from backend.common.settings import reload_settings
+
     if on:
         monkeypatch.setenv("SAMUS_IDLE_PRODUCTION_DRIVE_ENABLED", "true")
     else:
@@ -226,8 +248,9 @@ def test_run_armed_and_idle_invokes_producer(monkeypatch):
 def test_run_armed_but_recently_active_holds(monkeypatch):
     _arm(monkeypatch, on=True)
     p = _Producer()
-    out = run_idle_drive(now_ts=NOW, observer=_obs(last_activity_ts=JUST_NOW),
-                         producer=p, idle_threshold_s=THRESH)
+    out = run_idle_drive(
+        now_ts=NOW, observer=_obs(last_activity_ts=JUST_NOW), producer=p, idle_threshold_s=THRESH
+    )
     assert out["produced"] is False and p.calls == []
 
 

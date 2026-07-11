@@ -4,6 +4,7 @@ Tests do NOT require AWS credentials; we monkeypatch the AWS factories
 out of any test that touches them. Smoke tests below cover pure-Python
 logic only (governance, schema, planner).
 """
+
 from __future__ import annotations
 
 import os
@@ -18,7 +19,8 @@ import pytest
 # the host. Point it at a per-process tempfile so the metering paths in
 # prospecting/callsheet.py + seo/content.py stay quiet during tests.
 _LLM_BUDGET_TMPFD, _LLM_BUDGET_TMPPATH = tempfile.mkstemp(
-    prefix="samus-test-llm-budget-", suffix=".json",
+    prefix="samus-test-llm-budget-",
+    suffix=".json",
 )
 os.close(_LLM_BUDGET_TMPFD)
 os.environ.setdefault("SAMUS_LLM_BUDGET_PATH", _LLM_BUDGET_TMPPATH)
@@ -31,7 +33,8 @@ os.environ.setdefault("DDB_LLM_BUDGETS_TABLE", "")
 # on the host. Redirect to a per-process tmpfile so tests that touch the
 # llm_client (and therefore implicitly the global store) stay clean.
 _LLM_GLOBAL_TMPFD, _LLM_GLOBAL_TMPPATH = tempfile.mkstemp(
-    prefix="samus-test-llm-global-", suffix=".json",
+    prefix="samus-test-llm-global-",
+    suffix=".json",
 )
 os.close(_LLM_GLOBAL_TMPFD)
 os.environ.setdefault("SAMUS_LLM_GLOBAL_BUDGET_PATH", _LLM_GLOBAL_TMPPATH)
@@ -43,7 +46,8 @@ os.environ.setdefault("SAMUS_LLM_GLOBAL_BUDGET_PATH", _LLM_GLOBAL_TMPPATH)
 # and force DDB off so the bandit only ever touches the JSON file. Mirrors the
 # llm_budget treatment above. Dedicated tests construct their own store.
 _BANDIT_TMPFD, _BANDIT_TMPPATH = tempfile.mkstemp(
-    prefix="samus-test-strategy-bandit-", suffix=".json",
+    prefix="samus-test-strategy-bandit-",
+    suffix=".json",
 )
 os.close(_BANDIT_TMPFD)
 os.environ.setdefault("SAMUS_STRATEGY_BANDIT_PATH", _BANDIT_TMPPATH)
@@ -55,7 +59,8 @@ os.environ.setdefault("DDB_STRATEGY_BANDIT_TABLE", "")
 # tmpfile so the crm.feedback_engine + outreach.metrics delegators stay clean,
 # mirroring the llm_budget / bandit treatment. Truncated per-test below.
 _FEEDBACK_TMPFD, _FEEDBACK_TMPPATH = tempfile.mkstemp(
-    prefix="samus-test-feedback-", suffix=".json",
+    prefix="samus-test-feedback-",
+    suffix=".json",
 )
 os.close(_FEEDBACK_TMPFD)
 os.environ.setdefault("SAMUS_FEEDBACK_STORE_PATH", _FEEDBACK_TMPPATH)
@@ -69,7 +74,8 @@ os.environ.setdefault("SAMUS_FEEDBACK_STORE_PATH", _FEEDBACK_TMPPATH)
 # bandit / feedback treatment above. Dedicated tests that need to inspect
 # the ledger contents write into (or monkeypatch) this same path.
 _BUSINESS_EVENTS_TMPFD, _BUSINESS_EVENTS_TMPPATH = tempfile.mkstemp(
-    prefix="samus-test-business-events-", suffix=".jsonl",
+    prefix="samus-test-business-events-",
+    suffix=".jsonl",
 )
 os.close(_BUSINESS_EVENTS_TMPFD)
 # Start empty (mkstemp created a 0-byte file, which is a valid empty ledger).
@@ -83,7 +89,8 @@ os.environ.setdefault("SAMUS_BUSINESS_EVENTS_PATH", _BUSINESS_EVENTS_TMPPATH)
 # with an empty tally, mirroring the send-ramp / business-events treatment.
 # Dedicated cap tests override this env with their own tmp_path.
 _DAILY_COUNTER_TMPFD, _DAILY_COUNTER_TMPPATH = tempfile.mkstemp(
-    prefix="samus-test-daily-counter-", suffix=".jsonl",
+    prefix="samus-test-daily-counter-",
+    suffix=".jsonl",
 )
 os.close(_DAILY_COUNTER_TMPFD)
 os.environ.setdefault("SAMUS_DAILY_COUNTER_PATH", _DAILY_COUNTER_TMPPATH)
@@ -93,7 +100,8 @@ os.environ.setdefault("SAMUS_DAILY_COUNTER_PATH", _DAILY_COUNTER_TMPPATH)
 # simulation from one test can't satisfy another test's dispatch gate, and no
 # host ledger leaks in. Dedicated sim tests override this env with tmp_path.
 _SIM_TMPFD, _SIM_TMPPATH = tempfile.mkstemp(
-    prefix="samus-test-simulation-", suffix=".jsonl",
+    prefix="samus-test-simulation-",
+    suffix=".jsonl",
 )
 os.close(_SIM_TMPFD)
 os.environ.setdefault("SAMUS_SIMULATION_LEDGER_PATH", _SIM_TMPPATH)
@@ -103,7 +111,8 @@ os.environ.setdefault("SAMUS_SIMULATION_LEDGER_PATH", _SIM_TMPPATH)
 # never leaks into a test and per-test recomputes don't collide. Dedicated tests
 # override this env with their own tmp_path.
 _REPUTATION_TMPFD, _REPUTATION_TMPPATH = tempfile.mkstemp(
-    prefix="samus-test-reputation-", suffix=".json",
+    prefix="samus-test-reputation-",
+    suffix=".json",
 )
 os.close(_REPUTATION_TMPFD)
 os.environ.setdefault("SAMUS_REPUTATION_PATH", _REPUTATION_TMPPATH)
@@ -165,16 +174,19 @@ def _reset_llm_singletons() -> None:
     """
     try:
         from backend.common.llm_budget import reset_store
+
         reset_store()
     except Exception:  # noqa: BLE001
         pass
     try:
         from backend.common.llm_global_budget import reset_global_store
+
         reset_global_store()
     except Exception:  # noqa: BLE001
         pass
     try:
         from backend.strategy.bandit_store import reset_store as _reset_bandit_store
+
         _reset_bandit_store()
     except Exception:  # noqa: BLE001
         pass
@@ -192,6 +204,7 @@ def _reset_voice_ledger_singletons() -> None:
     """
     try:
         from backend.voice import service as _voice_service
+
         _voice_service._audit_ledger_instance = None
         _voice_service._events_ledger_instance = None
     except Exception:  # noqa: BLE001
@@ -201,6 +214,7 @@ def _reset_voice_ledger_singletons() -> None:
 @pytest.fixture(autouse=True)
 def _reset_settings_cache(monkeypatch):
     from backend.common.settings import reload_settings
+
     reload_settings()
     _reset_llm_singletons()
     _reset_voice_ledger_singletons()
@@ -267,10 +281,12 @@ def _reset_flag_store():
 def _load_codex_registry_for_tests() -> None:
     try:
         from backend.common.codex import REGISTRY
+
         if not REGISTRY.is_loaded():
             REGISTRY.load()
     except Exception as exc:  # noqa: BLE001
         import sys
+
         print(
             f"[conftest] Codex registry failed to load — tests that integrate "
             f"with the validator will raise CodexUnavailable: {exc}",

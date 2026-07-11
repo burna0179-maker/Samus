@@ -5,6 +5,7 @@ Sensors do the I/O; probes stay pure. Every sensor swallows failure and yields
 sinks the pass or fabricates a verdict. The gathered
 :class:`~backend.redteam.probes.DefensivePosture` is handed to the probes.
 """
+
 from __future__ import annotations
 
 import logging

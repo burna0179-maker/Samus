@@ -3,9 +3,8 @@
 crm_client.build_context and dispatcher.dispatch_strategy_action are
 stubbed via monkeypatch to avoid network calls.
 """
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
@@ -32,7 +31,12 @@ def _stub_dispatcher(monkeypatch, result: dict | None = None):
     import backend.strategy.dispatcher as disp_mod
     import backend.strategy.service as svc_mod
 
-    outcome = result or {"dispatched": True, "service": "outreach", "action": "send_outreach", "gateway_status": 200}
+    outcome = result or {
+        "dispatched": True,
+        "service": "outreach",
+        "action": "send_outreach",
+        "gateway_status": 200,
+    }
 
     async def _fake_dispatch(decision, ctx):
         return outcome
@@ -45,6 +49,7 @@ def _stub_dispatcher(monkeypatch, result: dict | None = None):
 def _reset_patterns(monkeypatch):
     """Reset pattern counters before test."""
     from backend.strategy.engine import reset_patterns
+
     reset_patterns()
 
 
@@ -80,7 +85,13 @@ def test_evaluate_endpoint_returns_decision(monkeypatch):
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["prospect_id"] == "p-eval"
-    assert body["action"] in ("escalate_close", "replan_fulfillment", "trigger_outreach", "monitor", "none")
+    assert body["action"] in (
+        "escalate_close",
+        "replan_fulfillment",
+        "trigger_outreach",
+        "monitor",
+        "none",
+    )
     assert isinstance(body["score"], float)
 
 
@@ -93,11 +104,14 @@ def test_dispatch_endpoint_routes_action(monkeypatch):
     from backend.strategy.app import app
 
     client = TestClient(app)
-    r = client.post("/strategy/dispatch", json={
-        "prospect_id": "p-disp",
-        "action": "trigger_outreach",
-        "payload": {},
-    })
+    r = client.post(
+        "/strategy/dispatch",
+        json={
+            "prospect_id": "p-disp",
+            "action": "trigger_outreach",
+            "payload": {},
+        },
+    )
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["dispatched"] is True
@@ -112,10 +126,13 @@ def test_record_outcome_endpoint_boosts_pattern(monkeypatch):
     import backend.strategy.engine as engine_mod
 
     client = TestClient(app)
-    r = client.post("/strategy/record-outcome", json={
-        "prospect_id": "p-win",
-        "won": True,
-    })
+    r = client.post(
+        "/strategy/record-outcome",
+        json={
+            "prospect_id": "p-win",
+            "won": True,
+        },
+    )
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["recorded"] is True
@@ -136,10 +153,13 @@ def test_record_outcome_endpoint_penalizes_pattern(monkeypatch):
     engine_mod.boost_pattern("strategy_path")  # now at 3
 
     client = TestClient(app)
-    r = client.post("/strategy/record-outcome", json={
-        "prospect_id": "p-loss",
-        "won": False,
-    })
+    r = client.post(
+        "/strategy/record-outcome",
+        json={
+            "prospect_id": "p-loss",
+            "won": False,
+        },
+    )
     assert r.status_code == 200, r.text
     assert engine_mod.PATTERNS.get("strategy_path", 1) == 2  # decremented from 3
 
@@ -158,11 +178,14 @@ def test_work_dispatch_evaluate_action(monkeypatch):
     from backend.strategy.app import app
 
     client = TestClient(app)
-    r = client.post("/work", json={
-        "task_id": "t-eval-1",
-        "payload": {"prospect_id": "p-work"},
-        "metadata": {"action": "evaluate"},
-    })
+    r = client.post(
+        "/work",
+        json={
+            "task_id": "t-eval-1",
+            "payload": {"prospect_id": "p-work"},
+            "metadata": {"action": "evaluate"},
+        },
+    )
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["prospect_id"] == "p-work"
@@ -176,11 +199,14 @@ def test_work_dispatch_unknown_action_returns_400(monkeypatch):
     from backend.strategy.app import app
 
     client = TestClient(app)
-    r = client.post("/work", json={
-        "task_id": "t-bad",
-        "payload": {},
-        "metadata": {"action": "nonexistent_action"},
-    })
+    r = client.post(
+        "/work",
+        json={
+            "task_id": "t-bad",
+            "payload": {},
+            "metadata": {"action": "nonexistent_action"},
+        },
+    )
     assert r.status_code == 400
     assert "unknown action" in r.json()["detail"]
 
@@ -191,6 +217,7 @@ def test_work_dispatch_unknown_action_returns_400(monkeypatch):
 def test_bandit_stats_empty(monkeypatch):
     """GET /strategy/bandit-stats with no plays returns an empty all-scope snapshot."""
     import backend.strategy.portfolio_manager as pm
+
     pm.reset_bandit()
 
     from fastapi.testclient import TestClient
@@ -209,6 +236,7 @@ def test_bandit_stats_empty(monkeypatch):
 def test_bandit_stats_surfaces_flat_and_hierarchical_arms(monkeypatch):
     """The route reflects both flat and hierarchical bandit arms with UCB1 scores."""
     import backend.strategy.portfolio_manager as pm
+
     pm.reset_bandit()
     # Flat arm.
     pm.update_bandit("trigger_outreach", 1.0)
@@ -240,6 +268,7 @@ def test_bandit_stats_industry_scope(monkeypatch):
     """?industry=<vertical> scopes the snapshot to that vertical's policy arms."""
     import backend.strategy.portfolio_manager as pm
     from backend.strategy.policy_compiler import POLICY_FAMILIES
+
     pm.reset_bandit()
     pm.update_policy_bandit("hvac", "fast_quote_mode", 1.0)
     pm.update_policy_bandit("plumber", "emergency_dispatch", 1.0)
@@ -263,6 +292,7 @@ def test_bandit_stats_industry_scope(monkeypatch):
 def test_bandit_stats_unplayed_arm_scores_infinite(monkeypatch):
     """An unplayed arm reports trials=0 and an 'explore me' (inf) UCB1 score."""
     import backend.strategy.portfolio_manager as pm
+
     pm.reset_bandit()
     pm.update_bandit("seen_arm", 1.0)
 
@@ -282,6 +312,7 @@ def test_bandit_stats_unplayed_arm_scores_infinite(monkeypatch):
 def test_bandit_stats_via_work_action(monkeypatch):
     """The read is also reachable through the /work envelope dispatcher."""
     import backend.strategy.portfolio_manager as pm
+
     pm.reset_bandit()
     pm.update_policy_bandit("hvac", "fast_quote_mode", 1.0)
 
@@ -289,11 +320,14 @@ def test_bandit_stats_via_work_action(monkeypatch):
     from backend.strategy.app import app
 
     client = TestClient(app)
-    r = client.post("/work", json={
-        "task_id": "t-bandit-stats",
-        "payload": {"industry": "hvac"},
-        "metadata": {"action": "read_bandit_stats"},
-    })
+    r = client.post(
+        "/work",
+        json={
+            "task_id": "t-bandit-stats",
+            "payload": {"industry": "hvac"},
+            "metadata": {"action": "read_bandit_stats"},
+        },
+    )
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["scope"] == "industry"
@@ -306,11 +340,14 @@ def test_bandit_stats_work_action_rejects_non_string_industry(monkeypatch):
     from backend.strategy.app import app
 
     client = TestClient(app)
-    r = client.post("/work", json={
-        "task_id": "t-bad-industry",
-        "payload": {"industry": 123},
-        "metadata": {"action": "read_bandit_stats"},
-    })
+    r = client.post(
+        "/work",
+        json={
+            "task_id": "t-bad-industry",
+            "payload": {"industry": 123},
+            "metadata": {"action": "read_bandit_stats"},
+        },
+    )
     assert r.status_code == 422
 
 

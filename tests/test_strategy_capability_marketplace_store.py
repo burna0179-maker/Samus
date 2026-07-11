@@ -4,10 +4,10 @@ Covers append-on-publish/withdraw, replay-on-startup, the
 :class:`PersistentCapabilityMarketplace` mutation wrapper, and the env
 override.
 """
+
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 
@@ -157,16 +157,21 @@ def test_replay_skips_malformed_rows_and_reports_applied_count(tmp_path):
     path = tmp_path / "state" / "strategy" / "capability_marketplace.jsonl"
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as fh:
-        fh.write(json.dumps({
-            "ts": "2026-07-06T00:00:00Z",
-            "op": OP_PUBLISH,
-            "capability_id": "ok_cap",
-            "provider_agent": "p_ok",
-            "cost": 5,
-            "performance_score": 0.8,
-            "latency_ms": 100,
-            "tags": [],
-        }) + "\n")
+        fh.write(
+            json.dumps(
+                {
+                    "ts": "2026-07-06T00:00:00Z",
+                    "op": OP_PUBLISH,
+                    "capability_id": "ok_cap",
+                    "provider_agent": "p_ok",
+                    "cost": 5,
+                    "performance_score": 0.8,
+                    "latency_ms": 100,
+                    "tags": [],
+                }
+            )
+            + "\n"
+        )
         # Missing required fields:
         fh.write(json.dumps({"op": OP_PUBLISH, "capability_id": "broken"}) + "\n")
         # Unknown op:

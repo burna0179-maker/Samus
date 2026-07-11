@@ -1,4 +1,5 @@
 """Tests for Samus's signed identity & charter (ecosystem-core skeleton)."""
+
 from __future__ import annotations
 
 import json
@@ -36,9 +37,13 @@ def test_charter_hash_is_deterministic():
 def test_charter_hash_changes_on_value_change():
     c = load_charter()
     mutated = Charter(
-        agent_id=c.agent_id, agent_name=c.agent_name, lineage=c.lineage,
-        version=c.version, domain=c.domain,
-        values=c.values + ("rogue-value",), invariants=c.invariants,
+        agent_id=c.agent_id,
+        agent_name=c.agent_name,
+        lineage=c.lineage,
+        version=c.version,
+        domain=c.domain,
+        values=c.values + ("rogue-value",),
+        invariants=c.invariants,
     )
     assert charter_hash(mutated) != charter_hash(c)
 
@@ -52,21 +57,40 @@ def test_charter_missing_field_raises(tmp_path: Path):
 
 def test_charter_wrong_type_raises(tmp_path: Path):
     bad = tmp_path / "charter.json"
-    bad.write_text(json.dumps({
-        "agent_id": "samus", "agent_name": "Samus", "lineage": "x",
-        "version": "1", "domain": "rev", "values": "not-a-list",
-        "invariants": [],
-    }), encoding="utf-8")
+    bad.write_text(
+        json.dumps(
+            {
+                "agent_id": "samus",
+                "agent_name": "Samus",
+                "lineage": "x",
+                "version": "1",
+                "domain": "rev",
+                "values": "not-a-list",
+                "invariants": [],
+            }
+        ),
+        encoding="utf-8",
+    )
     with pytest.raises(CharterError):
         load_charter(bad)
 
 
 def test_charter_empty_value_raises(tmp_path: Path):
     bad = tmp_path / "charter.json"
-    bad.write_text(json.dumps({
-        "agent_id": " ", "agent_name": "Samus", "lineage": "x",
-        "version": "1", "domain": "rev", "values": ["a"], "invariants": ["b"],
-    }), encoding="utf-8")
+    bad.write_text(
+        json.dumps(
+            {
+                "agent_id": " ",
+                "agent_name": "Samus",
+                "lineage": "x",
+                "version": "1",
+                "domain": "rev",
+                "values": ["a"],
+                "invariants": ["b"],
+            }
+        ),
+        encoding="utf-8",
+    )
     with pytest.raises(CharterError):
         load_charter(bad)
 
@@ -105,6 +129,7 @@ def test_charter_signing_payload_binds_to_bytes():
 def _make_signed_sidecar(tmp_path, artifact_bytes, payload, *, tamper=False):
     """Forge a real operator-Ed25519 envelope using a throwaway key + pubkey."""
     from backend.identity.shared_bootstrap import ensure_shared_importable
+
     assert ensure_shared_importable()
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
     from _shared.security.operator_signed_envelope import canonical_bytes
@@ -112,14 +137,13 @@ def _make_signed_sidecar(tmp_path, artifact_bytes, payload, *, tamper=False):
     priv = Ed25519PrivateKey.generate()
     pub = priv.public_key()
     from cryptography.hazmat.primitives import serialization
+
     pub_hex = pub.public_bytes(
         encoding=serialization.Encoding.Raw,
         format=serialization.PublicFormat.Raw,
     ).hex()
     pubkey_file = tmp_path / "operator_root_pubkey.json"
-    pubkey_file.write_text(
-        json.dumps({"operator_root_pubkey_hex": pub_hex}), encoding="utf-8"
-    )
+    pubkey_file.write_text(json.dumps({"operator_root_pubkey_hex": pub_hex}), encoding="utf-8")
 
     signed_at = time.time()
     signing = canonical_bytes(
@@ -128,7 +152,7 @@ def _make_signed_sidecar(tmp_path, artifact_bytes, payload, *, tamper=False):
     sig = priv.sign(signing)
     sig_hex = sig.hex()
     if tamper:
-        sig_hex = ("0" * len(sig_hex))
+        sig_hex = "0" * len(sig_hex)
     return signed_at, sig_hex, pubkey_file
 
 
@@ -136,18 +160,21 @@ def test_charter_signature_valid_verifies(tmp_path: Path):
     artifact = tmp_path / "charter.json"
     artifact.write_bytes(charter_path().read_bytes())
     payload = cs.build_signing_payload(artifact.read_bytes())
-    signed_at, sig_hex, pubkey_file = _make_signed_sidecar(
-        tmp_path, artifact.read_bytes(), payload
-    )
+    signed_at, sig_hex, pubkey_file = _make_signed_sidecar(tmp_path, artifact.read_bytes(), payload)
     sig_path = cs.ed25519_sig_path_for(artifact)
-    sig_path.write_text(json.dumps({
-        "payload": payload, "signed_at_ts": signed_at,
-        "signature_hex": sig_hex, "key_id": "operator_root",
-    }), encoding="utf-8")
-
-    res = cs.check_charter_signature(
-        artifact, operator_pubkey_path_override=pubkey_file
+    sig_path.write_text(
+        json.dumps(
+            {
+                "payload": payload,
+                "signed_at_ts": signed_at,
+                "signature_hex": sig_hex,
+                "key_id": "operator_root",
+            }
+        ),
+        encoding="utf-8",
     )
+
+    res = cs.check_charter_signature(artifact, operator_pubkey_path_override=pubkey_file)
     assert res.production_ready is True
     assert res.posture == cs.CharterSignaturePosture.OPERATOR_ED25519
     assert res.tamper is False
@@ -158,20 +185,23 @@ def test_charter_signature_tamper_fails_closed(tmp_path: Path):
     artifact = tmp_path / "charter.json"
     artifact.write_bytes(charter_path().read_bytes())
     payload = cs.build_signing_payload(artifact.read_bytes())
-    signed_at, sig_hex, pubkey_file = _make_signed_sidecar(
-        tmp_path, artifact.read_bytes(), payload
-    )
+    signed_at, sig_hex, pubkey_file = _make_signed_sidecar(tmp_path, artifact.read_bytes(), payload)
     sig_path = cs.ed25519_sig_path_for(artifact)
-    sig_path.write_text(json.dumps({
-        "payload": payload, "signed_at_ts": signed_at,
-        "signature_hex": sig_hex, "key_id": "operator_root",
-    }), encoding="utf-8")
+    sig_path.write_text(
+        json.dumps(
+            {
+                "payload": payload,
+                "signed_at_ts": signed_at,
+                "signature_hex": sig_hex,
+                "key_id": "operator_root",
+            }
+        ),
+        encoding="utf-8",
+    )
     # Now mutate the charter AFTER signing.
     artifact.write_bytes(artifact.read_bytes() + b"\n// tampered")
 
-    res = cs.check_charter_signature(
-        artifact, operator_pubkey_path_override=pubkey_file
-    )
+    res = cs.check_charter_signature(artifact, operator_pubkey_path_override=pubkey_file)
     assert res.production_ready is False
     assert res.tamper is True
     assert res.signed is True
@@ -185,12 +215,17 @@ def test_charter_signature_bad_sig_fails_closed(tmp_path: Path):
         tmp_path, artifact.read_bytes(), payload, tamper=True
     )
     sig_path = cs.ed25519_sig_path_for(artifact)
-    sig_path.write_text(json.dumps({
-        "payload": payload, "signed_at_ts": signed_at,
-        "signature_hex": sig_hex, "key_id": "operator_root",
-    }), encoding="utf-8")
-    res = cs.check_charter_signature(
-        artifact, operator_pubkey_path_override=pubkey_file
+    sig_path.write_text(
+        json.dumps(
+            {
+                "payload": payload,
+                "signed_at_ts": signed_at,
+                "signature_hex": sig_hex,
+                "key_id": "operator_root",
+            }
+        ),
+        encoding="utf-8",
     )
+    res = cs.check_charter_signature(artifact, operator_pubkey_path_override=pubkey_file)
     assert res.production_ready is False
     assert res.tamper is True

@@ -42,6 +42,7 @@ bad row must not cost Alex the other nine call-ready links.
 Operator-prompted ONLY — gated by ``website_demo_sites_enabled`` (default
 OFF) and fired via ``scripts/Build-DemoSites.ps1``. No scheduling hooks.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -82,6 +83,7 @@ _PROJECT_MAX_LEN = 58
 # run-result models
 # ---------------------------------------------------------------------------
 
+
 class DemoSiteResult(BaseModel):
     """Outcome for one prospect — success or isolated failure."""
 
@@ -90,18 +92,18 @@ class DemoSiteResult(BaseModel):
     prospect_id: str = ""
     company_name: str = ""
     phone: str = ""
-    project: str = ""           # demo-<slug> Pages project name
-    url: str = ""               # live *.pages.dev URL when deployed
-    output_dir: str = ""        # local build dir (always present on success)
-    pitch_hook: str = ""        # classifier's cold-open line
+    project: str = ""  # demo-<slug> Pages project name
+    url: str = ""  # live *.pages.dev URL when deployed
+    output_dir: str = ""  # local build dir (always present on success)
+    pitch_hook: str = ""  # classifier's cold-open line
     pages: int = 0
     llm_used: bool = False
-    cost_usd: float = 0.0       # conservative estimate charged to the run
+    cost_usd: float = 0.0  # conservative estimate charged to the run
     deployed: bool = False
-    deploy_skipped_reason: str = ""   # "" | "disabled" | "missing credentials" | error
+    deploy_skipped_reason: str = ""  # "" | "disabled" | "missing credentials" | error
     asset_violations: list[str] = Field(default_factory=list)  # isolation-gate strips/warnings
-    error: str = ""             # non-empty == this prospect failed (isolated)
-    skipped_reason: str = ""    # non-empty == skipped BEFORE build (already has a site)
+    error: str = ""  # non-empty == this prospect failed (isolated)
+    skipped_reason: str = ""  # non-empty == skipped BEFORE build (already has a site)
 
 
 class DemoSitesRun(BaseModel):
@@ -117,7 +119,7 @@ class DemoSitesRun(BaseModel):
     built: int = 0
     deployed: int = 0
     failed: int = 0
-    skipped_has_site: int = 0   # presence gate: business already has a website
+    skipped_has_site: int = 0  # presence gate: business already has a website
     results: list[DemoSiteResult] = Field(default_factory=list)
     json_path: str = ""
     txt_path: str = ""
@@ -196,6 +198,7 @@ def load_no_website_prospects(
 # slug + enrichment
 # ---------------------------------------------------------------------------
 
+
 def demo_project_slug(company_name: str) -> str:
     """Deterministic Cloudflare Pages project name: ``demo-<company-slug>``.
 
@@ -218,45 +221,108 @@ def demo_project_slug(company_name: str) -> str:
 # prospect-specific claims (those come only from real prospect-run data).
 
 _GENERIC_SERVICES = [
-    "Free Consultations", "Responsive Local Service",
-    "Upfront, Transparent Pricing", "Satisfaction-Focused Work",
+    "Free Consultations",
+    "Responsive Local Service",
+    "Upfront, Transparent Pricing",
+    "Satisfaction-Focused Work",
 ]
 _GENERIC_OFFER = "Free, no-obligation quotes"
 
 _SERVICE_CATALOG: list[tuple[tuple[str, ...], list[str], str]] = [
     # (industry keywords)              (service cards)                            (promo offer)
-    (("hvac", "heating", "air conditioning"),
-     ["AC Repair", "Furnace Installation", "Duct Cleaning",
-      "Maintenance Plans", "Emergency Service", "Free Estimates"],
-     "Free estimates on repairs and new installs"),
-    (("plumb",),
-     ["Drain Cleaning", "Water Heater Repair", "Leak Detection",
-      "Pipe Repair", "Emergency Plumbing", "Free Estimates"],
-     "Free estimates - emergency service available"),
-    (("roof",),
-     ["Roof Repair", "Roof Replacement", "Storm Damage Inspections",
-      "Gutter Installation", "Leak Repair", "Free Estimates"],
-     "Free roof inspections and estimates"),
-    (("electric",),
-     ["Panel Upgrades", "Wiring & Rewiring", "Lighting Installation",
-      "EV Charger Installation", "Troubleshooting & Repair", "Free Estimates"],
-     "Free estimates from a local electrician"),
-    (("real estate", "realtor", "realty"),
-     ["Home Buying", "Home Selling", "Free Market Analysis",
-      "Property Tours", "Relocation Assistance"],
-     "Free home valuation - no obligation"),
-    (("account", "bookkeep", "tax"),
-     ["Tax Preparation", "Bookkeeping", "Payroll Services",
-      "Tax Planning", "Business Advisory", "Free Consultations"],
-     "Free initial consultation"),
-    (("car dealer", "auto dealer", "dealership", "used car"),
-     ["New & Used Vehicles", "Financing Options", "Trade-In Appraisals",
-      "Vehicle Service", "Test Drives Welcome"],
-     "Free trade-in appraisals"),
-    (("dent",),
-     ["Cleanings & Exams", "Fillings & Crowns", "Teeth Whitening",
-      "Emergency Dental Care", "New Patient Welcome"],
-     "New patients welcome - call to book"),
+    (
+        ("hvac", "heating", "air conditioning"),
+        [
+            "AC Repair",
+            "Furnace Installation",
+            "Duct Cleaning",
+            "Maintenance Plans",
+            "Emergency Service",
+            "Free Estimates",
+        ],
+        "Free estimates on repairs and new installs",
+    ),
+    (
+        ("plumb",),
+        [
+            "Drain Cleaning",
+            "Water Heater Repair",
+            "Leak Detection",
+            "Pipe Repair",
+            "Emergency Plumbing",
+            "Free Estimates",
+        ],
+        "Free estimates - emergency service available",
+    ),
+    (
+        ("roof",),
+        [
+            "Roof Repair",
+            "Roof Replacement",
+            "Storm Damage Inspections",
+            "Gutter Installation",
+            "Leak Repair",
+            "Free Estimates",
+        ],
+        "Free roof inspections and estimates",
+    ),
+    (
+        ("electric",),
+        [
+            "Panel Upgrades",
+            "Wiring & Rewiring",
+            "Lighting Installation",
+            "EV Charger Installation",
+            "Troubleshooting & Repair",
+            "Free Estimates",
+        ],
+        "Free estimates from a local electrician",
+    ),
+    (
+        ("real estate", "realtor", "realty"),
+        [
+            "Home Buying",
+            "Home Selling",
+            "Free Market Analysis",
+            "Property Tours",
+            "Relocation Assistance",
+        ],
+        "Free home valuation - no obligation",
+    ),
+    (
+        ("account", "bookkeep", "tax"),
+        [
+            "Tax Preparation",
+            "Bookkeeping",
+            "Payroll Services",
+            "Tax Planning",
+            "Business Advisory",
+            "Free Consultations",
+        ],
+        "Free initial consultation",
+    ),
+    (
+        ("car dealer", "auto dealer", "dealership", "used car"),
+        [
+            "New & Used Vehicles",
+            "Financing Options",
+            "Trade-In Appraisals",
+            "Vehicle Service",
+            "Test Drives Welcome",
+        ],
+        "Free trade-in appraisals",
+    ),
+    (
+        ("dent",),
+        [
+            "Cleanings & Exams",
+            "Fillings & Crowns",
+            "Teeth Whitening",
+            "Emergency Dental Care",
+            "New Patient Welcome",
+        ],
+        "New patients welcome - call to book",
+    ),
 ]
 
 
@@ -342,7 +408,7 @@ def enrich_brief(brief: WebsiteBrief, record: ProspectRecord) -> WebsiteBrief:
         seeds["contact"]["body"] = " ".join(contact_bits)
 
     pages: list[WebsitePage] = []
-    for page in (brief.pages or default_page_set()):
+    for page in brief.pages or default_page_set():
         content = dict(page.content)
         for k, v in seeds.get(page.slug.lower(), {}).items():
             content.setdefault(k, v)
@@ -353,6 +419,7 @@ def enrich_brief(brief: WebsiteBrief, record: ProspectRecord) -> WebsiteBrief:
 # ---------------------------------------------------------------------------
 # build run
 # ---------------------------------------------------------------------------
+
 
 class _ForceDesignIntelligence:
     """Settings proxy that pins website_design_intelligence_enabled True for
@@ -402,7 +469,10 @@ _MEDIA_GEN_EST_USD = 0.12  # hero+section+og at ~$0.04 each — the pricier call
 
 
 def _generated_media(
-    brief: WebsiteBrief, *, settings: Any, client_key: str,
+    brief: WebsiteBrief,
+    *,
+    settings: Any,
+    client_key: str,
 ) -> tuple[dict[str, str], list[tuple[Path, str]], float]:
     """Gemini-generated hero/section/og imagery -> site_builder ``media`` refs +
     copy list, mirroring :func:`_client_media`.
@@ -430,8 +500,8 @@ def _generated_media(
                 continue
             raw = base64.b64decode(a.data_b64)
             entry = ca.register_asset(
-                client_key, raw, "image",
-                original_name=f"{a.kind}.png", source_label="generated")
+                client_key, raw, "image", original_name=f"{a.kind}.png", source_label="generated"
+            )
             fname = entry.get("filename")
             path = ca.get_asset_path(client_key, fname) if fname else None
             if not fname or path is None:
@@ -461,7 +531,11 @@ def _apply_presence_enrichment(record: ProspectRecord, verdict: Any) -> None:
     if b.get("review_count") is not None and not getattr(record, "review_count", ""):
         updates["review_count"] = str(b["review_count"])
     desc = (b.get("description") or "").strip()
-    if desc and hasattr(record, "business_description") and not getattr(record, "business_description", ""):
+    if (
+        desc
+        and hasattr(record, "business_description")
+        and not getattr(record, "business_description", "")
+    ):
         updates["business_description"] = desc
     for k, v in updates.items():
         try:
@@ -513,6 +587,7 @@ def build_demo_sites(
     and the ceiling mechanics."""
     if settings is None:
         from backend.common.settings import bootstrap_settings
+
         settings = bootstrap_settings()
     if not getattr(settings, "website_demo_sites_enabled", False):
         # Loud refusal: demo runs spend money + create public artifacts in the
@@ -547,9 +622,13 @@ def build_demo_sites(
             # fresh Places data to TAILOR the demo with real info.
             if verify_presence:
                 from backend.website import presence_check
+
                 verdict = presence_check.verify_presence(
-                    record.company_name, city=record.city, state=record.state,
-                    existing_website=record.website_url)
+                    record.company_name,
+                    city=record.city,
+                    state=record.state,
+                    existing_website=record.website_url,
+                )
                 if not verdict.buildable:
                     result.skipped_reason = verdict.reason
                     run.skipped_has_site += 1
@@ -577,7 +656,10 @@ def build_demo_sites(
             if llm_allowed and (run.cumulative_cost_usd + _LLM_CALL_EST_USD) > ceiling_usd:
                 llm_allowed = False
                 run.llm_stopped_at_ceiling = True
-                _LOG.info("demo run cost ceiling $%.2f reached - deterministic copy from here on", ceiling_usd)
+                _LOG.info(
+                    "demo run cost ceiling $%.2f reached - deterministic copy from here on",
+                    ceiling_usd,
+                )
             call_key = "unused" if llm_allowed else ""
             brief, report = generate_site_content(brief, settings=settings, api_key=call_key)
             if report.get("llm_used"):
@@ -590,7 +672,8 @@ def build_demo_sites(
             # Operator-registered brand assets for THIS client (and only
             # this client) are referenced relatively under assets/.
             client_key = ca.derive_client_key(
-                record.prospect_id, record.account_id, record.company_name)
+                record.prospect_id, record.account_id, record.company_name
+            )
             media, asset_copies = _client_media(client_key)
             # --- generated media (opt-in premium demo) -------------------
             # Bespoke Gemini imagery for a prospect we have no real assets
@@ -598,31 +681,37 @@ def build_demo_sites(
             # client assets always WIN over generated. Fail-soft.
             if with_media and (run.cumulative_cost_usd + _MEDIA_GEN_EST_USD) <= ceiling_usd:
                 gen_media, gen_copies, media_spent = _generated_media(
-                    brief, settings=settings, client_key=client_key)
+                    brief, settings=settings, client_key=client_key
+                )
                 if gen_media:
                     run.cumulative_cost_usd = round(run.cumulative_cost_usd + media_spent, 6)
                     result.cost_usd = round(result.cost_usd + media_spent, 6)
                     merged = dict(gen_media)
-                    merged.update(media)                 # client assets win
+                    merged.update(media)  # client assets win
                     media, asset_copies = merged, gen_copies + asset_copies
             elif with_media:
-                _LOG.info("demo ceiling $%.2f reached — skipping paid media for %s",
-                          ceiling_usd, project)
+                _LOG.info(
+                    "demo ceiling $%.2f reached — skipping paid media for %s", ceiling_usd, project
+                )
             predicted_url = f"https://{project}.pages.dev"
-            site = build_static_site(brief, settings=build_settings,
-                                     media=media or None, public_url=predicted_url)
+            site = build_static_site(
+                brief, settings=build_settings, media=media or None, public_url=predicted_url
+            )
             result.pages = len(site.pages)
 
             # --- THE GATE: brand-asset isolation, fail-closed, ALWAYS ----
             strict = bool(getattr(settings, "website_asset_isolation_strict", False))
             clean_files, violations = ca.enforce_asset_isolation(
-                site.files, client_key,
-                own_domains=(f"{project}.pages.dev",), strict=strict)
+                site.files, client_key, own_domains=(f"{project}.pages.dev",), strict=strict
+            )
             if violations:
                 result.asset_violations = list(violations)
-                _LOG.error("ASSET ISOLATION: %d violation(s) for %s — cleaned "
-                           "files deploy: %s", len(violations),
-                           record.company_name, "; ".join(violations))
+                _LOG.error(
+                    "ASSET ISOLATION: %d violation(s) for %s — cleaned files deploy: %s",
+                    len(violations),
+                    record.company_name,
+                    "; ".join(violations),
+                )
             site.files = clean_files
 
             out_dir = prepare_build_dir(site, out_dir=out_root / project)
@@ -660,6 +749,7 @@ def build_demo_sites(
 # summaries — the call-ready sheet
 # ---------------------------------------------------------------------------
 
+
 def _write_summaries(run: DemoSitesRun, *, sheet_label: str = "") -> None:
     """demo_sites_<date>.json (full result) + .txt (call-ready sheet).
 
@@ -696,10 +786,13 @@ def _write_summaries(run: DemoSitesRun, *, sheet_label: str = "") -> None:
             f"  phone : {r.phone or '(none)'}",
             f"  demo  : {r.url or '(not deployed: ' + (r.deploy_skipped_reason or 'unknown') + ') ' + r.output_dir}",
             f"  hook  : {r.pitch_hook}",
-            f"  cost  : ${r.cost_usd:.2f}" + ("  (haiku copy)" if r.llm_used else "  (deterministic)"),
+            f"  cost  : ${r.cost_usd:.2f}"
+            + ("  (haiku copy)" if r.llm_used else "  (deterministic)"),
         ]
         if r.asset_violations:
-            lines.append(f"  ASSET ISOLATION: {len(r.asset_violations)} violation(s) stripped/flagged:")
+            lines.append(
+                f"  ASSET ISOLATION: {len(r.asset_violations)} violation(s) stripped/flagged:"
+            )
             lines += [f"    - {v}" for v in r.asset_violations]
     txt_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -708,6 +801,7 @@ def _write_summaries(run: DemoSitesRun, *, sheet_label: str = "") -> None:
 # CLI — operator-prompted only (fired by scripts/Build-DemoSites.ps1)
 # ---------------------------------------------------------------------------
 
+
 def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m backend.website.demo_sites",
@@ -715,27 +809,43 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     parser.add_argument("--date", help="call list date YYYY-MM-DD (default today)")
     parser.add_argument("--csv", help="explicit call-list CSV path (overrides --date)")
-    parser.add_argument("--ceiling", type=float, default=None,
-                        help="hard total run cost ceiling USD (default settings.demo_sites_ceiling_usd)")
-    parser.add_argument("--no-deploy", action="store_true", help="build only, skip Cloudflare deploy")
+    parser.add_argument(
+        "--ceiling",
+        type=float,
+        default=None,
+        help="hard total run cost ceiling USD (default settings.demo_sites_ceiling_usd)",
+    )
+    parser.add_argument(
+        "--no-deploy", action="store_true", help="build only, skip Cloudflare deploy"
+    )
     parser.add_argument("--no-llm", action="store_true", help="deterministic copy only ($0)")
     parser.add_argument("--limit", type=int, default=0, help="cap prospects processed (0 = all)")
-    parser.add_argument("--company", default="",
-                        help="only prospects whose company name contains this "
-                             "(case-insensitive) — single-prospect rebuilds")
-    parser.add_argument("--with-media", action="store_true",
-                        help="generate bespoke Gemini hero/section/og imagery "
-                             "(premium demo, ~$0.12/site; needs GEMINI_API_KEY). "
-                             "Off = the cheap design-only bulk demo.")
-    parser.add_argument("--no-verify", action="store_true",
-                        help="skip the Google-Places presence re-check (default "
-                             "ON: skips businesses that already have a site, so "
-                             "we never build/pitch a site to someone who has one).")
+    parser.add_argument(
+        "--company",
+        default="",
+        help="only prospects whose company name contains this "
+        "(case-insensitive) — single-prospect rebuilds",
+    )
+    parser.add_argument(
+        "--with-media",
+        action="store_true",
+        help="generate bespoke Gemini hero/section/og imagery "
+        "(premium demo, ~$0.12/site; needs GEMINI_API_KEY). "
+        "Off = the cheap design-only bulk demo.",
+    )
+    parser.add_argument(
+        "--no-verify",
+        action="store_true",
+        help="skip the Google-Places presence re-check (default "
+        "ON: skips businesses that already have a site, so "
+        "we never build/pitch a site to someone who has one).",
+    )
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
 
     from backend.common.settings import bootstrap_settings
+
     settings = bootstrap_settings()
     if not getattr(settings, "website_demo_sites_enabled", False):
         print(
@@ -755,8 +865,11 @@ def main(argv: Optional[list[str]] = None) -> int:
         except Exception:
             pass
         if not (getattr(settings, "gemini_api_key", "") or "").strip():
-            print("WARN: --with-media set but no gemini_api_key present; "
-                  "sites will build design-only.", file=sys.stderr)
+            print(
+                "WARN: --with-media set but no gemini_api_key present; "
+                "sites will build design-only.",
+                file=sys.stderr,
+            )
 
     run_date = date.fromisoformat(args.date) if args.date else date.today()
     try:
@@ -773,8 +886,10 @@ def main(argv: Optional[list[str]] = None) -> int:
         print("No matching no_website prospects on the call list - nothing to build.")
         return 0
 
-    ceiling = args.ceiling if args.ceiling is not None else float(
-        getattr(settings, "demo_sites_ceiling_usd", 5.0)
+    ceiling = (
+        args.ceiling
+        if args.ceiling is not None
+        else float(getattr(settings, "demo_sites_ceiling_usd", 5.0))
     )
     run = build_demo_sites(
         prospects,
@@ -789,9 +904,11 @@ def main(argv: Optional[list[str]] = None) -> int:
         # the day's full call sheet.
         sheet_label="partial" if (args.company or args.limit) else "",
     )
-    print(f"\nbuilt={run.built} deployed={run.deployed} "
-          f"skipped_has_site={run.skipped_has_site} failed={run.failed} "
-          f"spent=${run.cumulative_cost_usd:.2f} of ${run.ceiling_usd:.2f}")
+    print(
+        f"\nbuilt={run.built} deployed={run.deployed} "
+        f"skipped_has_site={run.skipped_has_site} failed={run.failed} "
+        f"spent=${run.cumulative_cost_usd:.2f} of ${run.ceiling_usd:.2f}"
+    )
     print(f"call sheet: {run.txt_path}")
     return 0 if run.failed == 0 else 1
 

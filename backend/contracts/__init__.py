@@ -8,6 +8,7 @@ The DocuSeal instance is self-hosted in the Samus stack (``samus-docuseal``);
 API calls and the completion webhook stay on the internal docker network, while
 the customer-facing signing links are published through the Caddy ingress.
 """
+
 from .models import (
     ContractParty,
     ContractResult,

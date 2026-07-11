@@ -45,6 +45,7 @@ in that case; the enclave already does exactly this.
 This module is self-contained — stdlib + the optional ``win32crypt`` import
 only. It performs no filesystem writes and spawns no subprocesses.
 """
+
 from __future__ import annotations
 
 import sys
@@ -154,8 +155,7 @@ def seal(
         raise TypeError(f"plaintext must be bytes, got {type(plaintext).__name__}")
     if not dpapi_available():
         raise DpapiUnavailable(
-            "DPAPI sealing unavailable: win32crypt not importable "
-            f"(platform={sys.platform!r})"
+            f"DPAPI sealing unavailable: win32crypt not importable (platform={sys.platform!r})"
         )
     flag = _scope_flag(scope)
     try:
@@ -207,8 +207,7 @@ def unseal(blob: bytes, *, entropy: bytes = b"") -> bytes:
         raise TypeError(f"blob must be bytes, got {type(blob).__name__}")
     if not dpapi_available():
         raise DpapiUnavailable(
-            "DPAPI unsealing unavailable: win32crypt not importable "
-            f"(platform={sys.platform!r})"
+            f"DPAPI unsealing unavailable: win32crypt not importable (platform={sys.platform!r})"
         )
     try:
         # CryptUnprotectData(data, optional_entropy, reserved,
@@ -222,7 +221,6 @@ def unseal(blob: bytes, *, entropy: bytes = b"") -> bytes:
         )
     except Exception as exc:  # noqa: BLE001 - normalise to DpapiError
         raise DpapiError(
-            f"CryptUnprotectData failed (corrupt blob or entropy "
-            f"mismatch): {exc!r}"
+            f"CryptUnprotectData failed (corrupt blob or entropy mismatch): {exc!r}"
         ) from exc
     return bytes(plaintext)

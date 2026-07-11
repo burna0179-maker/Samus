@@ -1,4 +1,5 @@
 """CRM service — entity reads + intake lead -> Prospect + Contact conversion + feedback engine surface."""
+
 from __future__ import annotations
 
 import datetime as _dt
@@ -86,7 +87,8 @@ def _check_closed_won_anomaly(won_amount_usd: float) -> None:
                 metrics.SAMUS_CRM_CLOSED_WON_ANOMALY_TOTAL.inc()
                 _LOG.warning(
                     "closed_won anomaly: won_amount_usd=%.2f ema=%.2f (>3x threshold)",
-                    won_amount_usd, _CLOSED_WON_EMA,
+                    won_amount_usd,
+                    _CLOSED_WON_EMA,
                 )
             _CLOSED_WON_EMA = (
                 _CLOSED_WON_EMA_ALPHA * won_amount_usd
@@ -110,6 +112,7 @@ def _audit(ev: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 # ID minting
 # ---------------------------------------------------------------------------
+
 
 def _new_prospect_id() -> str:
     return f"pr_{uuid.uuid4().hex[:20]}"
@@ -138,6 +141,7 @@ def _new_artifact_id() -> str:
 # ---------------------------------------------------------------------------
 # Single-entity reads
 # ---------------------------------------------------------------------------
+
 
 def get_prospect(prospect_id: str) -> Prospect | None:
     """Fetch one Prospect by id. Returns None on 404 OR on AWS error
@@ -223,11 +227,12 @@ def get_artifact(artifact_id: str) -> Artifact | None:
 # Filtered scans (Phase 1: full-table scan + boto FilterExpression)
 # ---------------------------------------------------------------------------
 
+
 def _filter_eq(field: str, value: str) -> tuple[Any, dict[str, Any], dict[str, str]]:
     """Build a DDB FilterExpression for ``field == :v`` using attribute-name
     aliasing so reserved words / hyphenated names work."""
     return (
-        f"#f = :v",
+        "#f = :v",
         {":v": value},
         {"#f": field},
     )
@@ -238,7 +243,8 @@ def list_contacts(*, prospect_id: str | None = None, limit: int = 50) -> Contact
     if prospect_id:
         fe, vals, names = _filter_eq("prospect_id", prospect_id)
         items, truncated, err = p.safe_scan(
-            table, limit=limit,
+            table,
+            limit=limit,
             filter_expression=fe,
             expression_attribute_values=vals,
             expression_attribute_names=names,
@@ -252,8 +258,7 @@ def list_contacts(*, prospect_id: str | None = None, limit: int = 50) -> Contact
         except Exception as exc:  # noqa: BLE001
             _LOG.warning("skip malformed contact: %s", exc)
     rows.sort(key=lambda r: r.created_at, reverse=True)
-    return ContactList(contacts=rows, count=len(rows),
-                       scan_truncated=truncated, ddb_error=err)
+    return ContactList(contacts=rows, count=len(rows), scan_truncated=truncated, ddb_error=err)
 
 
 def list_conversations(*, prospect_id: str | None = None, limit: int = 50) -> ConversationList:
@@ -261,7 +266,8 @@ def list_conversations(*, prospect_id: str | None = None, limit: int = 50) -> Co
     if prospect_id:
         fe, vals, names = _filter_eq("prospect_id", prospect_id)
         items, truncated, err = p.safe_scan(
-            table, limit=limit,
+            table,
+            limit=limit,
             filter_expression=fe,
             expression_attribute_values=vals,
             expression_attribute_names=names,
@@ -275,8 +281,9 @@ def list_conversations(*, prospect_id: str | None = None, limit: int = 50) -> Co
         except Exception as exc:  # noqa: BLE001
             _LOG.warning("skip malformed conversation: %s", exc)
     rows.sort(key=lambda r: r.started_at, reverse=True)
-    return ConversationList(conversations=rows, count=len(rows),
-                            scan_truncated=truncated, ddb_error=err)
+    return ConversationList(
+        conversations=rows, count=len(rows), scan_truncated=truncated, ddb_error=err
+    )
 
 
 def list_opportunities(*, stage: str | None = None, limit: int = 50) -> OpportunityList:
@@ -284,7 +291,8 @@ def list_opportunities(*, stage: str | None = None, limit: int = 50) -> Opportun
     if stage:
         fe, vals, names = _filter_eq("stage", stage)
         items, truncated, err = p.safe_scan(
-            table, limit=limit,
+            table,
+            limit=limit,
             filter_expression=fe,
             expression_attribute_values=vals,
             expression_attribute_names=names,
@@ -298,8 +306,9 @@ def list_opportunities(*, stage: str | None = None, limit: int = 50) -> Opportun
         except Exception as exc:  # noqa: BLE001
             _LOG.warning("skip malformed opportunity: %s", exc)
     rows.sort(key=lambda r: r.created_at, reverse=True)
-    return OpportunityList(opportunities=rows, count=len(rows),
-                           scan_truncated=truncated, ddb_error=err)
+    return OpportunityList(
+        opportunities=rows, count=len(rows), scan_truncated=truncated, ddb_error=err
+    )
 
 
 def list_operator_tasks(*, status: str | None = "open", limit: int = 50) -> OperatorTaskList:
@@ -308,7 +317,8 @@ def list_operator_tasks(*, status: str | None = "open", limit: int = 50) -> Oper
         # 'status' is a DDB reserved word — must alias via #f.
         fe, vals, names = _filter_eq("status", status)
         items, truncated, err = p.safe_scan(
-            table, limit=limit,
+            table,
+            limit=limit,
             filter_expression=fe,
             expression_attribute_values=vals,
             expression_attribute_names=names,
@@ -322,8 +332,7 @@ def list_operator_tasks(*, status: str | None = "open", limit: int = 50) -> Oper
         except Exception as exc:  # noqa: BLE001
             _LOG.warning("skip malformed operator_task: %s", exc)
     rows.sort(key=lambda r: r.due_at or r.created_at)
-    return OperatorTaskList(tasks=rows, count=len(rows),
-                            scan_truncated=truncated, ddb_error=err)
+    return OperatorTaskList(tasks=rows, count=len(rows), scan_truncated=truncated, ddb_error=err)
 
 
 def list_artifacts(*, owner_entity_id: str | None = None, limit: int = 50) -> ArtifactList:
@@ -331,7 +340,8 @@ def list_artifacts(*, owner_entity_id: str | None = None, limit: int = 50) -> Ar
     if owner_entity_id:
         fe, vals, names = _filter_eq("owner_entity_id", owner_entity_id)
         items, truncated, err = p.safe_scan(
-            table, limit=limit,
+            table,
+            limit=limit,
             filter_expression=fe,
             expression_attribute_values=vals,
             expression_attribute_names=names,
@@ -345,13 +355,13 @@ def list_artifacts(*, owner_entity_id: str | None = None, limit: int = 50) -> Ar
         except Exception as exc:  # noqa: BLE001
             _LOG.warning("skip malformed artifact: %s", exc)
     rows.sort(key=lambda r: r.created_at, reverse=True)
-    return ArtifactList(artifacts=rows, count=len(rows),
-                        scan_truncated=truncated, ddb_error=err)
+    return ArtifactList(artifacts=rows, count=len(rows), scan_truncated=truncated, ddb_error=err)
 
 
 # ---------------------------------------------------------------------------
 # Follow-ups due — outreach-sent prospects awaiting a follow-up call
 # ---------------------------------------------------------------------------
+
 
 def _days_between(earlier: str, later: str) -> int:
     """Whole days from one YYYY-MM-DD date to another; 0 if either won't parse."""
@@ -407,7 +417,8 @@ def _opportunity_for_prospect(prospect_id: str) -> Opportunity | None:
         return None
     fe, vals, names = _filter_eq("prospect_id", prospect_id)
     items, _trunc, _err = p.safe_scan(
-        p._opportunities_table(), limit=25,
+        p._opportunities_table(),
+        limit=25,
         filter_expression=fe,
         expression_attribute_values=vals,
         expression_attribute_names=names,
@@ -440,24 +451,70 @@ def get_opportunity_for_prospect(prospect_id: str) -> Opportunity | None:
 # hits wins (a tie yields no suggestion — never guess). sku_ids must stay in
 # sync with backend.catalog.registry.
 _UPSELL_SIGNALS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("service_workflow_buildout", (
-        "workflow", "automation", "automate", "automated", "handoff",
-        "manual process", "our process", "operations", " ops ", "integrate",
-        "spreadsheet", "disorganized", "scaling", "scale up", "systems",
-    )),
-    ("retainer_ai_receptionist", (
-        "missed call", "missing call", "miss call", "answer the phone",
-        "receptionist", "answering service", "voicemail", "front desk",
-        "after hours", "after-hours", "booking", "appointment", "scheduling",
-    )),
-    ("service_seo_implementation", (
-        "seo", "ranking", "rank higher", "google", "search results",
-        "keyword", "visibility", "found online", "organic traffic",
-    )),
-    ("retainer_ai_ops_partner_entry", (
-        "retainer", "ongoing support", "monthly", "managed", "long term",
-        "long-term", "partner",
-    )),
+    (
+        "service_workflow_buildout",
+        (
+            "workflow",
+            "automation",
+            "automate",
+            "automated",
+            "handoff",
+            "manual process",
+            "our process",
+            "operations",
+            " ops ",
+            "integrate",
+            "spreadsheet",
+            "disorganized",
+            "scaling",
+            "scale up",
+            "systems",
+        ),
+    ),
+    (
+        "retainer_ai_receptionist",
+        (
+            "missed call",
+            "missing call",
+            "miss call",
+            "answer the phone",
+            "receptionist",
+            "answering service",
+            "voicemail",
+            "front desk",
+            "after hours",
+            "after-hours",
+            "booking",
+            "appointment",
+            "scheduling",
+        ),
+    ),
+    (
+        "service_seo_implementation",
+        (
+            "seo",
+            "ranking",
+            "rank higher",
+            "google",
+            "search results",
+            "keyword",
+            "visibility",
+            "found online",
+            "organic traffic",
+        ),
+    ),
+    (
+        "retainer_ai_ops_partner_entry",
+        (
+            "retainer",
+            "ongoing support",
+            "monthly",
+            "managed",
+            "long term",
+            "long-term",
+            "partner",
+        ),
+    ),
 )
 
 
@@ -492,8 +549,7 @@ def _suggest_upsell(corpus: str) -> tuple[str, str, str]:
     price = entry.price_usd_cents / 100
     price_str = f"${price:,.0f}/mo" if entry.recurring else f"${price:,.0f}"
     signal = best_hits[0].strip()
-    pitch = (f"offer {entry.display_name} ({price_str}) — "
-             f'they signalled "{signal}"')
+    pitch = f'offer {entry.display_name} ({price_str}) — they signalled "{signal}"'
     return best_sku, entry.display_name, pitch
 
 
@@ -508,12 +564,16 @@ def _follow_up_signal(prospect_id: str) -> tuple[Conversation | None, str]:
     convos = list_conversations(prospect_id=prospect_id, limit=50).conversations
     outreach = sorted(
         (c for c in convos if c.outcome == "outreach_sent"),
-        key=lambda c: c.started_at, reverse=True,
+        key=lambda c: c.started_at,
+        reverse=True,
     )
     parts: list[str] = []
     for c in convos:
-        parts += [c.transcript or "", c.summary or "",
-                  str((c.structured_data or {}).get("subject", ""))]
+        parts += [
+            c.transcript or "",
+            c.summary or "",
+            str((c.structured_data or {}).get("subject", "")),
+        ]
     opp = _opportunity_for_prospect(prospect_id)
     if opp:
         parts += [opp.next_step or "", opp.name or ""]
@@ -540,7 +600,8 @@ def list_follow_ups_due(*, today: str, limit: int = 100) -> FollowUpList:
     """
     fe, vals, names = _filter_eq("state", "outreach_sent")
     items, truncated, err = p.safe_scan(
-        p._call_state_table(), limit=limit,
+        p._call_state_table(),
+        limit=limit,
         filter_expression=fe,
         expression_attribute_values=vals,
         expression_attribute_names=names,
@@ -559,31 +620,32 @@ def list_follow_ups_due(*, today: str, limit: int = 100) -> FollowUpList:
             continue
         convo, corpus = _follow_up_signal(state.prospect_id)
         sd: dict[str, Any] = convo.structured_data if convo else {}
-        emailed_on = str(sd.get("emailed_on")
-                         or (convo.started_at[:10] if convo else ""))
+        emailed_on = str(sd.get("emailed_on") or (convo.started_at[:10] if convo else ""))
         upsell_sku, upsell_name, upsell_pitch = _suggest_upsell(corpus)
-        due.append(FollowUpDue(
-            prospect_id=state.prospect_id,
-            company=str(sd.get("company") or ""),
-            phone=str(sd.get("phone") or ""),
-            channel=str(sd.get("channel") or (convo.channel if convo else "")),
-            subject=str(sd.get("subject") or (convo.summary if convo else "")),
-            emailed_on=emailed_on,
-            follow_up_on=scheduled,
-            days_waiting=_days_between(emailed_on, today),
-            attempt_count=state.attempt_count,
-            upsell_sku=upsell_sku,
-            upsell_name=upsell_name,
-            upsell_pitch=upsell_pitch,
-        ))
+        due.append(
+            FollowUpDue(
+                prospect_id=state.prospect_id,
+                company=str(sd.get("company") or ""),
+                phone=str(sd.get("phone") or ""),
+                channel=str(sd.get("channel") or (convo.channel if convo else "")),
+                subject=str(sd.get("subject") or (convo.summary if convo else "")),
+                emailed_on=emailed_on,
+                follow_up_on=scheduled,
+                days_waiting=_days_between(emailed_on, today),
+                attempt_count=state.attempt_count,
+                upsell_sku=upsell_sku,
+                upsell_name=upsell_name,
+                upsell_pitch=upsell_pitch,
+            )
+        )
     due.sort(key=lambda f: (f.follow_up_on, f.company.lower()))
-    return FollowUpList(follow_ups=due, count=len(due),
-                        scan_truncated=truncated, ddb_error=err)
+    return FollowUpList(follow_ups=due, count=len(due), scan_truncated=truncated, ddb_error=err)
 
 
 # ---------------------------------------------------------------------------
 # Lead -> Prospect + Contact conversion
 # ---------------------------------------------------------------------------
+
 
 def _existing_contact_for_email(email: str) -> Contact | None:
     """Lookup contact by email via filtered scan. Returns first match or None."""
@@ -591,7 +653,8 @@ def _existing_contact_for_email(email: str) -> Contact | None:
         return None
     fe, vals, names = _filter_eq("email", email.strip().lower())
     items, _trunc, _err = p.safe_scan(
-        p._contacts_table(), limit=5,
+        p._contacts_table(),
+        limit=5,
         filter_expression=fe,
         expression_attribute_values=vals,
         expression_attribute_names=names,
@@ -610,7 +673,8 @@ def _existing_prospect_for_website(website_url: str) -> Prospect | None:
         return None
     fe, vals, names = _filter_eq("website_url", website_url.strip().lower())
     items, _trunc, _err = p.safe_scan(
-        p._prospects_table(), limit=5,
+        p._prospects_table(),
+        limit=5,
         filter_expression=fe,
         expression_attribute_values=vals,
         expression_attribute_names=names,
@@ -640,17 +704,26 @@ def convert_lead_to_prospect(req: ConvertLeadRequest) -> ConvertLeadResult:
 
     # 1. Read the source lead
     lead_item, lead_err = p.safe_get(
-        p._onboarding_leads_table(), {"lead_id": req.lead_id},
+        p._onboarding_leads_table(),
+        {"lead_id": req.lead_id},
     )
     if lead_err is not None:
         return ConvertLeadResult(
-            status="failed", prospect_id="", contact_id="",
-            lead_id=req.lead_id, ts=ts, error=lead_err,
+            status="failed",
+            prospect_id="",
+            contact_id="",
+            lead_id=req.lead_id,
+            ts=ts,
+            error=lead_err,
         )
     if lead_item is None:
         return ConvertLeadResult(
-            status="failed", prospect_id="", contact_id="",
-            lead_id=req.lead_id, ts=ts, error="lead_not_found",
+            status="failed",
+            prospect_id="",
+            contact_id="",
+            lead_id=req.lead_id,
+            ts=ts,
+            error="lead_not_found",
         )
 
     lead_email = (lead_item.get("email") or "").strip().lower()
@@ -667,11 +740,15 @@ def convert_lead_to_prospect(req: ConvertLeadRequest) -> ConvertLeadResult:
     existing = _existing_contact_for_email(lead_email)
     if existing is not None:
         ev = events.build_audit_event(
-            service="crm", task_id=req.lead_id, action="convert_lead",
+            service="crm",
+            task_id=req.lead_id,
+            action="convert_lead",
             input_payload={"lead_id": req.lead_id, "email_tail": lead_email[-12:]},
-            output_payload={"prospect_id": existing.prospect_id,
-                            "contact_id": existing.contact_id,
-                            "status": "existing"},
+            output_payload={
+                "prospect_id": existing.prospect_id,
+                "contact_id": existing.contact_id,
+                "status": "existing",
+            },
             status="completed",
         )
         _audit(ev)
@@ -679,7 +756,8 @@ def convert_lead_to_prospect(req: ConvertLeadRequest) -> ConvertLeadResult:
             status="existing",
             prospect_id=existing.prospect_id,
             contact_id=existing.contact_id,
-            lead_id=req.lead_id, ts=ts,
+            lead_id=req.lead_id,
+            ts=ts,
         )
 
     # 3. Existing prospect by website? Attach new contact; else create both.
@@ -700,8 +778,12 @@ def convert_lead_to_prospect(req: ConvertLeadRequest) -> ConvertLeadResult:
         ok, err = p.safe_put(p._prospects_table(), prospect.model_dump())
         if not ok:
             return ConvertLeadResult(
-                status="failed", prospect_id="", contact_id="",
-                lead_id=req.lead_id, ts=ts, error=err,
+                status="failed",
+                prospect_id="",
+                contact_id="",
+                lead_id=req.lead_id,
+                ts=ts,
+                error=err,
             )
 
     # 4. Create the Contact
@@ -720,13 +802,19 @@ def convert_lead_to_prospect(req: ConvertLeadRequest) -> ConvertLeadResult:
     ok, err = p.safe_put(p._contacts_table(), contact.model_dump())
     if not ok:
         return ConvertLeadResult(
-            status="failed", prospect_id=prospect_id, contact_id="",
-            lead_id=req.lead_id, ts=ts, error=err,
+            status="failed",
+            prospect_id=prospect_id,
+            contact_id="",
+            lead_id=req.lead_id,
+            ts=ts,
+            error=err,
         )
 
     # 5. Audit
     ev = events.build_audit_event(
-        service="crm", task_id=req.lead_id, action="convert_lead",
+        service="crm",
+        task_id=req.lead_id,
+        action="convert_lead",
         input_payload={
             "lead_id": req.lead_id,
             "email_tail": lead_email[-12:],
@@ -736,7 +824,8 @@ def convert_lead_to_prospect(req: ConvertLeadRequest) -> ConvertLeadResult:
             "assigned_to": req.assigned_to,
         },
         output_payload={
-            "prospect_id": prospect_id, "contact_id": contact_id,
+            "prospect_id": prospect_id,
+            "contact_id": contact_id,
             "status": "created",
         },
         status="completed",
@@ -746,13 +835,16 @@ def convert_lead_to_prospect(req: ConvertLeadRequest) -> ConvertLeadResult:
     # Conversion-funnel telemetry — a lead just became a prospect. Best-effort:
     # a telemetry hiccup must never fail the conversion.
     conversion_funnel.record_stage(
-        "prospect", entity_id=prospect_id, source="convert_lead",
+        "prospect",
+        entity_id=prospect_id,
+        source="convert_lead",
     )
 
     # Unified business-event ledger (HOTL Tranche 1) — lead->prospect convert.
     # No direct taxonomy fit, so decision.made carries the transition in
     # metadata. Fail-soft by contract: emit_business_event never raises.
     from backend.common.business_events import DECISION_MADE, emit_business_event
+
     emit_business_event(
         DECISION_MADE,
         workcell="crm",
@@ -765,8 +857,11 @@ def convert_lead_to_prospect(req: ConvertLeadRequest) -> ConvertLeadResult:
     )
 
     return ConvertLeadResult(
-        status="created", prospect_id=prospect_id, contact_id=contact_id,
-        lead_id=req.lead_id, ts=ts,
+        status="created",
+        prospect_id=prospect_id,
+        contact_id=contact_id,
+        lead_id=req.lead_id,
+        ts=ts,
     )
 
 
@@ -777,6 +872,7 @@ def convert_lead_to_prospect(req: ConvertLeadRequest) -> ConvertLeadResult:
 # voice workcell calls them after an end-of-call webhook to persist the
 # transcript/summary as a Conversation row and refresh the per-prospect
 # CallState FSM row. Idempotent: same PK overwrites cleanly.
+
 
 def upsert_conversation(conv: Conversation) -> bool:
     """Persist (insert or overwrite) a Conversation row keyed by ``conversation_id``.
@@ -807,8 +903,7 @@ def upsert_conversation(conv: Conversation) -> bool:
     )
     _audit(ev)
     if not ok:
-        _LOG.warning("upsert_conversation failed for %s: %s",
-                     conv.conversation_id, err)
+        _LOG.warning("upsert_conversation failed for %s: %s", conv.conversation_id, err)
     else:
         # Best-effort mirror of the prospect -> contact -> conversation
         # sub-graph into the local KG. No-op unless the projection flag is on
@@ -845,14 +940,14 @@ def upsert_call_state(state: CallState) -> bool:
     )
     _audit(ev)
     if not ok:
-        _LOG.warning("upsert_call_state failed for %s: %s",
-                     state.prospect_id, err)
+        _LOG.warning("upsert_call_state failed for %s: %s", state.prospect_id, err)
     return ok
 
 
 # ---------------------------------------------------------------------------
 # Opportunity create + advance (Phase 3 — pipeline FSM + deal scoring)
 # ---------------------------------------------------------------------------
+
 
 def create_opportunity(req: CreateOpportunityRequest) -> CreateOpportunityResult:
     """Mint an Opportunity, persist it, audit, and return the id.
@@ -868,16 +963,14 @@ def create_opportunity(req: CreateOpportunityRequest) -> CreateOpportunityResult
 
     # Score from lead signals if any were passed; otherwise fall back to
     # the stage=new baseline.
-    if (
-        req.intent_score is not None
-        or req.monthly_budget
-        or req.service_interest
-    ):
-        tier, close_probability, deal_size = score_opportunity_from_lead({
-            "intent_score": req.intent_score,
-            "monthly_budget": req.monthly_budget,
-            "service_interest": list(req.service_interest),
-        })
+    if req.intent_score is not None or req.monthly_budget or req.service_interest:
+        tier, close_probability, deal_size = score_opportunity_from_lead(
+            {
+                "intent_score": req.intent_score,
+                "monthly_budget": req.monthly_budget,
+                "service_interest": list(req.service_interest),
+            }
+        )
         tier_hint = f"tier={tier}"
     else:
         tier = "low"
@@ -915,20 +1008,23 @@ def create_opportunity(req: CreateOpportunityRequest) -> CreateOpportunityResult
         # Operator-authored stake_sentence (optional at create; outreach
         # refuses to fire while it stays empty).
         stake_sentence=req.stake_sentence,
-        stake_sentence_authored_by=(
-            req.stake_sentence_authored_by if req.stake_sentence else ""
-        ),
+        stake_sentence_authored_by=(req.stake_sentence_authored_by if req.stake_sentence else ""),
         stake_sentence_authored_at=(ts if req.stake_sentence else ""),
     )
 
     ok, err = p.safe_put(p._opportunities_table(), opportunity.model_dump())
     if not ok:
         return CreateOpportunityResult(
-            status="failed", opportunity_id="", ts=ts, error=err,
+            status="failed",
+            opportunity_id="",
+            ts=ts,
+            error=err,
         )
 
     ev = events.build_audit_event(
-        service="crm", task_id=opportunity_id, action="create_opportunity",
+        service="crm",
+        task_id=opportunity_id,
+        action="create_opportunity",
         input_payload={
             "prospect_id": req.prospect_id,
             "contact_id": req.contact_id,
@@ -951,14 +1047,17 @@ def create_opportunity(req: CreateOpportunityRequest) -> CreateOpportunityResult
     # Conversion-funnel telemetry — a prospect just became an opportunity.
     # Best-effort: never fails the create.
     conversion_funnel.record_stage(
-        "opportunity", entity_id=opportunity_id,
-        source="create_opportunity", industry=req.industry,
+        "opportunity",
+        entity_id=opportunity_id,
+        source="create_opportunity",
+        industry=req.industry,
     )
 
     # Unified business-event ledger (HOTL Tranche 1) — prospect->opportunity.
     # No direct taxonomy fit for "opportunity created", so decision.made
     # carries it in metadata. Fail-soft by contract: never raises.
     from backend.common.business_events import DECISION_MADE, emit_business_event
+
     emit_business_event(
         DECISION_MADE,
         workcell="crm",
@@ -978,7 +1077,9 @@ def create_opportunity(req: CreateOpportunityRequest) -> CreateOpportunityResult
     _project_opportunity_to_hivemind(opportunity)
 
     return CreateOpportunityResult(
-        status="created", opportunity_id=opportunity_id, ts=ts,
+        status="created",
+        opportunity_id=opportunity_id,
+        ts=ts,
     )
 
 
@@ -999,23 +1100,28 @@ def set_opportunity_stake(
     opp = get_opportunity(opportunity_id)
     if opp is None:
         return None
-    updated = opp.model_copy(update={
-        "stake_sentence": stake_sentence,
-        "stake_sentence_authored_by": authored_by,
-        "stake_sentence_authored_at": authored_at,
-        "updated_at": iso_now(),
-    })
+    updated = opp.model_copy(
+        update={
+            "stake_sentence": stake_sentence,
+            "stake_sentence_authored_by": authored_by,
+            "stake_sentence_authored_at": authored_at,
+            "updated_at": iso_now(),
+        }
+    )
     ok, err = p.safe_put(p._opportunities_table(), updated.model_dump())
     if not ok:
-        _LOG.warning("set_opportunity_stake persist failed opp=%s err=%s",
-                     opportunity_id, err)
+        _LOG.warning("set_opportunity_stake persist failed opp=%s err=%s", opportunity_id, err)
         return None
-    _audit(events.build_audit_event(
-        service="crm", task_id=opportunity_id, action="set_opportunity_stake",
-        input_payload={"authored_by": authored_by},
-        output_payload={"opportunity_id": opportunity_id, "ts": updated.updated_at},
-        status="completed",
-    ))
+    _audit(
+        events.build_audit_event(
+            service="crm",
+            task_id=opportunity_id,
+            action="set_opportunity_stake",
+            input_payload={"authored_by": authored_by},
+            output_payload={"opportunity_id": opportunity_id, "ts": updated.updated_at},
+            status="completed",
+        )
+    )
     return updated
 
 
@@ -1026,10 +1132,7 @@ def list_opportunities_pending_stake(limit: int = 50) -> list[Opportunity]:
     on the one line he needs to type before they can move into outreach.
     """
     result = list_opportunities(limit=max(1, min(500, int(limit) * 10)))
-    pending = [
-        o for o in result.opportunities
-        if not (o.stake_sentence or "").strip()
-    ]
+    pending = [o for o in result.opportunities if not (o.stake_sentence or "").strip()]
     pending.sort(key=lambda o: o.created_at or "")
     return pending[:limit]
 
@@ -1048,25 +1151,32 @@ def advance_opportunity(req: AdvanceOpportunityRequest) -> AdvanceOpportunityRes
 
     # 1. Read current row
     item, get_err = p.safe_get(
-        p._opportunities_table(), {"opportunity_id": req.opportunity_id},
+        p._opportunities_table(),
+        {"opportunity_id": req.opportunity_id},
     )
     if get_err is not None:
         return AdvanceOpportunityResult(
-            status="failed", opportunity_id=req.opportunity_id,
-            ts=ts, error=get_err,
+            status="failed",
+            opportunity_id=req.opportunity_id,
+            ts=ts,
+            error=get_err,
         )
     if item is None:
         return AdvanceOpportunityResult(
-            status="not_found", opportunity_id=req.opportunity_id,
-            ts=ts, error="opportunity_not_found",
+            status="not_found",
+            opportunity_id=req.opportunity_id,
+            ts=ts,
+            error="opportunity_not_found",
         )
 
     try:
         current = Opportunity.model_validate(item)
     except Exception as exc:  # noqa: BLE001
         return AdvanceOpportunityResult(
-            status="failed", opportunity_id=req.opportunity_id,
-            ts=ts, error=f"malformed_row: {exc}",
+            status="failed",
+            opportunity_id=req.opportunity_id,
+            ts=ts,
+            error=f"malformed_row: {exc}",
         )
 
     prior_stage = current.stage
@@ -1075,7 +1185,8 @@ def advance_opportunity(req: AdvanceOpportunityRequest) -> AdvanceOpportunityRes
     allowed, reason = validate_transition(prior_stage, req.target_stage)
     if not allowed:
         ev = events.build_audit_event(
-            service="crm", task_id=req.opportunity_id,
+            service="crm",
+            task_id=req.opportunity_id,
             action="advance_opportunity",
             input_payload={
                 "opportunity_id": req.opportunity_id,
@@ -1111,13 +1222,9 @@ def advance_opportunity(req: AdvanceOpportunityRequest) -> AdvanceOpportunityRes
         # step 3: closed_won takes req.won_amount_usd or current.deal_size_usd;
         # closed_won_retainer carries the opportunity's existing won amount.
         if req.target_stage == "closed_won":
-            effective_amount = float(
-                req.won_amount_usd or current.deal_size_usd or 0.0
-            )
+            effective_amount = float(req.won_amount_usd or current.deal_size_usd or 0.0)
         else:
-            effective_amount = float(
-                req.won_amount_usd or current.won_amount_usd or 0.0
-            )
+            effective_amount = float(req.won_amount_usd or current.won_amount_usd or 0.0)
         cap = float(get_settings().crm_max_close_amount_usd or 0.0)
         if cap > 0 and effective_amount > cap:
             metrics.SAMUS_CRM_CLOSED_WON_BLOCKED_TOTAL.inc()
@@ -1125,11 +1232,16 @@ def advance_opportunity(req: AdvanceOpportunityRequest) -> AdvanceOpportunityRes
                 "crm.closed_won_blocked_over_cap: opportunity=%s amount=%.2f "
                 "cap=%.2f target_stage=%s source=%s — close REFUSED, "
                 "opportunity left in stage %s",
-                req.opportunity_id, effective_amount, cap, req.target_stage,
-                (req.notes or "")[:120], prior_stage,
+                req.opportunity_id,
+                effective_amount,
+                cap,
+                req.target_stage,
+                (req.notes or "")[:120],
+                prior_stage,
             )
             ev = events.build_audit_event(
-                service="crm", task_id=req.opportunity_id,
+                service="crm",
+                task_id=req.opportunity_id,
                 action="advance_opportunity",
                 input_payload={
                     "opportunity_id": req.opportunity_id,
@@ -1160,29 +1272,38 @@ def advance_opportunity(req: AdvanceOpportunityRequest) -> AdvanceOpportunityRes
             )
 
     # 3. Apply mutation + terminal side effects
-    updated = current.model_copy(update={
-        "stage": req.target_stage,
-        "close_probability": STAGE_PROBABILITIES[req.target_stage],
-        "updated_at": ts,
-    })
+    updated = current.model_copy(
+        update={
+            "stage": req.target_stage,
+            "close_probability": STAGE_PROBABILITIES[req.target_stage],
+            "updated_at": ts,
+        }
+    )
 
     if req.target_stage in TERMINAL_STAGES:
         updated = updated.model_copy(update={"actual_close": ts})
     if req.target_stage == "closed_won":
-        updated = updated.model_copy(update={
-            "won_amount_usd": req.won_amount_usd or current.deal_size_usd,
-        })
+        updated = updated.model_copy(
+            update={
+                "won_amount_usd": req.won_amount_usd or current.deal_size_usd,
+            }
+        )
     if req.target_stage == "closed_lost":
-        updated = updated.model_copy(update={
-            "lost_reason": req.lost_reason or "unspecified",
-        })
+        updated = updated.model_copy(
+            update={
+                "lost_reason": req.lost_reason or "unspecified",
+            }
+        )
 
     ok, err = p.safe_put(p._opportunities_table(), updated.model_dump())
     if not ok:
         return AdvanceOpportunityResult(
-            status="failed", opportunity_id=req.opportunity_id,
-            prior_stage=prior_stage, new_stage=prior_stage,
-            ts=ts, error=err,
+            status="failed",
+            opportunity_id=req.opportunity_id,
+            prior_stage=prior_stage,
+            new_stage=prior_stage,
+            ts=ts,
+            error=err,
         )
 
     # Telemetry — for a terminal-stage close, record the deal's
@@ -1195,7 +1316,8 @@ def advance_opportunity(req: AdvanceOpportunityRequest) -> AdvanceOpportunityRes
     )
 
     ev = events.build_audit_event(
-        service="crm", task_id=req.opportunity_id,
+        service="crm",
+        task_id=req.opportunity_id,
         action="advance_opportunity",
         input_payload={
             "opportunity_id": req.opportunity_id,
@@ -1227,8 +1349,10 @@ def advance_opportunity(req: AdvanceOpportunityRequest) -> AdvanceOpportunityRes
     }.get(req.target_stage)
     if _funnel_stage is not None:
         conversion_funnel.record_stage(
-            _funnel_stage, entity_id=req.opportunity_id,
-            source="advance_opportunity", industry=updated.industry,
+            _funnel_stage,
+            entity_id=req.opportunity_id,
+            source="advance_opportunity",
+            industry=updated.industry,
         )
 
     # Unified business-event ledger (HOTL Tranche 1) — every stage advance.
@@ -1240,6 +1364,7 @@ def advance_opportunity(req: AdvanceOpportunityRequest) -> AdvanceOpportunityRes
         PROPOSAL_SENT,
         emit_business_event,
     )
+
     emit_business_event(
         PROPOSAL_SENT if req.target_stage == "proposal" else DECISION_MADE,
         workcell="crm",
@@ -1310,6 +1435,7 @@ def advance_opportunity(req: AdvanceOpportunityRequest) -> AdvanceOpportunityRes
 # network / strategy failure is logged and swallowed. The opportunity write
 # has already committed; a learn-step miss must not fail it.
 
+
 def _dispatch_outcome_to_strategy(opp: Opportunity) -> None:
     """Best-effort: tell the strategy workcell a deal closed so its bandit learns.
 
@@ -1339,7 +1465,7 @@ def _dispatch_outcome_to_strategy(opp: Opportunity) -> None:
 
     payload = {
         "prospect_id": opp.prospect_id,
-        "won": won,                       # back-compat with the legacy contract
+        "won": won,  # back-compat with the legacy contract
         "industry": opp.industry,
         "policy_family": opp.policy_family,
         "outcome": graded_outcome,
@@ -1354,17 +1480,22 @@ def _dispatch_outcome_to_strategy(opp: Opportunity) -> None:
     }
     try:
         resp = signed_post_json_sync(
-            strategy_url, _STRATEGY_RECORD_OUTCOME_PATH, payload, retries=2,
+            strategy_url,
+            _STRATEGY_RECORD_OUTCOME_PATH,
+            payload,
+            retries=2,
         )
         if resp.status_code >= 400:
             _LOG.warning(
                 "strategy outcome dispatch %s -> HTTP %s",
-                _STRATEGY_RECORD_OUTCOME_PATH, resp.status_code,
+                _STRATEGY_RECORD_OUTCOME_PATH,
+                resp.status_code,
             )
     except Exception as exc:  # noqa: BLE001 — best-effort learn-step bookkeeping
         _LOG.warning(
             "strategy outcome dispatch failed opportunity=%s: %s",
-            opp.opportunity_id, exc,
+            opp.opportunity_id,
+            exc,
         )
 
 
@@ -1377,6 +1508,7 @@ def _dispatch_outcome_to_strategy(opp: Opportunity) -> None:
 # deliverable skeleton is waiting in the artifact list by review time. Mirrors
 # _dispatch_outcome_to_strategy's best-effort contract and proposal.service.
 # _dispatch_artifact_to_crm's gateway-dispatch shape.
+
 
 def _dispatch_intake_to_proposal(opp: Opportunity) -> None:
     """Best-effort: an Opportunity entered the ``proposal`` stage — ask the
@@ -1411,12 +1543,9 @@ def _dispatch_intake_to_proposal(opp: Opportunity) -> None:
         "payload": {
             "task_id": task_id,
             "intake": {
-                "client_name": (
-                    opp.name or f"Opportunity {opp.opportunity_id[-6:]}"
-                ),
+                "client_name": (opp.name or f"Opportunity {opp.opportunity_id[-6:]}"),
                 "business_goal": (
-                    opp.next_step
-                    or "Automation scoping — operator to detail triggers/actions."
+                    opp.next_step or "Automation scoping — operator to detail triggers/actions."
                 ),
                 "triggers_wanted": [],
                 "actions_wanted": [],
@@ -1431,7 +1560,10 @@ def _dispatch_intake_to_proposal(opp: Opportunity) -> None:
     }
     try:
         resp = signed_post_json_sync(
-            gateway_url, "/dispatch/proposal", envelope, retries=2,
+            gateway_url,
+            "/dispatch/proposal",
+            envelope,
+            retries=2,
         )
         if resp.status_code >= 400:
             _LOG.warning(
@@ -1441,7 +1573,8 @@ def _dispatch_intake_to_proposal(opp: Opportunity) -> None:
     except Exception as exc:  # noqa: BLE001 — best-effort draft-ahead bookkeeping
         _LOG.warning(
             "proposal intake dispatch failed opportunity=%s: %s",
-            opp.opportunity_id, exc,
+            opp.opportunity_id,
+            exc,
         )
 
 
@@ -1456,6 +1589,7 @@ def _dispatch_intake_to_proposal(opp: Opportunity) -> None:
 # no-op when the flag is off OR when Neo4j is unreachable. Best-effort by design
 # — the DDB write is already authoritative, so a projection miss must never fail
 # or block the mutation. These are the two projection dispatch sites.
+
 
 def _project_opportunity_to_hivemind(opp: Opportunity) -> None:
     """Best-effort: mirror an Opportunity's sub-graph into the local KG.
@@ -1479,12 +1613,16 @@ def _project_opportunity_to_hivemind(opp: Opportunity) -> None:
         prospect = get_prospect(opp.prospect_id) if opp.prospect_id else None
         contact = get_contact(opp.contact_id) if opp.contact_id else None
         hivemind_projection.project_opportunity(
-            opp, prospect=prospect, contact=contact, client=gc,
+            opp,
+            prospect=prospect,
+            contact=contact,
+            client=gc,
         )
     except Exception as exc:  # noqa: BLE001 — best-effort mirror, never raise
         _LOG.warning(
             "hivemind projection dispatch failed opportunity=%s: %s",
-            opp.opportunity_id, exc,
+            opp.opportunity_id,
+            exc,
         )
 
 
@@ -1507,12 +1645,16 @@ def _project_conversation_to_hivemind(conv: Conversation) -> None:
         prospect = get_prospect(conv.prospect_id) if conv.prospect_id else None
         contact = get_contact(conv.contact_id) if conv.contact_id else None
         hivemind_projection.project_conversation(
-            conv, prospect=prospect, contact=contact, client=gc,
+            conv,
+            prospect=prospect,
+            contact=contact,
+            client=gc,
         )
     except Exception as exc:  # noqa: BLE001 — best-effort mirror, never raise
         _LOG.warning(
             "hivemind projection dispatch failed conversation=%s: %s",
-            conv.conversation_id, exc,
+            conv.conversation_id,
+            exc,
         )
 
 
@@ -1530,16 +1672,17 @@ def _project_conversation_to_hivemind(conv: Conversation) -> None:
 # Done / skipped are terminal — no re-opening (operators create a fresh task
 # if the work needs redoing, preserving the historical close record).
 _TASK_TRANSITIONS: dict[str, set[str]] = {
-    "open":        {"in_progress", "done", "skipped"},
+    "open": {"in_progress", "done", "skipped"},
     "in_progress": {"done", "skipped"},
-    "done":        set(),
-    "skipped":     set(),
+    "done": set(),
+    "skipped": set(),
 }
 _TERMINAL_TASK_STATUSES: set[str] = {"done", "skipped"}
 
 
 def _validate_task_transition(
-    current: str, target: str,
+    current: str,
+    target: str,
 ) -> tuple[bool, str | None]:
     """Return ``(allowed, reason)`` for an operator-task status transition."""
     if current == target:
@@ -1579,11 +1722,16 @@ def create_operator_task(
     ok, err = p.safe_put(p._operator_tasks_table(), task.model_dump())
     if not ok:
         return CreateOperatorTaskResult(
-            status="failed", operator_task_id="", ts=ts, error=err,
+            status="failed",
+            operator_task_id="",
+            ts=ts,
+            error=err,
         )
 
     ev = events.build_audit_event(
-        service="crm", task_id=operator_task_id, action="create_task",
+        service="crm",
+        task_id=operator_task_id,
+        action="create_task",
         input_payload={
             "kind": req.kind,
             "title": req.title[:120],
@@ -1601,7 +1749,9 @@ def create_operator_task(
     _audit(ev)
 
     return CreateOperatorTaskResult(
-        status="created", operator_task_id=operator_task_id, ts=ts,
+        status="created",
+        operator_task_id=operator_task_id,
+        ts=ts,
     )
 
 
@@ -1626,21 +1776,27 @@ def update_operator_task(
     )
     if get_err is not None:
         return UpdateOperatorTaskResult(
-            status="failed", operator_task_id=req.operator_task_id,
-            ts=ts, error=get_err,
+            status="failed",
+            operator_task_id=req.operator_task_id,
+            ts=ts,
+            error=get_err,
         )
     if item is None:
         return UpdateOperatorTaskResult(
-            status="not_found", operator_task_id=req.operator_task_id,
-            ts=ts, error="operator_task_not_found",
+            status="not_found",
+            operator_task_id=req.operator_task_id,
+            ts=ts,
+            error="operator_task_not_found",
         )
 
     try:
         current = OperatorTask.model_validate(item)
     except Exception as exc:  # noqa: BLE001
         return UpdateOperatorTaskResult(
-            status="failed", operator_task_id=req.operator_task_id,
-            ts=ts, error=f"malformed_row: {exc}",
+            status="failed",
+            operator_task_id=req.operator_task_id,
+            ts=ts,
+            error=f"malformed_row: {exc}",
         )
 
     prior_status = current.status
@@ -1648,7 +1804,8 @@ def update_operator_task(
     allowed, reason = _validate_task_transition(prior_status, req.status)
     if not allowed:
         ev = events.build_audit_event(
-            service="crm", task_id=req.operator_task_id,
+            service="crm",
+            task_id=req.operator_task_id,
             action="update_task",
             input_payload={
                 "operator_task_id": req.operator_task_id,
@@ -1687,13 +1844,18 @@ def update_operator_task(
     ok, err = p.safe_put(p._operator_tasks_table(), updated.model_dump())
     if not ok:
         return UpdateOperatorTaskResult(
-            status="failed", operator_task_id=req.operator_task_id,
-            prior_status=prior_status, new_status=prior_status,
-            ts=ts, error=err,
+            status="failed",
+            operator_task_id=req.operator_task_id,
+            prior_status=prior_status,
+            new_status=prior_status,
+            ts=ts,
+            error=err,
         )
 
     ev = events.build_audit_event(
-        service="crm", task_id=req.operator_task_id, action="update_task",
+        service="crm",
+        task_id=req.operator_task_id,
+        action="update_task",
         input_payload={
             "operator_task_id": req.operator_task_id,
             "target_status": req.status,
@@ -1726,8 +1888,12 @@ def update_operator_task(
 # into ``create_operator_task`` (via CreateOperatorTaskRequest) without any
 # field-shape gymnastics.
 
+
 def generate_task_from_lead(
-    lead_id: str, name: str, email: str, company: str,
+    lead_id: str,
+    name: str,
+    email: str,
+    company: str,
 ) -> dict[str, Any]:
     """Build an operator-task dict for a freshly arrived intake lead.
 
@@ -1759,7 +1925,9 @@ def generate_task_from_lead(
 
 
 def generate_task_for_stalled_opportunity(
-    opportunity_id: str, prospect_id: str, days_in_stage: int,
+    opportunity_id: str,
+    prospect_id: str,
+    days_in_stage: int,
 ) -> dict[str, Any]:
     """Build an operator-task dict for an opportunity that's gone stale.
 
@@ -1792,6 +1960,7 @@ def generate_task_for_stalled_opportunity(
 # webhook calls ``find_opportunity_for_email`` + ``close_opportunity_from_payment``
 # to advance an open opportunity to ``closed_won`` when payment lands.
 
+
 def create_artifact(req: CreateArtifactRequest) -> CreateArtifactResult:
     """Mint an Artifact row, persist it, audit, and return the id."""
     ts = iso_now()
@@ -1815,11 +1984,16 @@ def create_artifact(req: CreateArtifactRequest) -> CreateArtifactResult:
     ok, err = p.safe_put(p._artifacts_table(), artifact.model_dump())
     if not ok:
         return CreateArtifactResult(
-            status="failed", artifact_id="", ts=ts, error=err,
+            status="failed",
+            artifact_id="",
+            ts=ts,
+            error=err,
         )
 
     ev = events.build_audit_event(
-        service="crm", task_id=artifact_id, action="create_artifact",
+        service="crm",
+        task_id=artifact_id,
+        action="create_artifact",
         input_payload={
             "kind": req.kind,
             "owner_entity_kind": req.owner_entity_kind,
@@ -1840,7 +2014,9 @@ def create_artifact(req: CreateArtifactRequest) -> CreateArtifactResult:
     _audit(ev)
 
     return CreateArtifactResult(
-        status="created", artifact_id=artifact_id, ts=ts,
+        status="created",
+        artifact_id=artifact_id,
+        ts=ts,
     )
 
 
@@ -1864,7 +2040,8 @@ def find_opportunity_for_email(email: str) -> str | None:
     # Scan opportunities for this prospect.
     fe, vals, names = _filter_eq("prospect_id", contact.prospect_id)
     items, _trunc, _err = p.safe_scan(
-        p._opportunities_table(), limit=50,
+        p._opportunities_table(),
+        limit=50,
         filter_expression=fe,
         expression_attribute_values=vals,
         expression_attribute_names=names,
@@ -1909,7 +2086,9 @@ def close_opportunity_from_payment(
             _LOG.warning(
                 "crm.close_opportunity_from_payment: opportunity %s not found "
                 "(payment_ref=%s customer=%s)",
-                opportunity_id, payment_ref, customer_email[-20:],
+                opportunity_id,
+                payment_ref,
+                customer_email[-20:],
             )
             return AdvanceOpportunityResult(
                 status="not_found",
@@ -1931,7 +2110,9 @@ def close_opportunity_from_payment(
                 "crm.close_opportunity_from_payment: ownership UNVERIFIABLE — "
                 "opportunity %s, payment customer %s resolves to no contact "
                 "(payment_ref=%s)",
-                opportunity_id, customer_email[-20:], payment_ref,
+                opportunity_id,
+                customer_email[-20:],
+                payment_ref,
             )
             return AdvanceOpportunityResult(
                 status="failed",
@@ -1944,8 +2125,11 @@ def close_opportunity_from_payment(
                 "crm.close_opportunity_from_payment: IDOR attempt blocked — "
                 "opportunity %s belongs to prospect %s but payment customer "
                 "resolves to prospect %s (payment_ref=%s customer=%s)",
-                opportunity_id, opp.prospect_id, expected_prospect_id,
-                payment_ref, customer_email[-20:],
+                opportunity_id,
+                opp.prospect_id,
+                expected_prospect_id,
+                payment_ref,
+                customer_email[-20:],
             )
             return AdvanceOpportunityResult(
                 status="failed",
@@ -1953,12 +2137,14 @@ def close_opportunity_from_payment(
                 ts=iso_now(),
                 error="ownership_mismatch",
             )
-    return advance_opportunity(AdvanceOpportunityRequest(
-        opportunity_id=opportunity_id,
-        target_stage="closed_won",
-        won_amount_usd=float(won_amount_usd or 0.0),
-        notes=f"payment_ref={payment_ref}",
-    ))
+    return advance_opportunity(
+        AdvanceOpportunityRequest(
+            opportunity_id=opportunity_id,
+            target_stage="closed_won",
+            won_amount_usd=float(won_amount_usd or 0.0),
+            notes=f"payment_ref={payment_ref}",
+        )
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1996,6 +2182,7 @@ def get_feedback_snapshot() -> FeedbackSnapshotResponse:
 # Telemetry reads (additive, 2026-05-20)
 # ---------------------------------------------------------------------------
 
+
 def get_funnel_snapshot() -> dict[str, Any]:
     """Return the conversion-funnel leak-analysis snapshot.
 
@@ -2021,7 +2208,8 @@ def _scan_all_opportunities() -> tuple[list[Opportunity], bool, str | None]:
     Malformed rows are skipped (logged) so one bad row can't sink a metric.
     """
     items, truncated, err = p.safe_scan(
-        p._opportunities_table(), limit=_METRICS_SCAN_LIMIT,
+        p._opportunities_table(),
+        limit=_METRICS_SCAN_LIMIT,
     )
     rows: list[Opportunity] = []
     for it in items:
@@ -2068,7 +2256,8 @@ def estimated_close_probability() -> dict[str, Any]:
     for opp in rows:
         industry = (opp.industry or "").strip().lower() or "(unspecified)"
         ind = by_industry.setdefault(
-            industry, {"total": 0, "won": 0, "lost": 0, "open": 0},
+            industry,
+            {"total": 0, "won": 0, "lost": 0, "open": 0},
         )
         ind["total"] += 1
         if opp.stage in won_stages:
@@ -2085,14 +2274,10 @@ def estimated_close_probability() -> dict[str, Any]:
 
     for ind in by_industry.values():
         total = ind["total"]
-        ind["close_probability"] = (
-            round(ind["won"] / total, 4) if total > 0 else 0.0
-        )
+        ind["close_probability"] = round(ind["won"] / total, 4) if total > 0 else 0.0
     for stg in by_stage.values():
         total = stg["total"]
-        stg["close_probability"] = (
-            round(stg["won"] / total, 4) if total > 0 else 0.0
-        )
+        stg["close_probability"] = round(stg["won"] / total, 4) if total > 0 else 0.0
 
     return {
         "by_industry": by_industry,
@@ -2129,7 +2314,8 @@ def token_cost_by_industry() -> dict[str, Any]:
         industry = (opp.industry or "").strip().lower() or "(unspecified)"
         cost = float(opp.token_cost_usd or 0.0)
         bucket = by_industry.setdefault(
-            industry, {"opportunity_count": 0, "total_token_cost_usd": 0.0},
+            industry,
+            {"opportunity_count": 0, "total_token_cost_usd": 0.0},
         )
         bucket["opportunity_count"] += 1
         bucket["total_token_cost_usd"] += cost
@@ -2187,7 +2373,8 @@ def daily_stats(
         fe = "begins_with(#u, :today)"
         eav = {":today": today}
     items, truncated, err = p.safe_scan(
-        p._call_state_table(), limit=500,
+        p._call_state_table(),
+        limit=500,
         filter_expression=fe,
         expression_attribute_values=eav,
         expression_attribute_names={"#u": "updated_at"},
@@ -2231,7 +2418,8 @@ def _persist_lifecycle_tasks(tasks: list[CreateOperatorTaskRequest], context: st
         except Exception as exc:
             _LOG.warning(
                 "lifecycle task creation failed (best-effort) context=%s error=%s",
-                context, exc,
+                context,
+                exc,
             )
     return created
 
@@ -2268,7 +2456,9 @@ def auto_create_opportunity_from_lead(
             tasks = lifecycle.tasks_for_new_opportunity(opp, intent_score)
             tasks_count = _persist_lifecycle_tasks(tasks, "auto_create_opportunity_from_lead")
             ev = events.build_audit_event(
-                service="crm", task_id=result.opportunity_id, action="opportunity.auto_created",
+                service="crm",
+                task_id=result.opportunity_id,
+                action="opportunity.auto_created",
                 input_payload={
                     "prospect_id": prospect_id,
                     "intent_score": intent_score,
@@ -2331,7 +2521,9 @@ def auto_create_opportunity_from_deal_scoring(
                 tasks, "auto_create_opportunity_from_deal_scoring"
             )
             ev = events.build_audit_event(
-                service="crm", task_id=result.opportunity_id, action="opportunity.auto_created",
+                service="crm",
+                task_id=result.opportunity_id,
+                action="opportunity.auto_created",
                 input_payload={
                     "prospect_id": prospect_id,
                     "tier": tier,
@@ -2370,10 +2562,13 @@ def advance_opportunity_with_lifecycle(
         opp_after = get_opportunity(req.opportunity_id)
         if opp_after is not None:
             tasks = lifecycle.tasks_for_stage_advance(
-                opp_after, prior_stage, result.new_stage,
+                opp_after,
+                prior_stage,
+                result.new_stage,
             )
             _persist_lifecycle_tasks(
-                tasks, f"advance_opportunity_with_lifecycle:{result.new_stage}",
+                tasks,
+                f"advance_opportunity_with_lifecycle:{result.new_stage}",
             )
 
     return result

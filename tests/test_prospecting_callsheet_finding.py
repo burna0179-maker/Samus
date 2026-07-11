@@ -14,6 +14,7 @@ These tests pin:
     empty-safe) across security-grade / seo-score / no-website cases;
   * the owner-ask is empty-safe and names a real owner when known.
 """
+
 from __future__ import annotations
 
 import re
@@ -43,15 +44,23 @@ _BANNED_TIME_ASKS = (
 # ---------------------------------------------------------------------------
 
 _SECURITY = ProspectRecord(
-    company_name="Diamond Tax", industry="finance", city="Yuba City",
-    website_status="live", security_grade="F",
+    company_name="Diamond Tax",
+    industry="finance",
+    city="Yuba City",
+    website_status="live",
+    security_grade="F",
 )
 _SEO = ProspectRecord(
-    company_name="Bright Smiles Dental", industry="dentist", city="Marysville",
-    website_status="live", seo_score=42,
+    company_name="Bright Smiles Dental",
+    industry="dentist",
+    city="Marysville",
+    website_status="live",
+    seo_score=42,
 )
 _NO_SITE = ProspectRecord(
-    company_name="Acme Plumbing", industry="plumbing", city="Live Oak",
+    company_name="Acme Plumbing",
+    industry="plumbing",
+    city="Live Oak",
     website_status="no_website",
 )
 
@@ -68,7 +77,7 @@ def test_opener_asks_for_the_owner_up_front():
     for label, sheet in _openers().items():
         low = sheet.callsheet_opener.lower()
         assert "owner" in low, f"{label}: opener must ask for the owner"
-        assert ("who handles" in low or "whoever handles" in low), (
+        assert "who handles" in low or "whoever handles" in low, (
             f"{label}: opener must route to whoever handles the website/marketing"
         )
 
@@ -116,14 +125,13 @@ def test_opener_has_no_double_subject_grammar_bug():
         assert "there's there's" not in low, f"{label}: double there's"
         assert "there is there" not in low, f"{label}: double subject"
         # No accidental doubled article/word run either.
-        assert not re.search(r"\b(\w+)\s+\1\b", low), (
-            f"{label}: repeated-word bug in {opener!r}"
-        )
+        assert not re.search(r"\b(\w+)\s+\1\b", low), f"{label}: repeated-word bug in {opener!r}"
 
 
 # ---------------------------------------------------------------------------
 # The specific finding survives on callsheet_finding (present + empty-safe)
 # ---------------------------------------------------------------------------
+
 
 def test_callsheet_finding_present_and_matches_top_finding():
     """The specific finding is preserved on the record for the owner beat and
@@ -153,6 +161,7 @@ def test_callsheet_finding_is_empty_safe_never_none():
 # ---------------------------------------------------------------------------
 # Owner-ask is empty-safe + names a real owner when known
 # ---------------------------------------------------------------------------
+
 
 def test_owner_ask_uses_real_owner_name_when_present():
     p = ProspectRecord(company_name="Acme", owner_name="Dana Reyes")

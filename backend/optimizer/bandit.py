@@ -8,6 +8,7 @@ Stats dict shape::
 
     {"arm_a": {"wins": 0.0, "trials": 0}, "arm_b": {"wins": 4.0, "trials": 7}, ...}
 """
+
 from __future__ import annotations
 
 import math
@@ -80,6 +81,5 @@ def best_arm(stats: dict[str, dict[str, float]]) -> str | None:
         return None
     return max(
         stats.keys(),
-        key=lambda a: (float(stats[a].get("wins", 0.0))
-                       / max(1, int(stats[a].get("trials", 0)))),
+        key=lambda a: float(stats[a].get("wins", 0.0)) / max(1, int(stats[a].get("trials", 0))),
     )

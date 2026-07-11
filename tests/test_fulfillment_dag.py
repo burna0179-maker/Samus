@@ -12,12 +12,11 @@ Coverage targets per brief:
 
 from __future__ import annotations
 
-import pytest
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _reset_idempotency(monkeypatch):
     """Swap in a fresh IdempotencyStore so plan_fulfillment sees no cache."""
@@ -27,6 +26,7 @@ def _reset_idempotency(monkeypatch):
     fresh = IdempotencyStore()
     monkeypatch.setattr(idem_mod, "GLOBAL_IDEMPOTENCY_STORE", fresh)
     import backend.fulfillment.logic as logic_mod
+
     monkeypatch.setattr(logic_mod, "GLOBAL_IDEMPOTENCY_STORE", fresh)
     return fresh
 
@@ -34,6 +34,7 @@ def _reset_idempotency(monkeypatch):
 # ---------------------------------------------------------------------------
 # build_execution_graph_v2 — structural tests
 # ---------------------------------------------------------------------------
+
 
 class TestBuildExecutionGraphV2:
     """Structural correctness of the DAG builder."""
@@ -99,9 +100,7 @@ class TestBuildExecutionGraphV2:
         )
 
         # validate_inputs + prepare_assets + action_1 + action_2 + action_3 + verify_output = 6
-        assert len(plan.steps) == 6, (
-            f"Expected 6 steps, got {len(plan.steps)}"
-        )
+        assert len(plan.steps) == 6, f"Expected 6 steps, got {len(plan.steps)}"
 
         step_names = [s.id.split(":", 1)[1] for s in plan.steps]
         assert step_names[0] == "validate_inputs"
@@ -116,8 +115,7 @@ class TestBuildExecutionGraphV2:
         prepare_id = by_name["prepare_assets"].id
         for name in ("action_1", "action_2", "action_3"):
             assert by_name[name].depends_on == [prepare_id], (
-                f"{name}.depends_on should be [{prepare_id!r}], "
-                f"got {by_name[name].depends_on}"
+                f"{name}.depends_on should be [{prepare_id!r}], got {by_name[name].depends_on}"
             )
 
         # verify_output depends on all 3 action step IDs
@@ -230,6 +228,7 @@ class TestBuildExecutionGraphV2:
 # Serialization roundtrip
 # ---------------------------------------------------------------------------
 
+
 class TestPlanSerialization:
     """plan_to_dict / plan_from_dict roundtrip fidelity."""
 
@@ -319,15 +318,16 @@ class TestPlanSerialization:
         plan = plan_from_dict(d)
         assert len(plan.steps) == 1
         step = plan.steps[0]
-        assert step.retryable is True      # default
-        assert step.status == "pending"    # default
-        assert step.depends_on == []       # default
-        assert step.timeout_sec is None    # default
+        assert step.retryable is True  # default
+        assert step.status == "pending"  # default
+        assert step.depends_on == []  # default
+        assert step.timeout_sec is None  # default
 
 
 # ---------------------------------------------------------------------------
 # plan_fulfillment integration — back-compat + v2 opt-in
 # ---------------------------------------------------------------------------
+
 
 class TestPlanFulfillmentOptIn:
     """Verify that plan_fulfillment's legacy shape is unchanged and the v2
@@ -346,9 +346,8 @@ class TestPlanFulfillmentOptIn:
             metadata={},
         )
 
-        assert "plan" not in result, (
-            "Legacy callers must not receive a 'plan' key; got: "
-            + str(list(result.keys()))
+        assert "plan" not in result, "Legacy callers must not receive a 'plan' key; got: " + str(
+            list(result.keys())
         )
         # Legacy keys must still be present
         for key in (
@@ -395,8 +394,7 @@ class TestPlanFulfillmentOptIn:
         )
 
         assert "plan" in result, (
-            "Expected 'plan' key in result when plan_format=='v2'; got: "
-            + str(list(result.keys()))
+            "Expected 'plan' key in result when plan_format=='v2'; got: " + str(list(result.keys()))
         )
         plan_dict = result["plan"]
 

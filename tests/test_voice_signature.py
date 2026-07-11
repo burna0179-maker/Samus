@@ -1,4 +1,5 @@
 """Vapi webhook HMAC-SHA256 signature verification."""
+
 from __future__ import annotations
 
 import hmac
@@ -39,6 +40,7 @@ def test_compute_signature_requires_bytes_body():
 
 # --- x-vapi-secret header (Vapi's actual server.secret mechanism) -----------
 
+
 def test_verify_secret_header_accepts_match():
     verify_vapi_secret_header(SECRET, SECRET)  # no raise
 
@@ -55,6 +57,7 @@ def test_verify_secret_header_rejects_missing():
 
 # --- combined verifier: accept EITHER mechanism -----------------------------
 
+
 def test_webhook_accepts_raw_secret_header():
     # This is the path that was 403'ing before the fix.
     verify_vapi_webhook(BODY, signature=None, secret_header=SECRET, secret=SECRET)
@@ -62,7 +65,10 @@ def test_webhook_accepts_raw_secret_header():
 
 def test_webhook_accepts_hmac_signature():
     verify_vapi_webhook(
-        BODY, signature=_hex_sig(SECRET, BODY), secret_header=None, secret=SECRET,
+        BODY,
+        signature=_hex_sig(SECRET, BODY),
+        secret_header=None,
+        secret=SECRET,
     )
 
 

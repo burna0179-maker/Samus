@@ -2,6 +2,7 @@
 
 JSON backend only, deterministic time via injectable now_func.
 """
+
 from __future__ import annotations
 
 import pytest

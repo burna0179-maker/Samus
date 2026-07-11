@@ -1,13 +1,21 @@
 """voice.app FastAPI startup wiring — _run_tunnel_startup happy + degraded paths."""
+
 from __future__ import annotations
 
 from backend.voice import app as voice_app
 
 
 class _StubSettings:
-    def __init__(self, *, ngrok_authtoken="", ngrok_reserved_domain="",
-                 vapi_assistant_id="", vapi_api_key="",
-                 vapi_webhook_secret="", vapi_inbound_assistant_id=""):
+    def __init__(
+        self,
+        *,
+        ngrok_authtoken="",
+        ngrok_reserved_domain="",
+        vapi_assistant_id="",
+        vapi_api_key="",
+        vapi_webhook_secret="",
+        vapi_inbound_assistant_id="",
+    ):
         self.ngrok_authtoken = ngrok_authtoken
         self.ngrok_reserved_domain = ngrok_reserved_domain
         self.vapi_assistant_id = vapi_assistant_id
@@ -20,14 +28,14 @@ class _StubSettings:
 
 def test_run_tunnel_startup_skips_when_no_authtoken(monkeypatch):
     """Most common dev path: no NGROK_AUTHTOKEN -> startup is a no-op."""
-    monkeypatch.setattr(voice_app, "get_settings",
-                        lambda: _StubSettings(ngrok_authtoken=""))
+    monkeypatch.setattr(voice_app, "get_settings", lambda: _StubSettings(ngrok_authtoken=""))
     forward_called = []
     patch_called = []
 
     def fake_start(**kw):
         forward_called.append(kw)
         from backend.voice.tunnel import TunnelResult
+
         return TunnelResult(url=None, error="authtoken_unset")
 
     def fake_patch(**kw):
@@ -35,8 +43,7 @@ def test_run_tunnel_startup_skips_when_no_authtoken(monkeypatch):
         return True, None
 
     monkeypatch.setattr(voice_app, "start_ngrok_listener", fake_start, raising=False)
-    monkeypatch.setattr(voice_app, "patch_vapi_assistant_server_url",
-                        fake_patch, raising=False)
+    monkeypatch.setattr(voice_app, "patch_vapi_assistant_server_url", fake_patch, raising=False)
     # call the inner helper directly — FastAPI on_event wraps it.
     voice_app._run_tunnel_startup()
     # We don't assert forward_called.empty here because start_ngrok_listener's
@@ -49,12 +56,16 @@ def test_run_tunnel_startup_skips_when_no_authtoken(monkeypatch):
 
 def test_run_tunnel_startup_patches_vapi_with_webhook_path(monkeypatch):
     """Happy path: tunnel up -> server_url is tunnel_url + '/vapi/webhook'."""
-    monkeypatch.setattr(voice_app, "get_settings", lambda: _StubSettings(
-        ngrok_authtoken="tok_x",
-        vapi_assistant_id="ast_42",
-        vapi_api_key="vapi_key",
-        vapi_webhook_secret="whsec_test",
-    ))
+    monkeypatch.setattr(
+        voice_app,
+        "get_settings",
+        lambda: _StubSettings(
+            ngrok_authtoken="tok_x",
+            vapi_assistant_id="ast_42",
+            vapi_api_key="vapi_key",
+            vapi_webhook_secret="whsec_test",
+        ),
+    )
 
     captured: dict = {}
     from backend.voice import tunnel as tunnel_mod
@@ -82,17 +93,24 @@ def test_run_tunnel_startup_patches_vapi_with_webhook_path(monkeypatch):
 
 def test_run_tunnel_startup_does_not_patch_when_tunnel_failed(monkeypatch):
     """Tunnel failure -> no Vapi PATCH attempted (would clobber prod URL with junk)."""
-    monkeypatch.setattr(voice_app, "get_settings", lambda: _StubSettings(
-        ngrok_authtoken="tok_x", vapi_assistant_id="ast_42",
-        vapi_api_key="k",
-    ))
+    monkeypatch.setattr(
+        voice_app,
+        "get_settings",
+        lambda: _StubSettings(
+            ngrok_authtoken="tok_x",
+            vapi_assistant_id="ast_42",
+            vapi_api_key="k",
+        ),
+    )
 
     from backend.voice import tunnel as tunnel_mod
+
     patch_called: list = []
 
     def fake_start_ngrok(**kw):
         return tunnel_mod.TunnelResult(
-            url=None, error="ngrok_forward_failed: simulated",
+            url=None,
+            error="ngrok_forward_failed: simulated",
         )
 
     def fake_patch(**kw):
@@ -108,10 +126,17 @@ def test_run_tunnel_startup_does_not_patch_when_tunnel_failed(monkeypatch):
 
 def test_run_tunnel_startup_appends_path_idempotently(monkeypatch):
     """If somehow the tunnel URL ALREADY ends in /, the join is still correct."""
-    monkeypatch.setattr(voice_app, "get_settings", lambda: _StubSettings(
-        ngrok_authtoken="tok_x", vapi_assistant_id="ast_42", vapi_api_key="k",
-    ))
+    monkeypatch.setattr(
+        voice_app,
+        "get_settings",
+        lambda: _StubSettings(
+            ngrok_authtoken="tok_x",
+            vapi_assistant_id="ast_42",
+            vapi_api_key="k",
+        ),
+    )
     from backend.voice import tunnel as tunnel_mod
+
     captured: dict = {}
 
     def fake_start_ngrok(**kw):

@@ -17,6 +17,7 @@ retries with capped exponential backoff. Set
 ``QUORUM_HUB_SUBSCRIBE_DISABLED=1`` to skip starting the subscriber at
 all (test envs, single-container dev runs).
 """
+
 from __future__ import annotations
 
 from .event_handler import (

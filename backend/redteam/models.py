@@ -17,6 +17,7 @@ This module is pure: dataclasses + scoring only. No filesystem, no network, no
 settings (mirrors the ``guidance_models`` / ``cycle_models`` convention where
 models live apart from the engine that operates on them).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -63,12 +64,12 @@ def severity_weight(severity: int) -> int:
 class ProbeResult:
     """One deterministic attack probe's outcome against current posture."""
 
-    probe: str            # stable probe id (e.g. "immutable_integrity")
-    outcome: str          # ProbeOutcome value
-    severity: int         # 1=critical, 2=high, 3=moderate
-    title: str            # human-readable description of the attack
-    evidence: str = ""    # what was actually observed
-    remediation: str = "" # what Blue should do to contain it
+    probe: str  # stable probe id (e.g. "immutable_integrity")
+    outcome: str  # ProbeOutcome value
+    severity: int  # 1=critical, 2=high, 3=moderate
+    title: str  # human-readable description of the attack
+    evidence: str = ""  # what was actually observed
+    remediation: str = ""  # what Blue should do to contain it
     owner: str = "operator"  # who fixes it (guidance routing)
 
     @property
@@ -110,12 +111,12 @@ class ResilienceReport:
     day: str
     ts: str
     results: List[ProbeResult] = field(default_factory=list)
-    resilience_score: float = 0.0        # 0.0 .. 1.0 (weighted contained fraction)
-    breaches: List[str] = field(default_factory=list)          # breached probe ids
-    prior_breaches: List[str] = field(default_factory=list)    # breached ids last run
-    hardened: List[str] = field(default_factory=list)          # prior breach now contained
-    regressed: List[str] = field(default_factory=list)         # newly breached this run
-    antifragility_delta: int = 0         # len(hardened) - len(regressed)
+    resilience_score: float = 0.0  # 0.0 .. 1.0 (weighted contained fraction)
+    breaches: List[str] = field(default_factory=list)  # breached probe ids
+    prior_breaches: List[str] = field(default_factory=list)  # breached ids last run
+    hardened: List[str] = field(default_factory=list)  # prior breach now contained
+    regressed: List[str] = field(default_factory=list)  # newly breached this run
+    antifragility_delta: int = 0  # len(hardened) - len(regressed)
     kind: str = KIND
 
     def to_dict(self) -> dict[str, Any]:
@@ -167,11 +168,9 @@ def build_report(
     prior_set = set(prior)
     breaches = [r.probe for r in results if r.breached]
     breach_set = set(breaches)
-    contained_now = {
-        r.probe for r in results if r.outcome == ProbeOutcome.CONTAINED.value
-    }
-    hardened = sorted(prior_set & contained_now)   # were broken, now held
-    regressed = sorted(breach_set - prior_set)     # newly broken this run
+    contained_now = {r.probe for r in results if r.outcome == ProbeOutcome.CONTAINED.value}
+    hardened = sorted(prior_set & contained_now)  # were broken, now held
+    regressed = sorted(breach_set - prior_set)  # newly broken this run
     return ResilienceReport(
         day=day,
         ts=ts,

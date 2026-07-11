@@ -15,11 +15,11 @@ The cardinal rule is "translate the idea, not the text": each format is a
 native rewrite, never a copy-paste of the blog excerpt, because cross-posted
 prose dies in every algorithm.
 """
+
 from __future__ import annotations
 
 import json
 import logging
-import os
 import re
 
 from backend.social.models import (
@@ -36,14 +36,54 @@ _LOG = logging.getLogger("samus.social.repurpose")
 # The six canonical assets produced from one blog post, with the platform and
 # pipeline function each one serves.
 _ASSET_PLAN: tuple[tuple[SocialFormat, Platform, PipelineFunction, str], ...] = (
-    ("li_text", "linkedin", "educate", "Main argument distilled to 150-250 words; hook-first, no link in body."),
-    ("li_carousel", "linkedin", "educate", "Key framework/steps as a 8-10 slide carousel outline; cover slide must stop the scroll."),
-    ("li_link", "linkedin", "convert", "Standalone teaser summary; the post says 'link in comments'."),
-    ("ig_carousel", "instagram", "educate", "Same framework redesigned for a visual feed carousel (slide-by-slide)."),
-    ("ig_reel", "instagram", "engage", "60-90s reel script for one specific tactic; hook on screen in first 2s."),
-    ("x_thread", "x", "educate", "5-10 tweet thread expanding the post's core argument; each tweet stands alone."),
-    ("fb_post", "facebook", "educate", "Community-style explainer (200-400 words); conversational, question at end to invite discussion."),
-    ("fb_link", "facebook", "convert", "Short teaser (2-3 sentences) with blog URL; the link preview does the heavy lifting."),
+    (
+        "li_text",
+        "linkedin",
+        "educate",
+        "Main argument distilled to 150-250 words; hook-first, no link in body.",
+    ),
+    (
+        "li_carousel",
+        "linkedin",
+        "educate",
+        "Key framework/steps as a 8-10 slide carousel outline; cover slide must stop the scroll.",
+    ),
+    (
+        "li_link",
+        "linkedin",
+        "convert",
+        "Standalone teaser summary; the post says 'link in comments'.",
+    ),
+    (
+        "ig_carousel",
+        "instagram",
+        "educate",
+        "Same framework redesigned for a visual feed carousel (slide-by-slide).",
+    ),
+    (
+        "ig_reel",
+        "instagram",
+        "engage",
+        "60-90s reel script for one specific tactic; hook on screen in first 2s.",
+    ),
+    (
+        "x_thread",
+        "x",
+        "educate",
+        "5-10 tweet thread expanding the post's core argument; each tweet stands alone.",
+    ),
+    (
+        "fb_post",
+        "facebook",
+        "educate",
+        "Community-style explainer (200-400 words); conversational, question at end to invite discussion.",
+    ),
+    (
+        "fb_link",
+        "facebook",
+        "convert",
+        "Short teaser (2-3 sentences) with blog URL; the link preview does the heavy lifting.",
+    ),
 )
 
 _DEFAULT_WORKCELL = "outreach"  # reuse the proven per-workcell budget config
@@ -85,7 +125,9 @@ def repurpose_blog_post(
     used_llm = False
     if use_llm:
         llm_bodies = _generate_via_llm(
-            blog, workcell=workcell, brand_voice_prompt=brand_voice_prompt,
+            blog,
+            workcell=workcell,
+            brand_voice_prompt=brand_voice_prompt,
         )
         used_llm = bool(llm_bodies)
 
@@ -106,7 +148,9 @@ def repurpose_blog_post(
             if flagged:
                 _LOG.info(
                     "repurpose scrubbed %d invented numeric claim(s) in %s: %r",
-                    len(flagged), fmt, flagged[:6],
+                    len(flagged),
+                    fmt,
+                    flagged[:6],
                 )
         assets.append(
             RepurposedAsset(
@@ -187,9 +231,7 @@ def _generate_via_llm(
                 out[k] = v.strip()
         return out
     except Exception as exc:  # noqa: BLE001 — fail-closed to templates
-        _LOG.info(
-            "repurpose llm unavailable (%s), using templates", type(exc).__name__
-        )
+        _LOG.info("repurpose llm unavailable (%s), using templates", type(exc).__name__)
         return {}
 
 
@@ -226,7 +268,11 @@ def _first_points(blog: BlogInput, n: int) -> list[str]:
     if pts:
         return pts[:n]
     # Derive thin placeholders from the title so a package is never empty.
-    return [f"Why it matters for {blog.cluster or 'your pipeline'}", "What most teams get wrong", "The one change that moves the needle"][:n]
+    return [
+        f"Why it matters for {blog.cluster or 'your pipeline'}",
+        "What most teams get wrong",
+        "The one change that moves the needle",
+    ][:n]
 
 
 def _template_for(fmt: SocialFormat, blog: BlogInput) -> str:
@@ -249,12 +295,14 @@ def _template_for(fmt: SocialFormat, blog: BlogInput) -> str:
         slides.append("Final slide (CTA): Save this for later — and try it with Hustleforge.")
         return "\n".join(slides)
     if fmt == "li_link":
-        tail = "Full breakdown — link in comments 👇" if url else "Full breakdown in the comments 👇"
+        tail = (
+            "Full breakdown — link in comments 👇" if url else "Full breakdown in the comments 👇"
+        )
         return f"{summary}\n\n{tail}"
     if fmt == "ig_reel":
         steps = pts[:3] or ["Step 1", "Step 2", "Step 3"]
         body = [
-            f"[0-3s HOOK] On-screen: \"{title}\"",
+            f'[0-3s HOOK] On-screen: "{title}"',
             "[3-15s TENSION] Here's the problem with how most teams approach this...",
         ]
         body += [f"[{15 + i * 12}-{27 + i * 12}s] {s}" for i, s in enumerate(steps)]
@@ -263,7 +311,9 @@ def _template_for(fmt: SocialFormat, blog: BlogInput) -> str:
     if fmt == "x_thread":
         tweets = [f"1/ {title}\n\n{summary}\n\nHere's what we learned: 🧵"]
         tweets += [f"{i + 2}/ {p}" for i, p in enumerate(pts)]
-        tweets.append(f"{len(pts) + 2}/ If this was useful, repost tweet 1." + (f"\n\n{url}" if url else ""))
+        tweets.append(
+            f"{len(pts) + 2}/ If this was useful, repost tweet 1." + (f"\n\n{url}" if url else "")
+        )
         return "\n\n".join(tweets)
     if fmt == "x_tweet":
         return f"{summary}" + (f"\n\n{url}" if url else "")

@@ -16,6 +16,7 @@ Exit codes:
     1 - cycle finished with at least one failed step
     2 - hard crash before/during execution
 """
+
 from __future__ import annotations
 
 import argparse
@@ -32,19 +33,26 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         description="Run one self-marketing monthly cycle.",
     )
     parser.add_argument(
-        "--month", type=int, default=now.month,
+        "--month",
+        type=int,
+        default=now.month,
         help="Calendar month (1-12). Default: current month.",
     )
     parser.add_argument(
-        "--year", type=int, default=now.year,
+        "--year",
+        type=int,
+        default=now.year,
         help="Four-digit year. Default: current year.",
     )
     parser.add_argument(
-        "--campaign", type=str, default="hustleforge",
+        "--campaign",
+        type=str,
+        default="hustleforge",
         help="Campaign id. Currently only 'hustleforge' is registered.",
     )
     parser.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="Skip all LLM calls and dispatch; exercise the DAG shape only.",
     )
     return parser.parse_args(argv)
@@ -76,7 +84,9 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     badge = "OK" if result.ok else "FAIL"
-    print(f"[{badge}] campaign={result.campaign_id} cycle={result.cycle_month} plan={result.plan_path}")
+    print(
+        f"[{badge}] campaign={result.campaign_id} cycle={result.cycle_month} plan={result.plan_path}"
+    )
     failures = 0
     for s in result.steps:
         flag = " " if s.status == "done" else ("F" if s.status == "failed" else "-")

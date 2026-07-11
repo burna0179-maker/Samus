@@ -1,4 +1,5 @@
 """resolve_draft('reject') deletes the draft + logs forensics."""
+
 from __future__ import annotations
 
 import json
@@ -19,17 +20,17 @@ def test_reject_deletes_draft_and_logs(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("SAMUS_ARTIFACT_ROOT", str(tmp_path / "artifacts"))
     draft = _seed_draft(tmp_path)
     resolve_draft(
-        draft, decision="reject",
+        draft,
+        decision="reject",
         rationale="operator chose to remove the offending call",
-        operator="alex", codex_dir=tmp_path,
+        operator="alex",
+        codex_dir=tmp_path,
     )
     assert not draft.exists()
     ledger = tmp_path / "artifacts" / "host_artifacts" / "codex_rejected_drafts.jsonl"
     assert ledger.is_file()
     lines = [
-        json.loads(line)
-        for line in ledger.read_text(encoding="utf-8").splitlines()
-        if line.strip()
+        json.loads(line) for line in ledger.read_text(encoding="utf-8").splitlines() if line.strip()
     ]
     assert len(lines) == 1
     assert lines[0]["draft_name"] == "ADR-099_rejected_action.draft.md"
@@ -42,7 +43,9 @@ def test_reject_missing_draft_raises(tmp_path: Path, monkeypatch):
     missing = tmp_path / "_drafts" / "nope.draft.md"
     try:
         resolve_draft(
-            missing, decision="reject", rationale="x",
+            missing,
+            decision="reject",
+            rationale="x",
             codex_dir=tmp_path,
         )
     except FileNotFoundError:

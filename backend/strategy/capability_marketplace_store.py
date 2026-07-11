@@ -40,6 +40,7 @@ marketplace but fails to hit the ledger still returns; the next restart
 just won't see it. Matches the existing ledger philosophy in
 :mod:`backend.experiments.registry` and :mod:`backend.common.audit_ledger`.
 """
+
 from __future__ import annotations
 
 import logging

@@ -2,6 +2,7 @@
 acked ActionTakenEnvelope to Major via Optimus before the commercial action
 lands externally.
 """
+
 from .mirror import (
     DualChannelMirror,
     AuditBlackoutError,

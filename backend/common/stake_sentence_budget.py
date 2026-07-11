@@ -15,6 +15,7 @@ of the cap is to be unbypassable, so an unreachable ledger means
 "refuse" rather than "permit." :class:`StakeSentenceBudgetUnavailable`
 is raised in that case.
 """
+
 from __future__ import annotations
 
 import json
@@ -126,6 +127,7 @@ class _DdbBackend:
 
     def _table(self) -> Any:
         from . import aws
+
         return aws.table(self.table_name, self.region)
 
     def load(self) -> StakeSentenceBudget | None:

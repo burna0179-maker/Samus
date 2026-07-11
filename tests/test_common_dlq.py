@@ -1,4 +1,5 @@
 """Doc §3.6 — enqueue_failure / read_pending / mark_replayed / read_archive."""
+
 from __future__ import annotations
 
 import json
@@ -54,6 +55,7 @@ def test_read_pending_returns_recent_records(tmp_path, monkeypatch):
 def test_read_pending_empty_when_no_file(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_DLQ_ROOT", str(tmp_path))
     from backend.common import dlq
+
     assert dlq.read_pending("nonexistent") == []
 
 
@@ -83,4 +85,5 @@ def test_read_archive_returns_tail(tmp_path, monkeypatch):
 def test_read_archive_empty_when_no_file(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_DLQ_ROOT", str(tmp_path))
     from backend.common import dlq
+
     assert dlq.read_archive() == []

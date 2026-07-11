@@ -1,4 +1,5 @@
 """ADR auto-drafter — next-N numbering + template contents."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -22,7 +23,8 @@ def loaded_registry() -> CodexRegistry:
 
 
 def test_drafter_numbering_is_next_after_highest_existing_adr(
-    loaded_registry, tmp_path: Path,
+    loaded_registry,
+    tmp_path: Path,
 ):
     highest = max(int(a.id.split("-")[1]) for a in loaded_registry.adrs())
     expected_id = f"ADR-{highest + 1:03d}"
@@ -35,7 +37,11 @@ def test_drafter_numbering_is_next_after_highest_existing_adr(
         correlation_id="corr-xyz",
     )
     path = draft_adr_for_violation(
-        action, "VR-G5", "test reason", loaded_registry, drafts_dir=tmp_path,
+        action,
+        "VR-G5",
+        "test reason",
+        loaded_registry,
+        drafts_dir=tmp_path,
     )
     assert path.is_file()
     assert path.name.startswith(expected_id)
@@ -84,7 +90,11 @@ def test_drafter_creates_drafts_directory_if_missing(loaded_registry, tmp_path: 
         proposed_by="finance",
     )
     path = draft_adr_for_violation(
-        action, "VR-ADR-003", "deferred", loaded_registry, drafts_dir=target,
+        action,
+        "VR-ADR-003",
+        "deferred",
+        loaded_registry,
+        drafts_dir=target,
     )
     assert target.is_dir()
     assert path.parent == target
@@ -100,7 +110,11 @@ def test_drafter_handles_missing_correlation_id(loaded_registry, tmp_path: Path)
         correlation_id=None,
     )
     path = draft_adr_for_violation(
-        action, "VR-G5", "no dial", loaded_registry, drafts_dir=tmp_path,
+        action,
+        "VR-G5",
+        "no dial",
+        loaded_registry,
+        drafts_dir=tmp_path,
     )
     contents = path.read_text(encoding="utf-8")
     assert "(none)" in contents

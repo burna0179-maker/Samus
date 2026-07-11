@@ -1,5 +1,6 @@
 """Regression: 'no website' findings must route to the $800 website BUILD, not
 the $149 audit (an audit of a non-existent site is irrelevant + under-sells)."""
+
 from __future__ import annotations
 
 from backend.outreach import flyer
@@ -9,6 +10,7 @@ from backend.catalog.registry import CATALOG
 class _WithLink:
     """Proxy that adds a payment_link_url to the real catalog entry (the live
     catalog has None until the operator creates the Stripe link)."""
+
     def __init__(self, real, link):
         object.__setattr__(self, "_real", real)
         object.__setattr__(self, "payment_link_url", link)
@@ -26,12 +28,15 @@ def _index_with_website_link(monkeypatch, link="https://buy.stripe.com/test_wb")
 import pytest
 
 
-@pytest.mark.parametrize("finding", [
-    "no working website",
-    "no website coming up at all",
-    "the business has no online presence",
-    "when someone googles them they are not showing up",
-])
+@pytest.mark.parametrize(
+    "finding",
+    [
+        "no working website",
+        "no website coming up at all",
+        "the business has no online presence",
+        "when someone googles them they are not showing up",
+    ],
+)
 def test_no_website_routes_to_build(monkeypatch, finding):
     _index_with_website_link(monkeypatch)
     offer = flyer._matched_offer({"callsheet_finding": finding})

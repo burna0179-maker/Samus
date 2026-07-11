@@ -34,6 +34,7 @@ CLI::
     python -m backend.catalog.wp_link_remediation            # plan only
     python -m backend.catalog.wp_link_remediation --apply    # enact (if armed)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -65,20 +66,24 @@ def _boundary_replace(text: str, stale_url: str, live_url: str) -> tuple[str, in
 def _remediation_armed() -> bool:
     """WIRE vs ARM: WordPress writes are off unless the operator arms them."""
     return os.getenv("SAMUS_WP_REMEDIATION_ENABLED", "").strip().lower() in (
-        "1", "true", "yes", "on",
+        "1",
+        "true",
+        "yes",
+        "on",
     )
 
 
 @dataclass(frozen=True)
 class LinkFix:
     """One planned replacement on one WordPress page."""
+
     page_id: int
     post_type: str
     slug: str
     title: str
     stale_url: str
-    live_url: str          # empty when action == "manual"
-    action: str            # "replace" | "manual"
+    live_url: str  # empty when action == "manual"
+    action: str  # "replace" | "manual"
     reason: str
 
 
@@ -115,20 +120,23 @@ def _successor(stale_url: str, details: dict) -> tuple[str, str]:
     if not d.description:
         return "", "archived link has no line item to match a successor by"
     candidates = [
-        x for x in details.values()
-        if x.active and x.description == d.description
-        and x.amount_cents == d.amount_cents
+        x
+        for x in details.values()
+        if x.active and x.description == d.description and x.amount_cents == d.amount_cents
     ]
     if len(candidates) == 1:
         return candidates[0].url, (
-            f"archived '{d.description}' (${d.amount_cents / 100:g}) has "
-            f"exactly one live successor"
+            f"archived '{d.description}' (${d.amount_cents / 100:g}) has exactly one live successor"
         )
     if not candidates:
-        return "", (f"no live link for '{d.description}' at "
-                    f"${d.amount_cents / 100:g} - product may be retired")
-    return "", (f"{len(candidates)} live links match '{d.description}' at "
-                f"${d.amount_cents / 100:g} - ambiguous, operator must pick")
+        return "", (
+            f"no live link for '{d.description}' at "
+            f"${d.amount_cents / 100:g} - product may be retired"
+        )
+    return "", (
+        f"{len(candidates)} live links match '{d.description}' at "
+        f"${d.amount_cents / 100:g} - ambiguous, operator must pick"
+    )
 
 
 def plan_remediations(
@@ -156,22 +164,30 @@ def plan_remediations(
     active = {u for u, d in details.items() if d.active}
 
     wp_links = link_audit.audit_wordpress_content(
-        active_urls=active, http_client=http_client,
+        active_urls=active,
+        http_client=http_client,
     )
     seen: set[tuple[int, str]] = set()
     for w in wp_links:
         if not w.stale:
             continue
         dedup_key = (w.post_id, w.url)
-        if dedup_key in seen:   # same URL repeated on one page = one string fix
+        if dedup_key in seen:  # same URL repeated on one page = one string fix
             continue
         seen.add(dedup_key)
         live, reason = _successor(w.url, details)
-        plan.fixes.append(LinkFix(
-            page_id=w.post_id, post_type=w.post_type, slug=w.slug,
-            title=w.title, stale_url=w.url, live_url=live,
-            action="replace" if live else "manual", reason=reason,
-        ))
+        plan.fixes.append(
+            LinkFix(
+                page_id=w.post_id,
+                post_type=w.post_type,
+                slug=w.slug,
+                title=w.title,
+                stale_url=w.url,
+                live_url=live,
+                action="replace" if live else "manual",
+                reason=reason,
+            )
+        )
     return plan
 
 
@@ -190,9 +206,7 @@ def apply_remediations(
     result = ApplyResult()
     armed = _remediation_armed() if force_armed is None else force_armed
     if not armed:
-        result.skipped_reason = (
-            "SAMUS_WP_REMEDIATION_ENABLED is off - wired-dormant, plan only"
-        )
+        result.skipped_reason = "SAMUS_WP_REMEDIATION_ENABLED is off - wired-dormant, plan only"
         return result
     if dry_run:
         result.skipped_reason = "dry_run - pass dry_run=False (--apply) to enact"
@@ -234,8 +248,13 @@ def apply_remediations(
             wp.update_page_content(page_id, new_raw)
             result.applied.extend(page_applied)
             for f in page_applied:
-                _LOG.info("wp remediation applied: %s/%s %s -> %s",
-                          f.post_type, f.slug, f.stale_url, f.live_url)
+                _LOG.info(
+                    "wp remediation applied: %s/%s %s -> %s",
+                    f.post_type,
+                    f.slug,
+                    f.stale_url,
+                    f.live_url,
+                )
         except Exception as exc:  # noqa: BLE001 — isolate per-page failures
             for f in fixes:
                 if f not in result.applied:
@@ -248,11 +267,12 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m backend.catalog.wp_link_remediation",
         description="Replace archived buy.stripe.com links on WordPress pages "
-                    "with their live Stripe successors. Plan-only by default; "
-                    "--apply enacts (requires SAMUS_WP_REMEDIATION_ENABLED=1).",
+        "with their live Stripe successors. Plan-only by default; "
+        "--apply enacts (requires SAMUS_WP_REMEDIATION_ENABLED=1).",
     )
-    parser.add_argument("--apply", action="store_true",
-                        help="Enact the auto-fixes (armed installs only).")
+    parser.add_argument(
+        "--apply", action="store_true", help="Enact the auto-fixes (armed installs only)."
+    )
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
@@ -261,8 +281,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         print("wp link remediation: nothing to fix.")
         return 0
 
-    print(f"wp link remediation plan: {len(plan.auto)} auto, "
-          f"{len(plan.manual)} manual")
+    print(f"wp link remediation plan: {len(plan.auto)} auto, {len(plan.manual)} manual")
     for f in plan.auto:
         print(f"  [auto]   {f.post_type}/{f.slug}: {f.stale_url}")
         print(f"           -> {f.live_url}  ({f.reason})")
@@ -283,6 +302,7 @@ def main(argv: Optional[list[str]] = None) -> int:
                 # so the gate and the brief see the fixed state immediately.
                 try:
                     from backend.catalog.funnel_health import refresh_snapshot
+
                     snap = refresh_snapshot(include_wp=True)
                     print(f"funnel snapshot refreshed: {snap.summary_line()}")
                 except Exception as exc:  # noqa: BLE001

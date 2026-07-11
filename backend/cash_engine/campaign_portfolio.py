@@ -15,6 +15,7 @@ consent-routed voice pass, or a specific SKU/offer campaign). Each tick the agen
 Selection is pure and fully testable; actuation is injected. Adding a campaign is
 registering one more :class:`Campaign` descriptor — the selection math is unchanged.
 """
+
 from __future__ import annotations
 
 import logging
@@ -35,6 +36,7 @@ class Campaign:
     gates the campaign (has candidates / in a valid window / not exhausted).
     ``actuate(cap)`` runs one bounded pass and returns a summary dict;
     ``count_initiated`` extracts how many items it actually produced."""
+
     campaign_id: str
     kind: str
     priority: float
@@ -149,7 +151,8 @@ def run_campaign_portfolio(
     and scales per-campaign volume by its posture. ``affordability=None`` means no
     financial gating (permissive — a caller that opted out)."""
     revenue_target = target_campaign_count(
-        behind_pace=behind_pace, max_concurrent=deps.max_concurrent)
+        behind_pace=behind_pace, max_concurrent=deps.max_concurrent
+    )
 
     if affordability is None:
         allowed_tiers: Optional[frozenset] = None
@@ -166,9 +169,12 @@ def run_campaign_portfolio(
         posture = affordability.posture
 
     decision = select_campaigns(
-        deps.campaigns, monitor_budget=deps.monitor_budget,
-        max_concurrent=deps.max_concurrent, target_count=effective_target,
-        allowed_tiers=allowed_tiers, spend_budget=spend_budget,
+        deps.campaigns,
+        monitor_budget=deps.monitor_budget,
+        max_concurrent=deps.max_concurrent,
+        target_count=effective_target,
+        allowed_tiers=allowed_tiers,
+        spend_budget=spend_budget,
     )
     by_id = {c.campaign_id: c for c in deps.campaigns}
     results: dict[str, Any] = {}
@@ -187,8 +193,14 @@ def run_campaign_portfolio(
     _LOG.info(
         "portfolio: posture=%s revenue_target=%d effective=%d selected=%s "
         "initiated=%d monitor=%.1f/%.1f spend<=%.2f",
-        posture, revenue_target, effective_target, decision.selected, initiated,
-        decision.monitor_used, deps.monitor_budget, spend_budget,
+        posture,
+        revenue_target,
+        effective_target,
+        decision.selected,
+        initiated,
+        decision.monitor_used,
+        deps.monitor_budget,
+        spend_budget,
     )
     return {
         "channel": "portfolio",
@@ -211,12 +223,15 @@ def run_campaign_portfolio(
 # a SKU/offer campaign is one more Campaign entry here; the math is unchanged.
 # ---------------------------------------------------------------------------
 
+
 def _has_call_list_csv() -> bool:
     try:
         from backend.common import storage
         from backend.common.us_timezones import business_today
-        return (storage.root() / "daily_calls" /
-                f"call_list_{business_today().isoformat()}.csv").is_file()
+
+        return (
+            storage.root() / "daily_calls" / f"call_list_{business_today().isoformat()}.csv"
+        ).is_file()
     except Exception:  # noqa: BLE001
         return False
 
@@ -238,6 +253,7 @@ def _funnel_allows_checkout_push() -> bool:
     """
     try:
         from backend.catalog.funnel_health import funnel_gate
+
         return funnel_gate(consider_wp=False).allowed
     except Exception:  # noqa: BLE001
         return True
@@ -265,7 +281,10 @@ def default_portfolio_deps(affordability: Any = None) -> PortfolioDeps:
     except Exception:  # noqa: BLE001
         live_dial_allowed = False
     email = Campaign(
-        campaign_id="email_outreach", kind="email", priority=1.0, monitor_cost=1.0,
+        campaign_id="email_outreach",
+        kind="email",
+        priority=1.0,
+        monitor_cost=1.0,
         # Email pushes checkout links — a stale funnel makes every send a
         # zero-conversion CODB burn, so eligibility consults funnel health
         # (wired-dormant; see _funnel_allows_checkout_push).
@@ -274,10 +293,14 @@ def default_portfolio_deps(affordability: Any = None) -> PortfolioDeps:
         count_initiated=lambda r: int(r.get("sent", 0) or 0),
         default_cap=_DEFAULT_CAP_EMAIL,
         # LLM-personalized email costs tokens -> "low" tier; held under conserve.
-        cost_tier="low", est_cost_usd=0.50,
+        cost_tier="low",
+        est_cost_usd=0.50,
     )
     voice = Campaign(
-        campaign_id="voice_consent_routed", kind="voice", priority=1.2, monitor_cost=1.5,
+        campaign_id="voice_consent_routed",
+        kind="voice",
+        priority=1.2,
+        monitor_cost=1.5,
         is_eligible=lambda: bool(pdeps.voice_candidates()),
         actuate=lambda cap: run_voice_channel(pdeps, cap, live_dial_allowed=live_dial_allowed),
         count_initiated=lambda r: int(r.get("dialed", 0) or 0) + int(r.get("drafted", 0) or 0),
@@ -286,6 +309,7 @@ def default_portfolio_deps(affordability: Any = None) -> PortfolioDeps:
         # produce the zero-cost voicemail-draft floor even under conserve; the
         # PAID live-dial escalation inside it is gated by live_dial_allowed
         # above (the CODB affordability ceiling).
-        cost_tier="free", est_cost_usd=0.0,
+        cost_tier="free",
+        est_cost_usd=0.0,
     )
     return PortfolioDeps(campaigns=[email, voice], monitor_budget=3.0, max_concurrent=4)

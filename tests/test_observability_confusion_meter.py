@@ -1,4 +1,5 @@
 """Tests for backend.observability.confusion_meter."""
+
 from __future__ import annotations
 
 import json
@@ -31,12 +32,14 @@ def test_empty_window_returns_zero_score(tmp_path):
 
 def test_axiom_violation_with_breach_saturates(tmp_path):
     now = datetime.now(timezone.utc)
-    events = [{
-        "kind": "axiom_violation",
-        "delta": 1.0,
-        "threshold_breach": True,
-        "ts": now.isoformat(),
-    }]
+    events = [
+        {
+            "kind": "axiom_violation",
+            "delta": 1.0,
+            "threshold_breach": True,
+            "ts": now.isoformat(),
+        }
+    ]
     s = compute_confusion_score(events=events, now=now)
     assert s.score == 1.0
     assert s.grade == "F"
@@ -46,10 +49,7 @@ def test_axiom_violation_with_breach_saturates(tmp_path):
 
 def test_kr_gap_noise_stays_quiet(tmp_path):
     now = datetime.now(timezone.utc)
-    events = [
-        {"kind": "kr_gap", "delta": 0.2, "ts": now.isoformat()}
-        for _ in range(5)
-    ]
+    events = [{"kind": "kr_gap", "delta": 0.2, "ts": now.isoformat()} for _ in range(5)]
     s = compute_confusion_score(events=events, now=now)
     # 5 * 0.5 * 0.2 / 3.0 = 0.166...
     assert 0.15 < s.score < 0.2
@@ -74,10 +74,13 @@ def test_window_filter_excludes_old_events(tmp_path, monkeypatch):
     now = datetime.now(timezone.utc)
     old = (now - timedelta(seconds=7200)).isoformat()
     fresh = now.isoformat()
-    _write_events(path, [
-        {"kind": "axiom_violation", "delta": 1.0, "threshold_breach": True, "ts": old},
-        {"kind": "evidence_conflict", "delta": 0.3, "ts": fresh},
-    ])
+    _write_events(
+        path,
+        [
+            {"kind": "axiom_violation", "delta": 1.0, "threshold_breach": True, "ts": old},
+            {"kind": "evidence_conflict", "delta": 0.3, "ts": fresh},
+        ],
+    )
     s = compute_confusion_score(window_seconds=3600, now=now)
     assert s.event_count == 1
     assert s.by_kind["evidence_conflict"] == 1

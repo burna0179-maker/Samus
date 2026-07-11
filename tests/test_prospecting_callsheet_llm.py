@@ -11,14 +11,13 @@ Origin-branch tests (raw-httpx approach) are retained as ``_origin``
 suffixed variants where the test name overlaps with the wrapper-approach
 tests, so both coverage paths survive.
 """
+
 from __future__ import annotations
 
 import json
 from typing import Any
 from unittest.mock import MagicMock
 
-import httpx
-import pytest
 
 from backend.common import llm_client
 from backend.prospecting import callsheet as cs
@@ -46,6 +45,7 @@ def _prospect(**overrides) -> ProspectRecord:
 # ---------------------------------------------------------------------------
 # Origin-branch helper: raw httpx stub
 # ---------------------------------------------------------------------------
+
 
 def _stub_client_with_response(monkeypatch, response_payload, status_code=200):
     fake_response = MagicMock()
@@ -81,9 +81,14 @@ def _stub_client_with_response(monkeypatch, response_payload, status_code=200):
 # HEAD-branch helper: llm_client wrapper stub
 # ---------------------------------------------------------------------------
 
-def _stub_wrapper(monkeypatch, *, text: str | None = None,
-                  raise_exc: Exception | None = None,
-                  usage: dict[str, int] | None = None) -> dict[str, Any]:
+
+def _stub_wrapper(
+    monkeypatch,
+    *,
+    text: str | None = None,
+    raise_exc: Exception | None = None,
+    usage: dict[str, int] | None = None,
+) -> dict[str, Any]:
     """Replace cs.anthropic_messages with a recording stub.
 
     Returns a dict that gets populated with the call's kwargs so tests can
@@ -119,6 +124,7 @@ def _stub_record_outcome(monkeypatch) -> list[dict[str, Any]]:
 # Fallback when no key (both approaches agree on this behaviour)
 # ---------------------------------------------------------------------------
 
+
 def test_build_call_sheet_with_llm_falls_back_when_key_empty(monkeypatch):
     p = _prospect()
     out = cs.build_call_sheet_with_llm(p, anthropic_api_key="")
@@ -130,12 +136,15 @@ def test_build_call_sheet_with_llm_falls_back_when_key_empty(monkeypatch):
 # LLM success path — wrapper approach (HEAD branch)
 # ---------------------------------------------------------------------------
 
+
 def test_build_call_sheet_with_llm_sends_expected_prompt(monkeypatch):
-    payload = json.dumps({
-        "pitch": "Local rankings drive 80% of inbound roofing calls.",
-        "opener": "Hi, this is [NAME] with HustleForge — I noticed Acme Roofing in Yuba City.",
-        "voicemail": "Hi, this is [NAME] from HustleForge. Call [PHONE] back.",
-    })
+    payload = json.dumps(
+        {
+            "pitch": "Local rankings drive 80% of inbound roofing calls.",
+            "opener": "Hi, this is [NAME] with HustleForge — I noticed Acme Roofing in Yuba City.",
+            "voicemail": "Hi, this is [NAME] from HustleForge. Call [PHONE] back.",
+        }
+    )
     captured = _stub_wrapper(monkeypatch, text=payload)
 
     out = cs.build_call_sheet_with_llm(_prospect(), anthropic_api_key="sk-test-key")
@@ -161,17 +170,28 @@ def test_build_call_sheet_with_llm_sends_expected_prompt(monkeypatch):
 # Retained as _origin variant: different stub shape, verifies wire format
 # ---------------------------------------------------------------------------
 
+
 def test_build_call_sheet_with_llm_routes_through_llm_client(monkeypatch):
     """Verify callsheet LLM path goes through anthropic_messages (now LM Studio)."""
-    llm_response = json.dumps({
-        "pitch": "Local rankings drive 80% of inbound roofing calls.",
-        "opener": "Hi, this is [NAME] with HustleForge — I noticed Acme Roofing in Yuba City.",
-        "voicemail": "Hi, this is [NAME] from HustleForge. Call [PHONE] back.",
-    })
+    llm_response = json.dumps(
+        {
+            "pitch": "Local rankings drive 80% of inbound roofing calls.",
+            "opener": "Hi, this is [NAME] with HustleForge — I noticed Acme Roofing in Yuba City.",
+            "voicemail": "Hi, this is [NAME] from HustleForge. Call [PHONE] back.",
+        }
+    )
     monkeypatch.setattr(
-        cs, "anthropic_messages",
-        lambda **kw: (llm_response, {"input_tokens": 10, "output_tokens": 20,
-                                      "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0}),
+        cs,
+        "anthropic_messages",
+        lambda **kw: (
+            llm_response,
+            {
+                "input_tokens": 10,
+                "output_tokens": 20,
+                "cache_creation_input_tokens": 0,
+                "cache_read_input_tokens": 0,
+            },
+        ),
     )
     out = cs.build_call_sheet_with_llm(_prospect(), anthropic_api_key="unused")
 
@@ -187,6 +207,7 @@ def test_build_call_sheet_with_llm_routes_through_llm_client(monkeypatch):
 # Wrapper-side errors -> fall back to template, no outcome flip (HEAD)
 # ---------------------------------------------------------------------------
 
+
 def test_falls_back_on_llm_call_error_without_failure_flip(monkeypatch):
     """Transport / 5xx: wrapper records outcome=error itself. Caller MUST NOT
     additionally call record_outcome('failure') — that would double-count."""
@@ -200,8 +221,10 @@ def test_falls_back_on_llm_call_error_without_failure_flip(monkeypatch):
 def test_falls_back_on_budget_exceeded(monkeypatch):
     """Pre-flight quota deny: wrapper raises BudgetExceeded; caller falls back."""
     from backend.common.llm_budget import QuotaDecision
-    decision = QuotaDecision(allowed=False, quota=100, used=200, requested=50,
-                             reason="budget_exceeded: ...")
+
+    decision = QuotaDecision(
+        allowed=False, quota=100, used=200, requested=50, reason="budget_exceeded: ..."
+    )
     _stub_wrapper(monkeypatch, raise_exc=llm_client.BudgetExceeded(decision))
     flips = _stub_record_outcome(monkeypatch)
     out = cs.build_call_sheet_with_llm(_prospect(), anthropic_api_key="sk-test")
@@ -212,6 +235,7 @@ def test_falls_back_on_budget_exceeded(monkeypatch):
 # ---------------------------------------------------------------------------
 # Transport error — wrapper approach (replaces origin-branch httpx stub)
 # ---------------------------------------------------------------------------
+
 
 def test_build_call_sheet_with_llm_falls_back_on_transport_error(monkeypatch):
     """LlmCallError triggers template fallback via the wrapper path."""
@@ -224,6 +248,7 @@ def test_build_call_sheet_with_llm_falls_back_on_transport_error(monkeypatch):
 # ---------------------------------------------------------------------------
 # Parse-time failures -> caller flips outcome to "failure" (HEAD)
 # ---------------------------------------------------------------------------
+
 
 def test_falls_back_on_invalid_json_and_flips_outcome(monkeypatch):
     """Model returned 200 but content unparseable: tokens burned, no value.
@@ -252,6 +277,7 @@ def test_falls_back_on_missing_required_field_and_flips_outcome(monkeypatch):
 # Invalid JSON — wrapper approach (replaces origin-branch httpx stub)
 # ---------------------------------------------------------------------------
 
+
 def test_build_call_sheet_with_llm_falls_back_on_invalid_json_wrapper(monkeypatch):
     """Model returns unparseable text via the wrapper path -> template fallback."""
     _stub_wrapper(monkeypatch, text="not json at all")
@@ -265,10 +291,19 @@ def test_build_call_sheet_with_llm_falls_back_on_invalid_json_wrapper(monkeypatc
 # Code-fenced response (tolerated) — both approaches agree
 # ---------------------------------------------------------------------------
 
+
 def test_build_call_sheet_with_llm_strips_code_fence(monkeypatch):
-    payload = "```json\n" + json.dumps({
-        "pitch": "p", "opener": "o", "voicemail": "v",
-    }) + "\n```"
+    payload = (
+        "```json\n"
+        + json.dumps(
+            {
+                "pitch": "p",
+                "opener": "o",
+                "voicemail": "v",
+            }
+        )
+        + "\n```"
+    )
     _stub_wrapper(monkeypatch, text=payload)
     out = cs.build_call_sheet_with_llm(_prospect(), anthropic_api_key="sk-test")
     assert out.callsheet_pitch == "p"
@@ -278,9 +313,7 @@ def test_build_call_sheet_with_llm_strips_code_fence(monkeypatch):
 
 def test_build_call_sheet_with_llm_strips_code_fence_wrapper(monkeypatch):
     """Code-fence tolerance via the wrapper path."""
-    payload = "```json\n" + json.dumps(
-        {"pitch": "p", "opener": "o", "voicemail": "v"}
-    ) + "\n```"
+    payload = "```json\n" + json.dumps({"pitch": "p", "opener": "o", "voicemail": "v"}) + "\n```"
     _stub_wrapper(monkeypatch, text=payload)
 
     out = cs.build_call_sheet_with_llm(_prospect(), anthropic_api_key="unused")
@@ -293,9 +326,11 @@ def test_build_call_sheet_with_llm_strips_code_fence_wrapper(monkeypatch):
 # build_call_sheet_smart: settings-driven selection
 # ---------------------------------------------------------------------------
 
+
 def test_build_call_sheet_smart_uses_template_without_key(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "")
     from backend.common.settings import reload_settings
+
     reload_settings()
     out = cs.build_call_sheet_smart(_prospect())
     assert "Acme Roofing" in out.callsheet_opener
@@ -304,12 +339,15 @@ def test_build_call_sheet_smart_uses_template_without_key(monkeypatch):
 def test_build_call_sheet_smart_calls_llm_with_key(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-from-env")
     from backend.common.settings import reload_settings
+
     reload_settings()
-    payload = json.dumps({
-        "pitch": "Custom-pitch",
-        "opener": "Custom-opener",
-        "voicemail": "Custom-voicemail",
-    })
+    payload = json.dumps(
+        {
+            "pitch": "Custom-pitch",
+            "opener": "Custom-opener",
+            "voicemail": "Custom-voicemail",
+        }
+    )
     _stub_wrapper(monkeypatch, text=payload)
     out = cs.build_call_sheet_smart(_prospect())
     assert out.callsheet_pitch == "Custom-pitch"
@@ -319,11 +357,13 @@ def test_build_call_sheet_smart_calls_llm_with_key(monkeypatch):
 
 def test_build_call_sheet_smart_calls_llm_wrapper(monkeypatch):
     """Wrapper path: smart selector routes hot prospects through the LLM."""
-    payload = json.dumps({
-        "pitch": "Custom-pitch",
-        "opener": "Custom-opener",
-        "voicemail": "Custom-voicemail",
-    })
+    payload = json.dumps(
+        {
+            "pitch": "Custom-pitch",
+            "opener": "Custom-opener",
+            "voicemail": "Custom-voicemail",
+        }
+    )
     _stub_wrapper(monkeypatch, text=payload)
 
     out = cs.build_call_sheet_smart(_prospect())

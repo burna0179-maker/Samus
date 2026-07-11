@@ -1,4 +1,5 @@
 """get_upsell_summary — briefing rollup over the upsell_queue.jsonl."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
@@ -39,8 +40,10 @@ def test_get_upsell_summary_counts_queued_due_now():
     """Three touches enqueued long ago; all due → due_now_count = 3."""
     delivered = _now() - timedelta(days=40)
     enqueue_upsell(
-        customer_id="c", customer_email="c@x.com",
-        source_offer_code="seo_audit", delivered_at=delivered,
+        customer_id="c",
+        customer_email="c@x.com",
+        source_offer_code="seo_audit",
+        delivered_at=delivered,
     )
     s = get_upsell_summary(window_days=60)
     assert s.log_loaded is True
@@ -52,16 +55,20 @@ def test_get_upsell_summary_counts_queued_due_now():
 def test_get_upsell_summary_counts_sent_failed_converted():
     delivered = _now() - timedelta(days=40)
     enqueue_upsell(
-        customer_id="c", customer_email="c@x.com",
-        source_offer_code="seo_audit", delivered_at=delivered,
+        customer_id="c",
+        customer_email="c@x.com",
+        source_offer_code="seo_audit",
+        delivered_at=delivered,
     )
     rows = _read_all_rows()
     by_touch = {r.touch_num: r for r in rows}
     # Touch 1 → sent → converted
     mark_sent(queued_row=by_touch[1], message_id="msg_1")
     mark_converted(
-        customer_id="c", source_offer_code="seo_audit",
-        touch_num=1, subscription_id="sub_42",
+        customer_id="c",
+        source_offer_code="seo_audit",
+        touch_num=1,
+        subscription_id="sub_42",
     )
     # Touch 2 → sent
     mark_sent(queued_row=by_touch[2], message_id="msg_2")
@@ -79,14 +86,18 @@ def test_get_upsell_summary_counts_sent_failed_converted():
 def test_get_upsell_summary_skipped_dup_counted_separately():
     delivered = _now() - timedelta(days=40)
     enqueue_upsell(
-        customer_id="c", customer_email="c@x.com",
-        source_offer_code="seo_audit", delivered_at=delivered,
+        customer_id="c",
+        customer_email="c@x.com",
+        source_offer_code="seo_audit",
+        delivered_at=delivered,
     )
     # Second enqueue → 3 skipped_dup rows; latest state per (c, seo_audit, N)
     # becomes skipped_dup
     enqueue_upsell(
-        customer_id="c", customer_email="c@x.com",
-        source_offer_code="seo_audit", delivered_at=delivered,
+        customer_id="c",
+        customer_email="c@x.com",
+        source_offer_code="seo_audit",
+        delivered_at=delivered,
     )
     s = get_upsell_summary(window_days=60)
     assert s.skipped_dup_count == 3
@@ -97,7 +108,8 @@ def test_get_upsell_summary_recent_sent_capped_at_5():
     """If more than 5 sent in window, recent_sent must cap to the latest 5."""
     for i in range(8):
         enqueue_upsell(
-            customer_id=f"c_{i}", customer_email=f"c{i}@x.com",
+            customer_id=f"c_{i}",
+            customer_email=f"c{i}@x.com",
             source_offer_code="seo_audit",
             delivered_at=_now() - timedelta(days=40),
         )
@@ -115,20 +127,36 @@ def test_get_upsell_summary_filters_recent_sent_to_window():
     """Old sent rows show in counts only if within window."""
     # Use a fixed-time row in the past beyond the window
     from backend.finance.upsell_queue import UpsellQueueRow, _append
+
     stale_ts = (_now() - timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    _append(UpsellQueueRow(
-        event_id="stale_q", ts=stale_ts, kind="queued", touch_num=1,
-        customer_id="c", customer_email="c@x.com",
-        source_offer_code="seo_audit", target_offer_code="seo_optimization",
-        target_price_id="price_x",
-        due_at=stale_ts,
-    ))
-    _append(UpsellQueueRow(
-        event_id="stale_s", ts=stale_ts, kind="sent", touch_num=1,
-        customer_id="c", customer_email="c@x.com",
-        source_offer_code="seo_audit", target_offer_code="seo_optimization",
-        target_price_id="price_x", sent_message_id="msg_stale",
-    ))
+    _append(
+        UpsellQueueRow(
+            event_id="stale_q",
+            ts=stale_ts,
+            kind="queued",
+            touch_num=1,
+            customer_id="c",
+            customer_email="c@x.com",
+            source_offer_code="seo_audit",
+            target_offer_code="seo_optimization",
+            target_price_id="price_x",
+            due_at=stale_ts,
+        )
+    )
+    _append(
+        UpsellQueueRow(
+            event_id="stale_s",
+            ts=stale_ts,
+            kind="sent",
+            touch_num=1,
+            customer_id="c",
+            customer_email="c@x.com",
+            source_offer_code="seo_audit",
+            target_offer_code="seo_optimization",
+            target_price_id="price_x",
+            sent_message_id="msg_stale",
+        )
+    )
     # 7-day window: stale sent row is OUTSIDE, so sent_count = 0
     s = get_upsell_summary(window_days=7)
     assert s.sent_count == 0

@@ -8,13 +8,12 @@ Pipeline stage 6.5 — runs after pattern_aggregator, before callsheet_updater.
 
 Fully offline: strategic synthesis runs on LM Studio via local_llm.chat().
 """
+
 from __future__ import annotations
 
 import json
 import logging
 from dataclasses import asdict, dataclass, field
-from datetime import date, timedelta
-from pathlib import Path
 
 from backend.common import storage
 from backend.common.dates import iso_now
@@ -62,11 +61,14 @@ def reason(today_report: PatternReport | None = None) -> StrategyBrief:
 
     if today_report is None:
         from .pattern_aggregator import load_pattern_report
+
         today_report = load_pattern_report()
 
     if today_report is None:
         return StrategyBrief(
-            generated_ts=ts, lookback_days=0, days_with_data=0,
+            generated_ts=ts,
+            lookback_days=0,
+            days_with_data=0,
             synthesis="No pattern data available yet.",
         )
 
@@ -96,23 +98,29 @@ def reason(today_report: PatternReport | None = None) -> StrategyBrief:
 
         # Outcome rate trend
         rate_delta = today_report.positive_outcome_rate - prev_report.positive_outcome_rate
-        trend_deltas.append(TrendDelta(
-            metric="positive_outcome_rate",
-            previous=prev_report.positive_outcome_rate,
-            current=today_report.positive_outcome_rate,
-            direction="up" if rate_delta > 0.01 else ("down" if rate_delta < -0.01 else "flat"),
-            magnitude=round(abs(rate_delta), 3),
-        ))
+        trend_deltas.append(
+            TrendDelta(
+                metric="positive_outcome_rate",
+                previous=prev_report.positive_outcome_rate,
+                current=today_report.positive_outcome_rate,
+                direction="up" if rate_delta > 0.01 else ("down" if rate_delta < -0.01 else "flat"),
+                magnitude=round(abs(rate_delta), 3),
+            )
+        )
 
         # Reward trend
         reward_delta = today_report.avg_reward - prev_report.avg_reward
-        trend_deltas.append(TrendDelta(
-            metric="avg_reward",
-            previous=prev_report.avg_reward,
-            current=today_report.avg_reward,
-            direction="up" if reward_delta > 0.01 else ("down" if reward_delta < -0.01 else "flat"),
-            magnitude=round(abs(reward_delta), 3),
-        ))
+        trend_deltas.append(
+            TrendDelta(
+                metric="avg_reward",
+                previous=prev_report.avg_reward,
+                current=today_report.avg_reward,
+                direction="up"
+                if reward_delta > 0.01
+                else ("down" if reward_delta < -0.01 else "flat"),
+                magnitude=round(abs(reward_delta), 3),
+            )
+        )
 
         # Objection diff
         today_obj_texts = {o.text for o in today_report.top_objections}
@@ -132,7 +140,9 @@ def reason(today_report: PatternReport | None = None) -> StrategyBrief:
         degrading_points = sorted(today_flopped & prev_landed)
 
         # Outcome distribution shift
-        for outcome in set(list(today_report.outcome_distribution) + list(prev_report.outcome_distribution)):
+        for outcome in set(
+            list(today_report.outcome_distribution) + list(prev_report.outcome_distribution)
+        ):
             t_count = today_report.outcome_distribution.get(outcome, 0)
             p_count = prev_report.outcome_distribution.get(outcome, 0)
             t_total = today_report.total_calls_analyzed or 1
@@ -141,13 +151,15 @@ def reason(today_report: PatternReport | None = None) -> StrategyBrief:
             p_pct = p_count / p_total
             delta = t_pct - p_pct
             if abs(delta) > 0.05:
-                trend_deltas.append(TrendDelta(
-                    metric=f"outcome_pct:{outcome}",
-                    previous=round(p_pct, 3),
-                    current=round(t_pct, 3),
-                    direction="up" if delta > 0 else "down",
-                    magnitude=round(abs(delta), 3),
-                ))
+                trend_deltas.append(
+                    TrendDelta(
+                        metric=f"outcome_pct:{outcome}",
+                        previous=round(p_pct, 3),
+                        current=round(t_pct, 3),
+                        direction="up" if delta > 0 else "down",
+                        magnitude=round(abs(delta), 3),
+                    )
+                )
 
     # ── LLM strategic synthesis ───────────────────────────────────
     synthesis = ""
@@ -155,9 +167,13 @@ def reason(today_report: PatternReport | None = None) -> StrategyBrief:
     llm_error: str | None = None
 
     diff_context = _build_diff_context(
-        today_report, prior_reports, trend_deltas,
-        new_objections, lost_objections,
-        improving_points, degrading_points,
+        today_report,
+        prior_reports,
+        trend_deltas,
+        new_objections,
+        lost_objections,
+        improving_points,
+        degrading_points,
     )
 
     raw = llm_chat(
@@ -248,7 +264,9 @@ def _build_diff_context(
     if deltas:
         lines.append("\nTREND DELTAS:")
         for d in deltas:
-            lines.append(f"  {d.metric}: {d.previous:.3f} → {d.current:.3f} ({d.direction}, Δ{d.magnitude:.3f})")
+            lines.append(
+                f"  {d.metric}: {d.previous:.3f} → {d.current:.3f} ({d.direction}, Δ{d.magnitude:.3f})"
+            )
 
     if new_obj:
         lines.append(f"\nNEW OBJECTIONS (not seen before): {json.dumps(new_obj)}")
@@ -256,17 +274,21 @@ def _build_diff_context(
         lines.append(f"\nRESOLVED OBJECTIONS (no longer appearing): {json.dumps(lost_obj)}")
 
     if improving:
-        lines.append(f"\nIMPROVING TALKING POINTS (were flopping, now landing): {json.dumps(improving[:5])}")
+        lines.append(
+            f"\nIMPROVING TALKING POINTS (were flopping, now landing): {json.dumps(improving[:5])}"
+        )
     if degrading:
-        lines.append(f"\nDEGRADING TALKING POINTS (were landing, now flopping): {json.dumps(degrading[:5])}")
+        lines.append(
+            f"\nDEGRADING TALKING POINTS (were landing, now flopping): {json.dumps(degrading[:5])}"
+        )
 
     # Top objections with effectiveness
     if today.top_objections:
         lines.append("\nCURRENT OBJECTIONS:")
         for o in today.top_objections[:8]:
             lines.append(
-                f"  \"{o.text}\" — {o.count}x, {o.avg_handling_effectiveness:.0%} effective, "
-                f"best handler: \"{o.best_handler}\""
+                f'  "{o.text}" — {o.count}x, {o.avg_handling_effectiveness:.0%} effective, '
+                f'best handler: "{o.best_handler}"'
             )
 
     # Script feedback

@@ -1,8 +1,8 @@
 """Heat Field tests — scoring, bands, store, service, signature, webhook route."""
+
 from __future__ import annotations
 
 import base64
-import json
 from typing import Any
 
 import pytest
@@ -15,6 +15,7 @@ from backend.heat import store as heat_store
 # ---------------------------------------------------------------------------
 # metrics
 # ---------------------------------------------------------------------------
+
 
 def test_zero_inputs_score_zero():
     assert metrics.compute_heat_score(metrics.HeatInputs()) == 0.0
@@ -54,23 +55,34 @@ def test_small_complaint_rate_registers():
 # controller
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("score,band", [
-    (0.0, controller.BAND_COOL),
-    (0.24, controller.BAND_COOL),
-    (0.25, controller.BAND_WARM),
-    (0.49, controller.BAND_WARM),
-    (0.50, controller.BAND_HOT),
-    (0.74, controller.BAND_HOT),
-    (0.75, controller.BAND_CRITICAL),
-    (1.0, controller.BAND_CRITICAL),
-])
+
+@pytest.mark.parametrize(
+    "score,band",
+    [
+        (0.0, controller.BAND_COOL),
+        (0.24, controller.BAND_COOL),
+        (0.25, controller.BAND_WARM),
+        (0.49, controller.BAND_WARM),
+        (0.50, controller.BAND_HOT),
+        (0.74, controller.BAND_HOT),
+        (0.75, controller.BAND_CRITICAL),
+        (1.0, controller.BAND_CRITICAL),
+    ],
+)
 def test_band_for_score(score, band):
     assert controller.band_for_score(score) == band
 
 
 def test_multiplier_monotonic_decreasing():
-    m = [controller.send_multiplier(b) for b in
-         (controller.BAND_COOL, controller.BAND_WARM, controller.BAND_HOT, controller.BAND_CRITICAL)]
+    m = [
+        controller.send_multiplier(b)
+        for b in (
+            controller.BAND_COOL,
+            controller.BAND_WARM,
+            controller.BAND_HOT,
+            controller.BAND_CRITICAL,
+        )
+    ]
     assert m == sorted(m, reverse=True)
     assert m[0] == 1.0 and m[-1] == 0.0
 
@@ -84,9 +96,12 @@ def test_only_critical_pauses():
 # store
 # ---------------------------------------------------------------------------
 
+
 def _store(tmp_path, now=None):
     return heat_store.HeatStateStore(
-        ddb_table=None, json_path=str(tmp_path / "heat.json"), now_func=now,
+        ddb_table=None,
+        json_path=str(tmp_path / "heat.json"),
+        now_func=now,
     )
 
 
@@ -132,6 +147,7 @@ def test_rates_compute_above_min_sample(tmp_path):
 # service — flag gating + ingest
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def heat_env(tmp_path, monkeypatch):
     """Point the singleton store at a tmp JSON file, no DDB."""
@@ -145,6 +161,7 @@ def heat_env(tmp_path, monkeypatch):
 def _set_flag(monkeypatch, enabled: bool):
     monkeypatch.setenv("SAMUS_HEAT_FIELD_ENABLED", "true" if enabled else "false")
     from backend.common.settings import reload_settings
+
     reload_settings()
 
 
@@ -191,15 +208,17 @@ def test_ingest_counts_and_halts_and_suppresses(heat_env, monkeypatch):
 
     monkeypatch.setattr("backend.common.aws.table", lambda *a, **k: _Tbl())
 
-    out = heat_service.ingest_sendgrid_events([
-        {"event": "delivered", "email": "a@x.com"},
-        {"event": "bounce", "email": "bad@x.com"},
-        {"event": "spamreport", "email": "angry@x.com", "prospect_id": "pr_9"},
-    ])
+    out = heat_service.ingest_sendgrid_events(
+        [
+            {"event": "delivered", "email": "a@x.com"},
+            {"event": "bounce", "email": "bad@x.com"},
+            {"event": "spamreport", "email": "angry@x.com", "prospect_id": "pr_9"},
+        ]
+    )
     assert out["ok"] is True
     assert out["counted"] == 3
-    assert out["halted"] == 2          # bounce + spamreport
-    assert out["suppressed"] == 2      # both suppressed
+    assert out["halted"] == 2  # bounce + spamreport
+    assert out["suppressed"] == 2  # both suppressed
     assert len(halts) == 2
     # spamreport mapped to the "complaint" vocabulary for the halt loop.
     assert any(h.get("event") == "complaint" for h in halts)
@@ -221,9 +240,11 @@ def test_status_snapshot_shape(heat_env, monkeypatch):
 # sendgrid signature
 # ---------------------------------------------------------------------------
 
+
 def _gen_ec_keypair():
     from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric import ec
+
     priv = ec.generate_private_key(ec.SECP256R1())
     pub_der = priv.public_key().public_bytes(
         encoding=serialization.Encoding.DER,
@@ -243,8 +264,10 @@ def test_signature_roundtrip_valid():
     sig = priv.sign(ts.encode() + payload, ec.ECDSA(hashes.SHA256()))
     # Should not raise.
     verify_sendgrid_signature(
-        public_key_b64=pub_b64, payload=payload,
-        signature_b64=base64.b64encode(sig).decode(), timestamp=ts,
+        public_key_b64=pub_b64,
+        payload=payload,
+        signature_b64=base64.b64encode(sig).decode(),
+        timestamp=ts,
     )
 
 
@@ -252,7 +275,8 @@ def test_signature_tampered_payload_rejected():
     from cryptography.hazmat.primitives import hashes
     from cryptography.hazmat.primitives.asymmetric import ec
     from backend.heat.sendgrid_signature import (
-        SendGridSignatureError, verify_sendgrid_signature,
+        SendGridSignatureError,
+        verify_sendgrid_signature,
     )
 
     priv, pub_b64 = _gen_ec_keypair()
@@ -260,18 +284,25 @@ def test_signature_tampered_payload_rejected():
     sig = priv.sign(ts.encode() + b"original", ec.ECDSA(hashes.SHA256()))
     with pytest.raises(SendGridSignatureError):
         verify_sendgrid_signature(
-            public_key_b64=pub_b64, payload=b"TAMPERED",
-            signature_b64=base64.b64encode(sig).decode(), timestamp=ts,
+            public_key_b64=pub_b64,
+            payload=b"TAMPERED",
+            signature_b64=base64.b64encode(sig).decode(),
+            timestamp=ts,
         )
 
 
 def test_signature_no_key_raises():
     from backend.heat.sendgrid_signature import (
-        SendGridSignatureError, verify_sendgrid_signature,
+        SendGridSignatureError,
+        verify_sendgrid_signature,
     )
+
     with pytest.raises(SendGridSignatureError):
         verify_sendgrid_signature(
-            public_key_b64="", payload=b"x", signature_b64="y", timestamp="1",
+            public_key_b64="",
+            payload=b"x",
+            signature_b64="y",
+            timestamp="1",
         )
 
 
@@ -279,21 +310,27 @@ def test_signature_no_key_raises():
 # webhook route (TestClient)
 # ---------------------------------------------------------------------------
 
+
 def test_webhook_dev_unverified_ingests(heat_env, monkeypatch):
     # Dev posture: verification off -> route accepts + ingests.
     monkeypatch.setenv("SAMUS_SENDGRID_VERIFY_EVENTS", "0")
     monkeypatch.setenv("SAMUS_ENV", "development")
     from backend.common.settings import reload_settings
+
     reload_settings()
     _set_flag(monkeypatch, False)
 
     from fastapi.testclient import TestClient
     from backend.feedback.app import app
+
     client = TestClient(app)
-    resp = client.post("/api/sendgrid/events", json=[
-        {"event": "delivered", "email": "a@x.com"},
-        {"event": "open", "email": "a@x.com"},
-    ])
+    resp = client.post(
+        "/api/sendgrid/events",
+        json=[
+            {"event": "delivered", "email": "a@x.com"},
+            {"event": "open", "email": "a@x.com"},
+        ],
+    )
     assert resp.status_code == 200
     assert resp.json()["counted"] == 2
     assert heat_store.get_store().snapshot().delivered == 1
@@ -304,10 +341,12 @@ def test_webhook_prod_without_key_fails_closed(heat_env, monkeypatch):
     monkeypatch.setenv("SENDGRID_WEBHOOK_VERIFICATION_KEY", "")
     monkeypatch.setenv("SAMUS_ENV", "production")
     from backend.common.settings import reload_settings
+
     reload_settings()
 
     from fastapi.testclient import TestClient
     from backend.feedback.app import app
+
     client = TestClient(app, raise_server_exceptions=False)
     resp = client.post("/api/sendgrid/events", json=[{"event": "delivered", "email": "a@x.com"}])
     assert resp.status_code == 403
@@ -317,6 +356,7 @@ def test_webhook_prod_without_key_fails_closed(heat_env, monkeypatch):
 # custom_args plumbing
 # ---------------------------------------------------------------------------
 
+
 def _capture_sendgrid(monkeypatch) -> dict:
     cap: dict = {}
 
@@ -325,6 +365,7 @@ def _capture_sendgrid(monkeypatch) -> dict:
         return {"message_id": "x", "channel": "email", "to": kw.get("to", ""), "ts": "t"}
 
     import backend.common.email_backend as adapter
+
     monkeypatch.setattr(adapter, "send_email_via_sendgrid", _fake)
     return cap
 
@@ -333,9 +374,11 @@ def test_send_email_threads_custom_args(monkeypatch):
     monkeypatch.setenv("EMAIL_BACKEND", "sendgrid")
     monkeypatch.setenv("SAMUS_COMPLIANCE_GUARD_MODE", "off")
     from backend.common.settings import reload_settings
+
     reload_settings()
     cap = _capture_sendgrid(monkeypatch)
     from backend.common.email_backend import send_email
+
     send_email("a@b.com", "s", "b", custom_args={"prospect_id": "pr_1"})
     assert cap["custom_args"] == {"prospect_id": "pr_1"}
 
@@ -344,6 +387,7 @@ def test_sendgrid_payload_includes_custom_args(monkeypatch):
     monkeypatch.setenv("SENDGRID_API_KEY", "SG.test")
     monkeypatch.setenv("SENDGRID_FROM_EMAIL", "samus@example.com")
     from backend.common.settings import reload_settings
+
     reload_settings()
 
     captured: dict = {}
@@ -358,8 +402,12 @@ def test_sendgrid_payload_includes_custom_args(monkeypatch):
 
     class _Client:
         def __init__(self, *a, **k): ...
-        def __enter__(self): return self
-        def __exit__(self, *a): return False
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
         def post(self, url, headers=None, json=None):
             captured["json"] = json
             return _Resp()
@@ -371,10 +419,14 @@ def test_sendgrid_payload_includes_custom_args(monkeypatch):
 
         def __getattr__(self, n):
             import httpx
+
             return getattr(httpx, n)
 
     monkeypatch.setattr(sg, "httpx", _FakeHttpx())
     sg.send_email_via_sendgrid(
-        "a@b.com", "s", "b", custom_args={"prospect_id": "pr_7", "template_id": "t1"},
+        "a@b.com",
+        "s",
+        "b",
+        custom_args={"prospect_id": "pr_7", "template_id": "t1"},
     )
     assert captured["json"]["custom_args"] == {"prospect_id": "pr_7", "template_id": "t1"}

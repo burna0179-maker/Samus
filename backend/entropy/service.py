@@ -4,6 +4,7 @@ Wraps :mod:`backend.entropy.monitor`: runs the monitor and persists the
 outcome to the ``samus_task_state`` table via the shared
 :func:`write_task_state` helper. ``app.py`` calls :func:`scan` only.
 """
+
 from __future__ import annotations
 
 import logging

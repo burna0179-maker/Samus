@@ -13,6 +13,7 @@ own (it is always-safe pure compute — the WRAPPER's enable posture governs
 whether it runs at all). When the wrapper is dormant this class is never
 constructed.
 """
+
 from __future__ import annotations
 
 import logging
@@ -23,8 +24,20 @@ log = logging.getLogger(__name__)
 # Situation TYPE keywords. First match wins (order matters: high-risk
 # financial/irreversible patterns are checked before generic question/command).
 _HIGH_RISK_TERMS = (
-    "wire", "transfer", "payment", "bank", "refund", "credential", "password",
-    "ssn", "delete", "purchase", "buy ", "send money", "publish", "deploy",
+    "wire",
+    "transfer",
+    "payment",
+    "bank",
+    "refund",
+    "credential",
+    "password",
+    "ssn",
+    "delete",
+    "purchase",
+    "buy ",
+    "send money",
+    "publish",
+    "deploy",
 )
 _COMMAND_TERMS = ("do ", "run ", "execute", "create", "make ", "build", "send", "schedule")
 _QUESTION_TERMS = ("?", "what", "why", "how", "when", "who", "where", "which")
@@ -36,7 +49,9 @@ class SituationIndex:
     def __init__(self) -> None:  # no-arg construct (Contract 2)
         pass
 
-    def classify(self, *, text: str = "", channel: str = "", plan_token: str = "") -> Dict[str, Any]:
+    def classify(
+        self, *, text: str = "", channel: str = "", plan_token: str = ""
+    ) -> Dict[str, Any]:
         """Classify a stimulus into ``{risk, type}``.
 
         ``risk`` ∈ {"low","medium","high"}; ``type`` ∈ {"command","question",

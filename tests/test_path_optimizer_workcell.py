@@ -5,6 +5,7 @@ and ``detect_error_spike``) and the FastAPI app (``/health``, ``/work``,
 ``/path_optimizer/select``). The LLM budget-store snapshot is monkeypatched so
 every test runs offline and deterministically.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -69,10 +70,7 @@ def test_select_path_hybrid_exact_threshold():
 
 def test_select_path_hybrid_outranks_error_spike():
     """A workcell above the hybrid threshold stays hybrid even with a spike."""
-    assert (
-        PathOptimizer().select_execution_path(_state(0.70, spike=True))
-        == PATH_HYBRID_TEMPLATE
-    )
+    assert PathOptimizer().select_execution_path(_state(0.70, spike=True)) == PATH_HYBRID_TEMPLATE
 
 
 def test_select_path_deterministic_scaffold_on_error_spike():
@@ -93,8 +91,7 @@ def test_select_path_safe_static_fallback():
 
 def test_select_path_zero_ema_no_spike():
     assert (
-        PathOptimizer().select_execution_path(_state(0.0, spike=False))
-        == PATH_SAFE_STATIC_FALLBACK
+        PathOptimizer().select_execution_path(_state(0.0, spike=False)) == PATH_SAFE_STATIC_FALLBACK
     )
 
 

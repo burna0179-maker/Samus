@@ -25,6 +25,7 @@ Persistence: every plan lives at
 
 CLI: ``python -m backend.retainer.monthly_cycle --customer-id X --sku Y``.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -39,7 +40,7 @@ from typing import Any, Callable, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .registry import RetainerProductConfig, get_retainer_sku
+from .registry import get_retainer_sku
 from .visibility_report import (
     read_snapshot,
     render_visibility_report,
@@ -61,6 +62,7 @@ PlanStatus = Literal["planned", "running", "complete", "failed"]
 @dataclass
 class PlanStep:
     """One DAG node. ``type`` is ``<service>.<action>`` (string-stable)."""
+
     id: str
     type: str
     depends_on: list[str] = field(default_factory=list)
@@ -76,11 +78,12 @@ class PlanStep:
 @dataclass
 class FulfillmentPlan:
     """A monthly cycle's full DAG + state."""
-    plan_id: str            # f"{customer_id}:{sku_id}:{YYYY-MM}"
+
+    plan_id: str  # f"{customer_id}:{sku_id}:{YYYY-MM}"
     customer_id: str
     sku_id: str
-    cycle_month: str        # YYYY-MM
-    cycle_id: str           # which blueprint produced this plan
+    cycle_month: str  # YYYY-MM
+    cycle_id: str  # which blueprint produced this plan
     steps: list[PlanStep] = field(default_factory=list)
     status: PlanStatus = "planned"
     created_at: str = ""
@@ -94,8 +97,10 @@ class FulfillmentPlan:
 # CycleResult (Pydantic — public-facing return shape, like FulfillmentResult)
 # ---------------------------------------------------------------------------
 
+
 class CycleStep(BaseModel):
     """Per-step rollup in the public CycleResult."""
+
     model_config = ConfigDict(extra="forbid")
     id: str
     type: str
@@ -106,6 +111,7 @@ class CycleStep(BaseModel):
 
 class CycleResult(BaseModel):
     """Full audit trail of one ``run_monthly_cycle()`` invocation."""
+
     model_config = ConfigDict(extra="forbid")
     customer_id: str
     sku_id: str
@@ -122,6 +128,7 @@ class CycleResult(BaseModel):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -145,6 +152,7 @@ def _prior_cycle_month(this_month: str) -> str:
 
 def _cycle_dir(customer_id: str, sku_id: str, cycle_month: str) -> Path:
     from backend.common import storage
+
     target = storage.root() / "customers" / customer_id / sku_id / cycle_month
     target.mkdir(parents=True, exist_ok=True)
     return target
@@ -162,8 +170,12 @@ def _persist_plan(plan: FulfillmentPlan) -> Path:
 # Plan builders (one per cycle_id)
 # ---------------------------------------------------------------------------
 
+
 def _build_seo_optimization_plan(
-    customer_id: str, sku_id: str, cycle_month: str, payload: dict[str, Any],
+    customer_id: str,
+    sku_id: str,
+    cycle_month: str,
+    payload: dict[str, Any],
 ) -> FulfillmentPlan:
     plan_id = f"{customer_id}:{sku_id}:{cycle_month}"
     return FulfillmentPlan(
@@ -204,7 +216,10 @@ def _build_seo_optimization_plan(
 
 
 def _build_ai_ops_partner_plan(
-    customer_id: str, sku_id: str, cycle_month: str, payload: dict[str, Any],
+    customer_id: str,
+    sku_id: str,
+    cycle_month: str,
+    payload: dict[str, Any],
 ) -> FulfillmentPlan:
     plan_id = f"{customer_id}:{sku_id}:{cycle_month}"
     return FulfillmentPlan(
@@ -255,12 +270,15 @@ _PLAN_BUILDERS: dict[str, Callable[..., FulfillmentPlan]] = {
 # Step executors
 # ---------------------------------------------------------------------------
 
+
 class StepFailure(RuntimeError):
     """Raised by a step executor to mark its step failed."""
 
 
 def _exec_audit_current_state(
-    step: PlanStep, plan: FulfillmentPlan, ctx: "CycleContext",
+    step: PlanStep,
+    plan: FulfillmentPlan,
+    ctx: "CycleContext",
 ) -> dict[str, Any]:
     """Re-run the SEO audit + persist this-month's snapshot."""
     audit_url = step.payload.get("audit_url", "")
@@ -283,7 +301,9 @@ def _exec_audit_current_state(
 
 
 def _exec_diff_against_prior_month(
-    step: PlanStep, plan: FulfillmentPlan, ctx: "CycleContext",
+    step: PlanStep,
+    plan: FulfillmentPlan,
+    ctx: "CycleContext",
 ) -> dict[str, Any]:
     """Diff this-month vs prior-month snapshot; emit fix queue."""
     this_snap = read_snapshot(plan.customer_id, plan.sku_id, plan.cycle_month) or {}
@@ -307,7 +327,7 @@ def _exec_diff_against_prior_month(
         return {
             "is_first_cycle": True,
             "fix_queue_size": len(fix_queue),
-            "fix_queue": fix_queue[:5],   # top 5 actionable this cycle
+            "fix_queue": fix_queue[:5],  # top 5 actionable this cycle
             "regressions": [],
         }
 
@@ -333,7 +353,9 @@ def _exec_diff_against_prior_month(
 
 
 def _exec_apply_priority_fixes(
-    step: PlanStep, plan: FulfillmentPlan, ctx: "CycleContext",
+    step: PlanStep,
+    plan: FulfillmentPlan,
+    ctx: "CycleContext",
 ) -> dict[str, Any]:
     """Log the fixes the operator applied this month.
 
@@ -354,12 +376,16 @@ def _exec_apply_priority_fixes(
 
 
 def _exec_report_render_and_send(
-    step: PlanStep, plan: FulfillmentPlan, ctx: "CycleContext",
+    step: PlanStep,
+    plan: FulfillmentPlan,
+    ctx: "CycleContext",
 ) -> dict[str, Any]:
     """Render the visibility report + send it via email."""
     this_snap = read_snapshot(plan.customer_id, plan.sku_id, plan.cycle_month) or {}
     prior_snap = read_snapshot(
-        plan.customer_id, plan.sku_id, _prior_cycle_month(plan.cycle_month),
+        plan.customer_id,
+        plan.sku_id,
+        _prior_cycle_month(plan.cycle_month),
     )
     apply_step = next((s for s in plan.steps if s.id == "apply_priority_fixes"), None)
     fixes_applied_raw = (apply_step.output.get("applied") if apply_step else []) or []
@@ -384,7 +410,9 @@ def _exec_report_render_and_send(
         site_url=step.payload.get("audit_url", ""),
     )
 
-    report_path = _cycle_dir(plan.customer_id, plan.sku_id, plan.cycle_month) / "visibility_report.md"
+    report_path = (
+        _cycle_dir(plan.customer_id, plan.sku_id, plan.cycle_month) / "visibility_report.md"
+    )
     report_path.write_text(markdown, encoding="utf-8")
 
     email_to = step.payload.get("email_to", "")
@@ -411,7 +439,9 @@ def _exec_report_render_and_send(
 
 
 def _exec_ops_weekly_assess(
-    step: PlanStep, plan: FulfillmentPlan, ctx: "CycleContext",
+    step: PlanStep,
+    plan: FulfillmentPlan,
+    ctx: "CycleContext",
 ) -> dict[str, Any]:
     """Week-1: capture prior-month metrics snapshot + create a check-in task."""
     prior_month = _prior_cycle_month(plan.cycle_month)
@@ -429,62 +459,74 @@ def _exec_ops_weekly_assess(
     }
     write_snapshot(plan.customer_id, plan.sku_id, plan.cycle_month, snapshot)
 
-    task = ctx.operator_task_fn({
-        "kind": "call",
-        "title": f"Week 1 assessment call — {plan.customer_id}",
-        "description": (
-            f"AI Ops Partner Week-1 check-in for cycle {plan.cycle_month}. "
-            "Review prior-month metrics + scope what to prioritize this "
-            "month. Customer ops summary: " + (summary or "(none on file)")
-        ),
-        "related_entity_kind": "customer",
-        "related_entity_id": plan.customer_id,
-        "source": "retainer.monthly_cycle",
-        "source_ref": plan.plan_id,
-    })
+    task = ctx.operator_task_fn(
+        {
+            "kind": "call",
+            "title": f"Week 1 assessment call — {plan.customer_id}",
+            "description": (
+                f"AI Ops Partner Week-1 check-in for cycle {plan.cycle_month}. "
+                "Review prior-month metrics + scope what to prioritize this "
+                "month. Customer ops summary: " + (summary or "(none on file)")
+            ),
+            "related_entity_kind": "customer",
+            "related_entity_id": plan.customer_id,
+            "source": "retainer.monthly_cycle",
+            "source_ref": plan.plan_id,
+        }
+    )
     return {"check_in_task_id": task.get("operator_task_id", ""), "snapshot_captured": True}
 
 
 def _exec_ops_prioritize_backlog(
-    step: PlanStep, plan: FulfillmentPlan, ctx: "CycleContext",
+    step: PlanStep,
+    plan: FulfillmentPlan,
+    ctx: "CycleContext",
 ) -> dict[str, Any]:
     """Week-2: create a "scope this-month's build" operator task."""
-    task = ctx.operator_task_fn({
-        "kind": "review",
-        "title": f"Week 2 prioritization — scope build for {plan.cycle_month}",
-        "description": (
-            "Lock the scope of this month's build / ops enhancement with "
-            "the customer. Output: 1-3 concrete deliverables for Week 3."
-        ),
-        "related_entity_kind": "customer",
-        "related_entity_id": plan.customer_id,
-        "source": "retainer.monthly_cycle",
-        "source_ref": plan.plan_id,
-    })
+    task = ctx.operator_task_fn(
+        {
+            "kind": "review",
+            "title": f"Week 2 prioritization — scope build for {plan.cycle_month}",
+            "description": (
+                "Lock the scope of this month's build / ops enhancement with "
+                "the customer. Output: 1-3 concrete deliverables for Week 3."
+            ),
+            "related_entity_kind": "customer",
+            "related_entity_id": plan.customer_id,
+            "source": "retainer.monthly_cycle",
+            "source_ref": plan.plan_id,
+        }
+    )
     return {"prioritization_task_id": task.get("operator_task_id", "")}
 
 
 def _exec_ops_build_and_deploy(
-    step: PlanStep, plan: FulfillmentPlan, ctx: "CycleContext",
+    step: PlanStep,
+    plan: FulfillmentPlan,
+    ctx: "CycleContext",
 ) -> dict[str, Any]:
     """Week-3: create the actual build OperatorTask the human will execute."""
-    task = ctx.operator_task_fn({
-        "kind": "deliver",
-        "title": f"Week 3 build & deploy — {plan.customer_id} ({plan.cycle_month})",
-        "description": (
-            "Execute the agreed Week-2 scope. Capture what shipped + any "
-            "metrics it's saving so the Week-4 report has substance."
-        ),
-        "related_entity_kind": "customer",
-        "related_entity_id": plan.customer_id,
-        "source": "retainer.monthly_cycle",
-        "source_ref": plan.plan_id,
-    })
+    task = ctx.operator_task_fn(
+        {
+            "kind": "deliver",
+            "title": f"Week 3 build & deploy — {plan.customer_id} ({plan.cycle_month})",
+            "description": (
+                "Execute the agreed Week-2 scope. Capture what shipped + any "
+                "metrics it's saving so the Week-4 report has substance."
+            ),
+            "related_entity_kind": "customer",
+            "related_entity_id": plan.customer_id,
+            "source": "retainer.monthly_cycle",
+            "source_ref": plan.plan_id,
+        }
+    )
     return {"build_task_id": task.get("operator_task_id", "")}
 
 
 def _exec_ops_monthly_report(
-    step: PlanStep, plan: FulfillmentPlan, ctx: "CycleContext",
+    step: PlanStep,
+    plan: FulfillmentPlan,
+    ctx: "CycleContext",
 ) -> dict[str, Any]:
     """Week-4: render + send the AI Ops monthly report."""
     this_snap = read_snapshot(plan.customer_id, plan.sku_id, plan.cycle_month) or {}
@@ -500,10 +542,12 @@ def _exec_ops_monthly_report(
             # work happened.
             tid = s.output.get("build_task_id", "")
             if tid:
-                fixes_applied.append({
-                    "area": "this month's build",
-                    "description": f"see operator task {tid}",
-                })
+                fixes_applied.append(
+                    {
+                        "area": "this month's build",
+                        "description": f"see operator task {tid}",
+                    }
+                )
 
     markdown = render_visibility_report(
         customer_id=plan.customer_id,
@@ -550,10 +594,12 @@ _STEP_EXECUTORS: dict[str, Callable[..., dict[str, Any]]] = {
 # Default service callables (lazy-resolved, injectable for tests)
 # ---------------------------------------------------------------------------
 
+
 def _default_run_audit(audit_url: str) -> dict[str, Any]:
     """Resolve + invoke the real SEO audit-and-report pipeline."""
     from backend.seo.models import AuditRequest
     from backend.seo.service import audit_site
+
     audit = audit_site(AuditRequest(url=audit_url))
     # Coerce to the dict shape the cycle expects. The real audit doesn't
     # populate rank_by_keyword / gsc_* today — those will fill in when
@@ -571,12 +617,15 @@ def _default_run_audit(audit_url: str) -> dict[str, Any]:
 def _default_send_email(*, to: str, subject: str, body: str) -> dict[str, str]:
     """Default email path — same adapter the fulfill chain uses."""
     from backend.common.email_backend import send_email as _real_send
+
     # Monthly retainer deliverable is transactional/relationship service mail.
     return _real_send(to=to, subject=subject, body=body, message_kind="transactional")
 
 
 def _default_fix_log_fn(
-    customer_id: str, sku_id: str, cycle_month: str,
+    customer_id: str,
+    sku_id: str,
+    cycle_month: str,
     fix_queue: list[dict[str, Any]],
 ) -> list[dict[str, str]]:
     """Default behavior: surface the candidate queue as the applied log.
@@ -609,9 +658,7 @@ def _default_operator_task_fn(payload: dict[str, Any]) -> dict[str, str]:
         # when CRM is offline.
         return {"operator_task_id": f"local_{int(time.time())}"}
     try:
-        resp = asyncio.run(
-            signed_post_json(crm_url, "/crm/operator-tasks", payload, retries=2)
-        )
+        resp = asyncio.run(signed_post_json(crm_url, "/crm/operator-tasks", payload, retries=2))
         return resp if isinstance(resp, dict) else {"operator_task_id": ""}
     except Exception as exc:  # noqa: BLE001
         _LOG.warning("retainer operator_task dispatch failed: %s", exc)
@@ -621,6 +668,7 @@ def _default_operator_task_fn(payload: dict[str, Any]) -> dict[str, str]:
 @dataclass
 class CycleContext:
     """Bundle of injectable callables the executors close over."""
+
     run_audit_fn: Callable[[str], dict[str, Any]]
     send_email_fn: Callable[..., dict[str, str]]
     fix_log_fn: Callable[..., list[dict[str, str]]]
@@ -630,6 +678,7 @@ class CycleContext:
 # ---------------------------------------------------------------------------
 # Public DAG runner
 # ---------------------------------------------------------------------------
+
 
 def run_monthly_cycle(
     *,
@@ -691,7 +740,9 @@ def run_monthly_cycle(
         except Exception as exc:  # noqa: BLE001
             _LOG.warning("retainer plan reload failed, rebuilding: %s", exc)
             plan = builder(
-                customer_id, sku_id, cycle_month,
+                customer_id,
+                sku_id,
+                cycle_month,
                 {
                     "audit_url": audit_url,
                     "email_to": customer_email,
@@ -701,7 +752,9 @@ def run_monthly_cycle(
             )
     else:
         plan = builder(
-            customer_id, sku_id, cycle_month,
+            customer_id,
+            sku_id,
+            cycle_month,
             {
                 "audit_url": audit_url,
                 "email_to": customer_email,
@@ -739,10 +792,14 @@ def run_monthly_cycle(
             if executor is None:
                 step.status = "failed"
                 step.error = f"no executor for type={step.type}"
-                cycle_steps.append(CycleStep(
-                    id=step.id, type=step.type, status="failed",
-                    detail=step.error,
-                ))
+                cycle_steps.append(
+                    CycleStep(
+                        id=step.id,
+                        type=step.type,
+                        status="failed",
+                        detail=step.error,
+                    )
+                )
                 _persist_plan(plan)
                 continue
 
@@ -756,19 +813,29 @@ def run_monthly_cycle(
                 step.status = "done"
                 step.finished_at = _now_iso()
                 detail = ", ".join(f"{k}={v}" for k, v in output.items() if k != "snapshot")[:200]
-                cycle_steps.append(CycleStep(
-                    id=step.id, type=step.type, status="done",
-                    detail=detail, elapsed_ms=_ms_since(t0),
-                ))
+                cycle_steps.append(
+                    CycleStep(
+                        id=step.id,
+                        type=step.type,
+                        status="done",
+                        detail=detail,
+                        elapsed_ms=_ms_since(t0),
+                    )
+                )
                 made_progress = True
             except Exception as exc:  # noqa: BLE001
                 step.status = "failed"
                 step.error = str(exc)
                 step.finished_at = _now_iso()
-                cycle_steps.append(CycleStep(
-                    id=step.id, type=step.type, status="failed",
-                    detail=str(exc), elapsed_ms=_ms_since(t0),
-                ))
+                cycle_steps.append(
+                    CycleStep(
+                        id=step.id,
+                        type=step.type,
+                        status="failed",
+                        detail=str(exc),
+                        elapsed_ms=_ms_since(t0),
+                    )
+                )
             finally:
                 _persist_plan(plan)
 
@@ -777,17 +844,26 @@ def run_monthly_cycle(
         if step.status == "pending":
             step.status = "skipped"
             step.error = "dependency failed"
-            cycle_steps.append(CycleStep(
-                id=step.id, type=step.type, status="skipped",
-                detail="dependency failed", elapsed_ms=0,
-            ))
+            cycle_steps.append(
+                CycleStep(
+                    id=step.id,
+                    type=step.type,
+                    status="skipped",
+                    detail="dependency failed",
+                    elapsed_ms=0,
+                )
+            )
 
     plan.status = "complete" if all(s.status == "done" for s in plan.steps) else "failed"
     _persist_plan(plan)
 
     # Pull the final report path + message id off the last-step output.
     report_step = next(
-        (s for s in reversed(plan.steps) if s.type in ("report.render_and_send", "ops.monthly_report")),
+        (
+            s
+            for s in reversed(plan.steps)
+            if s.type in ("report.render_and_send", "ops.monthly_report")
+        ),
         None,
     )
     report_path = None
@@ -813,6 +889,7 @@ def run_monthly_cycle(
 # ---------------------------------------------------------------------------
 # Convenience iterator used by the cron — find every due customer-SKU
 # ---------------------------------------------------------------------------
+
 
 def find_due_cycles(now: datetime | None = None) -> list[dict[str, str]]:
     """Return a list of due ``{customer_id, sku_id, next_cycle_at}`` markers.
@@ -850,17 +927,20 @@ def find_due_cycles(now: datetime | None = None) -> list[dict[str, str]]:
             except ValueError:
                 continue
             if next_at <= now:
-                due.append({
-                    "customer_id": data.get("customer_id", customer_dir.name),
-                    "sku_id": data.get("sku_id", sku_dir.name),
-                    "next_cycle_at": next_at_raw,
-                })
+                due.append(
+                    {
+                        "customer_id": data.get("customer_id", customer_dir.name),
+                        "sku_id": data.get("sku_id", sku_dir.name),
+                        "next_cycle_at": next_at_raw,
+                    }
+                )
     return due
 
 
 # ---------------------------------------------------------------------------
 # CLI — `python -m backend.retainer.monthly_cycle` (also wired by `samus retainer run-cycle`)
 # ---------------------------------------------------------------------------
+
 
 def _render_result(result: CycleResult) -> str:
     sep = "=" * 75
@@ -880,9 +960,7 @@ def _render_result(result: CycleResult) -> str:
     lines.append("")
     lines.append("  steps:")
     for s in result.steps:
-        lines.append(
-            f"    [{s.status:>7}]  {s.id:<26}  ({s.elapsed_ms} ms)  {s.detail}"
-        )
+        lines.append(f"    [{s.status:>7}]  {s.id:<26}  ({s.elapsed_ms} ms)  {s.detail}")
     lines.append(sep)
     return "\n".join(lines)
 
@@ -893,20 +971,24 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--customer-id", required=True, help="Customer slug")
     parser.add_argument(
-        "--sku", required=True,
+        "--sku",
+        required=True,
         help="Retainer SKU id (e.g. retainer_seo_optimization)",
     )
     parser.add_argument(
-        "--audit-url", default="",
+        "--audit-url",
+        default="",
         help="Site URL (required for SEO Optimization cycle)",
     )
     parser.add_argument(
-        "--email", default="",
+        "--email",
+        default="",
         help="Customer email — report sends here. Omit to skip the email.",
     )
     parser.add_argument("--name", default="", help="Customer name (optional)")
     parser.add_argument(
-        "--ops-summary", default="",
+        "--ops-summary",
+        default="",
         help="Operations summary text (AI Ops Partner cycle context)",
     )
     args = parser.parse_args(argv)
@@ -947,6 +1029,7 @@ if __name__ == "__main__":
 #
 # The returned CampaignResult mirrors the CycleResult shape (ok, steps, ts).
 # ---------------------------------------------------------------------------
+
 
 def run_self_marketing_cycle(
     month: int | None = None,

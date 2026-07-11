@@ -3,6 +3,7 @@
 Fail-closed at every step: local fence check -> Codex ratify -> dial only on
 allow. The Codex is the REAL validator (global registry primed); the dialer is a
 fake so no live call is placed."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -24,16 +25,23 @@ def codex_ready(monkeypatch, tmp_path):
     original = adr_drafter.draft_adr_for_violation
 
     def _wrapped(action, violated_rule_id, reason, registry, drafts_dir=None):
-        return original(action, violated_rule_id, reason, registry,
-                        drafts_dir=drafts_dir or (tmp_path / "_drafts"))
+        return original(
+            action,
+            violated_rule_id,
+            reason,
+            registry,
+            drafts_dir=drafts_dir or (tmp_path / "_drafts"),
+        )
 
     monkeypatch.setattr(adr_drafter, "draft_adr_for_violation", _wrapped)
     from backend.common.codex import validator as _v
+
     monkeypatch.setattr(_v, "draft_adr_for_violation", _wrapped)
 
 
 def _arm(monkeypatch, on: bool) -> None:
     from backend.common.settings import reload_settings
+
     if on:
         monkeypatch.setenv("SAMUS_GOVERNED_AUTONOMOUS_DIAL_ENABLED", "true")
     else:
@@ -53,16 +61,22 @@ class _FakeDialer:
         return {"call_id": "c1", "prospect_id": kw.get("prospect_id")}
 
 
-_PASS = {"within_call_hours": True, "cooldown_ok": True,
-         "under_daily_cap": True, "dnc_ok": True, "consent_ok": True}
+_PASS = {
+    "within_call_hours": True,
+    "cooldown_ok": True,
+    "under_daily_cap": True,
+    "dnc_ok": True,
+    "consent_ok": True,
+}
 _STAKE = "Alex flagged Acme because their trust grade is F."
 
 
 def test_dials_when_armed_and_all_fences_pass(codex_ready, monkeypatch):
     _arm(monkeypatch, on=True)
     d = _FakeDialer()
-    r = place_governed_dial(prospect_id="p1", stake_sentence=_STAKE,
-                            fences=dict(_PASS), dial_fn=d, phone="+15555550000")
+    r = place_governed_dial(
+        prospect_id="p1", stake_sentence=_STAKE, fences=dict(_PASS), dial_fn=d, phone="+15555550000"
+    )
     assert r.dialed is True and r.blocked is False
     assert len(d.calls) == 1 and d.calls[0]["prospect_id"] == "p1"
 
@@ -70,8 +84,7 @@ def test_dials_when_armed_and_all_fences_pass(codex_ready, monkeypatch):
 def test_blocked_when_unarmed_and_dialer_untouched(codex_ready, monkeypatch):
     _arm(monkeypatch, on=False)  # default posture
     d = _FakeDialer()
-    r = place_governed_dial(prospect_id="p1", stake_sentence=_STAKE,
-                            fences=dict(_PASS), dial_fn=d)
+    r = place_governed_dial(prospect_id="p1", stake_sentence=_STAKE, fences=dict(_PASS), dial_fn=d)
     assert r.dialed is False and r.blocked is True
     assert r.rule == "VR-G5"
     assert d.calls == []  # dialer NEVER touched when the Codex blocks

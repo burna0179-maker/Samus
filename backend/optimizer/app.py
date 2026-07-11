@@ -1,4 +1,5 @@
 """Optimizer workcell FastAPI service."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -47,7 +48,9 @@ def create_app():
             return update_arm(_parse(UpdateArmRequest, envelope.payload)).model_dump()
         if action == "optimize_portfolio":
             check_capability("optimizer", "optimize_portfolio")
-            return optimize_portfolio(_parse(OptimizePortfolioRequest, envelope.payload)).model_dump()
+            return optimize_portfolio(
+                _parse(OptimizePortfolioRequest, envelope.payload)
+            ).model_dump()
         raise HTTPException(status_code=400, detail=f"unknown_action: {action}")
 
     @app.post("/select_arm")

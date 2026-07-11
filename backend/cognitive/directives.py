@@ -10,6 +10,7 @@ Pure filesystem reads; no heavy dependencies. Cached after first load per
 directive name. Fail-safe: a missing or unreadable file returns an empty string
 so the caller degrades without crashing.
 """
+
 from __future__ import annotations
 
 import logging
@@ -41,8 +42,7 @@ def load_directive(name: str) -> str:
                 return path.read_text(encoding="utf-8").strip()
         except Exception as exc:  # noqa: BLE001
             _LOG.warning("directive %r unreadable at %s: %s", name, path, exc)
-    _LOG.warning("directive %r not found in %s", name,
-                 [str(d) for d in _DIRECTIVE_DIRS])
+    _LOG.warning("directive %r not found in %s", name, [str(d) for d in _DIRECTIVE_DIRS])
     return ""
 
 

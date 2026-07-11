@@ -12,6 +12,7 @@ flag is computed against a rolling window (default 30 days):
 Date math is whole-day relative to ``today`` so test fixtures can pin the
 clock by injecting their own date.
 """
+
 from __future__ import annotations
 
 import logging
@@ -56,8 +57,9 @@ def load_registry() -> DeclinesRegistry:
     return DeclinesRegistry.model_validate(raw)
 
 
-def filter_recent(events: list[DeclineEvent], *, window_days: int,
-                  today: _date | None = None) -> list[DeclineEvent]:
+def filter_recent(
+    events: list[DeclineEvent], *, window_days: int, today: _date | None = None
+) -> list[DeclineEvent]:
     """Return events whose date >= today - window_days."""
     anchor = today or _date.today()
     cutoff = anchor - timedelta(days=window_days)
@@ -86,8 +88,9 @@ def evaluate_distress(events: list[DeclineEvent]) -> tuple[CashDistressStatus, l
     return "degraded", reasons
 
 
-def summarize(registry: DeclinesRegistry, *, window_days: int, ts: str,
-              today: _date | None = None) -> DeclinesSummary:
+def summarize(
+    registry: DeclinesRegistry, *, window_days: int, ts: str, today: _date | None = None
+) -> DeclinesSummary:
     """Build the declines view over a ``window_days`` rolling window."""
     recent = filter_recent(registry.events, window_days=window_days, today=today)
     status, reasons = evaluate_distress(recent)

@@ -1,4 +1,5 @@
 """Codex parser smoke tests against the live `docs/codex/` chapters."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -74,12 +75,12 @@ def test_malformed_chapter_raises_codex_parse_error(tmp_path: Path):
     # Provide the other required chapters so parse_codex reaches the
     # malformed one.
     (tmp_path / "08_decisions_log.md").write_text(
-        "# 08\n\n## ADR-001 | 2026-05-30 | Test\n\n"
-        "**Decision:** placeholder.\n\n",
+        "# 08\n\n## ADR-001 | 2026-05-30 | Test\n\n**Decision:** placeholder.\n\n",
         encoding="utf-8",
     )
     (tmp_path / "10_glossary.md").write_text(
-        "# 10\n\n**Term** — definition here.\n\n", encoding="utf-8",
+        "# 10\n\n**Term** — definition here.\n\n",
+        encoding="utf-8",
     )
     (tmp_path / "11_when_to_shut_it_down.md").write_text(
         "# 11\n\n## Three reasons to shut Samus down\n\n"

@@ -5,6 +5,7 @@ withdraw, the HMAC-signing envelope inherited from
 :mod:`backend.common.quorum_client`, and the fail-open contract when the
 hub is unreachable or publishing is disabled.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -148,12 +149,8 @@ def test_publish_capability_withdrawn_payload_shape(monkeypatch):
     assert call["approved"] is False
     assert call["approval_score"] == 0.0
     assert call["threshold"] == 0.5
-    assert call["votes"] == [
-        {"voter": "research_agent_7", "vote": "WITHDRAW", "weight": 1.0}
-    ]
-    assert call["reason"] == (
-        "capability=trend_forecasting; provider=research_agent_7; withdrawn"
-    )
+    assert call["votes"] == [{"voter": "research_agent_7", "vote": "WITHDRAW", "weight": 1.0}]
+    assert call["reason"] == ("capability=trend_forecasting; provider=research_agent_7; withdrawn")
 
 
 # ---------------------------------------------------------------------------
@@ -208,9 +205,7 @@ def test_bridge_publish_uses_hmac_when_key_present(monkeypatch, _publish_enabled
 
         return _Resp()
 
-    monkeypatch.setattr(
-        "backend.common.quorum_client.urllib.request.urlopen", _fake_urlopen
-    )
+    monkeypatch.setattr("backend.common.quorum_client.urllib.request.urlopen", _fake_urlopen)
 
     assert publish_capability_published(_listing()) is True
 
@@ -242,9 +237,7 @@ def test_bridge_publish_omits_hmac_when_no_key(monkeypatch, _publish_enabled):
 
         return _Resp()
 
-    monkeypatch.setattr(
-        "backend.common.quorum_client.urllib.request.urlopen", _fake_urlopen
-    )
+    monkeypatch.setattr("backend.common.quorum_client.urllib.request.urlopen", _fake_urlopen)
 
     publish_capability_withdrawn("trend_forecasting", "research_agent_7")
 

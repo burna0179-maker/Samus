@@ -13,6 +13,7 @@ The full pytest session sets ``SAMUS_DISABLE_HMAC_MIDDLEWARE=1`` in
 conftest.py so existing unsigned tests still pass. Each test here UN-sets
 that env var to exercise the production code path explicitly.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -26,6 +27,7 @@ def hmac_on_env(monkeypatch):
     monkeypatch.setenv("SAMUS_SHARED_HMAC_KEY", "x" * 32)
     monkeypatch.setenv("SAMUS_SERVICE", "prospecting")  # non-signer workcell
     from backend.common.settings import reload_settings
+
     reload_settings()
     yield
     monkeypatch.setenv("SAMUS_DISABLE_HMAC_MIDDLEWARE", "1")
@@ -35,6 +37,7 @@ def hmac_on_env(monkeypatch):
 def test_hmac_default_on_rejects_unsigned_request(hmac_on_env):
     """Default create_base_app rejects an unsigned POST with 401."""
     from backend.common.app_factory import create_base_app
+
     app = create_base_app(service_name="prospecting")
     client = TestClient(app)
 
@@ -52,6 +55,7 @@ def test_hmac_default_on_rejects_unsigned_request(hmac_on_env):
 def test_hmac_default_on_still_allows_health(hmac_on_env):
     """Health + metrics remain reachable without signature even with HMAC on."""
     from backend.common.app_factory import create_base_app
+
     app = create_base_app(service_name="prospecting")
     client = TestClient(app)
 
@@ -77,14 +81,15 @@ def test_explicit_opt_out_skips_middleware(hmac_on_env, caplog):
     resp = client.post("/probe", json={})
     assert resp.status_code == 200
     # Operator must see the warning in boot logs.
-    assert any(
-        "hmac_disabled" in rec.message for rec in caplog.records
-    ), [rec.message for rec in caplog.records]
+    assert any("hmac_disabled" in rec.message for rec in caplog.records), [
+        rec.message for rec in caplog.records
+    ]
 
 
 def test_hmac_exempt_paths_carve_out(hmac_on_env):
     """Listed paths bypass HMAC; siblings still require it."""
     from backend.common.app_factory import create_base_app
+
     app = create_base_app(
         service_name="prospecting",
         hmac_exempt_paths=("/stripe_webhook",),
@@ -114,6 +119,7 @@ def test_fail_closed_when_key_missing_in_production(monkeypatch):
     monkeypatch.setenv("SAMUS_ENV", "production")
     monkeypatch.setenv("SAMUS_SERVICE", "prospecting")
     from backend.common.settings import reload_settings
+
     reload_settings()
 
     from backend.common.app_factory import create_base_app
@@ -141,9 +147,11 @@ def test_fail_closed_skips_gateway(monkeypatch):
     monkeypatch.setenv("SAMUS_ENV", "production")
     monkeypatch.setenv("SAMUS_SERVICE", "gateway")
     from backend.common.settings import reload_settings
+
     reload_settings()
 
     from backend.common.app_factory import create_base_app
+
     # Should NOT raise; gateway is the signer side.
     app = create_base_app(service_name="gateway")
     assert app is not None

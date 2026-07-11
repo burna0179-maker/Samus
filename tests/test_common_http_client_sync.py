@@ -5,6 +5,7 @@ work through the gateway. The async ``signed_post_json`` is covered by
 its own tests; this file pins the sync variant's contract: same headers,
 same retry shape, raises on persistent failure.
 """
+
 from __future__ import annotations
 
 import httpx
@@ -16,9 +17,13 @@ from backend.common import http_client
 class _FakeSyncClient:
     """Records every .post() call. Returns a canned response or raises."""
 
-    def __init__(self, *, response: httpx.Response | None = None,
-                 raise_exc: Exception | None = None,
-                 fail_first_n: int = 0):
+    def __init__(
+        self,
+        *,
+        response: httpx.Response | None = None,
+        raise_exc: Exception | None = None,
+        fail_first_n: int = 0,
+    ):
         self._response = response
         self._raise_exc = raise_exc
         self._fail_first_n = fail_first_n
@@ -39,8 +44,7 @@ class _FakeSyncClient:
         if self._raise_exc is not None:
             raise self._raise_exc
         if self._response is None:
-            return httpx.Response(200, content=b'{"ok":true}',
-                                  request=httpx.Request("POST", url))
+            return httpx.Response(200, content=b'{"ok":true}', request=httpx.Request("POST", url))
         return self._response
 
 
@@ -71,12 +75,14 @@ def _stub_settings(monkeypatch, *, hmac_key: str = "test-hmac-32"):
 # Happy path
 # ---------------------------------------------------------------------------
 
+
 def test_sync_returns_response_on_success(monkeypatch):
     _stub_settings(monkeypatch)
     fake = _FakeSyncClient()
     _patch_httpx_client(monkeypatch, fake)
     resp = http_client.signed_post_json_sync(
-        "http://gateway:8080", "/dispatch/crm",
+        "http://gateway:8080",
+        "/dispatch/crm",
         {"task_id": "t", "payload": {"a": 1}, "metadata": {"action": "create_artifact"}},
     )
     assert resp.status_code == 200
@@ -88,7 +94,8 @@ def test_sync_sends_required_hmac_headers(monkeypatch):
     fake = _FakeSyncClient()
     _patch_httpx_client(monkeypatch, fake)
     http_client.signed_post_json_sync(
-        "http://gateway:8080", "/dispatch/crm",
+        "http://gateway:8080",
+        "/dispatch/crm",
         {"task_id": "t1", "payload": {}, "metadata": {"action": "x"}},
     )
     hdrs = fake.calls[0]["headers"]
@@ -105,7 +112,9 @@ def test_sync_normalizes_url_join(monkeypatch):
     fake = _FakeSyncClient()
     _patch_httpx_client(monkeypatch, fake)
     http_client.signed_post_json_sync(
-        "http://gateway:8080/", "/dispatch/crm", {},
+        "http://gateway:8080/",
+        "/dispatch/crm",
+        {},
     )
     assert fake.calls[0]["url"] == "http://gateway:8080/dispatch/crm"
 
@@ -113,6 +122,7 @@ def test_sync_normalizes_url_join(monkeypatch):
 # ---------------------------------------------------------------------------
 # Auth gate
 # ---------------------------------------------------------------------------
+
 
 def test_sync_raises_when_hmac_key_unset(monkeypatch):
     _stub_settings(monkeypatch, hmac_key="")
@@ -125,19 +135,22 @@ def test_sync_raises_when_hmac_key_unset(monkeypatch):
 # Retry behavior
 # ---------------------------------------------------------------------------
 
+
 def test_sync_retries_on_transient_failure(monkeypatch):
     """retries=2 -> 3 total attempts; recover on the third."""
     _stub_settings(monkeypatch)
     fake = _FakeSyncClient(fail_first_n=2)
     _patch_httpx_client(monkeypatch, fake)
     # Patch time.sleep so the test doesn't actually sleep between retries.
-    import backend.common.http_client as mod
     monkeypatch.setattr("time.sleep", lambda _s: None)
     resp = http_client.signed_post_json_sync(
-        "http://gateway:8080", "/x", {}, retries=2,
+        "http://gateway:8080",
+        "/x",
+        {},
+        retries=2,
     )
     assert resp.status_code == 200
-    assert len(fake.calls) == 3   # 1 first try + 2 retries
+    assert len(fake.calls) == 3  # 1 first try + 2 retries
 
 
 def test_sync_raises_after_retries_exhausted(monkeypatch):
@@ -148,7 +161,10 @@ def test_sync_raises_after_retries_exhausted(monkeypatch):
     monkeypatch.setattr("time.sleep", lambda _s: None)
     with pytest.raises(httpx.HTTPError):
         http_client.signed_post_json_sync(
-            "http://gateway:8080", "/x", {}, retries=1,
+            "http://gateway:8080",
+            "/x",
+            {},
+            retries=1,
         )
     # 1 first try + 1 retry = 2 attempts; the third would have succeeded
     # but we exhausted the budget.
@@ -162,6 +178,9 @@ def test_sync_no_retry_when_retries_zero(monkeypatch):
     monkeypatch.setattr("time.sleep", lambda _s: None)
     with pytest.raises(httpx.HTTPError):
         http_client.signed_post_json_sync(
-            "http://gateway:8080", "/x", {}, retries=0,
+            "http://gateway:8080",
+            "/x",
+            {},
+            retries=0,
         )
-    assert len(fake.calls) == 1   # single attempt, no retry
+    assert len(fake.calls) == 1  # single attempt, no retry

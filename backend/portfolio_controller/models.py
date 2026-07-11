@@ -3,6 +3,7 @@
 All models forbid extras (``ConfigDict(extra="forbid")``) so a typo in an
 inter-service payload surfaces as a 422 rather than being silently dropped.
 """
+
 from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field

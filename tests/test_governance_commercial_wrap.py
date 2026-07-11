@@ -15,6 +15,7 @@ The commit path previously carried no direct tests, so this module also
 pins baseline gate behaviour (happy path, EFH veto, unknown class, missing
 metadata) that the observer rides on.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -83,6 +84,7 @@ def _commit(efh, **over):
 
 # --- baseline gate behaviour ------------------------------------------------
 
+
 def test_happy_path_commits_with_efh_pass_attribution():
     rec = _commit(_PassEFH())
     assert rec["status"] == "committed"
@@ -113,6 +115,7 @@ def test_no_efh_and_no_template_refuses():
 
 
 # --- PDC composite observer hookup -----------------------------------------
+
 
 def test_pdc_observer_dormant_by_default(monkeypatch):
     calls: list = []

@@ -15,19 +15,18 @@ AuditResult from backend.seo.audit (schema_types, schema facts, robots facts).
 No LLM calls. No new dependencies (httpx, BeautifulSoup already present).
 ASCII-only output.
 """
+
 from __future__ import annotations
 
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any
 
 import httpx
 
 from backend.common import safe_fetch
 from backend.common.dates import iso_now
 from backend.seo.models import AuditResult
-from backend.seo.evidence_source import EvidenceSource
 
 _LOG = logging.getLogger("samus.seo.geo_strategy")
 
@@ -59,35 +58,38 @@ ARTICLE_SCHEMA_TYPES: frozenset[str] = frozenset({"Article", "BlogPosting", "New
 @dataclass
 class GeoFinding:
     """A single GEO audit finding with evidence provenance."""
+
     id: str
-    severity: str           # "critical" | "high" | "medium" | "low" | "pass"
-    category: str           # "robots_txt" | "schema" | "freshness" | "topical" | "score"
+    severity: str  # "critical" | "high" | "medium" | "low" | "pass"
+    category: str  # "robots_txt" | "schema" | "freshness" | "topical" | "score"
     message: str
-    recommendation: str     # paste-ready or specific action
+    recommendation: str  # paste-ready or specific action
     evidence: str = ""
-    evidence_source: str = ""   # matches EvidenceSource literals where applicable
+    evidence_source: str = ""  # matches EvidenceSource literals where applicable
 
 
 @dataclass
 class TopicalClusterPlan:
     """A 10-article cluster plan for topical authority building."""
+
     cluster_name: str
     primary_keyword: str
-    articles: list[str] = field(default_factory=list)   # 10 question-formatted titles
+    articles: list[str] = field(default_factory=list)  # 10 question-formatted titles
     publish_cadence: str = "2 articles per month (5 months to complete cluster)"
 
 
 @dataclass
 class GeoAuditResult:
     """Full GEO audit result for a customer site."""
+
     url: str
-    geo_score: int                          # 0-100
-    findings: list[GeoFinding]             # all findings
-    robots_findings: list[GeoFinding]      # subset: robots_txt category
-    schema_findings: list[GeoFinding]      # subset: schema category
-    freshness_findings: list[GeoFinding]   # subset: freshness category
+    geo_score: int  # 0-100
+    findings: list[GeoFinding]  # all findings
+    robots_findings: list[GeoFinding]  # subset: robots_txt category
+    schema_findings: list[GeoFinding]  # subset: schema category
+    freshness_findings: list[GeoFinding]  # subset: freshness category
     topical_plan: TopicalClusterPlan | None
-    robots_txt_snippet: str                # paste-ready robots.txt block
+    robots_txt_snippet: str  # paste-ready robots.txt block
     ts: str = ""
 
 
@@ -99,6 +101,7 @@ class GeoAuditResult:
 def _fetch_robots_txt(base_url: str) -> tuple[str, str]:
     """Fetch robots.txt for the site. Returns (text, evidence_source_tag)."""
     from urllib.parse import urlparse
+
     parsed = urlparse(base_url)
     if not parsed.scheme or not parsed.netloc:
         return "", "robots_txt"
@@ -124,23 +127,26 @@ def robots_txt_audit(base_url: str) -> list[GeoFinding]:
     a summary pass finding if all are accessible.
     """
     import urllib.robotparser
+
     robots_text, ev_src = _fetch_robots_txt(base_url)
 
     findings: list[GeoFinding] = []
 
     if not robots_text:
-        findings.append(GeoFinding(
-            id="geo_robots_fetch_failed",
-            severity="medium",
-            category="robots_txt",
-            message="Could not fetch robots.txt; unable to verify AI crawler access.",
-            recommendation=(
-                "Ensure robots.txt is accessible at the site root. "
-                "Add explicit User-agent allow rules for AI crawlers."
-            ),
-            evidence="robots.txt returned no content",
-            evidence_source=ev_src,
-        ))
+        findings.append(
+            GeoFinding(
+                id="geo_robots_fetch_failed",
+                severity="medium",
+                category="robots_txt",
+                message="Could not fetch robots.txt; unable to verify AI crawler access.",
+                recommendation=(
+                    "Ensure robots.txt is accessible at the site root. "
+                    "Add explicit User-agent allow rules for AI crawlers."
+                ),
+                evidence="robots.txt returned no content",
+                evidence_source=ev_src,
+            )
+        )
         return findings
 
     rp = urllib.robotparser.RobotFileParser()
@@ -151,32 +157,35 @@ def robots_txt_audit(base_url: str) -> list[GeoFinding]:
         allowed = rp.can_fetch(bot, base_url)
         if not allowed:
             blocked.append(bot)
-            findings.append(GeoFinding(
-                id=f"geo_ai_crawler_blocked_{bot.lower().replace('-', '_')}",
-                severity="critical",
-                category="robots_txt",
-                message=(
-                    f"AI crawler '{bot}' ({description}) is blocked by robots.txt. "
-                    f"This prevents your content from being cited by this AI system."
-                ),
-                recommendation=(
-                    f"Add the following to robots.txt:\n"
-                    f"User-agent: {bot}\nAllow: /"
-                ),
-                evidence=f"robots.txt Disallow applies to {bot}",
-                evidence_source=ev_src,
-            ))
+            findings.append(
+                GeoFinding(
+                    id=f"geo_ai_crawler_blocked_{bot.lower().replace('-', '_')}",
+                    severity="critical",
+                    category="robots_txt",
+                    message=(
+                        f"AI crawler '{bot}' ({description}) is blocked by robots.txt. "
+                        f"This prevents your content from being cited by this AI system."
+                    ),
+                    recommendation=(
+                        f"Add the following to robots.txt:\nUser-agent: {bot}\nAllow: /"
+                    ),
+                    evidence=f"robots.txt Disallow applies to {bot}",
+                    evidence_source=ev_src,
+                )
+            )
 
     if not blocked:
-        findings.append(GeoFinding(
-            id="geo_ai_crawlers_allowed",
-            severity="pass",
-            category="robots_txt",
-            message="All major AI search crawlers are allowed by robots.txt.",
-            recommendation="No action required.",
-            evidence="OAI-SearchBot, ChatGPT-User, PerplexityBot, Claude-SearchBot, Claude-User all accessible",
-            evidence_source=ev_src,
-        ))
+        findings.append(
+            GeoFinding(
+                id="geo_ai_crawlers_allowed",
+                severity="pass",
+                category="robots_txt",
+                message="All major AI search crawlers are allowed by robots.txt.",
+                recommendation="No action required.",
+                evidence="OAI-SearchBot, ChatGPT-User, PerplexityBot, Claude-SearchBot, Claude-User all accessible",
+                evidence_source=ev_src,
+            )
+        )
 
     return findings
 
@@ -198,82 +207,92 @@ def schema_gap_audit(audit: AuditResult) -> list[GeoFinding]:
 
     # FAQPage check
     if "FAQPage" not in schema_set:
-        findings.append(GeoFinding(
-            id="geo_no_faq_schema",
-            severity="high",
-            category="schema",
-            message=(
-                "FAQPage schema is missing. AI systems (Google AI Overview, "
-                "ChatGPT, Perplexity) extract FAQ answers directly from FAQPage "
-                "JSON-LD. Without it, your answers are less likely to be cited."
-            ),
-            recommendation=(
-                "Add FAQPage JSON-LD with at least 6 questions and 40-60 word "
-                "answers to your key pages. Use backend.seo.schema_builder.faq_page()."
-            ),
-            evidence="FAQPage not present in page JSON-LD blocks",
-            evidence_source="crawled_html",
-        ))
+        findings.append(
+            GeoFinding(
+                id="geo_no_faq_schema",
+                severity="high",
+                category="schema",
+                message=(
+                    "FAQPage schema is missing. AI systems (Google AI Overview, "
+                    "ChatGPT, Perplexity) extract FAQ answers directly from FAQPage "
+                    "JSON-LD. Without it, your answers are less likely to be cited."
+                ),
+                recommendation=(
+                    "Add FAQPage JSON-LD with at least 6 questions and 40-60 word "
+                    "answers to your key pages. Use backend.seo.schema_builder.faq_page()."
+                ),
+                evidence="FAQPage not present in page JSON-LD blocks",
+                evidence_source="crawled_html",
+            )
+        )
     else:
-        findings.append(GeoFinding(
-            id="geo_faq_schema_present",
-            severity="pass",
-            category="schema",
-            message="FAQPage schema is present.",
-            recommendation="No action required.",
-            evidence="FAQPage detected in JSON-LD",
-            evidence_source="crawled_html",
-        ))
+        findings.append(
+            GeoFinding(
+                id="geo_faq_schema_present",
+                severity="pass",
+                category="schema",
+                message="FAQPage schema is present.",
+                recommendation="No action required.",
+                evidence="FAQPage detected in JSON-LD",
+                evidence_source="crawled_html",
+            )
+        )
 
     # HowTo check
     if "HowTo" not in schema_set:
-        findings.append(GeoFinding(
-            id="geo_no_howto_schema",
-            severity="medium",
-            category="schema",
-            message=(
-                "HowTo schema is missing. For service or process-oriented pages, "
-                "HowTo schema significantly raises AI citation probability for "
-                "'how to' queries."
-            ),
-            recommendation=(
-                "Add HowTo JSON-LD to pages describing a process or service "
-                "delivery. Use backend.seo.schema_builder.how_to()."
-            ),
-            evidence="HowTo not present in page JSON-LD blocks",
-            evidence_source="crawled_html",
-        ))
+        findings.append(
+            GeoFinding(
+                id="geo_no_howto_schema",
+                severity="medium",
+                category="schema",
+                message=(
+                    "HowTo schema is missing. For service or process-oriented pages, "
+                    "HowTo schema significantly raises AI citation probability for "
+                    "'how to' queries."
+                ),
+                recommendation=(
+                    "Add HowTo JSON-LD to pages describing a process or service "
+                    "delivery. Use backend.seo.schema_builder.how_to()."
+                ),
+                evidence="HowTo not present in page JSON-LD blocks",
+                evidence_source="crawled_html",
+            )
+        )
 
     # Article / BlogPosting with dateModified check
     has_article_type = bool(schema_set & ARTICLE_SCHEMA_TYPES)
     if not has_article_type:
-        findings.append(GeoFinding(
-            id="geo_no_article_schema",
-            severity="high",
-            category="schema",
-            message=(
-                "Article schema with datePublished and dateModified is missing. "
-                "AI systems use these fields to assess content freshness. "
-                "Missing dateModified causes your content to be treated as stale."
-            ),
-            recommendation=(
-                "Add Article JSON-LD with headline, author, datePublished, "
-                "and dateModified to blog/article pages. "
-                "Use backend.seo.schema_builder.article()."
-            ),
-            evidence="Article/BlogPosting not present in page JSON-LD blocks",
-            evidence_source="crawled_html",
-        ))
+        findings.append(
+            GeoFinding(
+                id="geo_no_article_schema",
+                severity="high",
+                category="schema",
+                message=(
+                    "Article schema with datePublished and dateModified is missing. "
+                    "AI systems use these fields to assess content freshness. "
+                    "Missing dateModified causes your content to be treated as stale."
+                ),
+                recommendation=(
+                    "Add Article JSON-LD with headline, author, datePublished, "
+                    "and dateModified to blog/article pages. "
+                    "Use backend.seo.schema_builder.article()."
+                ),
+                evidence="Article/BlogPosting not present in page JSON-LD blocks",
+                evidence_source="crawled_html",
+            )
+        )
     else:
-        findings.append(GeoFinding(
-            id="geo_article_schema_present",
-            severity="pass",
-            category="schema",
-            message="Article-type schema is present.",
-            recommendation="Ensure dateModified is updated whenever content changes.",
-            evidence=f"Article-type schema detected: {', '.join(schema_set & ARTICLE_SCHEMA_TYPES)}",
-            evidence_source="crawled_html",
-        ))
+        findings.append(
+            GeoFinding(
+                id="geo_article_schema_present",
+                severity="pass",
+                category="schema",
+                message="Article-type schema is present.",
+                recommendation="Ensure dateModified is updated whenever content changes.",
+                evidence=f"Article-type schema detected: {', '.join(schema_set & ARTICLE_SCHEMA_TYPES)}",
+                evidence_source="crawled_html",
+            )
+        )
 
     return findings
 
@@ -315,50 +334,56 @@ def content_freshness_audit(audit: AuditResult, html: str = "") -> list[GeoFindi
         has_visible_date = bool(_LAST_UPDATED_RE.search(html))
 
     if not has_date_modified_schema and not has_visible_date:
-        findings.append(GeoFinding(
-            id="geo_content_stale",
-            severity="high",
-            category="freshness",
-            message=(
-                "No visible 'Last Updated' date and no dateModified schema found. "
-                "AI systems heavily weight content freshness. Pages without a "
-                "modification date are ranked lower for citation than fresh content."
-            ),
-            recommendation=(
-                "Add a visible 'Last updated: YYYY-MM-DD' line near the page title. "
-                "Add dateModified to Article JSON-LD. "
-                "Refresh content quarterly at minimum and update the date each time."
-            ),
-            evidence="No Last Updated text pattern; no dateModified in JSON-LD",
-            evidence_source="crawled_html",
-        ))
+        findings.append(
+            GeoFinding(
+                id="geo_content_stale",
+                severity="high",
+                category="freshness",
+                message=(
+                    "No visible 'Last Updated' date and no dateModified schema found. "
+                    "AI systems heavily weight content freshness. Pages without a "
+                    "modification date are ranked lower for citation than fresh content."
+                ),
+                recommendation=(
+                    "Add a visible 'Last updated: YYYY-MM-DD' line near the page title. "
+                    "Add dateModified to Article JSON-LD. "
+                    "Refresh content quarterly at minimum and update the date each time."
+                ),
+                evidence="No Last Updated text pattern; no dateModified in JSON-LD",
+                evidence_source="crawled_html",
+            )
+        )
     elif not has_date_modified_schema:
-        findings.append(GeoFinding(
-            id="geo_no_date_modified_schema",
-            severity="medium",
-            category="freshness",
-            message=(
-                "Visible date found on page but dateModified is not set in Article "
-                "schema. Machine-readable freshness signals are more reliable for "
-                "AI systems than visible text."
-            ),
-            recommendation=(
-                "Add dateModified to Article JSON-LD matching your visible date. "
-                "Use backend.seo.schema_builder.article(date_modified='YYYY-MM-DD')."
-            ),
-            evidence="Visible date detected; dateModified schema absent",
-            evidence_source="crawled_html",
-        ))
+        findings.append(
+            GeoFinding(
+                id="geo_no_date_modified_schema",
+                severity="medium",
+                category="freshness",
+                message=(
+                    "Visible date found on page but dateModified is not set in Article "
+                    "schema. Machine-readable freshness signals are more reliable for "
+                    "AI systems than visible text."
+                ),
+                recommendation=(
+                    "Add dateModified to Article JSON-LD matching your visible date. "
+                    "Use backend.seo.schema_builder.article(date_modified='YYYY-MM-DD')."
+                ),
+                evidence="Visible date detected; dateModified schema absent",
+                evidence_source="crawled_html",
+            )
+        )
     else:
-        findings.append(GeoFinding(
-            id="geo_freshness_ok",
-            severity="pass",
-            category="freshness",
-            message="Content freshness signals detected.",
-            recommendation="Keep dateModified updated on every content refresh.",
-            evidence="dateModified schema or visible date found",
-            evidence_source="crawled_html",
-        ))
+        findings.append(
+            GeoFinding(
+                id="geo_freshness_ok",
+                severity="pass",
+                category="freshness",
+                message="Content freshness signals detected.",
+                recommendation="Keep dateModified updated on every content refresh.",
+                evidence="dateModified schema or visible date found",
+                evidence_source="crawled_html",
+            )
+        )
 
     return findings
 
@@ -396,18 +421,13 @@ def topical_authority_gaps(
     cluster_name = f"{primary_kw.title()} for {industry.title() or 'Local Businesses'}"
     templates = _CLUSTER_TEMPLATES.get(industry.lower(), _CLUSTER_TEMPLATES["default"])
 
-    articles = [
-        t.format(kw=primary_kw, industry=industry or "local service")
-        for t in templates
-    ]
+    articles = [t.format(kw=primary_kw, industry=industry or "local service") for t in templates]
 
     # Replace last 2 with secondary keyword variations if available
     if secondary_kws:
         for i, skw in enumerate(secondary_kws[:2]):
             idx = len(articles) - 1 - i
-            articles[idx] = (
-                f"How does {skw} complement your {primary_kw} strategy?"
-            )
+            articles[idx] = f"How does {skw} complement your {primary_kw} strategy?"
 
     return TopicalClusterPlan(
         cluster_name=cluster_name,

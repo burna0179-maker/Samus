@@ -3,6 +3,7 @@
 The httpx client is faked — no network. Covers the two-step container->publish
 flow with the async processing poll, plus the container-error fail-closed path.
 """
+
 from __future__ import annotations
 
 import importlib
@@ -12,8 +13,13 @@ from backend.social.models import PlannedPost
 
 def _reel_post() -> PlannedPost:
     return PlannedPost(
-        week=1, day="Tue", platform="instagram", fmt="ig_reel", pipeline_fn="educate",
-        theme="Authority", cluster="AI visibility",
+        week=1,
+        day="Tue",
+        platform="instagram",
+        fmt="ig_reel",
+        pipeline_fn="educate",
+        theme="Authority",
+        cluster="AI visibility",
         body="A specific, useful tactic for AI visibility.",
         stake_sentence="I personally reviewed this and vouch for it.",
     )
@@ -61,8 +67,10 @@ def _reload_live(monkeypatch):
     monkeypatch.setenv("INSTAGRAM_BUSINESS_ACCOUNT_ID", "acct123")
     monkeypatch.delenv("X_BEARER_TOKEN", raising=False)
     import backend.outreach.social_adapter as outreach_mod
+
     importlib.reload(outreach_mod)
     import backend.social.adapters as mod
+
     importlib.reload(mod)
     return mod
 

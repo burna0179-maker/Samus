@@ -6,6 +6,7 @@ campaign_cycle.py.
 
 ASCII-only output. No new external dependencies.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -32,7 +33,7 @@ class SelfMarketingCampaign:
     target_keywords: list[str] = field(default_factory=list)
     content_themes: list[str] = field(default_factory=list)
     social_platforms: list[str] = field(default_factory=list)
-    posts_per_month: int = 8       # 2 blogs x 4 social assets each
+    posts_per_month: int = 8  # 2 blogs x 4 social assets each
     blogs_per_month: int = 2
     author_name: str = ""
     author_url: str = ""

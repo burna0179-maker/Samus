@@ -4,6 +4,7 @@ The MoviePy render path is not exercised (needs moviepy + ffmpeg); these cover
 the SRT parser, music resolver, and the early ComposeError guards that run
 *before* moviepy is imported.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -48,8 +49,9 @@ def test_compose_no_footage_raises():
 
 def test_compose_missing_voiceover_raises(tmp_path):
     with pytest.raises(ComposeError):
-        compose_reel(["shot.png"], str(tmp_path / "nope.mp3"), "subs.srt",
-                     out_path=str(tmp_path / "out.mp4"))
+        compose_reel(
+            ["shot.png"], str(tmp_path / "nope.mp3"), "subs.srt", out_path=str(tmp_path / "out.mp4")
+        )
 
 
 def test_resolve_music_path_empty_and_missing(tmp_path):

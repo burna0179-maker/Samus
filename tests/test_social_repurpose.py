@@ -5,6 +5,7 @@ tests either pass ``use_llm=False`` for the pure deterministic path or stub
 the LLM entrypoint (raise / fake response) so nothing here depends on a real
 LM Studio being reachable at test time.
 """
+
 from __future__ import annotations
 
 from backend.social.models import BlogInput

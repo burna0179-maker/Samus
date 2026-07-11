@@ -1,7 +1,7 @@
 """Tests for backend.outreach.objection — 6-category detector + pivot lookup."""
+
 from __future__ import annotations
 
-import pytest
 
 from backend.outreach.objection import (
     OBJECTION_KEYWORDS,
@@ -93,9 +93,7 @@ def test_detect_priority_order_matters():
     # "too expensive" (price) + "not interested" both present; price wins.
     transcript = "I'm not interested, that's also too expensive for us"
     result = detect_objection(transcript)
-    assert result == "price", (
-        f"Expected 'price' (higher priority) but got '{result}'"
-    )
+    assert result == "price", f"Expected 'price' (higher priority) but got '{result}'"
 
     # "already have" + "timing" — already_have has higher priority.
     transcript2 = "We already have a vendor, and now is a bad time anyway"

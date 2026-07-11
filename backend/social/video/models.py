@@ -4,6 +4,7 @@ Stdlib-only (mirrors :mod:`backend.social.models`) so the script generator,
 voiceover, footage, compositor, pipeline, CLI, and tests all share one set of
 shapes without dragging in the heavy media dependencies.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -79,7 +80,7 @@ class ReelResult:
     """
 
     ok: bool
-    status: str = ""              # disabled | no_api_key | ok | error | dry_run
+    status: str = ""  # disabled | no_api_key | ok | error | dry_run
     mp4_path: str = ""
     srt_path: str = ""
     title: str = ""

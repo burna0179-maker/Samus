@@ -1,4 +1,5 @@
 """HTTP surface for the memory workcell (doc §8)."""
+
 from __future__ import annotations
 
 import logging
@@ -34,6 +35,7 @@ if _ingest_router is not None:
 
 
 # --- request/response shapes ---------------------------------------------
+
 
 class _WriteBody(BaseModel):
     namespace: str = Field(min_length=1)
@@ -111,6 +113,7 @@ class _WorkBody(BaseModel):
 
 # --- k/v endpoints --------------------------------------------------------
 
+
 @app.post("/write")
 async def write_endpoint(body: _WriteBody) -> dict[str, Any]:
     check_capability("memory", "write")
@@ -154,6 +157,7 @@ async def stats_endpoint(namespace: str) -> dict[str, Any]:
 
 # --- graph endpoints (Neo4j) --------------------------------------------
 
+
 def _resolve_client() -> GraphClient:
     """Wrapped for monkeypatching in tests."""
     return get_client()
@@ -177,6 +181,7 @@ async def graph_write_node(body: _GraphNodeBody) -> dict[str, Any]:
         # Validate even when the driver is offline so callers get a 422 on
         # bad shape regardless of whether Neo4j is reachable.
         from backend.common import graph_schema
+
         graph_schema.validate_node(body.label, body.properties)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -196,6 +201,7 @@ async def graph_write_relationship(body: _GraphRelationshipBody) -> dict[str, An
     client = _resolve_client()
     try:
         from backend.common import graph_schema
+
         graph_schema.validate_relationship(body.source_label, body.rel_type, body.target_label)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -227,7 +233,9 @@ async def graph_promote(body: _GraphPromoteBody) -> dict[str, Any]:
     client = _resolve_client()
     try:
         promoted = client.promote_node(
-            body.label, body.key_value, key_property=body.key_property,
+            body.label,
+            body.key_value,
+            key_property=body.key_property,
         )
     except ValueError as exc:
         _LOG.warning("graph_promote failed: %s", exc)
@@ -238,6 +246,7 @@ async def graph_promote(body: _GraphPromoteBody) -> dict[str, Any]:
 
 
 # --- customer-lifecycle endpoints ---------------------------------------
+
 
 def _resolve_customer_store() -> CustomerStore:
     """Wrapped for monkeypatching in tests."""
@@ -318,6 +327,7 @@ async def customers_history(customer_id: str) -> dict[str, Any]:
 
 # --- /work dispatcher (envelope-style routing) --------------------------
 
+
 @app.post("/work")
 async def work_endpoint(body: _WorkBody) -> dict[str, Any]:
     action = (body.metadata or {}).get("action")
@@ -332,11 +342,7 @@ async def work_endpoint(body: _WorkBody) -> dict[str, Any]:
         # _jail_source_path raises ValueError on an escape; the except below
         # turns that into a 422. handle() re-jails defensively regardless.
         try:
-            source = (
-                _jail_source_path(payload.source_path)
-                if payload.source_path
-                else None
-            )
+            source = _jail_source_path(payload.source_path) if payload.source_path else None
         except ValueError as exc:
             _LOG.warning("ingest source_path jail rejected: %s", exc)
             raise HTTPException(status_code=422, detail="invalid_source_path") from exc
@@ -418,6 +424,7 @@ async def graph_query(body: _GraphQueryBody) -> dict[str, Any]:
     client = _resolve_client()
     try:
         from backend.common import graph_schema
+
         graph_schema.allowed_query(body.name)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

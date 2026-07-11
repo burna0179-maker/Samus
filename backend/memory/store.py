@@ -7,6 +7,7 @@ DynamoDB persistence layer lands in a later phase; the graph endpoints in
 Thread-safe via a single re-entrant lock; values are stored as opaque JSON-able
 objects in an OrderedDict keyed on ``f"{namespace}:{key}"``.
 """
+
 from __future__ import annotations
 
 import base64
@@ -113,15 +114,17 @@ class MemoryStore:
                 if not composite.startswith(full_prefix):
                     continue
                 # Strip the namespace prefix to give callers the bare key.
-                bare_key = composite[len(ns_prefix):]
+                bare_key = composite[len(ns_prefix) :]
                 if start_after and composite <= start_after:
                     continue
-                items.append({
-                    "key": bare_key,
-                    "value": entry.value,
-                    "created_at": entry.created_at,
-                    "expires_at": entry.expires_at,
-                })
+                items.append(
+                    {
+                        "key": bare_key,
+                        "value": entry.value,
+                        "created_at": entry.created_at,
+                        "expires_at": entry.expires_at,
+                    }
+                )
                 last_key = composite
                 if len(items) >= limit:
                     break

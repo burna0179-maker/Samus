@@ -5,9 +5,10 @@ Field names + value enums mirror the HTML form on
 form's POST to 422 — keep this file in sync with the page when the form
 template changes.
 """
+
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -62,6 +63,7 @@ SocialCadencePref = Literal[
 
 class OnboardingLeadRequest(BaseModel):
     """Body of ``POST /intake/onboarding``. Names match the HTML form 1:1."""
+
     # extra='forbid' so the form can't smuggle in unexpected fields and have
     # them silently persisted.
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
@@ -115,6 +117,7 @@ class OnboardingLeadResult(BaseModel):
       - ``rejected``    — validation failed (should be a 422 instead but
                           kept here for parity with the worker contract)
     """
+
     model_config = ConfigDict(extra="forbid")
 
     status: Literal["queued", "duplicate", "degraded", "rejected"]
@@ -132,6 +135,7 @@ class StoredLead(BaseModel):
     (``lead_id``, ``created_at``, ``source_ip``, ``user_agent``, dedup key)
     have a single canonical declaration.
     """
+
     model_config = ConfigDict(extra="ignore")
 
     lead_id: str
@@ -144,6 +148,12 @@ class StoredLead(BaseModel):
     pain_points: str
     monthly_budget: str = ""
     timeline: str = ""
+    # Social-presence hints (v3+). Defaults keep pre-v3 rows parseable.
+    social_facebook: str = ""
+    social_instagram: str = ""
+    social_linkedin: str = ""
+    brand_voice_notes: str = ""
+    social_cadence_pref: str = ""
     source_ip: str = ""
     user_agent: str = ""
     dedup_key: str  # sha256(email | website_url | pain[:200])
@@ -151,6 +161,7 @@ class StoredLead(BaseModel):
 
 class LeadListResult(BaseModel):
     """Response from ``GET /intake/leads``. Operator-only view."""
+
     model_config = ConfigDict(extra="forbid")
 
     leads: list[StoredLead] = Field(default_factory=list)
@@ -170,11 +181,11 @@ class LeadListResult(BaseModel):
 # Whitelist. Bounded so a compromised site can't pollute the ledger with
 # arbitrary strings — every value here is one we've decided is worth counting.
 SiteEventType = Literal[
-    "page_view",       # generic — path is what matters
-    "form_view",       # the onboarding form specifically rendered
+    "page_view",  # generic — path is what matters
+    "form_view",  # the onboarding form specifically rendered
     "form_submit_view",  # user reached the success/thanks page
-    "pricing_view",    # pricing tier section rendered
-    "buy_click",       # a Stripe buy-button (or pricing CTA) was clicked
+    "pricing_view",  # pricing tier section rendered
+    "buy_click",  # a Stripe buy-button (or pricing CTA) was clicked
 ]
 
 
@@ -187,6 +198,7 @@ class TelemetryEventRequest(BaseModel):
     consent handling. Its only job here is dedup across a single visit's
     duplicate beacons (page_view fires on navigate + on back button).
     """
+
     model_config = ConfigDict(extra="forbid")
 
     event: SiteEventType
@@ -205,6 +217,7 @@ class TelemetryEventResult(BaseModel):
     """Response from ``POST /intake/telemetry``. Kept minimal: telemetry is
     fire-and-forget from the site's point of view, and a chatty response
     body wastes bandwidth on every page view."""
+
     model_config = ConfigDict(extra="forbid")
 
     status: Literal["accepted", "dropped_disabled"]
@@ -213,6 +226,7 @@ class TelemetryEventResult(BaseModel):
 
 class StoredTelemetryEvent(BaseModel):
     """Row shape appended to the telemetry ledger."""
+
     model_config = ConfigDict(extra="ignore")
 
     event: str

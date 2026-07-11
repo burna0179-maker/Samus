@@ -1,20 +1,27 @@
 """G7 — three harm collectors: zero on missing data, real count on present,
 fail-OPEN on lookup failure."""
+
 from __future__ import annotations
 
 from typing import Any
 
-import pytest
 
 from backend.strategy import harm_signals as hs
 
 
 class _Store:
     def __init__(
-        self, *, artifacts=None, conversations=None, contacts=None,
-        opportunity=None, complaints=None,
-        raise_on_artifacts=False, raise_on_conversations=False,
-        raise_on_contacts=False, raise_on_complaints=False,
+        self,
+        *,
+        artifacts=None,
+        conversations=None,
+        contacts=None,
+        opportunity=None,
+        complaints=None,
+        raise_on_artifacts=False,
+        raise_on_conversations=False,
+        raise_on_contacts=False,
+        raise_on_complaints=False,
         raise_on_opportunity=False,
     ):
         self.artifacts = artifacts or []
@@ -56,25 +63,30 @@ class _Store:
 
 # --- retracted_claims_for ---------------------------------------------------
 
+
 def test_retracted_zero_on_empty_artifacts():
     store = _Store(artifacts=[])
     assert hs.retracted_claims_for("op_x", store=store) == 0
 
 
 def test_retracted_counts_artifacts_with_retracted_kind():
-    store = _Store(artifacts=[
-        {"kind": "retracted_claim", "title": "old"},
-        {"kind": "proposal", "title": "draft"},
-        {"kind": "content_retracted_v2", "title": ""},
-    ])
+    store = _Store(
+        artifacts=[
+            {"kind": "retracted_claim", "title": "old"},
+            {"kind": "proposal", "title": "draft"},
+            {"kind": "content_retracted_v2", "title": ""},
+        ]
+    )
     assert hs.retracted_claims_for("op_x", store=store) == 2
 
 
 def test_retracted_counts_superseded_marker_in_title():
-    store = _Store(artifacts=[
-        {"kind": "other", "title": "Superseded: old SEO claim"},
-        {"kind": "other", "title": "draft"},
-    ])
+    store = _Store(
+        artifacts=[
+            {"kind": "other", "title": "Superseded: old SEO claim"},
+            {"kind": "other", "title": "draft"},
+        ]
+    )
     assert hs.retracted_claims_for("op_x", store=store) == 1
 
 
@@ -85,6 +97,7 @@ def test_retracted_fail_open_on_lookup_failure(caplog):
 
 
 # --- unsubscribes_for -------------------------------------------------------
+
 
 def test_unsubscribes_zero_when_opportunity_missing():
     store = _Store(opportunity=None)
@@ -111,12 +124,14 @@ def test_unsubscribes_counts_unsubscribe_outcome():
 
 def test_unsubscribes_fail_open_on_lookup_failure():
     store = _Store(
-        opportunity={"prospect_id": "p_1"}, raise_on_conversations=True,
+        opportunity={"prospect_id": "p_1"},
+        raise_on_conversations=True,
     )
     assert hs.unsubscribes_for("op_x", store=store) == 0
 
 
 # --- complaints_for ---------------------------------------------------------
+
 
 def test_complaints_zero_when_no_contacts():
     store = _Store(opportunity={"prospect_id": "p_1"}, contacts=[])

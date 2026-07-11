@@ -16,6 +16,7 @@ interaction history survives independently of the folded counter snapshot
 and ``rebuild_from_ledger()`` can reconstruct the aggregate store from the
 event trail. Ledger writes are fail-soft — the counter path stays primary.
 """
+
 from __future__ import annotations
 
 import logging
@@ -63,14 +64,16 @@ def log_interaction(
         angle=angle,
     )
     try:
-        _ledger().append({
-            "ts": iso_now(),
-            "prospect_id": prospect_id or "",
-            "outcome": outcome or "",
-            "objection": objection or "",
-            "product": product or "",
-            "angle": angle or "",
-        })
+        _ledger().append(
+            {
+                "ts": iso_now(),
+                "prospect_id": prospect_id or "",
+                "outcome": outcome or "",
+                "objection": objection or "",
+                "product": product or "",
+                "angle": angle or "",
+            }
+        )
     except Exception as exc:  # noqa: BLE001 — ledger is additive telemetry
         _LOG.warning("interaction ledger append failed: %s", exc)
 

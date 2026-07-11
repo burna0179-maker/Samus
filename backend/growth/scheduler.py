@@ -28,6 +28,7 @@ GrowthSchedulerError
     Action is unknown, action's group flag is disabled, or payload
     fails schema validation.
 """
+
 from __future__ import annotations
 
 import logging
@@ -39,8 +40,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from backend.growth.dispatch_policy import GrowthDispatchEntry  # pragma: no cover
-    from backend.growth.schema_registry import GrowthActionSchema    # pragma: no cover
+    pass  # pragma: no cover
 
 _LOG = logging.getLogger("samus.growth.scheduler")
 
@@ -159,16 +159,14 @@ class GrowthScheduler:
         """
         if not _scheduler_enabled():
             raise GrowthSchedulerDisabledError(
-                f"Cannot schedule action={spec.action!r}: "
-                f"{_FLAG} is not enabled."
+                f"Cannot schedule action={spec.action!r}: {_FLAG} is not enabled."
             )
 
         # --- action known? -------------------------------------------------
         schema = self._registry.get_schema(spec.action)
         if schema is None:
             raise GrowthSchedulerError(
-                f"Unknown growth action: {spec.action!r}. "
-                "Not present in GROWTH_SCHEMA_REGISTRY."
+                f"Unknown growth action: {spec.action!r}. Not present in GROWTH_SCHEMA_REGISTRY."
             )
 
         # --- group flag enabled? ------------------------------------------
@@ -180,16 +178,14 @@ class GrowthScheduler:
                 pass
             flag = entry.flag if entry else "unknown"
             raise GrowthSchedulerError(
-                f"Growth action {spec.action!r} is disabled "
-                f"(group flag {flag!r} is OFF)."
+                f"Growth action {spec.action!r} is disabled (group flag {flag!r} is OFF)."
             )
 
         # --- payload validation -------------------------------------------
         missing = schema.validate(spec.payload)
         if missing:
             raise GrowthSchedulerError(
-                f"Payload for action {spec.action!r} is missing required "
-                f"fields: {missing}."
+                f"Payload for action {spec.action!r} is missing required fields: {missing}."
             )
 
         with self._lock:
@@ -197,7 +193,10 @@ class GrowthScheduler:
 
         _LOG.debug(
             "growth_scheduler: enqueued job_id=%s action=%s run_at=%s recurrence=%s",
-            spec.job_id, spec.action, spec.run_at, spec.recurrence,
+            spec.job_id,
+            spec.action,
+            spec.run_at,
+            spec.recurrence,
         )
         return spec.job_id
 
@@ -215,10 +214,7 @@ class GrowthScheduler:
             Snapshot of the pending job list at this instant.
         """
         with self._lock:
-            return [
-                j for job_id, j in self._jobs.items()
-                if job_id not in self._completed
-            ]
+            return [j for job_id, j in self._jobs.items() if job_id not in self._completed]
 
     def cancel(self, job_id: str) -> bool:
         """Remove a job from the queue.
@@ -273,7 +269,8 @@ class GrowthScheduler:
 
             _LOG.info(
                 "growth_scheduler._tick: dispatching job_id=%s action=%s",
-                spec.job_id, spec.action,
+                spec.job_id,
+                spec.action,
             )
 
             try:
@@ -283,7 +280,9 @@ class GrowthScheduler:
             except Exception as exc:  # noqa: BLE001
                 _LOG.error(
                     "growth_scheduler._tick: job_id=%s action=%s raised: %s",
-                    spec.job_id, spec.action, exc,
+                    spec.job_id,
+                    spec.action,
+                    exc,
                 )
 
             processed.append(spec.job_id)

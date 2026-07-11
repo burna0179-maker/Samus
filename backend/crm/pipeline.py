@@ -37,6 +37,7 @@ sends a proposal in one beat. The closed_lost transition is reachable
 from every non-terminal stage to model "they ghosted" / "not a fit"
 exits anywhere along the line.
 """
+
 from __future__ import annotations
 
 from typing import Final
@@ -61,13 +62,13 @@ TERMINAL_STAGES: Final[set[str]] = {
 WON_TERMINAL_STAGES: Final[set[str]] = {"closed_won", "closed_won_retainer"}
 
 STAGE_PROBABILITIES: Final[dict[str, float]] = {
-    "new":                 0.10,
-    "qualified":           0.25,
-    "proposal":            0.50,
-    "negotiation":         0.70,
-    "closed_won":          1.0,
+    "new": 0.10,
+    "qualified": 0.25,
+    "proposal": 0.50,
+    "negotiation": 0.70,
+    "closed_won": 1.0,
     "closed_won_retainer": 1.0,
-    "closed_lost":         0.0,
+    "closed_lost": 0.0,
 }
 
 
@@ -76,15 +77,13 @@ STAGE_PROBABILITIES: Final[dict[str, float]] = {
 # the table stays readable). ``closed_won_retainer`` is reachable from
 # exactly the same stages as ``closed_won`` — see the module docstring.
 _FORWARD_TRANSITIONS: Final[dict[str, set[str]]] = {
-    "new":                 {"qualified", "proposal", "negotiation"},
-    "qualified":           {"proposal", "negotiation",
-                            "closed_won", "closed_won_retainer"},
-    "proposal":            {"negotiation",
-                            "closed_won", "closed_won_retainer"},
-    "negotiation":         {"closed_won", "closed_won_retainer"},
-    "closed_won":          set(),
+    "new": {"qualified", "proposal", "negotiation"},
+    "qualified": {"proposal", "negotiation", "closed_won", "closed_won_retainer"},
+    "proposal": {"negotiation", "closed_won", "closed_won_retainer"},
+    "negotiation": {"closed_won", "closed_won_retainer"},
+    "closed_won": set(),
     "closed_won_retainer": set(),
-    "closed_lost":         set(),
+    "closed_lost": set(),
 }
 
 

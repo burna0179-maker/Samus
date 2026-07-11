@@ -4,6 +4,7 @@ Field set on ProspectRecord maps 1:1 to the 32-column CSV schema in
 ``csv_export.CSV_COLUMNS``. The schema is fixed by the prior-iteration output
 (`call_list_2026-05-07.csv`).
 """
+
 from __future__ import annotations
 
 

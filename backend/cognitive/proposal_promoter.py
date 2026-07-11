@@ -56,6 +56,7 @@ seam (:mod:`backend.cognitive.runner`) optionally invokes :func:`promote_one`
 right after a successful ``run_one_cycle`` writes a proposal, gated by the
 Phase-G flag. No cadence is scheduled; activation is wholly operator-driven.
 """
+
 from __future__ import annotations
 
 import json
@@ -83,10 +84,10 @@ EVENT_NAME = "samus.cognition.proposal_promoted"
 _PROMOTION_TRIGGER_SOURCE = "manual_review"
 
 # Promotion verdict statuses written under proposal["promotion_result"]["status"].
-STATUS_PASS = "pass"        # review_opportunity returned status=="enqueued"
+STATUS_PASS = "pass"  # review_opportunity returned status=="enqueued"
 STATUS_BLOCKED = "blocked"  # review_opportunity returned escalated / invalid / disabled
 STATUS_SKIPPED = "skipped"  # nothing actionable in the proposal (e.g. no prospect_id)
-STATUS_ERROR = "error"      # review_opportunity raised; fail-closed
+STATUS_ERROR = "error"  # review_opportunity raised; fail-closed
 
 # Reason stamped on a SKIP that fired because the proposal's prospect_id is
 # still inside its post-BLOCK cooldown window (see _BLOCK_COOLDOWN below).
@@ -124,10 +125,10 @@ class PromotionResult:
 
     status: str  # pass | blocked | skipped | error
     reason: Optional[str] = None
-    review_status: Optional[str] = None      # echoed cash_engine ReviewStatus
+    review_status: Optional[str] = None  # echoed cash_engine ReviewStatus
     required_protocol: Optional[str] = None  # gate's escalation hint
-    violated_rule_id: Optional[str] = None   # Codex rule id when applicable
-    task_id: Optional[str] = None            # cash-engine task id on PASS
+    violated_rule_id: Optional[str] = None  # Codex rule id when applicable
+    task_id: Optional[str] = None  # cash-engine task id on PASS
     prospect_id: Optional[str] = None
 
     def to_dict(self) -> dict:
@@ -356,7 +357,9 @@ class ProposalPromoter:
                 results.append(
                     self._record_outcome(
                         row,
-                        PromotionResult(status=STATUS_ERROR, reason=f"run:{type(exc).__name__}:{exc}"),
+                        PromotionResult(
+                            status=STATUS_ERROR, reason=f"run:{type(exc).__name__}:{exc}"
+                        ),
                     )
                 )
         return results
@@ -452,7 +455,8 @@ class ProposalPromoter:
             # Pydantic validation, anything else. The cadence keeps running.
             log.warning(
                 "proposal_promoter: review_opportunity raised %s: %s",
-                type(exc).__name__, exc,
+                type(exc).__name__,
+                exc,
             )
             return self._record_outcome(
                 proposal,
@@ -476,7 +480,8 @@ class ProposalPromoter:
                     _BLOCK_COOLDOWN[str(block_pid)] = time.monotonic()
                 except Exception:  # noqa: BLE001 — cooldown arm is best-effort
                     log.warning(
-                        "proposal_promoter: failed to arm cooldown for %s", block_pid,
+                        "proposal_promoter: failed to arm cooldown for %s",
+                        block_pid,
                     )
 
         return self._record_outcome(proposal, verdict)
@@ -517,8 +522,8 @@ class ProposalPromoter:
             "plan_token": proposal.get("plan_token", "") or "",
             "channel": proposal.get("channel", "") or "",
             "intent": proposal.get("intent") or {},
-            "status": "actioned",            # historical "proposed" -> "actioned"
-            "actioned": True,                # load-bearing for idempotency
+            "status": "actioned",  # historical "proposed" -> "actioned"
+            "actioned": True,  # load-bearing for idempotency
             "promotion_result": verdict.to_dict(),
             "note": (
                 "PROMOTION RECORD — Phase G routed this cognitive proposal "

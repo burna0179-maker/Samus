@@ -15,6 +15,7 @@ folder so the existing parse_transcript_file() picks them up.
 Compute type: int8 by default for CPU speed. Override with
 SAMUS_WHISPER_COMPUTE=int8_float32 / float32 for higher accuracy.
 """
+
 from __future__ import annotations
 
 import logging
@@ -43,7 +44,9 @@ def _get_model():
 
     _LOG.info(
         "audio_transcribe: loading whisper model=%s compute=%s device=%s",
-        _MODEL_NAME, _COMPUTE_TYPE, _DEVICE,
+        _MODEL_NAME,
+        _COMPUTE_TYPE,
+        _DEVICE,
     )
     _model_cache = WhisperModel(
         _MODEL_NAME,
@@ -109,7 +112,10 @@ def transcribe_audio(audio_path: Path, *, force: bool = False) -> Path | None:
         sidecar.write_text("\n".join(lines), encoding="utf-8")
         _LOG.info(
             "audio_transcribe: %s — %d segments, %.1fs audio, lang=%s",
-            audio_path.name, len(lines), info.duration, info.language,
+            audio_path.name,
+            len(lines),
+            info.duration,
+            info.language,
         )
         return sidecar
     except OSError as exc:

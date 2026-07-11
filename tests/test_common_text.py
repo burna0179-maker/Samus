@@ -34,7 +34,9 @@ def test_sanitize_for_log_handles_non_string():
 
 def test_sanitize_for_log_handles_unrepr_obj():
     class Bad:
-        def __str__(self): raise RuntimeError("nope")
+        def __str__(self):
+            raise RuntimeError("nope")
+
     out = sanitize_for_log(Bad())
     assert "unstringable" in out
 

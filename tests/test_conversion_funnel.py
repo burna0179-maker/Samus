@@ -4,6 +4,7 @@ Covers backend/common/conversion_funnel.py — stage recording, the
 leak-analysis snapshot aggregation, graceful degradation on a bad stage or a
 filesystem error — and the CRM lifecycle hooks + GET /crm/metrics/funnel route.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -15,7 +16,8 @@ from backend.common import conversion_funnel as funnel
 def _isolate_ledger(tmp_path, monkeypatch):
     """Point the funnel ledger at a per-test temp file."""
     monkeypatch.setenv(
-        "SAMUS_CONVERSION_FUNNEL_PATH", str(tmp_path / "funnel.jsonl"),
+        "SAMUS_CONVERSION_FUNNEL_PATH",
+        str(tmp_path / "funnel.jsonl"),
     )
     yield
 
@@ -23,6 +25,7 @@ def _isolate_ledger(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 # record_stage
 # ---------------------------------------------------------------------------
+
 
 def test_record_stage_accepts_known_stage():
     assert funnel.record_stage("prospect", entity_id="pr_1") is True
@@ -51,6 +54,7 @@ def test_record_stage_degrades_on_filesystem_error(monkeypatch):
 # ---------------------------------------------------------------------------
 # funnel_snapshot
 # ---------------------------------------------------------------------------
+
 
 def test_snapshot_empty_ledger_is_all_zero():
     snap = funnel.funnel_snapshot()
@@ -87,8 +91,7 @@ def test_snapshot_transition_conversion_rates():
 
     snap = funnel.funnel_snapshot()
     lead_to_prospect = next(
-        t for t in snap["transitions"]
-        if t["from"] == "lead" and t["to"] == "prospect"
+        t for t in snap["transitions"] if t["from"] == "lead" and t["to"] == "prospect"
     )
     assert lead_to_prospect["conversion_rate"] == 0.5
     assert lead_to_prospect["leaked"] == 5
@@ -110,9 +113,7 @@ def test_snapshot_overall_conversion_rate():
 def test_snapshot_no_divide_by_zero_when_upstream_empty():
     funnel.record_stage("prospect")  # downstream with no upstream lead.
     snap = funnel.funnel_snapshot()
-    lead_to_prospect = next(
-        t for t in snap["transitions"] if t["from"] == "lead"
-    )
+    lead_to_prospect = next(t for t in snap["transitions"] if t["from"] == "lead")
     assert lead_to_prospect["conversion_rate"] == 0.0
     assert snap["overall_conversion_rate"] == 0.0
 
@@ -133,9 +134,11 @@ def test_snapshot_degrades_on_read_error(monkeypatch):
 # CRM lifecycle integration — the hook fires on real lifecycle calls.
 # ---------------------------------------------------------------------------
 
+
 def _crm_setup(monkeypatch):
     """Import the CRM service test shims to drive a real lifecycle call."""
     from tests.test_crm_service import _patch_tables, _audit_to_tmp
+
     return _patch_tables, _audit_to_tmp
 
 
@@ -147,9 +150,12 @@ def test_create_opportunity_records_funnel_stage(monkeypatch, tmp_path):
     _patch_tables(monkeypatch)
     monkeypatch.setenv("SAMUS_CRM_AUDIT_PATH", str(tmp_path / "audit.jsonl"))
 
-    result = svc.create_opportunity(CreateOpportunityRequest(
-        prospect_id="pr_1", industry="plumbing",
-    ))
+    result = svc.create_opportunity(
+        CreateOpportunityRequest(
+            prospect_id="pr_1",
+            industry="plumbing",
+        )
+    )
     assert result.status == "created"
 
     snap = funnel.funnel_snapshot()
@@ -160,7 +166,8 @@ def test_advance_opportunity_records_terminal_funnel_stage(monkeypatch, tmp_path
     from tests.test_crm_service import _patch_tables
     from backend.crm import service as svc
     from backend.crm.models import (
-        AdvanceOpportunityRequest, CreateOpportunityRequest,
+        AdvanceOpportunityRequest,
+        CreateOpportunityRequest,
     )
 
     _patch_tables(monkeypatch)
@@ -170,22 +177,35 @@ def test_advance_opportunity_records_terminal_funnel_stage(monkeypatch, tmp_path
     # gated by an unrelated guard.
     monkeypatch.setenv("SAMUS_CRM_MAX_CLOSE_AMOUNT_USD", "100000")
     from backend.common.settings import reload_settings
+
     reload_settings()
 
-    created = svc.create_opportunity(CreateOpportunityRequest(
-        prospect_id="pr_1", industry="hvac",
-    ))
+    created = svc.create_opportunity(
+        CreateOpportunityRequest(
+            prospect_id="pr_1",
+            industry="hvac",
+        )
+    )
     # new -> qualified -> proposal -> closed_won (FSM-legal forward path).
-    svc.advance_opportunity(AdvanceOpportunityRequest(
-        opportunity_id=created.opportunity_id, target_stage="qualified",
-    ))
-    svc.advance_opportunity(AdvanceOpportunityRequest(
-        opportunity_id=created.opportunity_id, target_stage="proposal",
-    ))
-    svc.advance_opportunity(AdvanceOpportunityRequest(
-        opportunity_id=created.opportunity_id, target_stage="closed_won",
-        won_amount_usd=1500.0,
-    ))
+    svc.advance_opportunity(
+        AdvanceOpportunityRequest(
+            opportunity_id=created.opportunity_id,
+            target_stage="qualified",
+        )
+    )
+    svc.advance_opportunity(
+        AdvanceOpportunityRequest(
+            opportunity_id=created.opportunity_id,
+            target_stage="proposal",
+        )
+    )
+    svc.advance_opportunity(
+        AdvanceOpportunityRequest(
+            opportunity_id=created.opportunity_id,
+            target_stage="closed_won",
+            won_amount_usd=1500.0,
+        )
+    )
 
     snap = funnel.funnel_snapshot()
     assert snap["stages"]["opportunity"] == 1
@@ -196,6 +216,7 @@ def test_advance_opportunity_records_terminal_funnel_stage(monkeypatch, tmp_path
 # ---------------------------------------------------------------------------
 # GET /crm/metrics/funnel route
 # ---------------------------------------------------------------------------
+
 
 def test_crm_funnel_route_returns_snapshot():
     from fastapi.testclient import TestClient

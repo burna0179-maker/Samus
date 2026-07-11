@@ -1,4 +1,5 @@
 """Tests for backend.catalog.link_audit — the dead-checkout guard. Stripe mocked."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -13,13 +14,19 @@ _LINKED = [e for e in CATALOG if getattr(e, "payment_link_url", None)]
 
 def _mock(active_entries):
     """active_entries: list of (url, amount_cents). Returns a one-page client."""
+
     def handler(req: httpx.Request) -> httpx.Response:
         data = [
-            {"id": f"pl_{i}", "url": u, "active": True,
-             "line_items": {"data": [{"amount_total": amt, "description": "X"}]}}
+            {
+                "id": f"pl_{i}",
+                "url": u,
+                "active": True,
+                "line_items": {"data": [{"amount_total": amt, "description": "X"}]},
+            }
             for i, (u, amt) in enumerate(active_entries)
         ]
         return httpx.Response(200, json={"data": data, "has_more": False})
+
     return httpx.Client(transport=httpx.MockTransport(handler))
 
 
@@ -52,6 +59,7 @@ def test_audit_empty_stripe_cannot_verify_returns_empty():
 
 # ---- Hardcoded-URL scanner -------------------------------------------------
 
+
 def test_hardcoded_url_scanner_finds_stripe_urls(tmp_path: Path):
     (tmp_path / "good.py").write_text('url = "https://buy.stripe.com/abc123"\n')
     (tmp_path / "clean.py").write_text('url = "https://example.com"\n')
@@ -62,12 +70,11 @@ def test_hardcoded_url_scanner_finds_stripe_urls(tmp_path: Path):
 
 
 def test_hardcoded_url_stale_annotation(tmp_path: Path):
-    (tmp_path / "stale.tsx").write_text(
-        'href: "https://buy.stripe.com/DEAD",\n'
-    )
+    (tmp_path / "stale.tsx").write_text('href: "https://buy.stripe.com/DEAD",\n')
     active = {"https://buy.stripe.com/LIVE"}
     hits = link_audit.audit_hardcoded_urls(
-        scan_root=tmp_path, active_urls=active,
+        scan_root=tmp_path,
+        active_urls=active,
     )
     assert len(hits) == 1
     assert hits[0].stale is True
@@ -88,7 +95,8 @@ def test_hardcoded_url_extra_roots(tmp_path: Path):
     root2.mkdir()
     (root2 / "b.tsx").write_text('"https://buy.stripe.com/r2"\n')
     hits = link_audit.audit_hardcoded_urls(
-        scan_root=root1, extra_roots=[root2],
+        scan_root=root1,
+        extra_roots=[root2],
     )
     urls = {h.url for h in hits}
     assert urls == {
@@ -99,8 +107,10 @@ def test_hardcoded_url_extra_roots(tmp_path: Path):
 
 # ---- WordPress CMS scanner -------------------------------------------------
 
+
 def _wp_mock(pages_content: list[dict]):
     """Mock the WP REST API. pages_content: list of {title, slug, content, id}."""
+
     def handler(req: httpx.Request) -> httpx.Response:
         if "/pages" in str(req.url):
             page_num = dict(req.url.params).get("page", "1")
@@ -119,15 +129,21 @@ def _wp_mock(pages_content: list[dict]):
         if "/posts" in str(req.url):
             return httpx.Response(200, json=[])
         return httpx.Response(404)
+
     return httpx.Client(transport=httpx.MockTransport(handler))
 
 
 def test_wp_scanner_finds_stripe_links():
-    with _wp_mock([
-        {"title": "SEO Page", "slug": "seo", "content":
-         '<a href="https://buy.stripe.com/abc123">Buy</a>'},
-        {"title": "Clean", "slug": "about", "content": "<p>No links</p>"},
-    ]) as c:
+    with _wp_mock(
+        [
+            {
+                "title": "SEO Page",
+                "slug": "seo",
+                "content": '<a href="https://buy.stripe.com/abc123">Buy</a>',
+            },
+            {"title": "Clean", "slug": "about", "content": "<p>No links</p>"},
+        ]
+    ) as c:
         hits = link_audit.audit_wordpress_content(http_client=c)
     assert len(hits) == 1
     assert hits[0].slug == "seo"
@@ -136,13 +152,19 @@ def test_wp_scanner_finds_stripe_links():
 
 def test_wp_scanner_stale_annotation():
     active = {"https://buy.stripe.com/LIVE"}
-    with _wp_mock([
-        {"title": "P", "slug": "p", "content":
-         '<a href="https://buy.stripe.com/DEAD">Buy</a> '
-         '<a href="https://buy.stripe.com/LIVE">Buy</a>'},
-    ]) as c:
+    with _wp_mock(
+        [
+            {
+                "title": "P",
+                "slug": "p",
+                "content": '<a href="https://buy.stripe.com/DEAD">Buy</a> '
+                '<a href="https://buy.stripe.com/LIVE">Buy</a>',
+            },
+        ]
+    ) as c:
         hits = link_audit.audit_wordpress_content(
-            active_urls=active, http_client=c,
+            active_urls=active,
+            http_client=c,
         )
     assert len(hits) == 2
     stale = [h for h in hits if h.stale]

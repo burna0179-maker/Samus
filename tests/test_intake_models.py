@@ -1,4 +1,5 @@
 """OnboardingLeadRequest validation — mirrors the HTML form contract."""
+
 from __future__ import annotations
 
 import pytest
@@ -45,9 +46,14 @@ def test_empty_budget_and_timeline_allowed():
 def test_all_eight_service_values_validate():
     """If the HTML form adds/removes a value, this test must change in lockstep."""
     eight = [
-        "seo_audit", "seo_implementation", "seo_optimization",
-        "workflow_rescue", "workflow_buildout", "ai_ops_partner",
-        "playbook", "not_sure",
+        "seo_audit",
+        "seo_implementation",
+        "seo_optimization",
+        "workflow_rescue",
+        "workflow_buildout",
+        "ai_ops_partner",
+        "playbook",
+        "not_sure",
     ]
     req = OnboardingLeadRequest.model_validate(_valid_payload(service_interest=eight))
     assert len(req.service_interest) == 8

@@ -1,4 +1,5 @@
 """Watcher tests — polling reload + fail-OPEN on malformed change."""
+
 from __future__ import annotations
 
 import shutil
@@ -40,7 +41,10 @@ def test_watcher_reloads_on_change(codex_copy: Path, monkeypatch):
     registry.load(codex_copy)
     initial_reloads = 0
     handle = start_codex_watcher(
-        codex_copy, registry=registry, poll_interval=0.1, force=True,
+        codex_copy,
+        registry=registry,
+        poll_interval=0.1,
+        force=True,
     )
     assert handle is not None
     try:
@@ -59,7 +63,10 @@ def test_watcher_fails_open_on_malformed_change(codex_copy: Path, monkeypatch):
     registry.load(codex_copy)
     pre_guardrails = len(registry.guardrails())
     handle = start_codex_watcher(
-        codex_copy, registry=registry, poll_interval=0.1, force=True,
+        codex_copy,
+        registry=registry,
+        poll_interval=0.1,
+        force=True,
     )
     assert handle is not None
     try:
@@ -84,7 +91,10 @@ def test_watcher_clean_stop(codex_copy: Path, monkeypatch):
     registry = CodexRegistry()
     registry.load(codex_copy)
     handle = start_codex_watcher(
-        codex_copy, registry=registry, poll_interval=0.1, force=True,
+        codex_copy,
+        registry=registry,
+        poll_interval=0.1,
+        force=True,
     )
     assert handle is not None
     stop_codex_watcher(handle, timeout=3.0)

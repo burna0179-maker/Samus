@@ -7,6 +7,7 @@ predictive allocator.
 
 Pure-logic — deterministic, no I/O.
 """
+
 from __future__ import annotations
 
 __all__ = [
@@ -28,9 +29,7 @@ def _clamp01(value: float) -> float:
     return value
 
 
-def compute_saturation_risk(
-    vertical_trials: float, total_trials: float
-) -> float:
+def compute_saturation_risk(vertical_trials: float, total_trials: float) -> float:
     """Saturation risk in [0,1] from a vertical's share of recent trials.
 
     ``share = vertical_trials / total_trials``. Risk ramps linearly from 0

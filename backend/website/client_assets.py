@@ -30,6 +30,7 @@ Mechanics:
 Pure stdlib (hashlib/json/shutil/re); never raises on a missing store — an
 empty manifest simply means NO local assets are allowed (fail-closed).
 """
+
 from __future__ import annotations
 
 import base64
@@ -39,7 +40,6 @@ import json
 import logging
 import os
 import re
-import shutil
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -51,19 +51,42 @@ _LOG = logging.getLogger("samus.website.client_assets")
 ASSET_KINDS = ("logo", "icon", "image", "media", "marketing")
 
 # Remote hosts every generated site legitimately uses (fonts + Tailwind CDN).
-REMOTE_ALLOWLIST = frozenset({
-    "fonts.googleapis.com",
-    "fonts.gstatic.com",
-    "cdn.tailwindcss.com",
-})
+REMOTE_ALLOWLIST = frozenset(
+    {
+        "fonts.googleapis.com",
+        "fonts.gstatic.com",
+        "cdn.tailwindcss.com",
+    }
+)
 
 # File extensions treated as ASSETS (ownership-gated). Pages/styles/scripts
 # the builder itself generates (html/css/js) are NOT assets.
-_ASSET_EXTS = frozenset({
-    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".svg", ".ico",
-    ".bmp", ".tiff", ".mp4", ".webm", ".mov", ".mp3", ".wav", ".ogg",
-    ".pdf", ".woff", ".woff2", ".ttf", ".otf", ".eot",
-})
+_ASSET_EXTS = frozenset(
+    {
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".webp",
+        ".avif",
+        ".svg",
+        ".ico",
+        ".bmp",
+        ".tiff",
+        ".mp4",
+        ".webm",
+        ".mov",
+        ".mp3",
+        ".wav",
+        ".ogg",
+        ".pdf",
+        ".woff",
+        ".woff2",
+        ".ttf",
+        ".otf",
+        ".eot",
+    }
+)
 
 _KEY_SAFE_RE = re.compile(r"[^a-zA-Z0-9._-]+")
 _FNAME_SAFE_RE = re.compile(r"[^a-zA-Z0-9._-]+")
@@ -84,9 +107,8 @@ _IGNORED_SCHEMES = ("mailto:", "tel:", "javascript:", "#", "about:")
 # client identity
 # ---------------------------------------------------------------------------
 
-def derive_client_key(
-    prospect_id: str = "", account_id: str = "", company_name: str = ""
-) -> str:
+
+def derive_client_key(prospect_id: str = "", account_id: str = "", company_name: str = "") -> str:
     """THE deterministic client identity: prospect_id > account_id > company
     slug. Sanitized to a safe directory name; empty everything degrades to
     ``"unknown-client"`` (a real key never collides with it by accident
@@ -102,6 +124,7 @@ def derive_client_key(
 # ---------------------------------------------------------------------------
 # store
 # ---------------------------------------------------------------------------
+
 
 def assets_root() -> Path:
     """``<SAMUS_ARTIFACT_ROOT>/client_assets`` (created on demand)."""
@@ -144,8 +167,7 @@ class ClientAssetStore:
         """Atomic manifest write (tmp + os.replace) — a crash mid-write must
         never corrupt ownership records."""
         self.root.mkdir(parents=True, exist_ok=True)
-        payload = json.dumps({"client_key": self.client_key, "assets": entries},
-                             indent=2)
+        payload = json.dumps({"client_key": self.client_key, "assets": entries}, indent=2)
         fd, tmp = tempfile.mkstemp(dir=str(self.root), suffix=".tmp")
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as fh:
@@ -209,12 +231,18 @@ class ClientAssetStore:
         }
         entries.append(entry)
         self._write_manifest(entries)
-        _LOG.info("registered %s asset %r for client %s (sha256=%s)",
-                  kind, filename, self.client_key, digest[:12])
+        _LOG.info(
+            "registered %s asset %r for client %s (sha256=%s)",
+            kind,
+            filename,
+            self.client_key,
+            digest[:12],
+        )
         return entry
 
 
 # Module-level conveniences (the deliverable's functional surface).
+
 
 def register_asset(
     client_key: str,
@@ -226,7 +254,10 @@ def register_asset(
     source_label: str = "operator",
 ) -> dict[str, Any]:
     return ClientAssetStore(client_key).register(
-        source, kind, original_name=original_name, notes=notes,
+        source,
+        kind,
+        original_name=original_name,
+        notes=notes,
         source_label=source_label,
     )
 
@@ -247,6 +278,7 @@ def get_asset_path(client_key: str, filename: str) -> Optional[Path]:
 # ---------------------------------------------------------------------------
 # the isolation gate
 # ---------------------------------------------------------------------------
+
 
 def _all_client_hashes(*, root: Path | None = None) -> dict[str, str]:
     """sha256 -> owning client_key across EVERY client store. Used to detect
@@ -326,12 +358,12 @@ def enforce_asset_isolation(
         digest = hashlib.sha256(content.encode("utf-8", "surrogateescape")).hexdigest()
         owner = owners.get(digest)
         if owner and owner != client_key:
-            violations.append(
-                f"shipped file {name!r} belongs to client {owner!r} - dropped")
+            violations.append(f"shipped file {name!r} belongs to client {owner!r} - dropped")
             dropped_files.add(name)
         elif digest not in own_hashes:
             violations.append(
-                f"shipped file {name!r} not in client {client_key!r} manifest - dropped")
+                f"shipped file {name!r} not in client {client_key!r} manifest - dropped"
+            )
             dropped_files.add(name)
     for name in dropped_files:
         clean.pop(name, None)
@@ -351,27 +383,24 @@ def enforce_asset_isolation(
                 owner = owners.get(digest) if digest else None
                 if owner and owner != client_key:
                     violations.append(
-                        f"{name}: embedded data-URI matches asset of client "
-                        f"{owner!r} - stripped")
+                        f"{name}: embedded data-URI matches asset of client {owner!r} - stripped"
+                    )
                     stripped_refs.add(ref)
                 continue
 
             if ref.lower().startswith(("http://", "https://", "//")):
-                host = (urlsplit(ref if "://" in ref else "https:" + ref).hostname
-                        or "").lower()
+                host = (urlsplit(ref if "://" in ref else "https:" + ref).hostname or "").lower()
                 allowed = host in REMOTE_ALLOWLIST or any(
-                    host == d.lower() or host.endswith("." + d.lower())
-                    for d in own_domains if d
+                    host == d.lower() or host.endswith("." + d.lower()) for d in own_domains if d
                 )
                 if not allowed:
                     if strict:
                         violations.append(
-                            f"{name}: remote ref {ref!r} outside allowlist - "
-                            "stripped (strict)")
+                            f"{name}: remote ref {ref!r} outside allowlist - stripped (strict)"
+                        )
                         stripped_refs.add(ref)
                     else:
-                        violations.append(
-                            f"warning: {name}: remote ref {ref!r} outside allowlist")
+                        violations.append(f"warning: {name}: remote ref {ref!r} outside allowlist")
                 continue
 
             # local reference
@@ -390,10 +419,12 @@ def enforce_asset_isolation(
             foreign = _foreign_owner_by_name(basename, client_key, root=root)
             if foreign:
                 violations.append(
-                    f"{name}: ref {ref!r} matches asset of client {foreign!r} - stripped")
+                    f"{name}: ref {ref!r} matches asset of client {foreign!r} - stripped"
+                )
             else:
                 violations.append(
-                    f"{name}: ref {ref!r} not in client {client_key!r} manifest - stripped")
+                    f"{name}: ref {ref!r} not in client {client_key!r} manifest - stripped"
+                )
             stripped_refs.add(ref)
 
     # --- strip recorded references from surviving files -------------------
@@ -412,9 +443,7 @@ def enforce_asset_isolation(
     return clean, violations
 
 
-def _foreign_owner_by_name(
-    basename: str, client_key: str, *, root: Path | None = None
-) -> str:
+def _foreign_owner_by_name(basename: str, client_key: str, *, root: Path | None = None) -> str:
     """Which OTHER client (if any) has an asset with this filename — catches
     by-path reuse even when the bytes aren't shipped in the build."""
     base = root or assets_root()
@@ -433,6 +462,7 @@ def _foreign_owner_by_name(
 # CLI — operator registers a client's real logo/icon/media
 # ---------------------------------------------------------------------------
 
+
 def _resolve_key_from_call_list(company: str) -> str:
     """Try to resolve a prospect_id from today's call list by company-name
     substring (the same identity the demo builder will derive); fall back to
@@ -445,8 +475,7 @@ def _resolve_key_from_call_list(company: str) -> str:
         needle = company.strip().lower()
         for rec in load_no_website_prospects(run_date=date.today()):
             if needle in (rec.company_name or "").lower():
-                return derive_client_key(rec.prospect_id, rec.account_id,
-                                         rec.company_name)
+                return derive_client_key(rec.prospect_id, rec.account_id, rec.company_name)
     except Exception:  # noqa: BLE001 — no call list today is fine
         pass
     return derive_client_key(company_name=company)
@@ -462,8 +491,11 @@ def main(argv: Optional[list[str]] = None) -> int:
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     reg = sub.add_parser("register", help="register an asset to ONE client")
-    reg.add_argument("--company", default="", help="company name (resolves via "
-                     "today's call list when possible, else slug)")
+    reg.add_argument(
+        "--company",
+        default="",
+        help="company name (resolves via today's call list when possible, else slug)",
+    )
     reg.add_argument("--prospect-id", default="", help="explicit prospect id")
     reg.add_argument("--kind", required=True, choices=ASSET_KINDS)
     reg.add_argument("--file", required=True, help="path to the asset file")

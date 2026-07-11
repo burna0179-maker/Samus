@@ -1,8 +1,8 @@
 """Tests for backend.crm.client_directory — email->client lookup."""
+
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import patch
 
 import yaml
 
@@ -46,6 +46,7 @@ def _import_module_with_root(root: Path):
     import importlib
 
     import backend.crm.client_directory as cd
+
     importlib.reload(cd)
     cd._CLIENTS_ROOT = root / "clients"
     cd._cache = {}
@@ -163,8 +164,10 @@ def test_lookup_client_ignores_missing_email_field(tmp_path):
 
 # --- operator_addresses -----------------------------------------------------
 
+
 def test_operator_addresses_reads_sendgrid_from(monkeypatch):
     from backend.crm import client_directory as cd
+
     monkeypatch.setenv("SENDGRID_FROM_EMAIL", "ahartman@hustleforge.tech")
     monkeypatch.delenv("SAMUS_OPERATOR_EMAILS", raising=False)
     assert cd.operator_addresses() == {"ahartman@hustleforge.tech"}
@@ -174,10 +177,9 @@ def test_operator_addresses_reads_sendgrid_from(monkeypatch):
 
 def test_operator_addresses_merges_extras(monkeypatch):
     from backend.crm import client_directory as cd
+
     monkeypatch.setenv("SENDGRID_FROM_EMAIL", "ahartman@hustleforge.tech")
-    monkeypatch.setenv(
-        "SAMUS_OPERATOR_EMAILS", "alex@hustleforge.tech, ops@hustleforge.tech ,"
-    )
+    monkeypatch.setenv("SAMUS_OPERATOR_EMAILS", "alex@hustleforge.tech, ops@hustleforge.tech ,")
     got = cd.operator_addresses()
     assert got == {
         "ahartman@hustleforge.tech",
@@ -188,6 +190,7 @@ def test_operator_addresses_merges_extras(monkeypatch):
 
 def test_operator_addresses_empty_when_env_unset(monkeypatch):
     from backend.crm import client_directory as cd
+
     monkeypatch.delenv("SENDGRID_FROM_EMAIL", raising=False)
     monkeypatch.delenv("SAMUS_OPERATOR_EMAILS", raising=False)
     assert cd.operator_addresses() == set()
@@ -196,12 +199,11 @@ def test_operator_addresses_empty_when_env_unset(monkeypatch):
 
 # --- find_client_in_text --------------------------------------------------
 
+
 def test_find_client_in_text_matches_display_name(tmp_path):
     _write_campaign_yaml(tmp_path, "sample_school")
     cd = _import_module_with_root(tmp_path)
-    kc = cd.find_client_in_text(
-        "Meeting note: Kerry Brown asked about the phased approach."
-    )
+    kc = cd.find_client_in_text("Meeting note: Kerry Brown asked about the phased approach.")
     assert kc is not None
     assert kc.client_id == "sample_school"
 
@@ -219,9 +221,7 @@ def test_find_client_in_text_matches_email_domain(tmp_path):
 def test_find_client_in_text_matches_client_id_humanized(tmp_path):
     _write_campaign_yaml(tmp_path, "sample_school")
     cd = _import_module_with_root(tmp_path)
-    kc = cd.find_client_in_text(
-        "Subject: Sample School – Back to School Brigade"
-    )
+    kc = cd.find_client_in_text("Subject: Sample School – Back to School Brigade")
     assert kc is not None
     assert kc.client_id == "sample_school"
 
@@ -229,9 +229,7 @@ def test_find_client_in_text_matches_client_id_humanized(tmp_path):
 def test_find_client_in_text_returns_none_on_no_match(tmp_path):
     _write_campaign_yaml(tmp_path, "sample_school")
     cd = _import_module_with_root(tmp_path)
-    assert cd.find_client_in_text(
-        "Weekly team meeting notes from Global Widget Co."
-    ) is None
+    assert cd.find_client_in_text("Weekly team meeting notes from Global Widget Co.") is None
 
 
 def test_find_client_in_text_none_for_empty(tmp_path):
@@ -253,9 +251,7 @@ def test_find_client_in_text_prefers_longest_match(tmp_path):
         authorized_signatory="Someone Else",
     )
     cd = _import_module_with_root(tmp_path)
-    kc = cd.find_client_in_text(
-        "Update on Sample School enrollment progress."
-    )
+    kc = cd.find_client_in_text("Update on Sample School enrollment progress.")
     assert kc is not None
     assert kc.client_id == "sample_school"
 
@@ -265,13 +261,10 @@ def test_find_client_in_text_matches_additional_contact(tmp_path):
         tmp_path,
         "sample_school",
         additional_contacts=[
-            {"email": "contact@sample-school.example",
-             "role": "liaison", "name": "Frank South"},
+            {"email": "contact@sample-school.example", "role": "liaison", "name": "Frank South"},
         ],
     )
     cd = _import_module_with_root(tmp_path)
-    kc = cd.find_client_in_text(
-        "Cc'd: contact@sample-school.example per Kerry's request."
-    )
+    kc = cd.find_client_in_text("Cc'd: contact@sample-school.example per Kerry's request.")
     assert kc is not None
     assert kc.client_id == "sample_school"

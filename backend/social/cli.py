@@ -26,6 +26,7 @@ Dry-run dispatch a saved calendar (writes ledger entries only)::
 
     python -m backend.social.cli dispatch --plan ./calendar_month1.jsonl --limit 5
 """
+
 from __future__ import annotations
 
 import argparse
@@ -65,7 +66,19 @@ def _cmd_plan(args: argparse.Namespace) -> int:
     if args.out:
         n = persist_plan(plan, args.out)
         print(f"wrote {n} planned posts -> {args.out}")
-    print(json.dumps({"month": plan.month, "theme": plan.theme, "cluster": plan.cluster, "post_count": len(plan.posts), "mix": mix}, indent=2, ensure_ascii=False))
+    print(
+        json.dumps(
+            {
+                "month": plan.month,
+                "theme": plan.theme,
+                "cluster": plan.cluster,
+                "post_count": len(plan.posts),
+                "mix": mix,
+            },
+            indent=2,
+            ensure_ascii=False,
+        )
+    )
     return 0
 
 
@@ -99,7 +112,9 @@ def build_parser() -> argparse.ArgumentParser:
     rp.add_argument("--summary", default="")
     rp.add_argument("--key-points", default="", help="semicolon-separated")
     rp.add_argument("--cluster", default="")
-    rp.add_argument("--use-llm", action="store_true", help="budget-gated LLM (default templated, $0)")
+    rp.add_argument(
+        "--use-llm", action="store_true", help="budget-gated LLM (default templated, $0)"
+    )
     rp.set_defaults(func=_cmd_repurpose)
 
     pl = sub.add_parser("plan", help="plan a month of social content")

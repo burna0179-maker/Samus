@@ -64,9 +64,14 @@ def default_self_model_path() -> str:
 
 
 class PersonaMemory:
-    def __init__(self, path: Optional[str] = None, max_events: int = 5000,
-                 enabled: Optional[bool] = None,
-                 wal_enabled: bool = True, async_flush: bool = True):
+    def __init__(
+        self,
+        path: Optional[str] = None,
+        max_events: int = 5000,
+        enabled: Optional[bool] = None,
+        wal_enabled: bool = True,
+        async_flush: bool = True,
+    ):
         # When ``enabled`` is not explicitly supplied, defer to the feature
         # flag (default OFF -> dormant). An explicit bool still wins so tests /
         # the P2 consumer can construct an active instance deterministically.
@@ -141,10 +146,13 @@ class PersonaMemory:
             return
         keep = int(self._max_events * 0.6)
         recent = self._events[-keep:]
-        important = [e for e in self._events
-                     if e.get("kind") == "reflection"
-                     and "error" in str(e.get("details", {}).get("tags", {}))]
-        self._events = (important + recent)[-self._max_events:]
+        important = [
+            e
+            for e in self._events
+            if e.get("kind") == "reflection"
+            and "error" in str(e.get("details", {}).get("tags", {}))
+        ]
+        self._events = (important + recent)[-self._max_events :]
 
     def log_event(self, kind: str, details: Dict[str, Any], ts: Optional[float] = None) -> None:
         if not self._enabled:
@@ -254,8 +262,9 @@ class PersonaMemory:
             "counters": self._count_events_by_kind(),
         }
 
-    def apply_introspection(self, introspection: Dict[str, Any], *, plan_token=None,
-                            user_text=None, success=None) -> Dict[str, Any]:
+    def apply_introspection(
+        self, introspection: Dict[str, Any], *, plan_token=None, user_text=None, success=None
+    ) -> Dict[str, Any]:
         drift = float(introspection.get("drift", 0.0))
         mem_conf = float(introspection.get("memory_confidence", 0.5))
         baseline = self.snapshot()["emotion"]["confidence"]
@@ -263,8 +272,13 @@ class PersonaMemory:
         valence = max(-1.0, min(1.0, (new_conf - 0.5) * 2.0 - drift * 0.5))
         self.log_event("emotion", {"valence": valence, "confidence": new_conf, "drift": drift})
         status = "error" if success is False else "struggle" if drift > 0.5 else "ok"
-        self.log_event("reflection", {"text": f"[auto] drift={drift:.3f}",
-                                      "tags": {"status": status, "plan_token": plan_token, "drift": drift}})
+        self.log_event(
+            "reflection",
+            {
+                "text": f"[auto] drift={drift:.3f}",
+                "tags": {"status": status, "plan_token": plan_token, "drift": drift},
+            },
+        )
         return {"valence": valence, "confidence": new_conf, "drift": drift}
 
     def shutdown(self) -> None:

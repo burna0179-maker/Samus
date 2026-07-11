@@ -12,11 +12,11 @@ This file is loaded by backend.prospecting.callsheet at build time to:
 The static fallback in callsheet.py always applies when this file is absent
 or incomplete, so no degradation on fresh installs.
 """
+
 from __future__ import annotations
 
 import json
 import logging
-from pathlib import Path
 
 from backend.common import storage
 from backend.common.dates import iso_now
@@ -57,10 +57,7 @@ def update_callsheet_intel(
             continue
 
         if obj.avg_handling_effectiveness >= _MIN_EFFECTIVENESS and obj.best_handler:
-            handler = (
-                f"{obj.text.strip().title()} — "
-                f"'{obj.best_handler.strip()}'"
-            )
+            handler = f"{obj.text.strip().title()} — '{obj.best_handler.strip()}'"
             objection_handlers.append(handler)
         else:
             flagged_gaps.append(
@@ -81,9 +78,18 @@ def update_callsheet_intel(
         strategy_section = {
             "synthesis": strategy.synthesis,
             "recommendations": [r for r in strategy.recommendations if not r.startswith("[KEEP]")],
-            "keep_doing": [r.removeprefix("[KEEP] ") for r in strategy.recommendations if r.startswith("[KEEP]")],
+            "keep_doing": [
+                r.removeprefix("[KEEP] ")
+                for r in strategy.recommendations
+                if r.startswith("[KEEP]")
+            ],
             "trend_deltas": [
-                {"metric": d.metric, "previous": d.previous, "current": d.current, "direction": d.direction}
+                {
+                    "metric": d.metric,
+                    "previous": d.previous,
+                    "current": d.current,
+                    "direction": d.direction,
+                }
                 for d in strategy.trend_deltas
             ],
             "days_with_data": strategy.days_with_data,

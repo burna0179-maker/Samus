@@ -10,6 +10,7 @@ Wired-dormant: ``distill_notes()`` always returns the extraction result
 but only writes to the CRM when ``SAMUS_NOTE_DISTILLER_ARMED`` is set.
 The operator arms it when ready.
 """
+
 from __future__ import annotations
 
 import logging
@@ -22,10 +23,14 @@ from backend.common.dates import iso_now
 
 _LOG = logging.getLogger("samus.crm.note_distiller")
 
+
 def _is_armed() -> bool:
     return os.environ.get("SAMUS_NOTE_DISTILLER_ARMED", "").strip().lower() in (
-        "1", "true", "yes",
+        "1",
+        "true",
+        "yes",
     )
+
 
 # ---- email extraction -------------------------------------------------------
 
@@ -50,7 +55,7 @@ def _infer_role(notes_lower: str, email: str) -> str:
     idx = notes_lower.find(email.lower())
     if idx < 0:
         return "contact"
-    window = notes_lower[max(0, idx - 120):idx]
+    window = notes_lower[max(0, idx - 120) : idx]
     for hint, role in _ROLE_HINTS.items():
         if hint in window:
             return role
@@ -67,22 +72,42 @@ def extract_emails(notes: str) -> list[dict[str, str]]:
         if key in seen:
             continue
         seen.add(key)
-        results.append({
-            "email": em,
-            "role": _infer_role(nl, em),
-        })
+        results.append(
+            {
+                "email": em,
+                "role": _infer_role(nl, em),
+            }
+        )
     return results
 
 
 # ---- scheduling constraints -------------------------------------------------
 
 _MONTH_MAP = {
-    "january": 1, "february": 2, "march": 3, "april": 4,
-    "may": 5, "june": 6, "july": 7, "august": 8,
-    "september": 9, "october": 10, "november": 11, "december": 12,
-    "jan": 1, "feb": 2, "mar": 3, "apr": 4,
-    "jun": 6, "jul": 7, "aug": 8, "sep": 9, "sept": 9,
-    "oct": 10, "nov": 11, "dec": 12,
+    "january": 1,
+    "february": 2,
+    "march": 3,
+    "april": 4,
+    "may": 5,
+    "june": 6,
+    "july": 7,
+    "august": 8,
+    "september": 9,
+    "october": 10,
+    "november": 11,
+    "december": 12,
+    "jan": 1,
+    "feb": 2,
+    "mar": 3,
+    "apr": 4,
+    "jun": 6,
+    "jul": 7,
+    "aug": 8,
+    "sep": 9,
+    "sept": 9,
+    "oct": 10,
+    "nov": 11,
+    "dec": 12,
 }
 
 _CLOSED_UNTIL_RE = re.compile(
@@ -172,12 +197,21 @@ def extract_product_angles(notes: str) -> dict[str, Any]:
 # ---- action items ------------------------------------------------------------
 
 _ACTION_PATTERNS: list[tuple[str, str]] = [
-    (r"(?:follow\s*up|send|deliver|provide|offered?)\s+(?:\w+\s+)?(?:free\s+)?security\s+report", "deliver_security_report"),
+    (
+        r"(?:follow\s*up|send|deliver|provide|offered?)\s+(?:\w+\s+)?(?:free\s+)?security\s+report",
+        "deliver_security_report",
+    ),
     (r"(?:follow\s*up|send|deliver)\s+(?:with\s+)?(?:seo\s+audit|audit)", "deliver_seo_audit"),
     (r"seo\s+audit\b", "deliver_seo_audit"),
-    (r"(?:follow\s*up|send|deliver)\s+(?:with\s+)?(?:digital\s+)?receptionist\s+flyer", "send_receptionist_flyer"),
+    (
+        r"(?:follow\s*up|send|deliver)\s+(?:with\s+)?(?:digital\s+)?receptionist\s+flyer",
+        "send_receptionist_flyer",
+    ),
     (r"receptionist\s+flyer", "send_receptionist_flyer"),
-    (r"(?:follow\s*up|send)\s+(?:with\s+)?(?:free\s+)?(?:social\s+media)\s+(?:report|proposal)", "send_social_proposal"),
+    (
+        r"(?:follow\s*up|send)\s+(?:with\s+)?(?:free\s+)?(?:social\s+media)\s+(?:report|proposal)",
+        "send_social_proposal",
+    ),
 ]
 
 
@@ -191,6 +225,7 @@ def extract_action_items(notes: str) -> list[str]:
 
 
 # ---- main distiller ----------------------------------------------------------
+
 
 def distill_notes(
     *,
@@ -226,8 +261,11 @@ def distill_notes(
         _LOG.info(
             "note_distiller: DORMANT — extracted %d contacts, schedule=%s, "
             "angles=%s, actions=%s for %s",
-            len(emails), schedule or "none",
-            angles["pitch"] or "none", actions or "none", prospect_id,
+            len(emails),
+            schedule or "none",
+            angles["pitch"] or "none",
+            actions or "none",
+            prospect_id,
         )
         return result
 
@@ -239,12 +277,14 @@ def distill_notes(
     for em_info in emails:
         try:
             from backend.crm import service as crm_service
+
             existing = crm_service._existing_contact_for_email(em_info["email"])
             if existing:
                 _LOG.info("note_distiller: contact %s already exists", em_info["email"])
                 continue
             from backend.crm.models import Contact
             from backend.crm import persistence as p
+
             cid = crm_service._new_contact_id()
             contact = Contact(
                 contact_id=cid,
@@ -260,8 +300,12 @@ def distill_notes(
             ok, err = p.safe_put(p._contacts_table(), contact.model_dump())
             if ok:
                 contacts_created.append(cid)
-                _LOG.info("note_distiller: created contact %s (%s) for %s",
-                          cid, em_info["email"], prospect_id)
+                _LOG.info(
+                    "note_distiller: created contact %s (%s) for %s",
+                    cid,
+                    em_info["email"],
+                    prospect_id,
+                )
             else:
                 _LOG.warning("note_distiller: contact create failed: %s", err)
         except Exception as exc:
@@ -271,15 +315,17 @@ def distill_notes(
     if schedule:
         try:
             from backend.crm import service as crm_service
+
             state = crm_service.get_call_state(prospect_id)
             if state and not state.next_attempt_at:
-                updated = state.model_copy(update={
-                    "next_attempt_at": schedule,
-                    "updated_at": ts,
-                })
+                updated = state.model_copy(
+                    update={
+                        "next_attempt_at": schedule,
+                        "updated_at": ts,
+                    }
+                )
                 crm_service.upsert_call_state(updated)
-                _LOG.info("note_distiller: set next_attempt_at=%s for %s",
-                          schedule, prospect_id)
+                _LOG.info("note_distiller: set next_attempt_at=%s for %s", schedule, prospect_id)
         except Exception as exc:
             _LOG.warning("note_distiller: schedule update error: %s", exc)
 
@@ -291,14 +337,14 @@ def distill_notes(
         # gated the dial (the prospect got re-dialed anyway). Best-effort.
         try:
             from backend.voice.callback_queue import schedule_callback
+
             schedule_callback(
                 prospect_id=prospect_id,
                 callback_date=schedule,
                 company=company or "",
                 reason=f"operator note ({outcome}): scheduled for {schedule}",
             )
-            _LOG.info("note_distiller: queued voice callback for %s on %s",
-                      prospect_id, schedule)
+            _LOG.info("note_distiller: queued voice callback for %s on %s", prospect_id, schedule)
         except Exception as exc:  # noqa: BLE001
             _LOG.warning("note_distiller: callback queue write error: %s", exc)
 
@@ -308,6 +354,7 @@ def distill_notes(
         try:
             from backend.crm import service as crm_service
             from backend.crm.models import CreateOperatorTaskRequest
+
             task_result = crm_service.create_operator_task(
                 CreateOperatorTaskRequest(
                     kind="deliver",

@@ -4,6 +4,7 @@ Wraps the BaseSqsWorker / AwsRuntime imports in try/except — the Phase A
 worker-base port may not yet be fully landed in this branch, in which case we
 expose a placeholder class so the rest of the workcell stays importable.
 """
+
 from __future__ import annotations
 
 import logging
@@ -35,9 +36,7 @@ try:  # pragma: no cover - exercised only when worker_base is fully ported
     if __name__ == "__main__":  # pragma: no cover - runtime entrypoint
         serve_worker(
             FeedbackWorker(
-                AwsRuntime(
-                    AwsWorkerSettings.from_env("feedback", "SQS_FEEDBACK_QUEUE_URL")
-                )
+                AwsRuntime(AwsWorkerSettings.from_env("feedback", "SQS_FEEDBACK_QUEUE_URL"))
             )
         )
 

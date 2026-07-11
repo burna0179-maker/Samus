@@ -1,4 +1,5 @@
 """Pydantic models + plain dataclasses for the Codex Validation Layer."""
+
 from __future__ import annotations
 
 from typing import Any, Literal

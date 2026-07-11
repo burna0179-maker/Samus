@@ -5,6 +5,7 @@ ZERO test coverage; arming it without a regression net was a QA gap. These
 tests validate the core capability in isolation (tmp event log + intel dir,
 mocked LLM) so the live arming is backed by a net.
 """
+
 from __future__ import annotations
 
 import json
@@ -17,8 +18,9 @@ import backend.voice.call_session_monitor as csm
 
 def _today_ts(hour: int, minute: int = 0) -> str:
     d = date.today()
-    return datetime(d.year, d.month, d.day, hour, minute,
-                    tzinfo=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime(d.year, d.month, d.day, hour, minute, tzinfo=timezone.utc).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
 
 
 def _end_of_call(company: str, outcome: str, hour: int) -> dict:
@@ -63,11 +65,14 @@ def test_streak_trigger_fires_and_rewrites_callsheet(isolated, monkeypatch):
     """3 consecutive non-positive outcomes → STREAK trigger → mid-session
     adjustment generated → applied to the callsheet intel."""
     _tmp, events_path = isolated
-    _write_events(events_path, [
-        _end_of_call("Acme Plumbing", "not_interested", 9),
-        _end_of_call("Bar HVAC", "no_answer", 10),
-        _end_of_call("Baz Roofing", "not_interested", 11),
-    ])
+    _write_events(
+        events_path,
+        [
+            _end_of_call("Acme Plumbing", "not_interested", 9),
+            _end_of_call("Bar HVAC", "no_answer", 10),
+            _end_of_call("Baz Roofing", "not_interested", 11),
+        ],
+    )
 
     # Mock the LLM so we don't depend on LM Studio.
     fake_response = (
@@ -86,6 +91,7 @@ def test_streak_trigger_fires_and_rewrites_callsheet(isolated, monkeypatch):
     def _spy_apply(adj):
         captured["applied"] = adj
         return real_apply(adj)
+
     monkeypatch.setattr(csm, "_apply_to_callsheet", _spy_apply)
 
     adj = csm.check_session(force=True)
@@ -101,11 +107,14 @@ def test_streak_trigger_fires_and_rewrites_callsheet(isolated, monkeypatch):
 def test_no_trigger_when_outcomes_mixed(isolated, monkeypatch):
     """A positive outcome resets the streak — no trigger fires."""
     _tmp, events_path = isolated
-    _write_events(events_path, [
-        _end_of_call("Acme", "not_interested", 9),
-        _end_of_call("Bar", "converted", 10),   # resets streak
-        _end_of_call("Baz", "not_interested", 11),
-    ])
+    _write_events(
+        events_path,
+        [
+            _end_of_call("Acme", "not_interested", 9),
+            _end_of_call("Bar", "converted", 10),  # resets streak
+            _end_of_call("Baz", "not_interested", 11),
+        ],
+    )
     monkeypatch.setattr(csm, "llm_chat", lambda **kw: "should not be called")
     adj = csm.check_session(force=True)
     assert adj is None
@@ -114,10 +123,13 @@ def test_no_trigger_when_outcomes_mixed(isolated, monkeypatch):
 def test_min_calls_floor_blocks_premature_check(isolated, monkeypatch):
     """Below the min-calls floor, the monitor no-ops even with a streak."""
     _tmp, events_path = isolated
-    _write_events(events_path, [
-        _end_of_call("Acme", "not_interested", 9),
-        _end_of_call("Bar", "not_interested", 10),
-    ])  # only 2 calls, floor is 3
+    _write_events(
+        events_path,
+        [
+            _end_of_call("Acme", "not_interested", 9),
+            _end_of_call("Bar", "not_interested", 10),
+        ],
+    )  # only 2 calls, floor is 3
     monkeypatch.setattr(csm, "llm_chat", lambda **kw: "nope")
     adj = csm.check_session(force=True)
     assert adj is None
@@ -127,11 +139,14 @@ def test_disabled_flag_no_ops_without_force(isolated, monkeypatch):
     """With the flag OFF and force=False, check_session is a pure no-op."""
     _tmp, events_path = isolated
     monkeypatch.setenv("SAMUS_VOICE_SESSION_MONITOR", "0")
-    _write_events(events_path, [
-        _end_of_call("Acme", "not_interested", 9),
-        _end_of_call("Bar", "no_answer", 10),
-        _end_of_call("Baz", "not_interested", 11),
-    ])
+    _write_events(
+        events_path,
+        [
+            _end_of_call("Acme", "not_interested", 9),
+            _end_of_call("Bar", "no_answer", 10),
+            _end_of_call("Baz", "not_interested", 11),
+        ],
+    )
     monkeypatch.setattr(csm, "llm_chat", lambda **kw: "nope")
     assert csm.check_session(force=False) is None
 
@@ -140,11 +155,14 @@ def test_llm_empty_response_skips_callsheet_apply(isolated, monkeypatch):
     """An empty LLM response records llm_error and does NOT corrupt the
     callsheet with empty recommendations."""
     _tmp, events_path = isolated
-    _write_events(events_path, [
-        _end_of_call("Acme", "not_interested", 9),
-        _end_of_call("Bar", "no_answer", 10),
-        _end_of_call("Baz", "not_interested", 11),
-    ])
+    _write_events(
+        events_path,
+        [
+            _end_of_call("Acme", "not_interested", 9),
+            _end_of_call("Bar", "no_answer", 10),
+            _end_of_call("Baz", "not_interested", 11),
+        ],
+    )
     monkeypatch.setattr(csm, "llm_chat", lambda **kw: "")
     adj = csm.check_session(force=True)
     assert adj is not None

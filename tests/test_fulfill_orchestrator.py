@@ -4,6 +4,7 @@ All 3 downstream services (memory.CustomerStore, seo.audit_and_report,
 outreach.ses_adapter.send_email_via_ses) are injected as fakes so tests
 run without Neo4j, Anthropic, or SES roundtrips.
 """
+
 from __future__ import annotations
 
 import time
@@ -16,9 +17,9 @@ import pytest
 # Fakes
 # ---------------------------------------------------------------------------
 
+
 class _FakeCustomer:
-    def __init__(self, id_: str, email: str, name: str = "",
-                 current_state: str = "prospect"):
+    def __init__(self, id_: str, email: str, name: str = "", current_state: str = "prospect"):
         self.id = id_
         self.email = email
         self.name = name
@@ -47,6 +48,7 @@ class _FakeCustomerStore:
     Tracks every call so tests can assert sequence + state transitions
     without standing up Neo4j.
     """
+
     def __init__(self):
         self.customers: dict[str, _FakeCustomer] = {}  # by email
         self.calls: list[tuple] = []
@@ -58,21 +60,30 @@ class _FakeCustomerStore:
             raise RuntimeError("simulated graph failure")
         return self.customers.get(email.lower())
 
-    def create_customer(self, *, email: str, name: str = "",
-                        company: str = "", source: str = "manual",
-                        metadata: dict | None = None):
+    def create_customer(
+        self,
+        *,
+        email: str,
+        name: str = "",
+        company: str = "",
+        source: str = "manual",
+        metadata: dict | None = None,
+    ):
         self.calls.append(("create_customer", email))
         if "create_customer" in self.fail_on:
             raise RuntimeError("simulated graph failure")
         cust = _FakeCustomer(
             id_=f"cust_{email.replace('@', '_at_').replace('.', '_')}",
-            email=email, name=name, current_state="prospect",
+            email=email,
+            name=name,
+            current_state="prospect",
         )
         self.customers[email.lower()] = cust
         return cust
 
-    def advance_state(self, *, customer_id: str, to_state: str,
-                      reason: str = "", metadata: dict | None = None):
+    def advance_state(
+        self, *, customer_id: str, to_state: str, reason: str = "", metadata: dict | None = None
+    ):
         self.calls.append(("advance_state", customer_id, to_state, reason))
         if "advance_state" in self.fail_on:
             raise RuntimeError("simulated graph failure")
@@ -87,8 +98,8 @@ class _FakeCustomerStore:
 
 def _fake_audit_and_report(report_path: Path, *, raise_exc: Exception | None = None):
     """Build a fake audit_and_report callable that writes a tiny report."""
-    def _fn(req, *, target_keywords=None, tone="professional",
-            customer_label=None):
+
+    def _fn(req, *, target_keywords=None, tone="professional", customer_label=None):
         if raise_exc:
             raise raise_exc
         report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -99,23 +110,30 @@ def _fake_audit_and_report(report_path: Path, *, raise_exc: Exception | None = N
         return {
             "audit": {"url": req.url, "seo_score": 87},
             "optimize": {"url": req.url, "recommendations": []},
-            "content": {"url": req.url, "page_drafts": {}, "word_count": 100,
-                        "used_llm": False},
+            "content": {"url": req.url, "page_drafts": {}, "word_count": 100, "used_llm": False},
             "report_path": str(report_path),
             "customer_slug": report_path.parent.name,
         }
+
     return _fn
 
 
-def _fake_send_email(captured: list, *, raise_exc: Exception | None = None,
-                     message_id: str = "ses_fake_123"):
+def _fake_send_email(
+    captured: list, *, raise_exc: Exception | None = None, message_id: str = "ses_fake_123"
+):
     """Build a fake send_email_via_ses that records args."""
+
     def _fn(*, to, subject, body, from_addr=None, aws_region=None):
         if raise_exc:
             raise raise_exc
         captured.append({"to": to, "subject": subject, "body": body})
-        return {"message_id": message_id, "channel": "email", "to": to,
-                "ts": "2026-05-15T00:00:00Z"}
+        return {
+            "message_id": message_id,
+            "channel": "email",
+            "to": to,
+            "ts": "2026-05-15T00:00:00Z",
+        }
+
     return _fn
 
 
@@ -123,8 +141,10 @@ def _fake_send_email(captured: list, *, raise_exc: Exception | None = None,
 # Happy path
 # ---------------------------------------------------------------------------
 
+
 def test_full_pipeline_happy_path(tmp_path):
     from backend.fulfill import fulfill_customer
+
     store = _FakeCustomerStore()
     captured: list = []
     report = tmp_path / "customers" / "cust_x" / "seo_report.md"
@@ -170,10 +190,10 @@ def test_full_pipeline_happy_path(tmp_path):
 
 def test_existing_customer_in_paid_state_advances_to_in_delivery(tmp_path):
     from backend.fulfill import fulfill_customer
+
     store = _FakeCustomerStore()
     # Pre-populate as a paid customer
-    cust = _FakeCustomer(id_="cust_existing", email="bob@example.com",
-                         current_state="paid")
+    cust = _FakeCustomer(id_="cust_existing", email="bob@example.com", current_state="paid")
     store.customers["bob@example.com"] = cust
     captured: list = []
     report = tmp_path / "customers" / "cust_existing" / "seo_report.md"
@@ -198,15 +218,16 @@ def test_existing_customer_in_paid_state_advances_to_in_delivery(tmp_path):
 
 def test_already_in_delivery_skips_intermediate_advance(tmp_path):
     from backend.fulfill import fulfill_customer
+
     store = _FakeCustomerStore()
-    cust = _FakeCustomer(id_="cust_repeat", email="c@example.com",
-                         current_state="in_delivery")
+    cust = _FakeCustomer(id_="cust_repeat", email="c@example.com", current_state="in_delivery")
     store.customers["c@example.com"] = cust
     captured: list = []
     report = tmp_path / "customers" / "cust_repeat" / "seo_report.md"
 
     result = fulfill_customer(
-        email="c@example.com", audit_url="https://c.example.com",
+        email="c@example.com",
+        audit_url="https://c.example.com",
         customer_store=store,
         audit_and_report_fn=_fake_audit_and_report(report),
         send_email_fn=_fake_send_email(captured),
@@ -223,15 +244,16 @@ def test_already_in_delivery_skips_intermediate_advance(tmp_path):
 
 def test_already_delivered_skips_intermediate_advance(tmp_path):
     from backend.fulfill import fulfill_customer
+
     store = _FakeCustomerStore()
-    cust = _FakeCustomer(id_="cust_done", email="d@example.com",
-                         current_state="delivered")
+    cust = _FakeCustomer(id_="cust_done", email="d@example.com", current_state="delivered")
     store.customers["d@example.com"] = cust
     captured: list = []
     report = tmp_path / "customers" / "cust_done" / "seo_report.md"
 
     result = fulfill_customer(
-        email="d@example.com", audit_url="https://d.example.com",
+        email="d@example.com",
+        audit_url="https://d.example.com",
         customer_store=store,
         audit_and_report_fn=_fake_audit_and_report(report),
         send_email_fn=_fake_send_email(captured),
@@ -247,12 +269,14 @@ def test_already_delivered_skips_intermediate_advance(tmp_path):
 
 def test_no_send_skips_email_step(tmp_path):
     from backend.fulfill import fulfill_customer
+
     store = _FakeCustomerStore()
     captured: list = []
     report = tmp_path / "customers" / "x" / "seo_report.md"
 
     result = fulfill_customer(
-        email="e@example.com", audit_url="https://e.example.com",
+        email="e@example.com",
+        audit_url="https://e.example.com",
         send_email=False,
         customer_store=store,
         audit_and_report_fn=_fake_audit_and_report(report),
@@ -272,14 +296,17 @@ def test_no_send_skips_email_step(tmp_path):
 # Failure paths — each step's failure should NOT roll the state forward
 # ---------------------------------------------------------------------------
 
+
 def test_customer_lookup_failure_aborts(tmp_path):
     from backend.fulfill import fulfill_customer
+
     store = _FakeCustomerStore()
     store.fail_on.add("get_by_email")
     report = tmp_path / "customers" / "x" / "seo_report.md"
 
     result = fulfill_customer(
-        email="f@example.com", audit_url="https://f.example.com",
+        email="f@example.com",
+        audit_url="https://f.example.com",
         customer_store=store,
         audit_and_report_fn=_fake_audit_and_report(report),
         send_email_fn=_fake_send_email([]),
@@ -295,11 +322,13 @@ def test_customer_lookup_failure_aborts(tmp_path):
 
 def test_audit_failure_aborts_before_email_or_delivered_advance(tmp_path):
     from backend.fulfill import fulfill_customer
+
     store = _FakeCustomerStore()
     captured: list = []
 
     result = fulfill_customer(
-        email="g@example.com", audit_url="https://g.example.com",
+        email="g@example.com",
+        audit_url="https://g.example.com",
         customer_store=store,
         audit_and_report_fn=_fake_audit_and_report(
             tmp_path / "unused.md",
@@ -321,15 +350,18 @@ def test_audit_failure_aborts_before_email_or_delivered_advance(tmp_path):
 
 def test_email_failure_leaves_state_at_in_delivery(tmp_path):
     from backend.fulfill import fulfill_customer
+
     store = _FakeCustomerStore()
     report = tmp_path / "customers" / "h" / "seo_report.md"
 
     result = fulfill_customer(
-        email="h@example.com", audit_url="https://h.example.com",
+        email="h@example.com",
+        audit_url="https://h.example.com",
         customer_store=store,
         audit_and_report_fn=_fake_audit_and_report(report),
         send_email_fn=_fake_send_email(
-            [], raise_exc=RuntimeError("ses 503: throttled"),
+            [],
+            raise_exc=RuntimeError("ses 503: throttled"),
         ),
     )
     assert result.ok is False
@@ -345,13 +377,13 @@ def test_email_failure_leaves_state_at_in_delivery(tmp_path):
 
 def test_advance_to_delivered_failure_records_partial_success(tmp_path):
     from backend.fulfill import fulfill_customer
+
     store = _FakeCustomerStore()
     captured: list = []
     report = tmp_path / "customers" / "i" / "seo_report.md"
 
     # Email succeeds, then delivered-advance fails
-    cust = _FakeCustomer(id_="cust_i", email="i@example.com",
-                         current_state="paid")
+    cust = _FakeCustomer(id_="cust_i", email="i@example.com", current_state="paid")
     store.customers["i@example.com"] = cust
 
     def _flaky_advance(*, customer_id, to_state, reason="", metadata=None):
@@ -369,7 +401,8 @@ def test_advance_to_delivered_failure_records_partial_success(tmp_path):
     store.advance_state = _flaky_advance
 
     result = fulfill_customer(
-        email="i@example.com", audit_url="https://i.example.com",
+        email="i@example.com",
+        audit_url="https://i.example.com",
         customer_store=store,
         audit_and_report_fn=_fake_audit_and_report(report),
         send_email_fn=_fake_send_email(captured),
@@ -387,25 +420,38 @@ def test_advance_to_delivered_failure_records_partial_success(tmp_path):
 # CLI rendering
 # ---------------------------------------------------------------------------
 
+
 def test_render_result_includes_all_fields(tmp_path):
     from backend.fulfill import _render_result, FulfillStep, FulfillmentResult
+
     res = FulfillmentResult(
-        email="r@example.com", audit_url="https://r.example.com",
-        customer_id="cust_r", prior_state="paid", final_state="delivered",
+        email="r@example.com",
+        audit_url="https://r.example.com",
+        customer_id="cust_r",
+        prior_state="paid",
+        final_state="delivered",
         report_path=str(tmp_path / "r.md"),
         email_message_id="ses_test_abc",
-        ok=True, ts="2026-05-15T00:00:00Z",
+        ok=True,
+        ts="2026-05-15T00:00:00Z",
         steps=[
-            FulfillStep(name="find_or_create_customer", status="ok",
-                        detail="found", elapsed_ms=12),
-            FulfillStep(name="advance_to_in_delivery", status="ok",
-                        detail="paid -> in_delivery", elapsed_ms=8),
-            FulfillStep(name="audit_and_report", status="ok",
-                        detail="score=87", elapsed_ms=1320),
-            FulfillStep(name="send_email", status="ok",
-                        detail="msg_id=ses_test_abc", elapsed_ms=415),
-            FulfillStep(name="advance_to_delivered", status="ok",
-                        detail="in_delivery -> delivered", elapsed_ms=7),
+            FulfillStep(name="find_or_create_customer", status="ok", detail="found", elapsed_ms=12),
+            FulfillStep(
+                name="advance_to_in_delivery",
+                status="ok",
+                detail="paid -> in_delivery",
+                elapsed_ms=8,
+            ),
+            FulfillStep(name="audit_and_report", status="ok", detail="score=87", elapsed_ms=1320),
+            FulfillStep(
+                name="send_email", status="ok", detail="msg_id=ses_test_abc", elapsed_ms=415
+            ),
+            FulfillStep(
+                name="advance_to_delivered",
+                status="ok",
+                detail="in_delivery -> delivered",
+                elapsed_ms=7,
+            ),
         ],
     )
     out = _render_result(res)
@@ -419,11 +465,13 @@ def test_render_result_includes_all_fields(tmp_path):
 
 def test_render_result_failed_badge():
     from backend.fulfill import _render_result, FulfillStep, FulfillmentResult
+
     res = FulfillmentResult(
-        email="x@example.com", audit_url="https://x.example.com",
-        ok=False, ts="t",
-        steps=[FulfillStep(name="find_or_create_customer", status="failed",
-                           detail="graph down")],
+        email="x@example.com",
+        audit_url="https://x.example.com",
+        ok=False,
+        ts="t",
+        steps=[FulfillStep(name="find_or_create_customer", status="failed", detail="graph down")],
     )
     out = _render_result(res)
     assert "SAMUS FULFILL  [FAILED]" in out
@@ -434,8 +482,10 @@ def test_render_result_failed_badge():
 # main() argument parsing
 # ---------------------------------------------------------------------------
 
+
 def test_main_requires_email_and_url(capsys):
     from backend.fulfill import main
+
     with pytest.raises(SystemExit):
         main([])  # argparse exits with usage error
     captured = capsys.readouterr()
@@ -448,9 +498,12 @@ def test_main_returns_exit_1_on_failure(tmp_path, monkeypatch, capsys):
 
     def _failing(**kwargs):
         from backend.fulfill import FulfillmentResult
+
         return FulfillmentResult(
-            email=kwargs["email"], audit_url=kwargs["audit_url"],
-            ok=False, ts="t",
+            email=kwargs["email"],
+            audit_url=kwargs["audit_url"],
+            ok=False,
+            ts="t",
         )
 
     monkeypatch.setattr(mod, "fulfill_customer", _failing)
@@ -464,9 +517,12 @@ def test_main_returns_exit_0_on_success(tmp_path, monkeypatch, capsys):
 
     def _ok(**kwargs):
         from backend.fulfill import FulfillmentResult
+
         return FulfillmentResult(
-            email=kwargs["email"], audit_url=kwargs["audit_url"],
-            ok=True, ts="t",
+            email=kwargs["email"],
+            audit_url=kwargs["audit_url"],
+            ok=True,
+            ts="t",
         )
 
     monkeypatch.setattr(mod, "fulfill_customer", _ok)

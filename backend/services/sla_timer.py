@@ -1,4 +1,5 @@
 """SLA timer for service-tier SKUs. Persists deadline in customer metadata, fires OPERATOR_ALERT_OVERDUE."""
+
 from __future__ import annotations
 
 import json
@@ -11,7 +12,7 @@ from typing import Any, Optional
 _LOG = logging.getLogger("samus.services.sla")
 
 
-SLA_METADATA_KEY = "service_sla"            # nested dict on Customer.metadata
+SLA_METADATA_KEY = "service_sla"  # nested dict on Customer.metadata
 OPERATOR_ALERT_OVERDUE = "operator_alert_overdue"
 
 # Local-first alert ledger: every overdue detection appends a JSON line here so
@@ -47,6 +48,7 @@ def _parse_iso(s: str) -> Optional[datetime]:
 # Arm / inspect
 # ---------------------------------------------------------------------------
 
+
 def arm_sla(
     *,
     customer_store: Any,
@@ -75,10 +77,15 @@ def arm_sla(
     }
     existing_md[SLA_METADATA_KEY] = sla_bucket
     _persist_metadata(customer_store, customer_id, existing_md)
-    _LOG.info("sla_armed", extra={
-        "customer_id": customer_id, "sku_id": sku_id,
-        "deadline": _iso(deadline), "sla_hours": sla_hours,
-    })
+    _LOG.info(
+        "sla_armed",
+        extra={
+            "customer_id": customer_id,
+            "sku_id": sku_id,
+            "deadline": _iso(deadline),
+            "sla_hours": sla_hours,
+        },
+    )
     return sla_bucket[sku_id]
 
 
@@ -137,6 +144,7 @@ def mark_delivered(customer_store: Any, customer_id: str, sku_id: str) -> Option
 # ---------------------------------------------------------------------------
 # Overdue sweep
 # ---------------------------------------------------------------------------
+
 
 def emit_operator_alert(
     *,
@@ -242,6 +250,7 @@ def read_open_alerts(*, limit: int = 50) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 # Metadata writer
 # ---------------------------------------------------------------------------
+
 
 def _persist_metadata(customer_store: Any, customer_id: str, metadata: dict[str, Any]) -> None:
     """Persist Customer.metadata. Production CustomerStore stores metadata only at create_customer time, so we

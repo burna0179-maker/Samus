@@ -14,6 +14,7 @@ selects the backend from the ``SAMUS_LEDGER_BACKEND`` env var (``jsonl`` —
 the default — or ``firestore``). Both backends honour the :class:`Ledger`
 contract: ``append`` / ``scan`` / ``tail`` / ``claim``.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -111,9 +112,7 @@ class JsonlLedger:
                 continue
         return out
 
-    def rotate_by_age(
-        self, max_age_hours: float = 24 * 30, ts_field: str = "ts"
-    ) -> int:
+    def rotate_by_age(self, max_age_hours: float = 24 * 30, ts_field: str = "ts") -> int:
         """Archive records older than ``max_age_hours`` into a sibling file.
 
         The active ledger is rewritten to contain only records whose
@@ -333,9 +332,7 @@ def open_ledger(*, jsonl_path: str | Path, collection: str) -> Ledger:
         from backend.common.firestore_ledger import FirestoreLedger
 
         return FirestoreLedger(collection)
-    raise ValueError(
-        f"unknown SAMUS_LEDGER_BACKEND={backend!r} (expected 'jsonl' or 'firestore')"
-    )
+    raise ValueError(f"unknown SAMUS_LEDGER_BACKEND={backend!r} (expected 'jsonl' or 'firestore')")
 
 
 __all__ = ["Ledger", "JsonlLedger", "ledger_backend", "open_ledger"]

@@ -25,6 +25,7 @@ Design:
   outbound (us -> client) draw from separate, business-meaningful tag
   sets. The prompt tells the model which side we're on.
 """
+
 from __future__ import annotations
 
 import json
@@ -38,36 +39,40 @@ _LOG = logging.getLogger("samus.intake.correspondence_intent")
 DirectionType = Literal["inbound", "outbound"]
 
 # Business-meaningful tag sets, kept small so the model picks reliably.
-INBOUND_INTENTS: frozenset[str] = frozenset({
-    "agreed_to_move_forward",
-    "counter_offered",
-    "objected_price",
-    "objected_scope",
-    "objected_timing",
-    "requested_more_info",
-    "requested_meeting",
-    "expressed_hesitation",
-    "closed_out_conversation",
-    "service_issue_reported",
-    "question_general",
-    "acknowledgment",
-    "escalation_needed",
-    "unknown",
-})
+INBOUND_INTENTS: frozenset[str] = frozenset(
+    {
+        "agreed_to_move_forward",
+        "counter_offered",
+        "objected_price",
+        "objected_scope",
+        "objected_timing",
+        "requested_more_info",
+        "requested_meeting",
+        "expressed_hesitation",
+        "closed_out_conversation",
+        "service_issue_reported",
+        "question_general",
+        "acknowledgment",
+        "escalation_needed",
+        "unknown",
+    }
+)
 
-OUTBOUND_INTENTS: frozenset[str] = frozenset({
-    "accepted_counter_offer",
-    "sent_new_proposal",
-    "sent_signing_link",
-    "offered_installments",
-    "revised_scope",
-    "escalated_to_meeting",
-    "follow_up_check_in",
-    "closed_gracefully",
-    "service_response",
-    "general_reply",
-    "unknown",
-})
+OUTBOUND_INTENTS: frozenset[str] = frozenset(
+    {
+        "accepted_counter_offer",
+        "sent_new_proposal",
+        "sent_signing_link",
+        "offered_installments",
+        "revised_scope",
+        "escalated_to_meeting",
+        "follow_up_check_in",
+        "closed_gracefully",
+        "service_response",
+        "general_reply",
+        "unknown",
+    }
+)
 
 _SENTIMENTS: frozenset[str] = frozenset({"positive", "neutral", "negative"})
 
@@ -268,8 +273,10 @@ def reason_intent(
 
     try:
         raw = llm_chat(
-            _SYSTEM_PROMPT, user_prompt,
-            max_tokens=_MAX_TOKENS, temperature=_TEMPERATURE,
+            _SYSTEM_PROMPT,
+            user_prompt,
+            max_tokens=_MAX_TOKENS,
+            temperature=_TEMPERATURE,
         )
     except Exception as exc:  # noqa: BLE001 — chat should never raise, defensive
         _LOG.warning("intent llm call raised: %s", exc)

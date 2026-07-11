@@ -17,12 +17,12 @@ underlying alert-state ledger stays untouched.
 Async test bodies drive via ``asyncio.run`` -- the Samus test suite does not
 depend on pytest-asyncio (see ``tests/cognitive/test_cadence.py``).
 """
+
 from __future__ import annotations
 
 import asyncio
 import sys
 import types
-from typing import Any
 
 from backend.gateway import production_health_task as pht
 
@@ -30,6 +30,7 @@ from backend.gateway import production_health_task as pht
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
+
 
 class _FakeAppState:
     def __init__(self) -> None:
@@ -97,6 +98,7 @@ def _install_fake_dispatch_sequence(monkeypatch, side_effects):
 # pure env accessors
 # ---------------------------------------------------------------------------
 
+
 def test_loop_enabled_defaults_on(monkeypatch):
     monkeypatch.delenv(pht.ENV_ENABLED, raising=False)
     assert pht._loop_enabled() is True
@@ -126,6 +128,7 @@ def test_interval_bad_env_falls_back_to_default(monkeypatch):
 # ---------------------------------------------------------------------------
 # start / stop lifecycle
 # ---------------------------------------------------------------------------
+
 
 def test_start_returns_none_when_master_disabled(monkeypatch):
     monkeypatch.setenv(pht.ENV_ENABLED, "0")
@@ -183,6 +186,7 @@ def test_stop_is_idempotent_when_never_started():
 # tick fault must not kill the loop
 # ---------------------------------------------------------------------------
 
+
 def test_tick_fault_does_not_kill_the_loop(monkeypatch):
     """When the underlying assessment raises, the loop logs + keeps ticking.
 
@@ -194,11 +198,14 @@ def test_tick_fault_does_not_kill_the_loop(monkeypatch):
     monkeypatch.setattr(pht, "_INITIAL_DELAY_SEC", 0.0)
     monkeypatch.setenv(pht.ENV_INTERVAL, "0.02")
 
-    calls = _install_fake_dispatch_sequence(monkeypatch, [
-        RuntimeError("simulated assessment failure"),
-        {"action": "unchanged", "fingerprint": "abc"},
-        {"action": "unchanged", "fingerprint": "abc"},
-    ])
+    calls = _install_fake_dispatch_sequence(
+        monkeypatch,
+        [
+            RuntimeError("simulated assessment failure"),
+            {"action": "unchanged", "fingerprint": "abc"},
+            {"action": "unchanged", "fingerprint": "abc"},
+        ],
+    )
 
     async def _body():
         app = _FakeApp()
@@ -224,12 +231,15 @@ def test_tick_dispatch_actions_are_logged(monkeypatch, caplog):
     monkeypatch.setattr(pht, "_INITIAL_DELAY_SEC", 0.0)
     monkeypatch.setenv(pht.ENV_INTERVAL, "0.02")
 
-    calls = _install_fake_dispatch_sequence(monkeypatch, [
-        {"action": "alerted", "fingerprint": "aa", "to": "ops@example.com"},
-        {"action": "recovered", "fingerprint": "", "to": "ops@example.com"},
-        {"action": "send_failed", "fingerprint": "bb", "error": "boom"},
-        {"action": "unchanged", "fingerprint": "bb"},
-    ])
+    calls = _install_fake_dispatch_sequence(
+        monkeypatch,
+        [
+            {"action": "alerted", "fingerprint": "aa", "to": "ops@example.com"},
+            {"action": "recovered", "fingerprint": "", "to": "ops@example.com"},
+            {"action": "send_failed", "fingerprint": "bb", "error": "boom"},
+            {"action": "unchanged", "fingerprint": "bb"},
+        ],
+    )
 
     caplog.set_level("DEBUG", logger="samus.gateway.production_health_task")
 

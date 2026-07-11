@@ -18,6 +18,7 @@ DORMANCY: this module is additive and has NO live importer. It is the
 substrate the (later-phase) ``CognitiveLoop`` + ``MetaCognitionEngine``
 build on; nothing in the live Samus runtime imports it.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

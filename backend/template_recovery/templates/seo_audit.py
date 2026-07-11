@@ -3,6 +3,7 @@
 Pure Python, no I/O, no LLM, constant-time: it fills a fixed structure from
 the supplied context. Same input always yields byte-identical output.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -22,9 +23,10 @@ def seo_template_v3(context: dict[str, Any]) -> str:
     keywords = context.get("target_keywords") or []
     if not isinstance(keywords, (list, tuple)):
         keywords = [str(keywords)]
-    kw_lines = "\n".join(
-        f"  - {str(kw).strip()}" for kw in keywords
-    ) or "  - (no target keywords supplied)"
+    kw_lines = (
+        "\n".join(f"  - {str(kw).strip()}" for kw in keywords)
+        or "  - (no target keywords supplied)"
+    )
 
     return (
         f"# SEO Audit Scaffold — {business}\n"

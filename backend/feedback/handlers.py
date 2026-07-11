@@ -6,6 +6,7 @@ feedback-events row. All DDB calls are wrapped in ``try/except`` because the
 local/test environment frequently has no AWS credentials — the FeedbackResult
 is still populated so callers can audit the intent.
 """
+
 from __future__ import annotations
 
 import json
@@ -101,9 +102,7 @@ def _record_feedback_event(
 # unsubscribe) halts it. The feedback workcell is where those signals land, so
 # this is where they fan into the engine.
 
-_POSITIVE_EVENTS = frozenset(
-    {"reply", "replied", "open", "opened", "visit", "web_visit", "manual"}
-)
+_POSITIVE_EVENTS = frozenset({"reply", "replied", "open", "opened", "visit", "web_visit", "manual"})
 _NEGATIVE_EVENTS = frozenset({"bounce", "complaint", "unsubscribe", "spam"})
 _HOTLEAD_SIGNALS = frozenset({"reply", "replied", "open", "opened"})
 
@@ -146,6 +145,7 @@ def fire_cash_engine_signal(
     if ev in _HOTLEAD_SIGNALS:
         try:
             from backend.heat.service import _log_hotlead_event
+
             sig = "replied" if ev in ("reply", "replied") else "opened"
             _log_hotlead_event(
                 {"prospect_id": prospect_id, "email": "", "company": ""},
@@ -160,9 +160,14 @@ def fire_cash_engine_signal(
         if ev in _NEGATIVE_EVENTS:
             return {"event": ev, **cash_worker.halt(opportunity_id=oid, reason=ev)}
         if ev in _POSITIVE_EVENTS:
-            return {"event": ev, **cash_worker.reengage(
-                opportunity_id=oid, event=ev, crm=crm,
-            )}
+            return {
+                "event": ev,
+                **cash_worker.reengage(
+                    opportunity_id=oid,
+                    event=ev,
+                    crm=crm,
+                ),
+            }
         return {"ok": False, "reason": f"unknown_event:{ev}"}
     except Exception as exc:  # noqa: BLE001 — never break feedback ingestion
         _LOG.warning("cash_engine signal failed opp=%s: %s", oid, exc)
@@ -182,6 +187,7 @@ def _halt_cash_engine_for_emails(emails: list[str], event: str) -> None:
     for email in emails:
         try:
             from backend.common.recipient_index import lookup_recipient
+
             rec = lookup_recipient(email)
             if not rec:
                 continue

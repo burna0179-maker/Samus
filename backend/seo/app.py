@@ -7,6 +7,7 @@ Endpoints:
   POST /generate         - ContentRequest    (cap: generate_content)
   POST /audit_and_report - URL + keywords    (cap: audit_and_report)
 """
+
 from __future__ import annotations
 
 import logging

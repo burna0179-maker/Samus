@@ -6,6 +6,7 @@ Examples::
     python -m backend.commerce.cli orders
     python -m backend.commerce.cli publish --title "Mini LED Lamp" --price-cents 2999
 """
+
 from __future__ import annotations
 
 import argparse
@@ -19,8 +20,17 @@ def _cmd_products(args: argparse.Namespace) -> int:
 
     client = MedusaClient.from_settings(get_settings())
     items = client.list_products(limit=args.limit)
-    print(json.dumps({"configured": client.configured, "count": len(items),
-                      "products": [p.to_dict() for p in items]}, indent=2, ensure_ascii=False))
+    print(
+        json.dumps(
+            {
+                "configured": client.configured,
+                "count": len(items),
+                "products": [p.to_dict() for p in items],
+            },
+            indent=2,
+            ensure_ascii=False,
+        )
+    )
     return 0
 
 
@@ -28,8 +38,13 @@ def _cmd_orders(args: argparse.Namespace) -> int:
     from backend.commerce.catalog_sync import reconcile_orders
     from backend.common.config import get_settings
 
-    print(json.dumps(reconcile_orders(settings=get_settings(), limit=args.limit),
-                     indent=2, ensure_ascii=False))
+    print(
+        json.dumps(
+            reconcile_orders(settings=get_settings(), limit=args.limit),
+            indent=2,
+            ensure_ascii=False,
+        )
+    )
     return 0
 
 
@@ -38,8 +53,11 @@ def _cmd_publish(args: argparse.Namespace) -> int:
     from backend.common.config import get_settings
 
     result = publish_product(
-        title=args.title, description=args.description, price_usd_cents=args.price_cents,
-        thumbnail=args.thumbnail, settings=get_settings(),
+        title=args.title,
+        description=args.description,
+        price_usd_cents=args.price_cents,
+        thumbnail=args.thumbnail,
+        settings=get_settings(),
     )
     print(json.dumps(result, indent=2, ensure_ascii=False))
     return 0 if result.get("ok") else 1

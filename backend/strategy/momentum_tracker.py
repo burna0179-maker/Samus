@@ -11,6 +11,7 @@ Pure-logic — deterministic, no I/O. The predictive allocator
 (:mod:`backend.strategy.predictive_allocator`) consumes
 :class:`IndustryForecast` records built from these functions.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -36,11 +37,11 @@ class IndustryForecast:
     """
 
     vertical: str
-    reward_density: float          # latest / representative reward density
-    momentum: float                # recent rate-of-change, [-1, 1]
-    ema_trend: float               # smoothed velocity of the EMA
-    token_efficiency: float        # close-prob per token-dollar, normalised
-    saturation_risk: float         # over-exploration risk, [0, 1]
+    reward_density: float  # latest / representative reward density
+    momentum: float  # recent rate-of-change, [-1, 1]
+    ema_trend: float  # smoothed velocity of the EMA
+    token_efficiency: float  # close-prob per token-dollar, normalised
+    saturation_risk: float  # over-exploration risk, [0, 1]
 
 
 def _clamp(value: float, lo: float, hi: float) -> float:
@@ -82,9 +83,7 @@ def compute_ema(history: list[float], *, alpha: float = EMA_SMOOTHING_DEFAULT) -
     return ema
 
 
-def compute_ema_trend(
-    history: list[float], *, alpha: float = EMA_SMOOTHING_DEFAULT
-) -> float:
+def compute_ema_trend(history: list[float], *, alpha: float = EMA_SMOOTHING_DEFAULT) -> float:
     """Smoothed velocity of the metric series — the EMA's direction.
 
     Computed as the EMA of the recent half of the series minus the EMA of

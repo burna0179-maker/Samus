@@ -12,6 +12,7 @@ Two layers, same split the module uses:
     attested + in-window, the loop delegates ONE live (``dry_run=false``) pass
     and reports ``initiated>0``.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -30,6 +31,7 @@ from backend.prospecting.csv_export import CSV_COLUMNS
 # Fixtures / helpers
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def artifact_root(tmp_path, monkeypatch):
     """Point storage.root() (call list, attestation, dial-run ledgers) at tmp."""
@@ -38,8 +40,15 @@ def artifact_root(tmp_path, monkeypatch):
 
 
 def _clear_env(monkeypatch):
-    for k in (cdt.ENV_ENABLED, cdt.ENV_HOUR_START, cdt.ENV_HOUR_END,
-              cdt.ENV_MAX_CALLS, cdt.ENV_DAILY_CAP, cdt.ENV_DELAY, cdt.ENV_PHONE_IDS):
+    for k in (
+        cdt.ENV_ENABLED,
+        cdt.ENV_HOUR_START,
+        cdt.ENV_HOUR_END,
+        cdt.ENV_MAX_CALLS,
+        cdt.ENV_DAILY_CAP,
+        cdt.ENV_DELAY,
+        cdt.ENV_PHONE_IDS,
+    ):
         monkeypatch.delenv(k, raising=False)
 
 
@@ -87,6 +96,7 @@ def _write_todays_call_list(root: Path, rows: list[dict]) -> None:
     names = {date.today().isoformat()}
     try:
         from backend.common.us_timezones import business_today
+
         names.add(business_today().isoformat())
     except Exception:  # noqa: BLE001
         pass
@@ -96,9 +106,14 @@ def _write_todays_call_list(root: Path, rows: list[dict]) -> None:
 
 def _base_kwargs(**over):
     kw = dict(
-        armed=True, attested=True, now_local=_weekday_in_window(),
-        dials_today=0, call_list_present=True,
-        hour_start=8, hour_end=21, daily_cap=40,
+        armed=True,
+        attested=True,
+        now_local=_weekday_in_window(),
+        dials_today=0,
+        call_list_present=True,
+        hour_start=8,
+        hour_end=21,
+        daily_cap=40,
     )
     kw.update(over)
     return kw
@@ -122,6 +137,7 @@ def _voice_result(*, dry_run: bool = False, initiated: int = 1) -> dict:
 # ---------------------------------------------------------------------------
 # should_fire_now — pure gate reasoning
 # ---------------------------------------------------------------------------
+
 
 def test_should_fire_happy_path(monkeypatch):
     _clear_env(monkeypatch)
@@ -193,8 +209,10 @@ def test_should_fire_custom_window_env(monkeypatch):
     _clear_env(monkeypatch)
     monkeypatch.setenv(cdt.ENV_HOUR_START, "9")
     monkeypatch.setenv(cdt.ENV_HOUR_END, "17")
-    at8 = datetime(2026, 7, 7, 8, 0)   # below the custom 9 floor
-    fire, reason = cdt.should_fire_now(**_base_kwargs(now_local=at8, hour_start=None, hour_end=None))
+    at8 = datetime(2026, 7, 7, 8, 0)  # below the custom 9 floor
+    fire, reason = cdt.should_fire_now(
+        **_base_kwargs(now_local=at8, hour_start=None, hour_end=None)
+    )
     assert fire is False
     assert "before dial window" in reason
 
@@ -202,6 +220,7 @@ def test_should_fire_custom_window_env(monkeypatch):
 # ---------------------------------------------------------------------------
 # Gate inputs — the impure reads
 # ---------------------------------------------------------------------------
+
 
 def test_production_armed_reads_idle_drive_flag(monkeypatch):
     """The cold-dial arm IS the idle-drive arm — one flag, no parallel system."""
@@ -218,17 +237,23 @@ def test_production_armed_reads_idle_drive_flag(monkeypatch):
 
 def test_dials_today_counts_only_initiated(monkeypatch, artifact_root):
     from backend.common import storage
+
     d = storage.root() / "voice" / "dial_runs"
     d.mkdir(parents=True, exist_ok=True)
     today = datetime.now(timezone.utc).strftime("%Y%m%d")
-    (d / f"dial_run_{today}T120000Z.json").write_text(json.dumps({
-        "attempts": [
-            {"outcome": "initiated"},
-            {"outcome": "initiated"},
-            {"outcome": "dry_run"},       # not a live dial
-            {"outcome": "skipped_hours"},  # not a live dial
-        ],
-    }), encoding="utf-8")
+    (d / f"dial_run_{today}T120000Z.json").write_text(
+        json.dumps(
+            {
+                "attempts": [
+                    {"outcome": "initiated"},
+                    {"outcome": "initiated"},
+                    {"outcome": "dry_run"},  # not a live dial
+                    {"outcome": "skipped_hours"},  # not a live dial
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
     assert cdt._dials_today() == 2
 
 
@@ -247,7 +272,7 @@ def test_resolve_call_list_path(monkeypatch, artifact_root):
 def test_build_config_is_live_and_clamps(monkeypatch):
     _clear_env(monkeypatch)
     cfg = cdt._build_config()
-    assert cfg.dry_run is False               # the whole point of the loop
+    assert cfg.dry_run is False  # the whole point of the loop
     assert cfg.only_priorities == ["hot", "warm"]
     assert cfg.call_hours_start == 8 and cfg.call_hours_end == 21
     monkeypatch.setenv(cdt.ENV_MAX_CALLS, "999")
@@ -257,6 +282,7 @@ def test_build_config_is_live_and_clamps(monkeypatch):
 # ---------------------------------------------------------------------------
 # The dial pass — DELEGATE to samus-voice over the signed mesh
 # ---------------------------------------------------------------------------
+
 
 def test_dial_via_voice_posts_to_voice_endpoint(monkeypatch):
     """_dial_via_voice signs a POST to voice's /voice/dial_call_list carrying the
@@ -278,6 +304,7 @@ def test_dial_via_voice_posts_to_voice_endpoint(monkeypatch):
         return _Resp()
 
     import backend.common.http_client as hc
+
     monkeypatch.setattr(hc, "signed_post_json_sync", _fake_signed_post)
     monkeypatch.setenv("VOICE_URL", "http://samus-voice:8080")
 
@@ -304,6 +331,7 @@ def test_dial_via_voice_raises_on_http_error(monkeypatch):
             return {}
 
     import backend.common.http_client as hc
+
     monkeypatch.setattr(hc, "signed_post_json_sync", lambda *a, **k: _Resp())
     monkeypatch.setenv("VOICE_URL", "http://samus-voice:8080")
     with pytest.raises(RuntimeError):
@@ -327,6 +355,7 @@ def test_voice_url_prefers_env_then_falls_back_to_convention(monkeypatch):
 
     def _fake_get_settings():
         return _S()
+
     # keep the conftest's reload_settings() teardown happy (it calls .cache_clear())
     _fake_get_settings.cache_clear = lambda: None
     monkeypatch.setattr(cfg, "get_settings", _fake_get_settings)
@@ -337,6 +366,7 @@ def test_voice_url_prefers_env_then_falls_back_to_convention(monkeypatch):
 # run_once — the acceptance criterion + fail-closed holds
 # ---------------------------------------------------------------------------
 
+
 def test_run_once_delegates_live_dial_to_voice(monkeypatch, artifact_root):
     """ACCEPTANCE: a control-tick in the window, armed + attested, with today's
     call list, delegates ONE live (dry_run=false) dial pass to voice and reports
@@ -344,6 +374,7 @@ def test_run_once_delegates_live_dial_to_voice(monkeypatch, artifact_root):
     _clear_env(monkeypatch)
     monkeypatch.setattr(cdt, "_production_armed", lambda: True)
     from backend.common.preshift_attestation import write_attestation
+
     assert write_attestation(briefing_id="test-cold-dial") is not None
     _write_todays_call_list(artifact_root, [_prospect_row()])
 
@@ -357,9 +388,9 @@ def test_run_once_delegates_live_dial_to_voice(monkeypatch, artifact_root):
     out = cdt.run_once(now_local=_weekday_in_window(), executor=_executor)
 
     assert out["fired"] is True, out
-    assert out["dry_run"] is False, out          # the loop dials LIVE
+    assert out["dry_run"] is False, out  # the loop dials LIVE
     assert out["initiated"] == 2, out
-    assert captured["dry_run"] is False           # the config handed to voice is live
+    assert captured["dry_run"] is False  # the config handed to voice is live
     assert str(captured["csv_path"]).endswith(".csv")
 
 
@@ -367,6 +398,7 @@ def test_run_once_holds_when_disarmed(monkeypatch, artifact_root):
     _clear_env(monkeypatch)
     monkeypatch.setattr(cdt, "_production_armed", lambda: False)
     from backend.common.preshift_attestation import write_attestation
+
     write_attestation(briefing_id="t")
     _write_todays_call_list(artifact_root, [_prospect_row()])
     out = cdt.run_once(now_local=_weekday_in_window())
@@ -388,6 +420,7 @@ def test_run_once_holds_when_no_call_list(monkeypatch, artifact_root):
     _clear_env(monkeypatch)
     monkeypatch.setattr(cdt, "_production_armed", lambda: True)
     from backend.common.preshift_attestation import write_attestation
+
     write_attestation(briefing_id="t")
     # no call list written
     out = cdt.run_once(now_local=_weekday_in_window())
@@ -398,6 +431,7 @@ def test_run_once_holds_when_no_call_list(monkeypatch, artifact_root):
 # ---------------------------------------------------------------------------
 # Lifespan hook — respects the master switch at start
 # ---------------------------------------------------------------------------
+
 
 def test_start_loop_returns_none_when_disabled(monkeypatch):
     monkeypatch.setenv(cdt.ENV_ENABLED, "0")

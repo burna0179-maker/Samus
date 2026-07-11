@@ -15,6 +15,7 @@ business logic runs. The flag ``SAMUS_VOICE_VERIFY_WEBHOOK`` (default ON) can
 be set to ``0`` for the test suite — same pattern the feedback workcell uses
 for SNS verification.
 """
+
 from __future__ import annotations
 
 import logging
@@ -50,7 +51,7 @@ from .service import (
 )
 from .adaptive import adapt as _adaptive_adapt
 from .console import CONSOLE_PATHS, register_console_routes
-from .signature import VapiSignatureError, verify_vapi_signature, verify_vapi_webhook
+from .signature import VapiSignatureError, verify_vapi_webhook
 
 
 _LOG = logging.getLogger("samus.voice.app")
@@ -103,6 +104,7 @@ def _run_tunnel_startup() -> None:
     so test fixtures can monkeypatch get_settings() before app boot.
     """
     from .tunnel import patch_vapi_assistant_server_url, start_ngrok_listener
+
     settings = get_settings()
     tr = start_ngrok_listener(
         port=_voice_port(),
@@ -155,7 +157,10 @@ def create_app():
                     "DISPATCH CONFIG: gateway_urls[%r] is unset — every "
                     "end-of-call %s dispatch will fail silently "
                     "(crm_url_unset). Set %s_URL or SAMUS_GATEWAY_URLS on "
-                    "the voice container.", _dep, _dep, _dep.upper(),
+                    "the voice container.",
+                    _dep,
+                    _dep,
+                    _dep.upper(),
                 )
         _run_tunnel_startup()
         yield
@@ -219,10 +224,12 @@ def create_app():
         # dragged into the app graph when no one calls this endpoint.
         from pathlib import Path as _Path
         from .dialer import dial_call_list, default_csv_path_for_today
+
         csv_path = _Path(req.csv_path) if req.csv_path else default_csv_path_for_today()
         if not csv_path.exists():
             raise HTTPException(
-                status_code=404, detail=f"call_list_csv_not_found: {csv_path}",
+                status_code=404,
+                detail=f"call_list_csv_not_found: {csv_path}",
             )
         try:
             return dial_call_list(csv_path, req.config)
@@ -240,10 +247,11 @@ def create_app():
         check_capability("voice", "list_calls")
         import os as _os
         from backend.common import persistence as _p
+
         results: dict[str, int] = {}
         for env_var, default, label in (
             ("SAMUS_VOICE_EVENTS_PATH", "/opt/samus/data/voice/voice_events.jsonl", "events"),
-            ("SAMUS_VOICE_AUDIT_PATH",  "/opt/samus/data/voice/voice_audit.jsonl",  "audit"),
+            ("SAMUS_VOICE_AUDIT_PATH", "/opt/samus/data/voice/voice_audit.jsonl", "audit"),
         ):
             try:
                 ledger = _p.JsonlLedger(_os.getenv(env_var, default))
@@ -252,12 +260,13 @@ def create_app():
                 _LOG.warning("maintenance: %s rotation failed: %s", label, exc)
                 results[label] = -1
         try:
-            from .retry import get_retry_entries as _gre
             # clear_entry is per-prospect; rotation is handled by max_age_hours
             # in get_retry_entries. The file itself is bounded by the 36h window
             # the dialer uses, so compact to 48h to keep a one-day buffer.
             from .retry import _queue_path, _queue_lock
-            import json as _json, datetime as _dt
+            import json as _json
+            import datetime as _dt
+
             cutoff = _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(hours=48)
             path = _queue_path()
             if path.exists():
@@ -269,8 +278,13 @@ def create_app():
                         try:
                             rec = _json.loads(line.strip())
                             ts_raw = rec.get("ts") or ""
-                            ts = _dt.datetime.strptime(ts_raw, "%Y-%m-%dT%H:%M:%SZ").replace(
-                                tzinfo=_dt.timezone.utc) if ts_raw else None
+                            ts = (
+                                _dt.datetime.strptime(ts_raw, "%Y-%m-%dT%H:%M:%SZ").replace(
+                                    tzinfo=_dt.timezone.utc
+                                )
+                                if ts_raw
+                                else None
+                            )
                             if ts and ts < cutoff:
                                 dropped += 1
                                 continue
@@ -294,6 +308,7 @@ def create_app():
         min_calls = int(body.get("min_calls", 5))
         settings = get_settings()
         from .tuner import tune_assistant
+
         return tune_assistant(
             assistant_id=settings.vapi_assistant_id or "",
             window_calls=window_calls,
@@ -325,7 +340,10 @@ def create_app():
             secret_header = request.headers.get("x-vapi-secret")
             try:
                 verify_vapi_webhook(
-                    raw, signature=sig, secret_header=secret_header, secret=secret,
+                    raw,
+                    signature=sig,
+                    secret_header=secret_header,
+                    secret=secret,
                 )
             except VapiSignatureError as exc:
                 _LOG.warning("vapi webhook signature rejected: %s", exc)
@@ -354,6 +372,7 @@ def create_app():
         """Return current retry queue entries (no-answer/voicemail candidates)."""
         check_capability("voice", "list_calls")
         from .retry import get_retry_entries
+
         entries = get_retry_entries(max_age_hours=max_age_hours)
         return {"depth": len(entries), "entries": entries}
 
@@ -366,6 +385,7 @@ def create_app():
         if not phone:
             raise HTTPException(status_code=422, detail="phone required")
         from .service import _write_suppression
+
         _write_suppression(phone, prospect_id=str(body.get("prospect_id") or ""), call_id="manual")
         return {"suppressed": phone}
 
@@ -374,12 +394,14 @@ def create_app():
         """Remove a phone number from the DNC suppression table."""
         check_capability("voice", "initiate_call")
         import re
+
         safe = re.sub(r"[^\d+]", "", phone)
         if not safe:
             raise HTTPException(status_code=422, detail="invalid phone")
         try:
             import boto3
             from backend.common.config import get_settings as _gs
+
             settings = _gs()
             table = boto3.resource("dynamodb", region_name="us-west-1").Table(
                 settings.ddb_suppression_table or "samus_suppression"
@@ -387,7 +409,9 @@ def create_app():
             table.delete_item(Key={"phone": safe})
         except Exception as exc:  # noqa: BLE001
             _LOG.warning("suppression delete failed for %s: %s", safe, exc)
-            raise HTTPException(status_code=503, detail=f"suppression_delete_failed: {exc}") from exc
+            raise HTTPException(
+                status_code=503, detail=f"suppression_delete_failed: {exc}"
+            ) from exc
         return {"removed": safe}
 
     # --- TaskEnvelope parity (gateway / future SQS) --------------------
@@ -457,6 +481,7 @@ def create_app():
         check_capability("voice", "list_calls")
         from dataclasses import asdict
         from .privacy_gate import list_pending
+
         entries = list_pending()
         return {"count": len(entries), "entries": [asdict(e) for e in entries]}
 
@@ -483,11 +508,14 @@ def create_app():
             raise HTTPException(status_code=422, detail="decision must be 'approved' or 'personal'")
 
         from .privacy_gate import mark_approved, mark_personal
+
         note = str(body.get("note") or "").strip() or None
         if decision == "approved":
             prospect_id = str(body.get("prospect_id") or "").strip() or None
             company_name = str(body.get("company_name") or "").strip() or None
-            mark_approved(filename, prospect_id=prospect_id, company_name=company_name, operator_note=note)
+            mark_approved(
+                filename, prospect_id=prospect_id, company_name=company_name, operator_note=note
+            )
             return {"classified": filename, "decision": "approved", "prospect_id": prospect_id}
         else:
             mark_personal(filename, operator_note=note)
@@ -510,6 +538,7 @@ def create_app():
         skip_sync = bool(body.get("skip_sync", False))
         skip_transcribe = bool(body.get("skip_transcribe", False))
         from .ingest_pipeline import run_ingest_pipeline
+
         return run_ingest_pipeline(
             dry_run=dry_run,
             skip_sync=skip_sync,
@@ -522,9 +551,13 @@ def create_app():
         check_capability("voice", "list_calls")
         from dataclasses import asdict
         from .pattern_aggregator import load_pattern_report
+
         report = load_pattern_report()
         if report is None:
-            return {"error": "no_pattern_report_available", "hint": "run POST /voice/ingest_transcripts first"}
+            return {
+                "error": "no_pattern_report_available",
+                "hint": "run POST /voice/ingest_transcripts first",
+            }
         return asdict(report)
 
     @app.get("/voice/session_status")
@@ -537,6 +570,7 @@ def create_app():
             load_session_adjustment,
         )
         from dataclasses import asdict
+
         report = _build_intraday_report()
         adj = load_session_adjustment()
         return {
@@ -551,6 +585,7 @@ def create_app():
         check_capability("voice", "tune_assistant")
         from .call_session_monitor import check_session
         from dataclasses import asdict
+
         adj = check_session(force=True)
         if adj is None:
             return {"triggered": False, "reason": "no trigger conditions met or insufficient calls"}
@@ -562,9 +597,13 @@ def create_app():
         check_capability("voice", "list_calls")
         from dataclasses import asdict
         from .call_strategy_reasoner import load_strategy_brief
+
         brief = load_strategy_brief()
         if brief is None:
-            return {"error": "no_strategy_brief_available", "hint": "run the call feedback pipeline first"}
+            return {
+                "error": "no_strategy_brief_available",
+                "hint": "run the call feedback pipeline first",
+            }
         return asdict(brief)
 
     @app.get("/voice/cost_snapshot")
@@ -573,6 +612,7 @@ def create_app():
         check_capability("voice", "list_calls")
         from dataclasses import asdict
         from .voice_cost_tracker import voice_codb_snapshot
+
         snap = voice_codb_snapshot(force=force)
         return asdict(snap)
 
@@ -581,9 +621,13 @@ def create_app():
         """Return the current dynamic callsheet intel (objection handlers, signals, etc.)."""
         check_capability("voice", "list_calls")
         from .callsheet_updater import load_dynamic_callsheet_intel
+
         intel = load_dynamic_callsheet_intel()
         if intel is None:
-            return {"error": "no_callsheet_intel_available", "hint": "run POST /voice/ingest_transcripts first"}
+            return {
+                "error": "no_callsheet_intel_available",
+                "hint": "run POST /voice/ingest_transcripts first",
+            }
         return intel
 
     # --- operator browser console -------------------------------------

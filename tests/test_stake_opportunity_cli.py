@@ -1,4 +1,5 @@
 """End-to-end stake_opportunity CLI flow against the fake DDB shim."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -18,7 +19,7 @@ class _FakeTable:
     def get_item(self, Key):
         if not Key:
             return {}
-        (k, v), = Key.items()
+        ((k, v),) = Key.items()
         item = self.items.get((k, v))
         return {"Item": item} if item is not None else {}
 
@@ -28,14 +29,15 @@ class _FakeTable:
 
 def _patch_tables(monkeypatch):
     import backend.crm.persistence as p
+
     tables = {
-        "_prospects_table":        _FakeTable(),
-        "_contacts_table":         _FakeTable(),
-        "_conversations_table":    _FakeTable(),
-        "_call_state_table":       _FakeTable(),
-        "_opportunities_table":    _FakeTable(),
-        "_operator_tasks_table":   _FakeTable(),
-        "_artifacts_table":        _FakeTable(),
+        "_prospects_table": _FakeTable(),
+        "_contacts_table": _FakeTable(),
+        "_conversations_table": _FakeTable(),
+        "_call_state_table": _FakeTable(),
+        "_opportunities_table": _FakeTable(),
+        "_operator_tasks_table": _FakeTable(),
+        "_artifacts_table": _FakeTable(),
         "_onboarding_leads_table": _FakeTable(),
     }
     tables["_prospects_table"].pk_attr = "prospect_id"
@@ -80,6 +82,7 @@ def _redirect_budget_and_dedup(tmp_path, monkeypatch, cap=2):
     monkeypatch.delenv("DDB_STAKE_SENTENCE_BUDGETS_TABLE", raising=False)
     monkeypatch.setenv("SAMUS_CRM_AUDIT_PATH", str(tmp_path / "audit.jsonl"))
     from backend.common import stake_sentence_budget, stake_sentence_guard
+
     stake_sentence_budget.reset_store()
     stake_sentence_guard.reset_dedup_ledger()
 
@@ -100,6 +103,7 @@ def test_cli_happy_path(tmp_path, monkeypatch):
     _seed_opportunity(tables, "op_test")
 
     from backend.crm.stake_opportunity import attach_stake_sentence
+
     result = attach_stake_sentence(
         opportunity_id="op_test",
         stake_sentence=_VALID,
@@ -121,6 +125,7 @@ def test_cli_unknown_opportunity_rejects(tmp_path, monkeypatch):
         StakeOpportunityError,
         attach_stake_sentence,
     )
+
     with pytest.raises(StakeOpportunityError) as exc:
         attach_stake_sentence(
             opportunity_id="op_missing",
@@ -140,6 +145,7 @@ def test_cli_cap_exhausted(tmp_path, monkeypatch):
         StakeOpportunityError,
         attach_stake_sentence,
     )
+
     attach_stake_sentence(
         opportunity_id="op_a",
         stake_sentence=_VALID,
@@ -164,6 +170,7 @@ def test_cli_duplicate_rejects(tmp_path, monkeypatch):
         StakeOpportunityError,
         attach_stake_sentence,
     )
+
     attach_stake_sentence(
         opportunity_id="op_a",
         stake_sentence=_VALID,
@@ -187,6 +194,7 @@ def test_cli_already_staked_rejects(tmp_path, monkeypatch):
         StakeOpportunityError,
         attach_stake_sentence,
     )
+
     with pytest.raises(StakeOpportunityError) as exc:
         attach_stake_sentence(
             opportunity_id="op_a",
@@ -206,6 +214,7 @@ def test_cli_guard_rejection_does_not_consume_budget(tmp_path, monkeypatch):
         StakeOpportunityError,
         attach_stake_sentence,
     )
+
     with pytest.raises(StakeOpportunityError) as exc:
         attach_stake_sentence(
             opportunity_id="op_a",

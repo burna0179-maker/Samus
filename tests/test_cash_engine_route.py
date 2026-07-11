@@ -1,4 +1,5 @@
 """Front door — POST /api/samus/review_opportunity (the HMAC-gated ingress)."""
+
 from __future__ import annotations
 
 import pytest
@@ -14,6 +15,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_SHARED_HMAC_KEY", "test-hmac-key")
     monkeypatch.setenv("SAMUS_STATE_ROOT", str(tmp_path))
     from backend.common.settings import reload_settings
+
     reload_settings()
 
     from fastapi.testclient import TestClient
@@ -33,9 +35,7 @@ def test_no_opportunity_returns_invalid_verdict(client, monkeypatch):
     # No CRM row exists (no AWS in tests) -> the gate blocks on "opportunity".
     # Lazy-boto3 made the DDB lookup raise ModuleNotFoundError instead of
     # returning None silently as before — short-circuit the lookup directly.
-    monkeypatch.setattr(
-        "backend.crm.service.get_opportunity_for_prospect", lambda _pid: None
-    )
+    monkeypatch.setattr("backend.crm.service.get_opportunity_for_prospect", lambda _pid: None)
     resp = client.post(
         "/api/samus/review_opportunity",
         json={"prospect_id": "pr-404", "trigger_source": "manual_review"},
@@ -51,8 +51,10 @@ def test_staked_opportunity_enqueues_through_the_door(client, monkeypatch):
     from backend.crm.models import Opportunity
 
     staked = Opportunity(
-        opportunity_id="op-1", prospect_id="pr-1",
-        stage="proposal", stake_sentence=VALID_STAKE,
+        opportunity_id="op-1",
+        prospect_id="pr-1",
+        stage="proposal",
+        stake_sentence=VALID_STAKE,
     )
     monkeypatch.setattr(
         "backend.crm.service.get_opportunity_for_prospect",
@@ -72,11 +74,12 @@ def test_staked_opportunity_enqueues_through_the_door(client, monkeypatch):
     assert body["accepted"] is True
     assert body["status"] == "enqueued"
     assert body["opportunity_id"] == "op-1"
-    assert body["queue"] == "mock:jsonl"          # no SQS configured -> mock
+    assert body["queue"] == "mock:jsonl"  # no SQS configured -> mock
     assert body["task_id"].startswith("ce-")
 
     # The job is durably visible in the mock queue.
     from backend.cash_engine import queue as cash_queue
+
     jobs = cash_queue.read_mock_jobs()
     assert len(jobs) == 1
     assert jobs[0]["payload"]["prospect_id"] == "pr-1"
@@ -96,8 +99,10 @@ def test_unstaked_opportunity_escalates_through_the_door(client, monkeypatch):
     from backend.crm.models import Opportunity
 
     unstaked = Opportunity(
-        opportunity_id="op-2", prospect_id="pr-2",
-        stage="proposal", stake_sentence="",
+        opportunity_id="op-2",
+        prospect_id="pr-2",
+        stage="proposal",
+        stake_sentence="",
     )
     monkeypatch.setattr(
         "backend.crm.service.get_opportunity_for_prospect",

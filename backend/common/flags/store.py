@@ -348,8 +348,7 @@ class FlagStore:
             # spec rather than serve a type-confused value.
             if not _type_matches(value, spec.kind):
                 log.warning(
-                    "flag %r persisted value %r does not match kind %r; "
-                    "serving default %r",
+                    "flag %r persisted value %r does not match kind %r; serving default %r",
                     name,
                     value,
                     spec.kind,

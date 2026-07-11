@@ -33,6 +33,7 @@ Design constraints (doctrine):
 The DDB GSI / cloud-persistence half of CRM Phase-2 is a SEPARATE, creds-gated
 opt-in and is intentionally not implemented here.
 """
+
 from __future__ import annotations
 
 import logging
@@ -152,9 +153,7 @@ def project_opportunity(
         prospect_props: dict[str, Any] = {"prospect_id": prospect_id}
         if prospect is not None:
             company = (
-                getattr(prospect, "company_name", "")
-                or getattr(prospect, "company", "")
-                or ""
+                getattr(prospect, "company_name", "") or getattr(prospect, "company", "") or ""
             )
             if company:
                 prospect_props["company_name"] = company
@@ -169,8 +168,11 @@ def project_opportunity(
 
         # 3. Prospect -> Opportunity edge.
         gc.write_relationship(
-            "Prospect", prospect_id, "HAS_OPPORTUNITY",
-            "Opportunity", opp.opportunity_id,
+            "Prospect",
+            prospect_id,
+            "HAS_OPPORTUNITY",
+            "Opportunity",
+            opp.opportunity_id,
         )
 
         # 4. Contact, if known.
@@ -190,12 +192,18 @@ def project_opportunity(
             contact_props.update(_tier_property())
             gc.write_node("Contact", contact_props)
             gc.write_relationship(
-                "Prospect", prospect_id, "HAS_CONTACT",
-                "Contact", contact_id,
+                "Prospect",
+                prospect_id,
+                "HAS_CONTACT",
+                "Contact",
+                contact_id,
             )
             gc.write_relationship(
-                "Contact", contact_id, "PARTICIPATES_IN",
-                "Opportunity", opp.opportunity_id,
+                "Contact",
+                contact_id,
+                "PARTICIPATES_IN",
+                "Opportunity",
+                opp.opportunity_id,
             )
 
         return {
@@ -208,7 +216,8 @@ def project_opportunity(
     except Exception as exc:  # noqa: BLE001 — best-effort mirror, never raise
         _LOG.warning(
             "crm projection failed for opportunity %s: %s",
-            opp.opportunity_id, exc,
+            opp.opportunity_id,
+            exc,
         )
         return {"status": "error", "reason": ERROR, "error": str(exc)}
 
@@ -269,9 +278,7 @@ def project_conversation(
     if not projection_enabled():
         return {"status": "skipped", "reason": SKIPPED_FLAG_OFF}
 
-    prospect_id = (
-        conv.prospect_id or (prospect.prospect_id if prospect else "")
-    ).strip()
+    prospect_id = (conv.prospect_id or (prospect.prospect_id if prospect else "")).strip()
     if not prospect_id:
         _LOG.debug(
             "crm projection skipped: conversation %s has no prospect_id",
@@ -292,9 +299,7 @@ def project_conversation(
         prospect_props: dict[str, Any] = {"prospect_id": prospect_id}
         if prospect is not None:
             company = (
-                getattr(prospect, "company_name", "")
-                or getattr(prospect, "company", "")
-                or ""
+                getattr(prospect, "company_name", "") or getattr(prospect, "company", "") or ""
             )
             if company:
                 prospect_props["company_name"] = company
@@ -309,14 +314,15 @@ def project_conversation(
 
         # 3. Prospect -> Conversation edge.
         gc.write_relationship(
-            "Prospect", prospect_id, "HAS_CONVERSATION",
-            "Conversation", conv.conversation_id,
+            "Prospect",
+            prospect_id,
+            "HAS_CONVERSATION",
+            "Conversation",
+            conv.conversation_id,
         )
 
         # 4. Contact, if known.
-        contact_id = (
-            conv.contact_id or (contact.contact_id if contact else "")
-        ).strip()
+        contact_id = (conv.contact_id or (contact.contact_id if contact else "")).strip()
         if contact_id:
             contact_props: dict[str, Any] = {
                 "contact_id": contact_id,
@@ -332,12 +338,18 @@ def project_conversation(
             contact_props.update(_tier_property())
             gc.write_node("Contact", contact_props)
             gc.write_relationship(
-                "Prospect", prospect_id, "HAS_CONTACT",
-                "Contact", contact_id,
+                "Prospect",
+                prospect_id,
+                "HAS_CONTACT",
+                "Contact",
+                contact_id,
             )
             gc.write_relationship(
-                "Contact", contact_id, "PARTICIPATES_IN",
-                "Conversation", conv.conversation_id,
+                "Contact",
+                contact_id,
+                "PARTICIPATES_IN",
+                "Conversation",
+                conv.conversation_id,
             )
 
         return {
@@ -350,7 +362,8 @@ def project_conversation(
     except Exception as exc:  # noqa: BLE001 — best-effort mirror, never raise
         _LOG.warning(
             "crm projection failed for conversation %s: %s",
-            conv.conversation_id, exc,
+            conv.conversation_id,
+            exc,
         )
         return {"status": "error", "reason": ERROR, "error": str(exc)}
 

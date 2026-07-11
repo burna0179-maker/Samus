@@ -13,6 +13,7 @@ fail-loud to the service layer, which converts errors to
 ``ContractResult(ok=False, error=...)`` so a DocuSeal outage never crashes a
 campaign send.
 """
+
 from __future__ import annotations
 
 import logging
@@ -63,7 +64,10 @@ class DocuSealClient:
     def _submitter_payload(
         self, submitter: ContractParty, values: Optional[dict[str, Any]], external_id: str
     ) -> dict[str, Any]:
-        sub: dict[str, Any] = {"role": submitter.role or "First Party", "email": submitter.email.strip()}
+        sub: dict[str, Any] = {
+            "role": submitter.role or "First Party",
+            "email": submitter.email.strip(),
+        }
         if submitter.name:
             sub["name"] = submitter.name
         if external_id:

@@ -23,6 +23,7 @@ This module routes those writes through one resolver:
 Mirrors the existing ``SAMUS_DATA_ROOT`` / ``SAMUS_ARTIFACT_ROOT`` /
 ``SAMUS_DLQ_ROOT`` env-driven path conventions in ``backend/common``.
 """
+
 from __future__ import annotations
 
 import os

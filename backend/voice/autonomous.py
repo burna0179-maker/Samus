@@ -29,6 +29,7 @@ C — autonomous dial gate (:func:`attempt_autonomous_dial`)
     action — which VR-G5 guarantees it never will. The guardrail is the
     deactivation; we keep it enforcing.
 """
+
 from __future__ import annotations
 
 import logging
@@ -44,9 +45,12 @@ ENV_MIDCALL = "SAMUS_VOICE_MIDCALL_ENABLED"
 ENV_AUTONOMOUS = "SAMUS_AUTONOMOUS_CLOSER_ENABLED"
 
 # Vapi live (mid-call) message types this bridge consumes.
-MIDCALL_TRANSCRIPT_TYPES: frozenset[str] = frozenset({
-    "transcript", "conversation-update",
-})
+MIDCALL_TRANSCRIPT_TYPES: frozenset[str] = frozenset(
+    {
+        "transcript",
+        "conversation-update",
+    }
+)
 
 
 def _flag(name: str) -> bool:
@@ -66,6 +70,7 @@ def autonomous_closer_enabled() -> bool:
 # ---------------------------------------------------------------------------
 # B2 — mid-call adaptation bridge.
 # ---------------------------------------------------------------------------
+
 
 def process_midcall_transcript(
     msg: Any,
@@ -130,7 +135,9 @@ def process_midcall_transcript(
 
     _LOG.info(
         "midcall adapt: state=%s sentiment=%s strategy=%s next_action=%s",
-        state, result.get("sentiment"), result.get("strategy"),
+        state,
+        result.get("sentiment"),
+        result.get("strategy"),
         result.get("next_action"),
     )
     return result
@@ -139,6 +146,7 @@ def process_midcall_transcript(
 # ---------------------------------------------------------------------------
 # C — autonomous dial gate (ADR-002 / VR-G5).
 # ---------------------------------------------------------------------------
+
 
 def attempt_autonomous_dial(
     prospect_id: str,
@@ -172,8 +180,12 @@ def attempt_autonomous_dial(
     # Fence 1 — dormant flag.
     if not autonomous_closer_enabled():
         _LOG.info("autonomous dial refused: dormant (set %s=1)", ENV_AUTONOMOUS)
-        return {**base, "blocked": True, "rule": "DORMANT",
-                "reason": f"autonomous closer dormant ({ENV_AUTONOMOUS} unset)"}
+        return {
+            **base,
+            "blocked": True,
+            "rule": "DORMANT",
+            "reason": f"autonomous closer dormant ({ENV_AUTONOMOUS} unset)",
+        }
 
     # Fence 2 — Codex gate. action_kind="voice_dial" → VR-G5 (ADR-002).
     from backend.common.codex import (  # local import: codex primed at app boot
@@ -200,17 +212,25 @@ def attempt_autonomous_dial(
     except CodexUnavailable as exc:
         # Cannot verify ⇒ cannot dial. Fail-closed.
         _LOG.error("autonomous dial refused: codex unavailable (%s)", exc)
-        return {**base, "blocked": True, "rule": "CODEX_UNAVAILABLE",
-                "reason": f"codex unavailable; fail-closed: {exc}"}
+        return {
+            **base,
+            "blocked": True,
+            "rule": "CODEX_UNAVAILABLE",
+            "reason": f"codex unavailable; fail-closed: {exc}",
+        }
 
     if not verdict.allowed:
         _LOG.warning(
             "autonomous dial blocked by codex: rule=%s reason=%s",
-            verdict.violated_rule_id, verdict.reason,
+            verdict.violated_rule_id,
+            verdict.reason,
         )
-        return {**base, "blocked": True,
-                "rule": verdict.violated_rule_id or "VR-UNKNOWN",
-                "reason": verdict.reason or "codex blocked voice_dial"}
+        return {
+            **base,
+            "blocked": True,
+            "rule": verdict.violated_rule_id or "VR-UNKNOWN",
+            "reason": verdict.reason or "codex blocked voice_dial",
+        }
 
     # UNREACHABLE under ADR-002: VR-G5 blocks every voice_dial. The dial
     # capability lives here, in place, behind the guardrail — if the Codex ever
@@ -223,8 +243,12 @@ def attempt_autonomous_dial(
         "— refusing anyway per ADR-002 (auto-dialer structurally removed).",
         prospect_id,
     )
-    return {**base, "blocked": True, "rule": "ADR-002",
-            "reason": "auto-dialer structurally removed; voicemail drafts only"}
+    return {
+        **base,
+        "blocked": True,
+        "rule": "ADR-002",
+        "reason": "auto-dialer structurally removed; voicemail drafts only",
+    }
 
 
 def run_autonomous_closer_cycle(
@@ -239,8 +263,7 @@ def run_autonomous_closer_cycle(
     never place a live call.
     """
     if not autonomous_closer_enabled():
-        return {"ran": False, "reason": f"dormant ({ENV_AUTONOMOUS} unset)",
-                "attempts": []}
+        return {"ran": False, "reason": f"dormant ({ENV_AUTONOMOUS} unset)", "attempts": []}
 
     attempts = [
         attempt_autonomous_dial(

@@ -4,6 +4,7 @@ Invokes Sync-TranscriptFiles.ps1 via subprocess. Returns a dict with the
 list of newly staged .txt paths. Never raises — all errors land in the
 result dict under "error" so the ingest pipeline stays non-fatal.
 """
+
 from __future__ import annotations
 
 import json
@@ -69,12 +70,18 @@ def sync_transcripts(
     cmd = [
         "powershell.exe",
         "-NonInteractive",
-        "-ExecutionPolicy", "Bypass",
-        "-File", str(script),
-        "-StagingDir", staging_dir,
-        "-ManifestFile", manifest_file,
-        "-DeviceName", device_name,
-        "-PhoneSubPath", phone_sub_path,
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        str(script),
+        "-StagingDir",
+        staging_dir,
+        "-ManifestFile",
+        manifest_file,
+        "-DeviceName",
+        device_name,
+        "-PhoneSubPath",
+        phone_sub_path,
     ]
 
     try:
@@ -87,7 +94,8 @@ def sync_transcripts(
         if proc.returncode != 0:
             _LOG.warning(
                 "transcript sync script exited %d stderr=%s",
-                proc.returncode, (proc.stderr or "")[:300],
+                proc.returncode,
+                (proc.stderr or "")[:300],
             )
 
         stdout = (proc.stdout or "").strip()
@@ -102,23 +110,29 @@ def sync_transcripts(
 
         _LOG.warning("transcript sync: no JSON in stdout: %s", stdout[:200])
         return {
-            "copied": [], "skipped": 0,
-            "staging_dir": staging_dir, "errors": [],
+            "copied": [],
+            "skipped": 0,
+            "staging_dir": staging_dir,
+            "errors": [],
             "error": "no_json_output",
         }
 
     except subprocess.TimeoutExpired:
         _LOG.error("transcript sync timed out after 180s")
         return {
-            "copied": [], "skipped": 0,
-            "staging_dir": staging_dir, "errors": [],
+            "copied": [],
+            "skipped": 0,
+            "staging_dir": staging_dir,
+            "errors": [],
             "error": "timeout",
         }
     except Exception as exc:  # noqa: BLE001
         _LOG.error("transcript sync unexpected: %s", exc)
         return {
-            "copied": [], "skipped": 0,
-            "staging_dir": staging_dir, "errors": [],
+            "copied": [],
+            "skipped": 0,
+            "staging_dir": staging_dir,
+            "errors": [],
             "error": str(exc),
         }
 

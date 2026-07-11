@@ -10,6 +10,7 @@ When a queue is added (e.g. for retry of failed DDB writes), mirror the
 optimizer worker: BaseSqsWorker subclass routing by ``envelope.action``,
 plus a ``main()`` that calls ``serve_worker(IntakeWorker(...))``.
 """
+
 from __future__ import annotations
 
 import logging

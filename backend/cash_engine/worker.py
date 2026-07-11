@@ -17,6 +17,7 @@ fresh voicemail script for the operator to record.
 Leaf execution lives in :mod:`backend.cash_engine.stages`; this module owns
 the walk, the persistence, and the dormancy/re-engagement transitions.
 """
+
 from __future__ import annotations
 
 import logging
@@ -124,13 +125,16 @@ def process_job(
         # Defence in depth: the front door already gated this, but state can
         # outlive a stake being cleared. Refuse to act un-staked.
         state = load_state(opportunity_id) or CashEngineState(
-            opportunity_id=opportunity_id, prospect_id=prospect_id,
+            opportunity_id=opportunity_id,
+            prospect_id=prospect_id,
         )
         state.status = "escalated"
         state.escalation = {"stage": state.stage, "reason": "stake_sentence_missing"}
         state.log("escalated", reason="stake_sentence_missing")
         _record_walk_decision(
-            state, decision_kind="escalate", why="stake_sentence_missing",
+            state,
+            decision_kind="escalate",
+            why="stake_sentence_missing",
             risk_level="high",
             alternatives=["proceed (rejected: no stake = unauthorized revenue action)"],
             expected_outcome="operator resolves; deal holds un-staked",
@@ -155,8 +159,12 @@ def process_job(
 
     prospect = crm.get_prospect(prospect_id) if prospect_id else None
     ctx = StageContext(
-        state=state, opportunity=opp, prospect=prospect,
-        stake_sentence=stake, crm=crm, settings=settings,
+        state=state,
+        opportunity=opp,
+        prospect=prospect,
+        stake_sentence=stake,
+        crm=crm,
+        settings=settings,
     )
 
     start = STAGE_SEQUENCE.index(state.stage) if state.stage in STAGE_SEQUENCE else 0
@@ -173,12 +181,16 @@ def process_job(
             state.park = {"stage": stage, "reason": "no_handler"}
             state.log("parked", stage=stage, reason="no_handler")
             _record_walk_decision(
-                state, decision_kind="park", why="no_handler", stage=stage,
+                state,
+                decision_kind="park",
+                why="no_handler",
+                stage=stage,
                 expected_outcome="deal rests; resumes when a handler is wired",
             )
             save_state(state)
-            _LOG.info("cash_engine job parked opp=%s stage=%s reason=no_handler",
-                      opportunity_id, stage)
+            _LOG.info(
+                "cash_engine job parked opp=%s stage=%s reason=no_handler", opportunity_id, stage
+            )
             return state
         result = handler(ctx)
 
@@ -192,8 +204,11 @@ def process_job(
             }
             state.log("escalated", stage=stage, rule=result.violated_rule_id)
             _record_walk_decision(
-                state, decision_kind="escalate",
-                why=result.reason or "codex_blocked", risk_level="high", stage=stage,
+                state,
+                decision_kind="escalate",
+                why=result.reason or "codex_blocked",
+                risk_level="high",
+                stage=stage,
                 alternatives=["proceed (rejected: codex rule violation)"],
                 data_used=[f"violated_rule_id={result.violated_rule_id}"],
                 expected_outcome="operator resolves the codex block; deal holds",
@@ -207,13 +222,19 @@ def process_job(
             state.park = {"stage": stage, "reason": result.park_reason}
             state.log("parked", stage=stage, reason=result.park_reason)
             _record_walk_decision(
-                state, decision_kind="park",
-                why=result.park_reason or "parked", stage=stage,
+                state,
+                decision_kind="park",
+                why=result.park_reason or "parked",
+                stage=stage,
                 expected_outcome="deal rests; resumes on re-engagement or a resolved block",
             )
             save_state(state)
-            _LOG.info("cash_engine job parked opp=%s stage=%s reason=%s",
-                      opportunity_id, stage, result.park_reason)
+            _LOG.info(
+                "cash_engine job parked opp=%s stage=%s reason=%s",
+                opportunity_id,
+                stage,
+                result.park_reason,
+            )
             return state
 
         for key in _STATE_FIELDS:
@@ -229,7 +250,8 @@ def process_job(
     state.dormant_since = iso_now()
     state.log("dormant")
     _record_walk_decision(
-        state, decision_kind="complete",
+        state,
+        decision_kind="complete",
         why="walk complete through all stages; resting until re-engagement",
         stage="deliver",
         data_used=[f"completed_stages={list(state.completed_stages)}"],
@@ -315,7 +337,8 @@ def reengage(
         state.log("reengage_blocked", rule=verdict.violated_rule_id)
         save_state(state)
         return {
-            "ok": False, "reason": "codex_blocked",
+            "ok": False,
+            "reason": "codex_blocked",
             "violated_rule_id": verdict.violated_rule_id,
         }
 
@@ -327,27 +350,31 @@ def reengage(
         "outreach_scheduled_for": state.outreach_scheduled_for,
         "prior_events": [h.get("event") for h in state.history],
     }
-    artifact = crm.create_artifact(CreateArtifactRequest(
-        kind="voicemail",
-        owner_entity_kind="opportunity",
-        owner_entity_id=opportunity_id,
-        title=f"Re-engagement voicemail ({event})",
-        inline_data={"script": script, "history": history_summary},
-        source="cash_engine_reengage",
-        created_by="cash_engine",
-    ))
+    artifact = crm.create_artifact(
+        CreateArtifactRequest(
+            kind="voicemail",
+            owner_entity_kind="opportunity",
+            owner_entity_id=opportunity_id,
+            title=f"Re-engagement voicemail ({event})",
+            inline_data={"script": script, "history": history_summary},
+            source="cash_engine_reengage",
+            created_by="cash_engine",
+        )
+    )
 
     operator_task_id = ""
     try:
-        task = crm.create_operator_task(CreateOperatorTaskRequest(
-            kind="call",
-            title=f"Record re-engagement voicemail for {getattr(prospect, 'company_name', '') or state.prospect_id}",
-            description=f"Triggered by {event}. Draft artifact {artifact.artifact_id}.",
-            related_entity_kind="opportunity",
-            related_entity_id=opportunity_id,
-            source="cash_engine_reengage",
-            source_ref=artifact.artifact_id,
-        ))
+        task = crm.create_operator_task(
+            CreateOperatorTaskRequest(
+                kind="call",
+                title=f"Record re-engagement voicemail for {getattr(prospect, 'company_name', '') or state.prospect_id}",
+                description=f"Triggered by {event}. Draft artifact {artifact.artifact_id}.",
+                related_entity_kind="opportunity",
+                related_entity_id=opportunity_id,
+                source="cash_engine_reengage",
+                source_ref=artifact.artifact_id,
+            )
+        )
         operator_task_id = task.operator_task_id
     except Exception as exc:  # noqa: BLE001 — the draft is the deliverable; task is a bonus
         _LOG.warning("cash_engine reengage: operator task creation failed: %s", exc)
@@ -412,7 +439,8 @@ try:
 except Exception as exc:  # pragma: no cover - placeholder branch
     _SQS_IMPORT_ERROR = exc
     _LOG.warning(
-        "BaseSqsWorker import failed (%s); CashEngineSqsWorker is a placeholder", exc,
+        "BaseSqsWorker import failed (%s); CashEngineSqsWorker is a placeholder",
+        exc,
     )
 
     AwsRuntime = None  # type: ignore[assignment]
@@ -446,6 +474,7 @@ def main() -> None:
     # (cash_engine outreach compose blocked: codex unavailable). HTTP apps
     # get this via app_factory; SQS workers must do it explicitly.
     from backend.common.app_factory import _ensure_codex_loaded
+
     _ensure_codex_loaded("cash_engine")
     settings = AwsWorkerSettings.from_env("cash_engine", "SQS_CASH_ENGINE_QUEUE_URL")  # type: ignore[union-attr]
     runtime = AwsRuntime(settings)  # type: ignore[misc]

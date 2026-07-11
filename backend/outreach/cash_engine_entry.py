@@ -14,6 +14,7 @@ This lives in the outreach workcell because building the ``ApolloContact`` +
 compose path is blocked (missing/guard-rejected stake, a Codex rule, or no
 legitimacy signal) — the caller maps that to a Codex halt.
 """
+
 from __future__ import annotations
 
 from typing import Any

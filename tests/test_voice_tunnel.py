@@ -1,10 +1,9 @@
 """voice.tunnel — degraded modes for ngrok startup + Vapi PATCH."""
+
 from __future__ import annotations
 
-import pytest
 
 from backend.voice.tunnel import (
-    TunnelResult,
     patch_vapi_assistant_server_url,
     start_ngrok_listener,
 )
@@ -13,6 +12,7 @@ from backend.voice.tunnel import (
 # ---------------------------------------------------------------------------
 # start_ngrok_listener
 # ---------------------------------------------------------------------------
+
 
 def test_start_ngrok_listener_skips_when_authtoken_unset():
     result = start_ngrok_listener(port=8080, authtoken="")
@@ -23,11 +23,14 @@ def test_start_ngrok_listener_skips_when_authtoken_unset():
 
 def test_start_ngrok_listener_handles_forward_error(monkeypatch):
     """ngrok.forward() raising must NOT crash the workcell."""
+
     class _FakeNgrok:
         @staticmethod
         def forward(*a, **kw):
             raise RuntimeError("simulated ngrok edge unreachable")
+
     import sys
+
     monkeypatch.setitem(sys.modules, "ngrok", _FakeNgrok())
     result = start_ngrok_listener(port=8080, authtoken="tok_x")
     assert result.url is None
@@ -39,6 +42,7 @@ def test_start_ngrok_listener_handles_forward_error(monkeypatch):
 def test_start_ngrok_listener_handles_import_error(monkeypatch):
     """If the ngrok package isn't available, degraded mode."""
     import sys
+
     # Force import to fail by removing + blocking the import.
     monkeypatch.setitem(sys.modules, "ngrok", None)
     result = start_ngrok_listener(port=8080, authtoken="tok_x")
@@ -58,6 +62,7 @@ def test_start_ngrok_listener_returns_url_on_success(monkeypatch):
             return _FakeListener()
 
     import sys
+
     monkeypatch.setitem(sys.modules, "ngrok", _FakeNgrok())
     result = start_ngrok_listener(port=8080, authtoken="tok_real")
     assert result.url == "https://abc123.ngrok-free.app"
@@ -79,9 +84,11 @@ def test_start_ngrok_listener_forwards_reserved_domain(monkeypatch):
             return _FakeListener()
 
     import sys
+
     monkeypatch.setitem(sys.modules, "ngrok", _FakeNgrok())
     result = start_ngrok_listener(
-        port=8080, authtoken="tok_x",
+        port=8080,
+        authtoken="tok_x",
         reserved_domain="samus-voice.ngrok.app",
     )
     assert result.url == "https://samus-voice.ngrok.app"
@@ -92,18 +99,20 @@ def test_start_ngrok_listener_forwards_reserved_domain(monkeypatch):
 # patch_vapi_assistant_server_url
 # ---------------------------------------------------------------------------
 
+
 class _StubVapiClient:
     def __init__(self, *, raise_exc=None):
         self.calls: list[dict] = []
         self._raise = raise_exc
 
-    def update_assistant(self, *, assistant_id, server_url=None,
-                         server_url_secret=None):
-        self.calls.append({
-            "assistant_id": assistant_id,
-            "server_url": server_url,
-            "server_url_secret": server_url_secret,
-        })
+    def update_assistant(self, *, assistant_id, server_url=None, server_url_secret=None):
+        self.calls.append(
+            {
+                "assistant_id": assistant_id,
+                "server_url": server_url,
+                "server_url_secret": server_url_secret,
+            }
+        )
         if self._raise:
             raise self._raise
         return {"id": assistant_id, "server": {"url": server_url}}

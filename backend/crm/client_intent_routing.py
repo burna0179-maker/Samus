@@ -21,6 +21,7 @@ DESIGN NOTES
   active problem with an existing engagement — they belong in a separate
   operator surface from ordinary correspondence.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -34,10 +35,10 @@ UrgencyLevel = Literal["urgent", "high", "normal", "low"]
 class IntentAction:
     """Downstream handling shape for one classified intent."""
 
-    task_kind: str        # "customer_service" | "client_correspondence"
+    task_kind: str  # "customer_service" | "client_correspondence"
     urgency: UrgencyLevel
-    due_at: str           # ISO-8601 UTC, empty string if no urgency
-    title_prefix: str     # e.g. "[CS/URGENT]" or "[CLIENT/COUNTER]"
+    due_at: str  # ISO-8601 UTC, empty string if no urgency
+    title_prefix: str  # e.g. "[CS/URGENT]" or "[CLIENT/COUNTER]"
     customer_service: bool
 
 
@@ -52,24 +53,24 @@ class IntentAction:
 
 _URGENCY_MAP: dict[str, tuple[UrgencyLevel, str, bool]] = {
     # --- URGENT / customer-service track ----------------------------------
-    "escalation_needed":       ("urgent", "CS/ESCALATION",   True),
-    "service_issue_reported":  ("urgent", "CS/SERVICE",      True),
+    "escalation_needed": ("urgent", "CS/ESCALATION", True),
+    "service_issue_reported": ("urgent", "CS/SERVICE", True),
     # --- HIGH — needs same-day attention ----------------------------------
-    "agreed_to_move_forward":  ("high",   "CLIENT/AGREED",   False),
-    "requested_meeting":       ("high",   "CLIENT/MEETING",  False),
+    "agreed_to_move_forward": ("high", "CLIENT/AGREED", False),
+    "requested_meeting": ("high", "CLIENT/MEETING", False),
     # --- NORMAL — 24h response window -------------------------------------
-    "counter_offered":         ("normal", "CLIENT/COUNTER",  False),
-    "objected_price":          ("normal", "CLIENT/OBJECTION", False),
-    "objected_scope":          ("normal", "CLIENT/OBJECTION", False),
-    "objected_timing":         ("normal", "CLIENT/OBJECTION", False),
-    "expressed_hesitation":    ("normal", "CLIENT/HESITATION", False),
-    "requested_more_info":     ("normal", "CLIENT/INFO",     False),
-    "question_general":        ("normal", "CLIENT/QUESTION", False),
+    "counter_offered": ("normal", "CLIENT/COUNTER", False),
+    "objected_price": ("normal", "CLIENT/OBJECTION", False),
+    "objected_scope": ("normal", "CLIENT/OBJECTION", False),
+    "objected_timing": ("normal", "CLIENT/OBJECTION", False),
+    "expressed_hesitation": ("normal", "CLIENT/HESITATION", False),
+    "requested_more_info": ("normal", "CLIENT/INFO", False),
+    "question_general": ("normal", "CLIENT/QUESTION", False),
     # --- LOW — acknowledge but no immediate action ------------------------
-    "acknowledgment":          ("low",    "CLIENT/ACK",      False),
-    "closed_out_conversation": ("low",    "CLIENT/CLOSED",   False),
+    "acknowledgment": ("low", "CLIENT/ACK", False),
+    "closed_out_conversation": ("low", "CLIENT/CLOSED", False),
     # --- UNKNOWN — normal priority so nothing rots -----------------------
-    "unknown":                 ("normal", "CLIENT",          False),
+    "unknown": ("normal", "CLIENT", False),
 }
 
 
@@ -88,8 +89,14 @@ def _due_for(urgency: UrgencyLevel, now: datetime) -> str:
     else:  # low
         due = now + timedelta(days=3)
     # ISO 8601 with Z suffix — same format as backend.common.dates.iso_now
-    return due.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace(
-        "+00:00", "Z",
+    return (
+        due.astimezone(timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace(
+            "+00:00",
+            "Z",
+        )
     )
 
 

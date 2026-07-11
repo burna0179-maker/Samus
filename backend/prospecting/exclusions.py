@@ -15,22 +15,25 @@ Two filters, both applied at discovery time in
 ``exclusion_reason()`` is the single check; it returns a short reason string
 (for logging) or ``""`` to keep the prospect.
 """
+
 from __future__ import annotations
 
 from urllib.parse import urlparse
 
 # Google Places (New) `types` that mark a place as a government / public-sector
 # office. Any overlap with a place's types => exclude.
-_GOVERNMENT_TYPES: frozenset[str] = frozenset({
-    "local_government_office",
-    "city_hall",
-    "courthouse",
-    "embassy",
-    "fire_station",
-    "police",
-    "post_office",
-    "government_office",    # legacy Places type name — kept for safety
-})
+_GOVERNMENT_TYPES: frozenset[str] = frozenset(
+    {
+        "local_government_office",
+        "city_hall",
+        "courthouse",
+        "embassy",
+        "fire_station",
+        "police",
+        "post_office",
+        "government_office",  # legacy Places type name — kept for safety
+    }
+)
 
 # --- operator denylist — edit these two sets to grow it --------------------
 # Website domains to exclude. Use the bare registrable domain, lowercase, no
@@ -57,18 +60,17 @@ def _host_of(url: str) -> str:
 
 
 def exclusion_reason(
-    *, place_types: str, website_url: str, company_name: str,
+    *,
+    place_types: str,
+    website_url: str,
+    company_name: str,
 ) -> str:
     """Return a short reason this prospect should be excluded, or '' to keep it.
 
     ``place_types`` is the comma-joined Google Places types string — i.e.
     ``ProspectRecord.business_categories``.
     """
-    types = {
-        t.strip().lower()
-        for t in (place_types or "").split(",")
-        if t.strip()
-    }
+    types = {t.strip().lower() for t in (place_types or "").split(",") if t.strip()}
     if types & _GOVERNMENT_TYPES:
         return "government_office"
 

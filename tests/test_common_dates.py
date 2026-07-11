@@ -1,4 +1,5 @@
 """Doc §3.17 — utc_now, iso_now, hours_from_now."""
+
 from __future__ import annotations
 
 import re
@@ -57,8 +58,8 @@ def test_business_date_pt_evening_stays_on_pacific_day(monkeypatch):
     """
     monkeypatch.setenv("SAMUS_BUSINESS_TZ", "America/Los_Angeles")
     dt = datetime(2026, 7, 8, 3, 40, 58, tzinfo=timezone.utc)
-    assert dt.date().isoformat() == "2026-07-08"      # naive UTC day
-    assert business_date(dt) == "2026-07-07"          # the Pacific business day
+    assert dt.date().isoformat() == "2026-07-08"  # naive UTC day
+    assert business_date(dt) == "2026-07-07"  # the Pacific business day
 
 
 def test_business_date_assumes_utc_for_naive(monkeypatch):

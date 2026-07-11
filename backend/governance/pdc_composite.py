@@ -30,10 +30,10 @@ Pure-stdlib + pyyaml. No new env vars. The finding is persisted under
 `Samus/state/pdc/findings/<finding_id>.yaml` and the finding_id is returned
 so the adjustment_policy gate can quote it.
 """
+
 from __future__ import annotations
 
 import datetime as _dt
-import re
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -149,20 +149,24 @@ def _classify_adversarial(
         crit = criteria[declared_match]
         if declared_match == "alex_manual_classification":
             if target.get("classified_by") == "Alex Hartman" and target.get("reason"):
-                out.update({
-                    "classified": True,
-                    "criterion_id": declared_match,
-                    "evidence_refs": evidence_refs,
-                })
+                out.update(
+                    {
+                        "classified": True,
+                        "criterion_id": declared_match,
+                        "evidence_refs": evidence_refs,
+                    }
+                )
                 return out
         elif evidence_refs:
             allowed = set(crit.get("evidence_sources") or []) or None
             if allowed is None or any(ref.split(":", 1)[0] in allowed for ref in evidence_refs):
-                out.update({
-                    "classified": True,
-                    "criterion_id": declared_match,
-                    "evidence_refs": evidence_refs,
-                })
+                out.update(
+                    {
+                        "classified": True,
+                        "criterion_id": declared_match,
+                        "evidence_refs": evidence_refs,
+                    }
+                )
                 return out
 
     # Behavioral-pattern path: host_sentinel_flag with at least one
@@ -172,12 +176,14 @@ def _classify_adversarial(
         allowed_patterns = set(crit.get("behavioral_patterns_that_qualify") or [])
         observed = set(target.get("patterns") or [])
         if allowed_patterns and observed & allowed_patterns and evidence_refs:
-            out.update({
-                "classified": True,
-                "criterion_id": "host_sentinel_flag",
-                "evidence_refs": evidence_refs,
-                "matched_patterns": sorted(observed & allowed_patterns),
-            })
+            out.update(
+                {
+                    "classified": True,
+                    "criterion_id": "host_sentinel_flag",
+                    "evidence_refs": evidence_refs,
+                    "matched_patterns": sorted(observed & allowed_patterns),
+                }
+            )
             return out
 
     return out
@@ -255,20 +261,14 @@ def run_pdc(
 
     if veto is not None:
         verdict = _max_verdict(verdict, "BLOCK")
-        rationale.append(
-            f"EFH inviolable veto on {','.join(veto['inviolable_axioms_breached'])}"
-        )
+        rationale.append(f"EFH inviolable veto on {','.join(veto['inviolable_axioms_breached'])}")
 
     if confusion.score >= _CONFUSION_BLOCK_FLOOR:
         verdict = _max_verdict(verdict, "BLOCK")
-        rationale.append(
-            f"confusion saturated ({confusion.score:.2f} >= {_CONFUSION_BLOCK_FLOOR})"
-        )
+        rationale.append(f"confusion saturated ({confusion.score:.2f} >= {_CONFUSION_BLOCK_FLOOR})")
     elif confusion.score >= _CONFUSION_REVIEW_FLOOR:
         verdict = _max_verdict(verdict, "REVIEW")
-        rationale.append(
-            f"confusion elevated ({confusion.score:.2f} >= {_CONFUSION_REVIEW_FLOOR})"
-        )
+        rationale.append(f"confusion elevated ({confusion.score:.2f} >= {_CONFUSION_REVIEW_FLOOR})")
 
     if elegance.score < _ELEGANCE_REVIEW_FLOOR:
         verdict = _max_verdict(verdict, "REVIEW")
@@ -281,15 +281,12 @@ def run_pdc(
             # Adversarial action against the host / peer agent / Alex's data —
             # categorically blocked by axiom.inviolable.no_adversarial_host_action.
             verdict = _max_verdict(verdict, "BLOCK")
-            rationale.append(
-                "adversarial target is internal — no_adversarial_host_action applies"
-            )
+            rationale.append("adversarial target is internal — no_adversarial_host_action applies")
         else:
             # External adversary — defense exception MAY apply but routes to /gate.
             verdict = _max_verdict(verdict, "ESCALATE")
             rationale.append(
-                f"adversarial classification via {adversarial['criterion_id']} — "
-                "routes to /gate"
+                f"adversarial classification via {adversarial['criterion_id']} — routes to /gate"
             )
 
     # Gate 5 — Taste (deliverable design-quality). Inert unless a taste_artifact
@@ -342,6 +339,7 @@ def run_pdc(
     if verdict in {"BLOCK", "ESCALATE"}:
         try:
             from backend.common.quorum_publisher import publish_pdc_finding
+
             publish_pdc_finding(finding)
         except Exception:  # noqa: BLE001
             pass

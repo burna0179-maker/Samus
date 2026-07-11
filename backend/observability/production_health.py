@@ -27,6 +27,7 @@ Wire: enabled by default; kill-switch ``SAMUS_PRODUCTION_HEALTH_CHECK_ENABLED``
 (set 0/false/off to silence). Kept as a self-contained env read rather than a
 settings field to stay surgical.
 """
+
 from __future__ import annotations
 
 import json
@@ -45,6 +46,7 @@ _LOG = logging.getLogger("samus.observability.production_health")
 # ---------------------------------------------------------------------------
 # Status vocabulary
 # ---------------------------------------------------------------------------
+
 
 class HealthStatus:
     OK = "OK"
@@ -87,8 +89,8 @@ _OUTBOUND_RECENT_S = 24 * 3600.0
 
 # Scheduled-task Last Result codes (Windows) that are not failures.
 _TASK_RESULT_OK = 0
-_TASK_RESULT_RUNNING = 267009      # 0x41301 SCHED_S_TASK_RUNNING
-_TASK_RESULT_NOT_RUN = 267011      # 0x41303 SCHED_S_TASK_HAS_NOT_RUN
+_TASK_RESULT_RUNNING = 267009  # 0x41301 SCHED_S_TASK_RUNNING
+_TASK_RESULT_NOT_RUN = 267011  # 0x41303 SCHED_S_TASK_HAS_NOT_RUN
 
 # Default host scheduled tasks whose exit code gates a production leg. The inbox
 # poll is the inbound-ingest leg; a nonzero Last Result means it is failing.
@@ -97,7 +99,10 @@ _DEFAULT_WATCHED_TASKS = ("Samus Inbox Poll",)
 
 def _enabled() -> bool:
     return os.getenv("SAMUS_PRODUCTION_HEALTH_CHECK_ENABLED", "1").strip().lower() not in (
-        "0", "false", "no", "off",
+        "0",
+        "false",
+        "no",
+        "off",
     )
 
 
@@ -118,9 +123,11 @@ def _watched_tasks() -> tuple[str, ...]:
 # Result shapes
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class HealthCheck:
     """One production-health finding."""
+
     name: str
     status: str
     detail: str
@@ -168,8 +175,10 @@ class ProductionHealthReport:
 # Individual checks - each is defensive and returns a HealthCheck (never raises)
 # ---------------------------------------------------------------------------
 
+
 def _settings():
     from backend.common.settings import get_settings
+
     return get_settings()
 
 
@@ -193,14 +202,19 @@ def check_oauth_token(
         if inbox_configured is None:
             inbox_configured = bool(getattr(s, "gmail_inbox_email", ""))
         if not inbox_configured:
-            return HealthCheck(name, HealthStatus.INFO, "gmail inbox not configured - inbound leg intentionally off")
+            return HealthCheck(
+                name,
+                HealthStatus.INFO,
+                "gmail inbox not configured - inbound leg intentionally off",
+            )
         path = Path(token_path or getattr(s, "gmail_oauth_token_path", ""))
     except Exception as exc:  # noqa: BLE001
         return HealthCheck(name, HealthStatus.UNKNOWN, f"settings unreadable: {exc}")
 
     if not path or not path.exists():
         return HealthCheck(
-            name, HealthStatus.FAIL,
+            name,
+            HealthStatus.FAIL,
             f"Gmail OAuth token file missing ({path}) - inbox poll cannot authenticate",
             remediation="run the one-time consent: python -m backend.intake.gmail_oauth",
         )
@@ -216,7 +230,8 @@ def check_oauth_token(
     delta = expires_at - now
     if delta < -_OAUTH_STALE_GRACE_S:
         return HealthCheck(
-            name, HealthStatus.FAIL,
+            name,
+            HealthStatus.FAIL,
             f"Gmail OAuth token expired {abs(delta) / 3600.0:.1f}h ago - refresh has stopped, "
             f"inbox poll is down",
             remediation=(
@@ -229,11 +244,13 @@ def check_oauth_token(
     if delta < 0:
         # Lapsed but within grace - the next poll refreshes it. Healthy.
         return HealthCheck(
-            name, HealthStatus.OK,
+            name,
+            HealthStatus.OK,
             f"Gmail OAuth token lapsed {abs(delta) / 3600.0:.1f}h ago, within refresh grace",
         )
     return HealthCheck(
-        name, HealthStatus.OK,
+        name,
+        HealthStatus.OK,
         f"Gmail OAuth token valid for {delta / 3600.0:.1f}h (auto-refreshed each poll)",
     )
 
@@ -247,16 +264,21 @@ def _query_scheduled_task(name: str) -> Optional[dict[str, str]]:
     try:
         proc = subprocess.run(
             ["schtasks", "/query", "/tn", name, "/fo", "LIST", "/v"],
-            capture_output=True, text=True, timeout=15, check=False,
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
         )
     except Exception:  # noqa: BLE001 - schtasks missing / blocked
         return None
     if proc.returncode != 0 or not proc.stdout:
         return None
     out = proc.stdout
+
     def _grab(label: str) -> str:
         m = re.search(rf"^{re.escape(label)}:\s*(.+?)\s*$", out, re.MULTILINE)
         return m.group(1).strip() if m else ""
+
     return {
         "last_result": _grab("Last Result"),
         "last_run": _grab("Last Run Time"),
@@ -272,26 +294,34 @@ def check_scheduled_tasks(*, task_names: Optional[tuple[str, ...]] = None) -> li
     degrades to a single UNKNOWN (the tasks live on the Windows host).
     """
     if not _on_windows():
-        return [HealthCheck(
-            "scheduled_tasks", HealthStatus.UNKNOWN,
-            "scheduled-task exit codes are only visible on the Windows host",
-        )]
+        return [
+            HealthCheck(
+                "scheduled_tasks",
+                HealthStatus.UNKNOWN,
+                "scheduled-task exit codes are only visible on the Windows host",
+            )
+        ]
     names = task_names or _watched_tasks()
     checks: list[HealthCheck] = []
     for name in names:
         info = _query_scheduled_task(name)
         cname = f"task:{name}"
         if info is None:
-            checks.append(HealthCheck(
-                cname, HealthStatus.UNKNOWN,
-                "task not registered or schtasks unavailable",
-            ))
+            checks.append(
+                HealthCheck(
+                    cname,
+                    HealthStatus.UNKNOWN,
+                    "task not registered or schtasks unavailable",
+                )
+            )
             continue
         raw = info.get("last_result", "")
         try:
             code = int(raw)
         except (TypeError, ValueError):
-            checks.append(HealthCheck(cname, HealthStatus.UNKNOWN, f"unparseable Last Result {raw!r}"))
+            checks.append(
+                HealthCheck(cname, HealthStatus.UNKNOWN, f"unparseable Last Result {raw!r}")
+            )
             continue
         last_run = info.get("last_run") or "unknown"
         if code == _TASK_RESULT_OK:
@@ -301,11 +331,14 @@ def check_scheduled_tasks(*, task_names: Optional[tuple[str, ...]] = None) -> li
         elif code == _TASK_RESULT_NOT_RUN:
             checks.append(HealthCheck(cname, HealthStatus.WARN, "task has never run"))
         else:
-            checks.append(HealthCheck(
-                cname, HealthStatus.FAIL,
-                f"last run {last_run} failed (exit {code})",
-                remediation=f"inspect the task action; run it manually to see the error",
-            ))
+            checks.append(
+                HealthCheck(
+                    cname,
+                    HealthStatus.FAIL,
+                    f"last run {last_run} failed (exit {code})",
+                    remediation="inspect the task action; run it manually to see the error",
+                )
+            )
     return checks
 
 
@@ -348,6 +381,7 @@ def check_outbound_activity(
     try:
         if observer is None:
             from backend.cash_engine.idle_production import _default_observer
+
             observer = _default_observer
         obs = observer()
         last = getattr(obs, "last_activity_ts", None)
@@ -355,7 +389,9 @@ def check_outbound_activity(
         return HealthCheck(name, HealthStatus.UNKNOWN, f"observer failed: {exc}"), False
 
     if last is None:
-        return HealthCheck(name, HealthStatus.INFO, "no outbound activity in lookback window"), False
+        return HealthCheck(
+            name, HealthStatus.INFO, "no outbound activity in lookback window"
+        ), False
     age = now - float(last)
     produced_recently = age <= _OUTBOUND_RECENT_S
     return (
@@ -376,6 +412,7 @@ def check_checkout_funnel(*, now_ts: Optional[float] = None) -> HealthCheck:
     name = "checkout_funnel"
     try:
         from backend.catalog.funnel_health import refresh_if_stale
+
         snap = refresh_if_stale(now_ts=now_ts)
     except Exception as exc:  # noqa: BLE001
         return HealthCheck(name, HealthStatus.UNKNOWN, f"snapshot read failed: {exc}")
@@ -383,28 +420,34 @@ def check_checkout_funnel(*, now_ts: Optional[float] = None) -> HealthCheck:
     refresh_cmd = "python -m backend.catalog.funnel_health --wp"
     if snap.checked_ts <= 0:
         return HealthCheck(
-            name, HealthStatus.UNKNOWN,
+            name,
+            HealthStatus.UNKNOWN,
             "no funnel snapshot yet - link health unverified",
             remediation=refresh_cmd,
         )
     if not snap.is_fresh(now_ts=now_ts):
         # refresh_if_stale tried but Stripe was unreachable — still stale.
         return HealthCheck(
-            name, HealthStatus.WARN,
+            name,
+            HealthStatus.WARN,
             f"funnel snapshot stale ({snap.age_s(now_ts) / 3600.0:.1f}h old) - "
             "campaigns are running against unverified checkout links",
             remediation=refresh_cmd,
         )
     if snap.status == "degraded":
         return HealthCheck(
-            name, HealthStatus.FAIL,
+            name,
+            HealthStatus.FAIL,
             snap.summary_line() + " - outbound marketing pushing these links converts zero",
             remediation="fix backend/catalog/registry.py / WordPress links, then " + refresh_cmd,
         )
     if snap.status == "ok":
         return HealthCheck(name, HealthStatus.OK, snap.summary_line())
     return HealthCheck(
-        name, HealthStatus.UNKNOWN, snap.summary_line(), remediation=refresh_cmd,
+        name,
+        HealthStatus.UNKNOWN,
+        snap.summary_line(),
+        remediation=refresh_cmd,
     )
 
 
@@ -416,7 +459,8 @@ def evaluate_asymmetry(*, inbound_down: bool, outbound_recent: bool) -> Optional
     """
     if inbound_down and outbound_recent:
         return HealthCheck(
-            "outbound_inbound_asymmetry", HealthStatus.CRITICAL,
+            "outbound_inbound_asymmetry",
+            HealthStatus.CRITICAL,
             "outbound is producing but inbound ingest is DOWN - replies and opt-outs are "
             "not processed, so opted-out recipients may still be emailed (CAN-SPAM exposure)",
             remediation="restore the inbox poll / OAuth token, or pause outbound sends until inbound recovers",
@@ -427,6 +471,7 @@ def evaluate_asymmetry(*, inbound_down: bool, outbound_recent: bool) -> Optional
 # ---------------------------------------------------------------------------
 # Orchestrator
 # ---------------------------------------------------------------------------
+
 
 def check_production_health(*, now_ts: Optional[float] = None) -> ProductionHealthReport:
     """Run every production-health check. Never raises; disabled => empty report."""
@@ -462,6 +507,7 @@ def check_production_health(*, now_ts: Optional[float] = None) -> ProductionHeal
 # ---------------------------------------------------------------------------
 # CLI - ad-hoc run or a faster-than-daily scheduled cadence
 # ---------------------------------------------------------------------------
+
 
 def main(argv: Optional[list[str]] = None) -> int:
     """Print the report; exit 1 if any FAIL/CRITICAL so a scheduler can alert."""

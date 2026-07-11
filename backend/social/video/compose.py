@@ -12,6 +12,7 @@ underneath, and SRT captions are burned in near the lower third. Caption
 rendering degrades gracefully (logs + skips) if the font backend is unavailable
 rather than failing the whole render.
 """
+
 from __future__ import annotations
 
 import logging
@@ -55,8 +56,14 @@ def compose_reel(
         raise ComposeError("moviepy not installed (pip install 'moviepy>=2')") from exc
 
     try:
-        return _render(footage_paths, voiceover_mp3, srt_path, out_path=Path(out_path),
-                       aspect=aspect, music_path=music_path)
+        return _render(
+            footage_paths,
+            voiceover_mp3,
+            srt_path,
+            out_path=Path(out_path),
+            aspect=aspect,
+            music_path=music_path,
+        )
     except ComposeError:
         raise
     except Exception as exc:  # noqa: BLE001 — ffmpeg / codec / Pillow / IO
@@ -84,8 +91,11 @@ def _render(footage_paths, voiceover_mp3, srt_path, *, out_path, aspect, music_p
     per_shot = total / n
     shots = []
     for i, path in enumerate(footage_paths):
-        shots.append(_shot_clip(path, per_shot, width, height,
-                                ImageClip=ImageClip, VideoFileClip=VideoFileClip))
+        shots.append(
+            _shot_clip(
+                path, per_shot, width, height, ImageClip=ImageClip, VideoFileClip=VideoFileClip
+            )
+        )
     video = concatenate_videoclips(shots, method="compose").with_duration(total)
 
     layers = [video]
@@ -100,8 +110,12 @@ def _render(footage_paths, voiceover_mp3, srt_path, *, out_path, aspect, music_p
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     composite.write_videofile(
-        str(out_path), fps=_FPS, codec="libx264", audio_codec="aac",
-        preset="medium", logger=None,
+        str(out_path),
+        fps=_FPS,
+        codec="libx264",
+        audio_codec="aac",
+        preset="medium",
+        logger=None,
     )
     composite.close()
     voice.close()
@@ -120,7 +134,11 @@ def _shot_clip(path: str, duration: float, width: int, height: int, *, ImageClip
     # Still image -> Ken-Burns slow zoom.
     clip = ImageClip(path).with_duration(duration)
     clip = _fit(clip, width, height)
-    return clip.resized(lambda t: 1 + _KEN_BURNS_ZOOM_PER_S * t).with_position("center").with_duration(duration)
+    return (
+        clip.resized(lambda t: 1 + _KEN_BURNS_ZOOM_PER_S * t)
+        .with_position("center")
+        .with_duration(duration)
+    )
 
 
 def _fit(clip, width: int, height: int):
@@ -162,8 +180,13 @@ def _caption_clips(srt_path: str, width: int, height: int, total: float) -> list
         try:
             tc = (
                 TextClip(
-                    text=text, font_size=font_size, color="white", method="caption",
-                    size=(box_w, None), stroke_color="black", stroke_width=2,
+                    text=text,
+                    font_size=font_size,
+                    color="white",
+                    method="caption",
+                    size=(box_w, None),
+                    stroke_color="black",
+                    stroke_width=2,
                     text_align="center",
                 )
                 .with_start(start)
@@ -172,7 +195,10 @@ def _caption_clips(srt_path: str, width: int, height: int, total: float) -> list
             )
             clips.append(tc)
         except Exception as exc:  # noqa: BLE001 — font backend unavailable
-            _LOG.info("caption render unavailable (%s); reel will have no burned captions", type(exc).__name__)
+            _LOG.info(
+                "caption render unavailable (%s); reel will have no burned captions",
+                type(exc).__name__,
+            )
             return []
     return clips
 
@@ -231,7 +257,9 @@ def resolve_music_path(music_dir: str) -> str:
     d = Path(music_dir)
     if not d.is_dir():
         return ""
-    tracks = sorted(p for p in d.iterdir() if p.suffix.lower() in (".mp3", ".m4a", ".wav", ".aac", ".ogg"))
+    tracks = sorted(
+        p for p in d.iterdir() if p.suffix.lower() in (".mp3", ".m4a", ".wav", ".aac", ".ogg")
+    )
     return str(tracks[0]) if tracks else ""
 
 

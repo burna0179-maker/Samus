@@ -1,4 +1,5 @@
 """Unit tests for the CRM opportunity pipeline FSM (pure functions)."""
+
 from __future__ import annotations
 
 import pytest
@@ -16,9 +17,12 @@ from backend.crm.pipeline import (
 # Constants
 # ---------------------------------------------------------------------------
 
+
 def test_terminal_stages_are_the_three_closed_stages():
     assert TERMINAL_STAGES == {
-        "closed_won", "closed_won_retainer", "closed_lost",
+        "closed_won",
+        "closed_won_retainer",
+        "closed_lost",
     }
 
 
@@ -30,8 +34,13 @@ def test_won_terminal_stages():
 
 def test_stage_probabilities_cover_all_seven_stages():
     assert set(STAGE_PROBABILITIES) == {
-        "new", "qualified", "proposal", "negotiation",
-        "closed_won", "closed_won_retainer", "closed_lost",
+        "new",
+        "qualified",
+        "proposal",
+        "negotiation",
+        "closed_won",
+        "closed_won_retainer",
+        "closed_lost",
     }
 
 
@@ -49,6 +58,7 @@ def test_stage_probabilities_are_monotonic():
 # next_allowed_stages
 # ---------------------------------------------------------------------------
 
+
 def test_next_allowed_from_new_includes_forward_and_lost():
     allowed = next_allowed_stages("new")
     assert "qualified" in allowed
@@ -62,15 +72,21 @@ def test_next_allowed_from_new_includes_forward_and_lost():
 def test_next_allowed_from_qualified():
     allowed = next_allowed_stages("qualified")
     assert allowed == {
-        "proposal", "negotiation",
-        "closed_won", "closed_won_retainer", "closed_lost",
+        "proposal",
+        "negotiation",
+        "closed_won",
+        "closed_won_retainer",
+        "closed_lost",
     }
 
 
 def test_next_allowed_from_proposal():
     allowed = next_allowed_stages("proposal")
     assert allowed == {
-        "negotiation", "closed_won", "closed_won_retainer", "closed_lost",
+        "negotiation",
+        "closed_won",
+        "closed_won_retainer",
+        "closed_lost",
     }
 
 
@@ -95,24 +111,28 @@ def test_next_allowed_from_closed_lost_is_empty():
 # validate_transition — legal cases
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("current,target", [
-    ("new", "qualified"),
-    ("new", "proposal"),
-    ("new", "negotiation"),
-    ("new", "closed_lost"),
-    ("qualified", "proposal"),
-    ("qualified", "negotiation"),
-    ("qualified", "closed_won"),
-    ("qualified", "closed_won_retainer"),
-    ("qualified", "closed_lost"),
-    ("proposal", "negotiation"),
-    ("proposal", "closed_won"),
-    ("proposal", "closed_won_retainer"),
-    ("proposal", "closed_lost"),
-    ("negotiation", "closed_won"),
-    ("negotiation", "closed_won_retainer"),
-    ("negotiation", "closed_lost"),
-])
+
+@pytest.mark.parametrize(
+    "current,target",
+    [
+        ("new", "qualified"),
+        ("new", "proposal"),
+        ("new", "negotiation"),
+        ("new", "closed_lost"),
+        ("qualified", "proposal"),
+        ("qualified", "negotiation"),
+        ("qualified", "closed_won"),
+        ("qualified", "closed_won_retainer"),
+        ("qualified", "closed_lost"),
+        ("proposal", "negotiation"),
+        ("proposal", "closed_won"),
+        ("proposal", "closed_won_retainer"),
+        ("proposal", "closed_lost"),
+        ("negotiation", "closed_won"),
+        ("negotiation", "closed_won_retainer"),
+        ("negotiation", "closed_lost"),
+    ],
+)
 def test_validate_transition_legal(current, target):
     ok, reason = validate_transition(current, target)
     assert ok is True, f"expected {current}->{target} to be legal, got {reason}"
@@ -122,6 +142,7 @@ def test_validate_transition_legal(current, target):
 # ---------------------------------------------------------------------------
 # validate_transition — illegal cases
 # ---------------------------------------------------------------------------
+
 
 def test_validate_transition_same_stage_is_noop():
     ok, reason = validate_transition("new", "new")

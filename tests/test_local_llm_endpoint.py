@@ -6,37 +6,50 @@ Studio answered with HTTP 200 + empty choices, silently dark-ing the whole
 offline reasoning stack (session monitor, strategy reasoner, callsheet updater,
 pattern aggregator). The resolver must normalise every reasonable form.
 """
+
 from __future__ import annotations
 
 from backend.common.local_llm import _resolve_chat_endpoint
 
 
 def test_base_v1_form_appends_path():
-    assert _resolve_chat_endpoint("http://host.docker.internal:1234/v1") == \
-        "http://host.docker.internal:1234/v1/chat/completions"
+    assert (
+        _resolve_chat_endpoint("http://host.docker.internal:1234/v1")
+        == "http://host.docker.internal:1234/v1/chat/completions"
+    )
 
 
 def test_full_url_is_left_intact_not_doubled():
     # The bug: this used to become …/chat/completions/chat/completions.
-    assert _resolve_chat_endpoint("http://host.docker.internal:1234/v1/chat/completions") == \
-        "http://host.docker.internal:1234/v1/chat/completions"
+    assert (
+        _resolve_chat_endpoint("http://host.docker.internal:1234/v1/chat/completions")
+        == "http://host.docker.internal:1234/v1/chat/completions"
+    )
 
 
 def test_trailing_slash_tolerated():
-    assert _resolve_chat_endpoint("http://host.docker.internal:1234/v1/") == \
-        "http://host.docker.internal:1234/v1/chat/completions"
-    assert _resolve_chat_endpoint("http://host.docker.internal:1234/v1/chat/completions/") == \
-        "http://host.docker.internal:1234/v1/chat/completions"
+    assert (
+        _resolve_chat_endpoint("http://host.docker.internal:1234/v1/")
+        == "http://host.docker.internal:1234/v1/chat/completions"
+    )
+    assert (
+        _resolve_chat_endpoint("http://host.docker.internal:1234/v1/chat/completions/")
+        == "http://host.docker.internal:1234/v1/chat/completions"
+    )
 
 
 def test_bare_host_port_gets_v1_path():
-    assert _resolve_chat_endpoint("http://host.docker.internal:1234") == \
-        "http://host.docker.internal:1234/v1/chat/completions"
+    assert (
+        _resolve_chat_endpoint("http://host.docker.internal:1234")
+        == "http://host.docker.internal:1234/v1/chat/completions"
+    )
 
 
 def test_openai_base_form():
-    assert _resolve_chat_endpoint("https://api.openai.com/v1") == \
-        "https://api.openai.com/v1/chat/completions"
+    assert (
+        _resolve_chat_endpoint("https://api.openai.com/v1")
+        == "https://api.openai.com/v1/chat/completions"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -73,6 +86,7 @@ def test_chat_falls_back_to_openai_when_local_empty(monkeypatch):
     def fake_backend(*, kind, system, user, max_tokens, temperature, timeout):
         calls.append(kind)
         return "" if kind == "local" else "OPENAI ANSWER"
+
     monkeypatch.setattr(llm, "_call_backend", fake_backend)
 
     out = llm.chat("sys", "user")
@@ -89,6 +103,7 @@ def test_chat_uses_local_when_it_succeeds(monkeypatch):
     def fake_backend(*, kind, system, user, max_tokens, temperature, timeout):
         calls.append(kind)
         return "LOCAL ANSWER"
+
     monkeypatch.setattr(llm, "_call_backend", fake_backend)
 
     out = llm.chat("sys", "user")
@@ -99,6 +114,5 @@ def test_chat_uses_local_when_it_succeeds(monkeypatch):
 def test_chat_empty_when_all_backends_fail(monkeypatch):
     monkeypatch.setattr(llm, "_PRIMARY", "local")
     monkeypatch.setattr(llm, "_OPENAI_API_KEY", "sk-test")
-    monkeypatch.setattr(llm, "_call_backend",
-                        lambda **kw: "")
+    monkeypatch.setattr(llm, "_call_backend", lambda **kw: "")
     assert llm.chat("sys", "user") == ""

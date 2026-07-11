@@ -7,6 +7,7 @@ each tracked workcell, runs the deterministic
 decision to the shared ``samus_task_state`` table, and returns the structured
 result. No LLM calls — strategy's metered proposal is never invoked.
 """
+
 from __future__ import annotations
 
 import logging
@@ -94,9 +95,7 @@ def run_rebalance(req: RebalanceRequest, *, store: Any = None) -> RebalanceRespo
     ``samus_task_state`` write failure is reflected in ``persisted=False``
     but never raises.
     """
-    items = req.workcells or [
-        WorkcellInput(workcell=wc) for wc in DEFAULT_TRACKED_WORKCELLS
-    ]
+    items = req.workcells or [WorkcellInput(workcell=wc) for wc in DEFAULT_TRACKED_WORKCELLS]
     allocations = [_build_allocation(it, store=store) for it in items]
 
     rebalance(allocations)

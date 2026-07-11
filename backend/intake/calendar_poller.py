@@ -39,12 +39,12 @@ Every stage catches, logs, and continues. A Calendar API 5xx / scope
 drift / stale token yields ``PollPassResult(enabled=False,
 connect_error=...)`` — the outer task loop keeps ticking.
 """
+
 from __future__ import annotations
 
 import json
 import logging
 import os
-import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -260,6 +260,7 @@ def _emit_scheduled(
             CALENDAR_EVENT_SCHEDULED,
             emit_business_event,
         )
+
         start_dt = _parse_calendar_dt(event.get("start") or {})
         emit_business_event(
             CALENDAR_EVENT_SCHEDULED,
@@ -284,6 +285,7 @@ def _emit_completed(event: dict[str, Any], *, client_id: str, artifact_id: str) 
             CALENDAR_EVENT_COMPLETED,
             emit_business_event,
         )
+
         end_dt = _parse_calendar_dt(event.get("end") or {})
         emit_business_event(
             CALENDAR_EVENT_COMPLETED,
@@ -361,11 +363,21 @@ def poll_calendar_once(
                 _LOG.info("calendar poll scope-drift: %s", exc)
                 return out
 
-            time_min = (ts_now - timedelta(hours=_PAST_HOURS)).isoformat().replace(
-                "+00:00", "Z",
+            time_min = (
+                (ts_now - timedelta(hours=_PAST_HOURS))
+                .isoformat()
+                .replace(
+                    "+00:00",
+                    "Z",
+                )
             )
-            time_max = (ts_now + timedelta(days=_FUTURE_DAYS)).isoformat().replace(
-                "+00:00", "Z",
+            time_max = (
+                (ts_now + timedelta(days=_FUTURE_DAYS))
+                .isoformat()
+                .replace(
+                    "+00:00",
+                    "Z",
+                )
             )
             events = client.list_events_range(
                 calendar_id="primary",
@@ -399,7 +411,8 @@ def poll_calendar_once(
                         )
                         prior["completed_emitted"] = True
                         prior["completed_at_ts"] = ts_now.isoformat().replace(
-                            "+00:00", "Z",
+                            "+00:00",
+                            "Z",
                         )
                         _append_ledger_row(prior)
                         out.completed_emitted += 1
@@ -453,11 +466,14 @@ def poll_calendar_once(
                 # also emit completion so we never miss it.
                 if completed_now:
                     _emit_completed(
-                        event, client_id=client_id, artifact_id=artifact_id,
+                        event,
+                        client_id=client_id,
+                        artifact_id=artifact_id,
                     )
                     ledger_row["completed_emitted"] = True
                     ledger_row["completed_at_ts"] = ts_now.isoformat().replace(
-                        "+00:00", "Z",
+                        "+00:00",
+                        "Z",
                     )
                     out.completed_emitted += 1
                 _append_ledger_row(ledger_row)

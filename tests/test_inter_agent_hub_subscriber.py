@@ -1,4 +1,4 @@
-﻿"""Tests for backend.standard.inter_agent.
+"""Tests for backend.standard.inter_agent.
 
 Async tests follow the Samus convention (see ``test_common_retry.py``):
 synchronous test functions that wrap their body in ``asyncio.run(...)`` —
@@ -7,6 +7,7 @@ no pytest-asyncio dependency.
 The SSE side is exercised against a real ASGI FastAPI test server reached
 via httpx.AsyncClient(transport=httpx.ASGITransport(...)). No network.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -14,7 +15,6 @@ import json
 from typing import AsyncIterator, List
 
 import httpx
-import pytest
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 
@@ -61,6 +61,7 @@ def _client_factory_for(app: FastAPI):
             base_url="http://hub.test",
             timeout=httpx.Timeout(None, connect=5.0),
         )
+
     return _factory
 
 
@@ -133,7 +134,7 @@ def test_subscriber_dispatches_events_from_sse_stream():
 
         events = [
             {"id": "e1", "caller": "anita", "action": "vote", "approved": True},
-            {"id": "e2", "caller": "major", "action": "poll",  "approved": False},
+            {"id": "e2", "caller": "major", "action": "poll", "approved": False},
         ]
         app = _build_hub_app(events)
         sub = HubSubscriber(
@@ -218,9 +219,7 @@ def test_subscriber_start_is_idempotent():
     async def _run() -> bool:
         sub = HubSubscriber(
             url="http://hub.test/events",
-            client_factory=_client_factory_for(
-                _build_hub_app([], disconnect_after_all=False)
-            ),
+            client_factory=_client_factory_for(_build_hub_app([], disconnect_after_all=False)),
         )
         await sub.start()
         task_first = sub._task  # noqa: SLF001

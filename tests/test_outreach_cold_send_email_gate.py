@@ -14,6 +14,7 @@ Motivating real case (2026-06-22): ``bugreport@moatable.com`` was scraped off a
 site footer and attached to the "Erik Tejeda" call card. Cold-mailing that
 role mailbox burns the SendGrid sender-domain reputation.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -27,7 +28,7 @@ from backend.prospecting.contact_validation import is_cold_sendable_email
 
 def test_role_and_system_mailboxes_are_not_cold_sendable():
     for bad in (
-        "bugreport@moatable.com",   # the motivating footer scrape
+        "bugreport@moatable.com",  # the motivating footer scrape
         "admin@acme.com",
         "support@acme.com",
         "noreply@acme.com",

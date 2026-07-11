@@ -45,6 +45,7 @@ Wiring: ``register(app)`` is called by ``backend/gateway/app.py`` (the
 operator-facing workcell that already mounts the inter-agent surface). Wired
 but dormant.
 """
+
 from __future__ import annotations
 
 import logging
@@ -107,7 +108,8 @@ def _load_quorum_keypair():
         except Exception as exc:  # noqa: BLE001 — best-effort; unsigned acceptable pre-admission
             _LOG.warning(
                 "quorum_vote: %s quorum key unavailable, votes UNSIGNED: %s",
-                VOTER_AGENT, exc,
+                VOTER_AGENT,
+                exc,
             )
             kp = None
         _kp_cache["kp"] = kp
@@ -139,6 +141,7 @@ def _sign_vote_response(verdict: Dict[str, Any], proposal_id: str) -> Dict[str, 
         _LOG.warning("quorum_vote: sign failed, returning unsigned: %s", exc)
         return verdict
 
+
 # Bound the request body we will buffer + JSON-decode. A quorum envelope is a
 # small JSON object; anything larger is malformed / hostile. The body-size
 # middleware also caps this, but the route is its own boundary so we re-cap.
@@ -148,7 +151,11 @@ _MAX_BODY_BYTES = 256 * 1024
 def is_voting_enabled() -> bool:
     """Read ``SAMUS_QUORUM_VOTING_ENABLED`` live. Default OFF (dormant)."""
     return os.environ.get(ENV_VOTING_ENABLED, "").strip().lower() in (
-        "1", "true", "yes", "on", "y",
+        "1",
+        "true",
+        "yes",
+        "on",
+        "y",
     )
 
 
@@ -233,7 +240,8 @@ def _verify_major_envelope(body: Any) -> dict[str, Any]:
         _LOG.error(
             "quorum_vote: no HMAC key configured for collector '%s' "
             "(SS_HMAC_KEY_MAJOR / MAJOR_AGENT_HMAC_SECRET): %s",
-            COLLECTOR_AGENT, exc,
+            COLLECTOR_AGENT,
+            exc,
         )
         raise _VerificationUnavailable("collector_key_unprovisioned") from exc
 
@@ -263,7 +271,8 @@ def _verify_major_envelope(body: Any) -> dict[str, Any]:
     except EnvelopeError as exc:
         # Any other envelope-level error (e.g. version mismatch) → reject.
         raise _EnvelopeRejected(
-            f"envelope_verification_failed: {exc}", status_code=403,
+            f"envelope_verification_failed: {exc}",
+            status_code=403,
         ) from exc
 
     payload = env.payload
@@ -275,6 +284,7 @@ def _verify_major_envelope(body: Any) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Route registration.
 # ---------------------------------------------------------------------------
+
 
 def register(app: FastAPI) -> None:
     """Mount ``POST /quorum/vote`` on ``app``. Wired but dormant by default.
@@ -303,6 +313,7 @@ def register(app: FastAPI) -> None:
         if len(raw) > _MAX_BODY_BYTES:
             raise HTTPException(status_code=413, detail="request_body_too_large")
         import json  # noqa: PLC0415 — local; keeps import-time surface minimal
+
         try:
             body = json.loads(raw) if raw else None
         except (ValueError, TypeError):
@@ -314,11 +325,13 @@ def register(app: FastAPI) -> None:
             proposal = _verify_major_envelope(body)
         except _VerificationUnavailable as exc:
             raise HTTPException(
-                status_code=503, detail=f"verification_unavailable: {exc}",
+                status_code=503,
+                detail=f"verification_unavailable: {exc}",
             ) from exc
         except _EnvelopeRejected as exc:
             raise HTTPException(
-                status_code=exc.status_code, detail=str(exc),
+                status_code=exc.status_code,
+                detail=str(exc),
             ) from exc
 
         # 3) REASON — pure, deterministic. Never raises on a malformed inner
@@ -328,8 +341,10 @@ def register(app: FastAPI) -> None:
         ballot = decide_ballot(proposal)
         _LOG.info(
             "quorum_vote: cast vote=%s on proposal_id=%s (self=%s eco=%s abuse=%s)",
-            ballot.get("vote"), ballot.get("proposal_id"),
-            ballot.get("self_benefit"), ballot.get("ecosystem_benefit"),
+            ballot.get("vote"),
+            ballot.get("proposal_id"),
+            ballot.get("self_benefit"),
+            ballot.get("ecosystem_benefit"),
             ballot.get("abuse_risk"),
         )
         # D6-01 — sign the ballot so the collector cannot forge/alter it.
@@ -337,7 +352,8 @@ def register(app: FastAPI) -> None:
 
     _LOG.info(
         "quorum_vote: route mounted (dormant=%s) — set %s=1 to activate",
-        not is_voting_enabled(), ENV_VOTING_ENABLED,
+        not is_voting_enabled(),
+        ENV_VOTING_ENABLED,
     )
 
 

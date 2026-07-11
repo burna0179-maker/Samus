@@ -19,6 +19,7 @@ Contract (owned by the sibling branch — do NOT re-implement it here):
 Taxonomy used by Tranche 3: ``experiment.assigned``, ``decision.made``,
 ``payment.received``.
 """
+
 from __future__ import annotations
 
 import importlib

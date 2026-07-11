@@ -5,6 +5,7 @@ Covers the new ``session.mode == 'subscription'`` dispatch in
 'delivered'), MRR computation, no auto-fulfill, graceful handling of
 non-existent customers and non-delivered customers.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -16,6 +17,7 @@ import time
 # ---------------------------------------------------------------------------
 # Helpers (mirror test_finance_webhook.py's fixture style)
 # ---------------------------------------------------------------------------
+
 
 def _sign(payload_bytes: bytes, secret: str, *, timestamp: int | None = None) -> str:
     ts = timestamp if timestamp is not None else int(time.time())
@@ -61,14 +63,20 @@ def _subscription_session_event(
     }
 
 
-def _override_settings(monkeypatch, *, stripe_webhook_secret: str = "whsec_test",
-                       auto_fulfill_offer_codes: list[str] | None = None):
+def _override_settings(
+    monkeypatch,
+    *,
+    stripe_webhook_secret: str = "whsec_test",
+    auto_fulfill_offer_codes: list[str] | None = None,
+):
     class _S:
         pass
+
     s = _S()
     s.stripe_webhook_secret = stripe_webhook_secret
     s.auto_fulfill_offer_codes = list(auto_fulfill_offer_codes or [])
     import backend.finance.webhook as web
+
     monkeypatch.setattr(web, "get_settings", lambda: s)
 
 
@@ -79,6 +87,7 @@ def _isolate_log(monkeypatch, tmp_path):
 # ---------------------------------------------------------------------------
 # In-memory CustomerStore stub (copied from test_finance_webhook.py)
 # ---------------------------------------------------------------------------
+
 
 class _FakeCustomer:
     def __init__(self, id_: str, email: str, current_state: str = "prospect"):
@@ -115,8 +124,7 @@ class _FakeStore:
         self.calls.append(("get_by_email", email))
         return self.customers.get(email.lower())
 
-    def create_customer(self, *, email, name="", company="", source="manual",
-                        metadata=None):
+    def create_customer(self, *, email, name="", company="", source="manual", metadata=None):
         self.calls.append(("create_customer", email, source))
         if self.fail_on_create:
             raise RuntimeError("simulated neo4j down")
@@ -140,10 +148,13 @@ class _FakeStore:
 # _extract_subscription_fields unit
 # ---------------------------------------------------------------------------
 
+
 def test_extract_subscription_fields_pulls_mode_and_ids():
     from backend.finance.webhook import _extract_subscription_fields
+
     event = _subscription_session_event(
-        subscription_id="sub_abc", price_id="price_xyz",
+        subscription_id="sub_abc",
+        price_id="price_xyz",
         client_reference_id="upsell_touch_2_abc",
     )
     mode, sub_id, price_id, cref = _extract_subscription_fields(event["data"])
@@ -156,6 +167,7 @@ def test_extract_subscription_fields_pulls_mode_and_ids():
 def test_extract_subscription_fields_falls_back_to_metadata_price_id():
     """When line_items isn't expanded, look at subscription_data.metadata."""
     from backend.finance.webhook import _extract_subscription_fields
+
     event = _subscription_session_event(price_id="")  # no line_items branch
     event["data"]["object"]["subscription_data"] = {
         "metadata": {"hf_target_price_id": "price_from_metadata"},
@@ -167,11 +179,14 @@ def test_extract_subscription_fields_falls_back_to_metadata_price_id():
 def test_extract_subscription_fields_empty_for_payment_mode():
     """A payment-mode session yields mode='payment' and empty sub fields."""
     from backend.finance.webhook import _extract_subscription_fields
+
     event = {
-        "data": {"object": {
-            "object": "checkout.session",
-            "mode": "payment",
-        }},
+        "data": {
+            "object": {
+                "object": "checkout.session",
+                "mode": "payment",
+            }
+        },
     }
     mode, sub_id, price_id, cref = _extract_subscription_fields(event["data"])
     assert mode == "payment"
@@ -183,6 +198,7 @@ def test_extract_subscription_fields_empty_for_payment_mode():
 def test_extract_subscription_fields_handles_missing_object():
     """An empty event_data returns empties without raising."""
     from backend.finance.webhook import _extract_subscription_fields
+
     mode, sub_id, price_id, cref = _extract_subscription_fields({})
     assert (mode, sub_id, price_id, cref) == ("", "", "", "")
 
@@ -191,13 +207,15 @@ def test_extract_subscription_fields_handles_missing_object():
 # Subscription-mode dispatch in handle_stripe_webhook
 # ---------------------------------------------------------------------------
 
+
 def test_subscription_advances_delivered_customer_to_renewed(tmp_path, monkeypatch):
     _isolate_log(monkeypatch, tmp_path)
     _override_settings(monkeypatch)
     store = _FakeStore()
     # Audit buyer who already received their deliverable.
     store.customers["upgrade@example.com"] = _FakeCustomer(
-        id_="cust_upgrade", email="upgrade@example.com",
+        id_="cust_upgrade",
+        email="upgrade@example.com",
         current_state="delivered",
     )
 
@@ -211,6 +229,7 @@ def test_subscription_advances_delivered_customer_to_renewed(tmp_path, monkeypat
     header = _sign(body, "whsec_test")
 
     from backend.finance.webhook import handle_stripe_webhook
+
     result = handle_stripe_webhook(body, header, customer_store=store)
 
     assert result.process_status == "processed"
@@ -227,7 +246,9 @@ def test_subscription_advances_delivered_customer_to_renewed(tmp_path, monkeypat
 
 
 def test_subscription_unpaid_does_not_advance_but_records_event(
-    tmp_path, monkeypatch, caplog,
+    tmp_path,
+    monkeypatch,
+    caplog,
 ):
     """RT FIN-01 — an 'unpaid' subscription for a delivered customer must NOT
     advance to renewed, but the event is still recorded."""
@@ -235,20 +256,25 @@ def test_subscription_unpaid_does_not_advance_but_records_event(
     _override_settings(monkeypatch)
     store = _FakeStore()
     store.customers["upgrade@example.com"] = _FakeCustomer(
-        id_="cust_upgrade", email="upgrade@example.com",
+        id_="cust_upgrade",
+        email="upgrade@example.com",
         current_state="delivered",
     )
 
     event = _subscription_session_event(
-        event_id="evt_sub_unpaid", email="upgrade@example.com",
-        subscription_id="sub_unpaid_1", payment_status="unpaid",
+        event_id="evt_sub_unpaid",
+        email="upgrade@example.com",
+        subscription_id="sub_unpaid_1",
+        payment_status="unpaid",
     )
     body = json.dumps(event).encode("utf-8")
     header = _sign(body, "whsec_test")
 
     import logging
+
     with caplog.at_level(logging.WARNING, logger="samus.finance.webhook"):
         from backend.finance.webhook import handle_stripe_webhook
+
         result = handle_stripe_webhook(body, header, customer_store=store)
 
     assert result.process_status == "processed"
@@ -257,19 +283,19 @@ def test_subscription_unpaid_does_not_advance_but_records_event(
     assert store.customers["upgrade@example.com"].current_state == "delivered"
     assert not any(c[0] == "advance_state" for c in store.calls)
     assert any(
-        "subscription_renew_withheld_pending_payment" in rec.message
-        for rec in caplog.records
+        "subscription_renew_withheld_pending_payment" in rec.message for rec in caplog.records
     )
     # Event still persisted.
     from backend.finance.webhook import load_recent_events
-    rows = [e for e in load_recent_events(window_days=7)
-            if e.event_id == "evt_sub_unpaid"]
+
+    rows = [e for e in load_recent_events(window_days=7) if e.event_id == "evt_sub_unpaid"]
     assert len(rows) == 1
     assert rows[0].payment_status == "unpaid"
 
 
 def test_subscription_no_payment_required_advances_to_renewed(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ):
     """RT FIN-01 — a free-trial subscription completes as 'no_payment_required'
     and is still allowed to advance a delivered customer to renewed."""
@@ -277,18 +303,22 @@ def test_subscription_no_payment_required_advances_to_renewed(
     _override_settings(monkeypatch)
     store = _FakeStore()
     store.customers["trial@example.com"] = _FakeCustomer(
-        id_="cust_trial", email="trial@example.com",
+        id_="cust_trial",
+        email="trial@example.com",
         current_state="delivered",
     )
 
     event = _subscription_session_event(
-        event_id="evt_sub_trial", email="trial@example.com",
-        subscription_id="sub_trial_1", payment_status="no_payment_required",
+        event_id="evt_sub_trial",
+        email="trial@example.com",
+        subscription_id="sub_trial_1",
+        payment_status="no_payment_required",
     )
     body = json.dumps(event).encode("utf-8")
     header = _sign(body, "whsec_test")
 
     from backend.finance.webhook import handle_stripe_webhook
+
     result = handle_stripe_webhook(body, header, customer_store=store)
 
     assert result.process_status == "processed"
@@ -299,7 +329,9 @@ def test_subscription_no_payment_required_advances_to_renewed(
 
 
 def test_subscription_for_prospect_records_event_no_state_mutation(
-    tmp_path, monkeypatch, caplog,
+    tmp_path,
+    monkeypatch,
+    caplog,
 ):
     """Brand-new subscriber (not a prior audit buyer): record but don't advance."""
     _isolate_log(monkeypatch, tmp_path)
@@ -307,7 +339,9 @@ def test_subscription_for_prospect_records_event_no_state_mutation(
     store = _FakeStore()
     # Pre-existing customer at 'prospect' — e.g. cold list import.
     store.customers["new@example.com"] = _FakeCustomer(
-        id_="cust_new", email="new@example.com", current_state="prospect",
+        id_="cust_new",
+        email="new@example.com",
+        current_state="prospect",
     )
 
     event = _subscription_session_event(
@@ -319,8 +353,10 @@ def test_subscription_for_prospect_records_event_no_state_mutation(
     header = _sign(body, "whsec_test")
 
     import logging
+
     with caplog.at_level(logging.WARNING, logger="samus.finance.webhook"):
         from backend.finance.webhook import handle_stripe_webhook
+
         result = handle_stripe_webhook(body, header, customer_store=store)
 
     assert result.process_status == "processed"
@@ -332,17 +368,12 @@ def test_subscription_for_prospect_records_event_no_state_mutation(
     # advance_state should NOT have been called.
     assert not any(c[0] == "advance_state" for c in store.calls)
     # And the warning fired.
-    assert any(
-        "subscription_for_non_delivered_customer" in rec.message
-        for rec in caplog.records
-    )
+    assert any("subscription_for_non_delivered_customer" in rec.message for rec in caplog.records)
 
     # Event row still persisted with subscription fields.
     from backend.finance.webhook import load_recent_events
-    rows = [
-        e for e in load_recent_events(window_days=7)
-        if e.event_id == "evt_sub_prospect"
-    ]
+
+    rows = [e for e in load_recent_events(window_days=7) if e.event_id == "evt_sub_prospect"]
     assert len(rows) == 1
     row = rows[0]
     assert row.session_mode == "subscription"
@@ -351,7 +382,8 @@ def test_subscription_for_prospect_records_event_no_state_mutation(
 
 
 def test_subscription_for_new_email_creates_customer_no_advance(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ):
     """No matching customer in store: create at 'prospect', do NOT advance."""
     _isolate_log(monkeypatch, tmp_path)
@@ -359,13 +391,15 @@ def test_subscription_for_new_email_creates_customer_no_advance(
     store = _FakeStore()
 
     event = _subscription_session_event(
-        event_id="evt_sub_brand_new", email="brandnew@example.com",
+        event_id="evt_sub_brand_new",
+        email="brandnew@example.com",
         subscription_id="sub_brand_new",
     )
     body = json.dumps(event).encode("utf-8")
     header = _sign(body, "whsec_test")
 
     from backend.finance.webhook import handle_stripe_webhook
+
     result = handle_stripe_webhook(body, header, customer_store=store)
 
     # Handler doesn't crash — best-effort path.
@@ -379,7 +413,8 @@ def test_subscription_for_new_email_creates_customer_no_advance(
 
 
 def test_subscription_skips_auto_fulfill_even_when_whitelisted(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ):
     """Subscription sessions never trigger auto-fulfill, regardless of whitelist."""
     _isolate_log(monkeypatch, tmp_path)
@@ -390,25 +425,30 @@ def test_subscription_skips_auto_fulfill_even_when_whitelisted(
     )
     store = _FakeStore()
     store.customers["upgrade@example.com"] = _FakeCustomer(
-        id_="cust_upgrade", email="upgrade@example.com",
+        id_="cust_upgrade",
+        email="upgrade@example.com",
         current_state="delivered",
     )
 
     scheduled: list = []
     import backend.finance.webhook as web
+
     monkeypatch.setattr(
-        web, "_schedule_auto_fulfill",
+        web,
+        "_schedule_auto_fulfill",
         lambda **kw: scheduled.append(kw),
     )
 
     event = _subscription_session_event(
         event_id="evt_sub_no_autofulfill",
-        email="upgrade@example.com", offer="seo_optimization",
+        email="upgrade@example.com",
+        offer="seo_optimization",
     )
     # Even with a website_url custom_field present, subscription path skips.
     event["data"]["object"]["custom_fields"] = [
         {
-            "key": "website_url", "type": "text",
+            "key": "website_url",
+            "type": "text",
             "text": {"value": "https://upgrade.example.com"},
         },
     ]
@@ -416,6 +456,7 @@ def test_subscription_skips_auto_fulfill_even_when_whitelisted(
     header = _sign(body, "whsec_test")
 
     from backend.finance.webhook import handle_stripe_webhook
+
     result = handle_stripe_webhook(body, header, customer_store=store)
 
     assert result.process_status == "processed"
@@ -430,27 +471,29 @@ def test_subscription_mrr_calculated_from_amount_total(tmp_path, monkeypatch):
     _override_settings(monkeypatch)
     store = _FakeStore()
     store.customers["x@example.com"] = _FakeCustomer(
-        id_="cust_x", email="x@example.com", current_state="delivered",
+        id_="cust_x",
+        email="x@example.com",
+        current_state="delivered",
     )
 
     event = _subscription_session_event(
         event_id="evt_sub_mrr_calc",
-        email="x@example.com", amount_cents=12500,  # $125.00/mo
+        email="x@example.com",
+        amount_cents=12500,  # $125.00/mo
     )
     body = json.dumps(event).encode("utf-8")
     header = _sign(body, "whsec_test")
 
     from backend.finance.webhook import handle_stripe_webhook
+
     result = handle_stripe_webhook(body, header, customer_store=store)
 
     assert result.subscription_mrr_usd == 125.0
 
     # Verify the persisted row carries the same MRR field.
     from backend.finance.webhook import load_recent_events
-    rows = [
-        e for e in load_recent_events(window_days=7)
-        if e.event_id == "evt_sub_mrr_calc"
-    ]
+
+    rows = [e for e in load_recent_events(window_days=7) if e.event_id == "evt_sub_mrr_calc"]
     assert len(rows) == 1
     assert rows[0].subscription_mrr_usd == 125.0
     assert rows[0].subscription_id == "sub_1Test"
@@ -462,25 +505,36 @@ def test_subscription_skips_receipt_send(tmp_path, monkeypatch):
     _override_settings(monkeypatch)
     store = _FakeStore()
     store.customers["sub@example.com"] = _FakeCustomer(
-        id_="cust_sub", email="sub@example.com", current_state="delivered",
+        id_="cust_sub",
+        email="sub@example.com",
+        current_state="delivered",
     )
 
     called: list = []
     import backend.finance.webhook as web
+
     monkeypatch.setattr(
-        web, "send_payment_receipt",
-        lambda **kw: called.append(kw) or {
-            "sent": True, "message_id": "msg_x", "error": "",
-        },
+        web,
+        "send_payment_receipt",
+        lambda **kw: (
+            called.append(kw)
+            or {
+                "sent": True,
+                "message_id": "msg_x",
+                "error": "",
+            }
+        ),
     )
 
     event = _subscription_session_event(
-        event_id="evt_sub_no_receipt", email="sub@example.com",
+        event_id="evt_sub_no_receipt",
+        email="sub@example.com",
     )
     body = json.dumps(event).encode("utf-8")
     header = _sign(body, "whsec_test")
 
     from backend.finance.webhook import handle_stripe_webhook
+
     result = handle_stripe_webhook(body, header, customer_store=store)
 
     assert result.process_status == "processed"
@@ -493,24 +547,26 @@ def test_subscription_client_reference_id_persisted(tmp_path, monkeypatch):
     _override_settings(monkeypatch)
     store = _FakeStore()
     store.customers["c@example.com"] = _FakeCustomer(
-        id_="cust_c", email="c@example.com", current_state="delivered",
+        id_="cust_c",
+        email="c@example.com",
+        current_state="delivered",
     )
 
     event = _subscription_session_event(
-        event_id="evt_sub_cref", email="c@example.com",
+        event_id="evt_sub_cref",
+        email="c@example.com",
         client_reference_id="upsell_touch_2_abc123",
     )
     body = json.dumps(event).encode("utf-8")
     header = _sign(body, "whsec_test")
 
     from backend.finance.webhook import handle_stripe_webhook
+
     handle_stripe_webhook(body, header, customer_store=store)
 
     from backend.finance.webhook import load_recent_events
-    rows = [
-        e for e in load_recent_events(window_days=7)
-        if e.event_id == "evt_sub_cref"
-    ]
+
+    rows = [e for e in load_recent_events(window_days=7) if e.event_id == "evt_sub_cref"]
     assert len(rows) == 1
     assert rows[0].client_reference_id == "upsell_touch_2_abc123"
 
@@ -542,6 +598,7 @@ def test_payment_mode_unchanged_by_cut2(tmp_path, monkeypatch):
     header = _sign(body, "whsec_test")
 
     from backend.finance.webhook import handle_stripe_webhook
+
     result = handle_stripe_webhook(body, header, customer_store=store)
 
     assert result.process_status == "processed"

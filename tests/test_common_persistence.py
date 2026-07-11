@@ -1,4 +1,5 @@
 """JsonlLedger — append + tail round trip."""
+
 from __future__ import annotations
 
 
@@ -18,12 +19,14 @@ def test_jsonl_ledger_append_and_tail(tmp_path):
 
 def test_jsonl_ledger_tail_empty_when_no_file(tmp_path):
     from backend.common.persistence import JsonlLedger
+
     ledger = JsonlLedger(tmp_path / "never_written.jsonl")
     assert ledger.tail() == []
 
 
 def test_jsonl_ledger_unicode_preserved(tmp_path):
     from backend.common.persistence import JsonlLedger
+
     ledger = JsonlLedger(tmp_path / "ledger.jsonl")
     ledger.append({"msg": "café — résumé"})
     out = ledger.tail()
@@ -38,11 +41,11 @@ def test_jsonl_ledger_unicode_preserved(tmp_path):
 # event-log rotation became a no-op. These pin the surviving signature.
 # ---------------------------------------------------------------------------
 
+
 def _iso(delta_days: int = 0):
     from datetime import datetime, timedelta, timezone
-    return (datetime.now(timezone.utc) + timedelta(days=delta_days)).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
+
+    return (datetime.now(timezone.utc) + timedelta(days=delta_days)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def test_rotate_by_age_honours_custom_ts_field(tmp_path):

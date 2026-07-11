@@ -2,6 +2,7 @@
 function — given current state + user input + intel + optional objection result,
 returns next state + action recommendation. Consumes objection.handle_objection()
 output. Caller tracks state across turns."""
+
 from __future__ import annotations
 
 STATES: list[str] = [

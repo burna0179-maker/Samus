@@ -26,6 +26,7 @@ The MRR value is cached for ``REFRESH_INTERVAL_SEC`` (default 3600s /
 the last known value is retained; on cold start with no Stripe, the
 floor applies.
 """
+
 from __future__ import annotations
 
 import logging

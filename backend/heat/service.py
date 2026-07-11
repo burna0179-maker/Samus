@@ -16,6 +16,7 @@ Ties the pure pieces together:
 Best-effort + fail-open throughout — heat is reputation hygiene, not a hard
 gate, and must never crash a send or a webhook.
 """
+
 from __future__ import annotations
 
 import logging
@@ -47,7 +48,8 @@ _SUPPRESS_EVENTS = {"bounce", "dropped", "spamreport", "spam_report"}
 
 _HOTLEAD_EVENTS = {"open", "click", "opened", "clicked"}
 _HOTLEAD_JOURNAL_DIR = os.environ.get(
-    "SAMUS_ENGAGEMENT_DIR", "/opt/samus/data/host_artifacts/engagement",
+    "SAMUS_ENGAGEMENT_DIR",
+    "/opt/samus/data/host_artifacts/engagement",
 )
 
 
@@ -56,6 +58,7 @@ def _log_hotlead_event(ev: dict[str, Any], etype: str) -> None:
 
     Best-effort — a write failure never blocks webhook ingestion."""
     import time as _time
+
     pid = str(ev.get("prospect_id") or "").strip()
     if not pid:
         return
@@ -71,10 +74,12 @@ def _log_hotlead_event(ev: dict[str, Any], etype: str) -> None:
     }
     try:
         from pathlib import Path
+
         d = Path(_HOTLEAD_JOURNAL_DIR)
         d.mkdir(parents=True, exist_ok=True)
         with (d / f"engagement_{day}.jsonl").open("a", encoding="utf-8") as fh:
             import json as _json
+
             fh.write(_json.dumps(entry) + "\n")
     except Exception as exc:  # noqa: BLE001
         _LOG.warning("hotlead journal write failed: %s", exc)
@@ -103,6 +108,7 @@ def _suppress(email: str, reason: str) -> None:
     try:
         from backend.common import aws
         from backend.common.dates import iso_now
+
         settings = get_settings()
         tbl = aws.table(settings.ddb_suppression_table, settings.aws_region)
         tbl.put_item(Item={"email": addr, "reason": reason, "ts": iso_now()})
@@ -120,6 +126,7 @@ def _halt_deal(event: str, email: str, prospect_id: str, opportunity_id: str) ->
     if not pid and not oid and email:
         try:
             from backend.common import recipient_index
+
             rec = recipient_index.lookup_recipient(email) or {}
             pid = pid or str(rec.get("prospect_id", "") or "")
             oid = oid or str(rec.get("opportunity_id", "") or "")
@@ -129,8 +136,11 @@ def _halt_deal(event: str, email: str, prospect_id: str, opportunity_id: str) ->
         return
     try:
         from backend.feedback import handlers
+
         handlers.fire_cash_engine_signal(
-            event=mapped, opportunity_id=oid, prospect_id=pid,
+            event=mapped,
+            opportunity_id=oid,
+            prospect_id=pid,
         )
     except Exception as exc:  # noqa: BLE001
         _LOG.warning("heat halt fan-out failed (%s %s/%s): %s", mapped, pid, oid, exc)
@@ -177,6 +187,7 @@ def ingest_sendgrid_events(events: list[dict[str, Any]]) -> dict[str, Any]:
             # outcome key). Best-effort; accrues even while the gate is dormant.
             try:
                 from backend.governance.karma import engine as karma
+
                 karma.apply_outcome(_NEG_EVENT_MAP[etype], ref=email)
             except Exception as exc:  # noqa: BLE001
                 _LOG.warning("karma penalty failed (%s): %s", etype, exc)
@@ -185,7 +196,11 @@ def ingest_sendgrid_events(events: list[dict[str, Any]]) -> dict[str, Any]:
     band = band_for_score(compute_heat_score(snap.to_inputs()))
     _LOG.info(
         "heat ingest: counted=%d halted=%d suppressed=%d band=%s sent=%d",
-        counted, halted, suppressed, band, snap.sent,
+        counted,
+        halted,
+        suppressed,
+        band,
+        snap.sent,
     )
     return {
         "ok": True,
@@ -231,9 +246,14 @@ def status_snapshot() -> dict[str, Any]:
         "send_multiplier": send_multiplier(band) if _enabled() else 1.0,
         "paused": is_send_paused(band) if _enabled() else False,
         "counters": {
-            "sent": snap.sent, "delivered": snap.delivered, "bounced": snap.bounced,
-            "complained": snap.complained, "blocked": snap.blocked,
-            "deferred": snap.deferred, "opened": snap.opened, "clicked": snap.clicked,
+            "sent": snap.sent,
+            "delivered": snap.delivered,
+            "bounced": snap.bounced,
+            "complained": snap.complained,
+            "blocked": snap.blocked,
+            "deferred": snap.deferred,
+            "opened": snap.opened,
+            "clicked": snap.clicked,
             "unsubscribed": snap.unsubscribed,
         },
         "bucket_day": snap.bucket_day,

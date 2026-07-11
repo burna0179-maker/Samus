@@ -4,6 +4,7 @@ agency-grade deliverable (Services / Gallery / FAQ / Reviews / service areas).
 Honesty invariants are asserted here on purpose: no fabricated testimonials,
 no invented coverage areas, FAQ carries rich-result JSON-LD.
 """
+
 from __future__ import annotations
 
 from backend.website.models import WebsiteBrief, WebsitePage
@@ -21,8 +22,11 @@ def _brief(**over):
         address="<street>, <city>, <state> 97624",
         brand_colors=["#0E7C8B", "#5CB544", "#F2EC4F"],
         pages=[
-            WebsitePage(slug="services", title="Services", content={
-                "list": "Deep Cleaning | Airbnb Turnovers | Commercial | Residential"}),
+            WebsitePage(
+                slug="services",
+                title="Services",
+                content={"list": "Deep Cleaning | Airbnb Turnovers | Commercial | Residential"},
+            ),
         ],
     )
     base.update(over)
@@ -48,9 +52,18 @@ def test_services_page_lists_each_service():
 
 
 def test_move_out_service_gets_dedicated_blurb():
-    brief = _brief(pages=[WebsitePage(slug="services", title="Services", content={
-        "list": "Deep Cleaning | Move-Out Cleaning | Airbnb Turnovers"})])
-    html = {p["file"]: p for p in build_marketing_pages(brief, media={})}["services.html"]["content"]
+    brief = _brief(
+        pages=[
+            WebsitePage(
+                slug="services",
+                title="Services",
+                content={"list": "Deep Cleaning | Move-Out Cleaning | Airbnb Turnovers"},
+            )
+        ]
+    )
+    html = {p["file"]: p for p in build_marketing_pages(brief, media={})}["services.html"][
+        "content"
+    ]
     assert "Move-Out Cleaning" in html
     # not the generic fallback — the move-specific copy
     assert "Moving in or out" in html
@@ -66,8 +79,10 @@ def test_reviews_page_has_no_fabricated_testimonials():
 
 
 def test_reviews_page_uses_review_url_when_supplied():
-    pages = {p["file"]: p for p in build_marketing_pages(
-        _brief(review_url="https://g.page/r/mhh/review"), media={})}
+    pages = {
+        p["file"]: p
+        for p in build_marketing_pages(_brief(review_url="https://g.page/r/mhh/review"), media={})
+    }
     assert "https://g.page/r/mhh/review" in pages["reviews.html"]["content"]
     assert "Leave a Review" in pages["reviews.html"]["content"]
 
@@ -83,12 +98,15 @@ def test_area_page_defaults_to_business_city_only():
 
 def test_area_pages_never_invent_coverage():
     # explicit service_areas -> exactly those, nothing fabricated
-    pages = build_marketing_pages(_brief(service_areas=["Klamath Falls", "Sprague River"]), media={})
+    pages = build_marketing_pages(
+        _brief(service_areas=["Klamath Falls", "Sprague River"]), media={}
+    )
     area_files = {p["file"] for p in pages if p.get("area")}
     assert area_files == {"areas/klamath-falls.html", "areas/sprague-river.html"}
 
 
 # --- integration through build_static_site ---------------------------------
+
 
 def test_multipage_wired_into_site_build():
     site = build_static_site(_brief())
@@ -148,6 +166,7 @@ def test_google_form_embed_helper_rejects_unsafe():
 
 def test_csp_allows_google_forms_frame():
     from backend.website.deploy_cloudflare import build_security_headers
+
     headers = build_security_headers()
     assert "frame-src https://docs.google.com https://forms.gle" in headers
 

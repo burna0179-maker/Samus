@@ -4,6 +4,7 @@ Covers: deterministic node execution, approval-gate pause + resume, audit event
 emission, KPI updates, unsafe public-action rejection, and creating a real
 Sample School campaign instance from the shipped template.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -15,7 +16,6 @@ from backend.campaigns import audit as audit_mod
 from backend.campaigns import orchestrator as orch_mod
 from backend.campaigns.audit import CampaignAuditLedger
 from backend.campaigns.models import (
-    ApprovalLevel,
     CampaignInstance,
     CampaignNode,
     CampaignRun,
@@ -78,10 +78,20 @@ def _linear_template(**over) -> dict:
         "required_inputs": ["client_id"],
         "kpis": [{"key": "page_views"}],
         "nodes": [
-            {"id": "audit", "type": "seo_audit", "target_workcell": "seo",
-             "capability": "audit_and_report", "approval_required": "none"},
-            {"id": "collect", "type": "metrics_collection", "target_workcell": "campaigns",
-             "capability": "update_kpis", "approval_required": "none"},
+            {
+                "id": "audit",
+                "type": "seo_audit",
+                "target_workcell": "seo",
+                "capability": "audit_and_report",
+                "approval_required": "none",
+            },
+            {
+                "id": "collect",
+                "type": "metrics_collection",
+                "target_workcell": "campaigns",
+                "capability": "update_kpis",
+                "approval_required": "none",
+            },
         ],
         "edges": [{"from": "audit", "to": "collect"}],
     }
@@ -134,10 +144,24 @@ def test_emits_audit_events_with_required_schema(isolated):
     node_events = [e for e in events if e.get("node_id")]
     assert node_events, "expected per-node audit events"
     required = {
-        "event_id", "trace_id", "campaign_id", "client_id", "node_id",
-        "node_type", "target_workcell", "capability", "input_hash",
-        "output_hash", "status", "severity", "approval_state", "timestamp",
-        "duration_ms", "error_summary", "artifact_refs", "kpi_refs",
+        "event_id",
+        "trace_id",
+        "campaign_id",
+        "client_id",
+        "node_id",
+        "node_type",
+        "target_workcell",
+        "capability",
+        "input_hash",
+        "output_hash",
+        "status",
+        "severity",
+        "approval_state",
+        "timestamp",
+        "duration_ms",
+        "error_summary",
+        "artifact_refs",
+        "kpi_refs",
     }
     for ev in node_events:
         assert required.issubset(ev.keys()), required - ev.keys()
@@ -151,10 +175,20 @@ def test_pauses_at_approval_gate_then_resumes(isolated):
     tpl = _linear_template(
         template_id="gated",
         nodes=[
-            {"id": "audit", "type": "seo_audit", "target_workcell": "seo",
-             "capability": "audit_and_report", "approval_required": "none"},
-            {"id": "plan", "type": "funnel_plan", "target_workcell": "proposal",
-             "capability": "generate_proposal", "approval_required": "operator"},
+            {
+                "id": "audit",
+                "type": "seo_audit",
+                "target_workcell": "seo",
+                "capability": "audit_and_report",
+                "approval_required": "none",
+            },
+            {
+                "id": "plan",
+                "type": "funnel_plan",
+                "target_workcell": "proposal",
+                "capability": "generate_proposal",
+                "approval_required": "operator",
+            },
         ],
         edges=[{"from": "audit", "to": "plan"}],
     )
@@ -182,8 +216,13 @@ def test_rejecting_approval_blocks_the_node(isolated):
     tpl = _linear_template(
         template_id="gated2",
         nodes=[
-            {"id": "plan", "type": "funnel_plan", "target_workcell": "proposal",
-             "capability": "generate_proposal", "approval_required": "operator"},
+            {
+                "id": "plan",
+                "type": "funnel_plan",
+                "target_workcell": "proposal",
+                "capability": "generate_proposal",
+                "approval_required": "operator",
+            },
         ],
         edges=[],
     )
@@ -205,8 +244,13 @@ def test_rejects_unsafe_public_action_without_approval(isolated):
     tpl = _linear_template(
         template_id="unsafe",
         nodes=[
-            {"id": "post", "type": "public_action", "target_workcell": "outreach",
-             "capability": "send_message", "approval_required": "none"},
+            {
+                "id": "post",
+                "type": "public_action",
+                "target_workcell": "outreach",
+                "capability": "send_message",
+                "approval_required": "none",
+            },
         ],
         edges=[],
     )
@@ -283,8 +327,11 @@ def test_generates_weekly_report_from_run_state(isolated):
 
     ledger = CampaignAuditLedger(str(isolated / "ledger.jsonl"))
     run = CampaignRun(
-        campaign_id="rc", client_id="acme", template_id="school_enrollment_campaign",
-        vertical="education", state=CampaignState.RUNNING,
+        campaign_id="rc",
+        client_id="acme",
+        template_id="school_enrollment_campaign",
+        vertical="education",
+        state=CampaignState.RUNNING,
     )
     run.completed_nodes = ["intake_assets", "audit_website"]
     kpi.apply_kpi_events(run, [{"kpi": "page_views", "mode": "set", "value": 900}])
@@ -292,9 +339,14 @@ def test_generates_weekly_report_from_run_state(isolated):
     # local dispatch path: metrics_collection + reporting run in-process
     local = LocalCapabilityDispatcher(ledger)
     snap = local.dispatch(
-        node=CampaignNode(id="collect", type="metrics_collection",
-                          target_workcell="campaigns", capability="update_kpis"),
-        payload={}, run=run,
+        node=CampaignNode(
+            id="collect",
+            type="metrics_collection",
+            target_workcell="campaigns",
+            capability="update_kpis",
+        ),
+        payload={},
+        run=run,
     )
     assert snap["summary"] == "kpi_snapshot"
 
@@ -302,9 +354,16 @@ def test_generates_weekly_report_from_run_state(isolated):
     assert artifact.type == "weekly_report"
     body = json.loads(Path(artifact.ref).read_text(encoding="utf-8"))
     for section in (
-        "executive_summary", "kpi_table", "completed_actions", "blocked_actions",
-        "next_actions", "top_performing_channels", "weak_points",
-        "recommendations", "approval_requests", "artifact_links",
+        "executive_summary",
+        "kpi_table",
+        "completed_actions",
+        "blocked_actions",
+        "next_actions",
+        "top_performing_channels",
+        "weak_points",
+        "recommendations",
+        "approval_requests",
+        "artifact_links",
     ):
         assert section in body
     assert body["completed_actions"] == ["intake_assets", "audit_website"]
@@ -315,7 +374,9 @@ def test_create_rejects_missing_required_inputs(isolated):
     template = load_template(_SCHOOL)
     orch = _make_orch(FakeDispatcher(), isolated)
     bad = CampaignInstance(
-        campaign_id="x", client_id="c", template_id="school_enrollment_campaign",
+        campaign_id="x",
+        client_id="c",
+        template_id="school_enrollment_campaign",
         inputs={"school_name": "S"},  # missing website_url, enrollment_deadline, ...
     )
     with pytest.raises(orch_mod.CampaignError, match="missing required inputs"):

@@ -21,6 +21,7 @@ The hash ledger is co-located with the daily budget JSON because both
 fail-close together. Same directory, separate file, so a corrupted
 budget bucket doesn't lose the dedup history.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -126,8 +127,7 @@ def validate_stake_sentence(text: str) -> None:
     ratio = _ascii_ratio(stripped)
     if ratio < STAKE_SENTENCE_ASCII_RATIO_FLOOR:
         raise StakeSentenceRejected(
-            f"non_ascii_ratio: ascii ratio {ratio:.3f} < floor "
-            f"{STAKE_SENTENCE_ASCII_RATIO_FLOOR}",
+            f"non_ascii_ratio: ascii ratio {ratio:.3f} < floor {STAKE_SENTENCE_ASCII_RATIO_FLOOR}",
         )
 
 
@@ -173,7 +173,7 @@ def is_duplicate(text: str, lookback: int = STAKE_SENTENCE_DEDUP_WINDOW) -> bool
     h = _sha256_normalized(text)
     with _DEDUP_LOCK:
         hashes = _load_hashes(_dedup_path())
-        recent = hashes[-max(1, int(lookback)):]
+        recent = hashes[-max(1, int(lookback)) :]
         return h in recent
 
 

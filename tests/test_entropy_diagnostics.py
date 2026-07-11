@@ -7,6 +7,7 @@ Verification targets from the plan:
   * low disk / oversized ledger dir / high RSS -> resource-exhaustion
 Each finding emits a decision.made diagnostic event.
 """
+
 from __future__ import annotations
 
 import json
@@ -28,10 +29,14 @@ def _isolate(tmp_path, monkeypatch):
 
 def _diag_events():
     from backend.common.business_events import DECISION_MADE, read_events
+
     return [
-        e for e in read_events(event_types=[DECISION_MADE])
-        if (e.get("metadata") or {}).get("decision") in (
-            "diagnostic", "container_restart_request",
+        e
+        for e in read_events(event_types=[DECISION_MADE])
+        if (e.get("metadata") or {}).get("decision")
+        in (
+            "diagnostic",
+            "container_restart_request",
         )
     ]
 
@@ -40,6 +45,7 @@ def _diag_events():
 # stuck-loop
 # ---------------------------------------------------------------------------
 
+
 def test_stuck_loop_detected(monkeypatch):
     from backend.common import dlq
     from backend.entropy import diagnostics
@@ -47,8 +53,12 @@ def test_stuck_loop_detected(monkeypatch):
     # Enqueue the same task_id repeatedly with a rising attempt count.
     for attempt in (1, 2, 3, 4):
         dlq.enqueue_failure(
-            "seo", task_id="t-stuck", target="seo",
-            payload={}, error="boom", attempt=attempt,
+            "seo",
+            task_id="t-stuck",
+            target="seo",
+            payload={},
+            error="boom",
+            attempt=attempt,
         )
     findings = diagnostics.detect_stuck_loops()
     stuck = [f for f in findings if f.subject == "t-stuck"]
@@ -64,8 +74,7 @@ def test_stuck_loop_below_threshold_not_flagged(monkeypatch):
     from backend.common import dlq
     from backend.entropy import diagnostics
 
-    dlq.enqueue_failure("seo", task_id="t-ok", target="seo",
-                        payload={}, error="x", attempt=1)
+    dlq.enqueue_failure("seo", task_id="t-ok", target="seo", payload={}, error="x", attempt=1)
     assert diagnostics.detect_stuck_loops() == []
 
 
@@ -73,21 +82,25 @@ def test_stuck_loop_below_threshold_not_flagged(monkeypatch):
 # dead-worker
 # ---------------------------------------------------------------------------
 
+
 def test_dead_worker_detected_and_operator_task(_isolate, monkeypatch):
     from backend.entropy import diagnostics
 
     coord = _isolate / "coord"
     stale_ts = time.time() - 300  # 5 min old, well past the 60s default
     (coord / "darwin_heartbeat.json").write_text(
-        json.dumps({"agent_id": "darwin", "ts": stale_ts}), encoding="utf-8",
+        json.dumps({"agent_id": "darwin", "ts": stale_ts}),
+        encoding="utf-8",
     )
     # A fresh heartbeat must NOT be flagged.
     (coord / "samus_heartbeat.json").write_text(
-        json.dumps({"agent_id": "samus", "ts": time.time()}), encoding="utf-8",
+        json.dumps({"agent_id": "samus", "ts": time.time()}),
+        encoding="utf-8",
     )
 
     tasks: list = []
     import backend.crm.service as crm
+
     monkeypatch.setattr(crm, "create_operator_task", lambda req: tasks.append(req))
 
     findings = diagnostics.detect_dead_workers()
@@ -110,15 +123,18 @@ def test_dead_worker_detected_and_operator_task(_isolate, monkeypatch):
 # orphan-task
 # ---------------------------------------------------------------------------
 
+
 def test_orphan_task_detected_and_requeued(monkeypatch):
     from backend.common import dlq
     from backend.entropy import diagnostics
 
-    dlq.enqueue_failure("gateway", task_id="t-orphan", target="leadgen",
-                        payload={"x": 1}, error="down", attempt=1)
+    dlq.enqueue_failure(
+        "gateway", task_id="t-orphan", target="leadgen", payload={"x": 1}, error="down", attempt=1
+    )
 
     replays: list = []
     import backend.common.replay_worker as rw
+
     monkeypatch.setattr(rw, "replay_gateway_dlq_sync", lambda limit=25: replays.append(limit) or [])
 
     # now far in the future so the pending row is "past TTL".
@@ -134,8 +150,9 @@ def test_orphan_task_within_ttl_not_flagged(monkeypatch):
     from backend.common import dlq
     from backend.entropy import diagnostics
 
-    dlq.enqueue_failure("gateway", task_id="t-young", target="leadgen",
-                        payload={}, error="x", attempt=1)
+    dlq.enqueue_failure(
+        "gateway", task_id="t-young", target="leadgen", payload={}, error="x", attempt=1
+    )
     # now == enqueue time -> age ~0 < TTL.
     assert diagnostics.detect_orphan_tasks(now=time.time()) == []
 
@@ -144,8 +161,9 @@ def test_orphan_task_skips_already_replayed(monkeypatch):
     from backend.common import dlq
     from backend.entropy import diagnostics
 
-    eid = dlq.enqueue_failure("gateway", task_id="t-done", target="leadgen",
-                              payload={}, error="x", attempt=1)
+    eid = dlq.enqueue_failure(
+        "gateway", task_id="t-done", target="leadgen", payload={}, error="x", attempt=1
+    )
     dlq.mark_replayed("gateway", eid, replay_status="replayed")
     findings = diagnostics.detect_orphan_tasks(now=time.time() + 10_000)
     assert not any(f.extras.get("event_id") == eid for f in findings)
@@ -154,6 +172,7 @@ def test_orphan_task_skips_already_replayed(monkeypatch):
 # ---------------------------------------------------------------------------
 # resource-exhaustion
 # ---------------------------------------------------------------------------
+
 
 def test_resource_exhaustion_low_disk(monkeypatch):
     from backend.entropy import diagnostics
@@ -192,12 +211,12 @@ def test_resource_exhaustion_healthy_disk(monkeypatch):
 # orchestrator
 # ---------------------------------------------------------------------------
 
+
 def test_run_diagnostics_aggregates(_isolate, monkeypatch):
     from backend.common import dlq
     from backend.entropy import diagnostics
 
-    dlq.enqueue_failure("seo", task_id="t-x", target="seo",
-                        payload={}, error="e", attempt=5)
+    dlq.enqueue_failure("seo", task_id="t-x", target="seo", payload={}, error="e", attempt=5)
     monkeypatch.setattr(diagnostics, "_process_rss_mb", lambda: 100.0)
 
     report = diagnostics.run_diagnostics(remediate=False)
@@ -208,6 +227,7 @@ def test_run_diagnostics_aggregates(_isolate, monkeypatch):
 
 def test_run_diagnostics_clean_is_healthy(monkeypatch):
     from backend.entropy import diagnostics
+
     monkeypatch.setattr(diagnostics, "_process_rss_mb", lambda: 100.0)
 
     class _Usage:

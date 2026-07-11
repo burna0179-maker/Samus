@@ -11,6 +11,7 @@ Fail-closed: if the Codex itself can't be parsed at boot, every subsequent
 check_action call raises `CodexUnavailable`. We never silently downgrade
 to "no rules" — the rules failing to load IS the safety failure.
 """
+
 from __future__ import annotations
 
 from .exceptions import (

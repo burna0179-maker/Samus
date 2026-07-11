@@ -7,6 +7,7 @@ nothing (returns a dry-run result) unless an operator sets
 ``POST {base}/api/v1/workflows`` with the ``X-N8N-API-KEY`` header. Returns a
 structured dict either way; never raises.
 """
+
 from __future__ import annotations
 
 import logging
@@ -41,13 +42,23 @@ def deploy_workflow(wf: N8nWorkflow, *, settings) -> dict[str, Any]:
 
     # n8n's create endpoint accepts name/nodes/connections/settings (not the
     # read-only fields like 'active'/'id').
-    payload = {k: v for k, v in wf.to_dict().items() if k in ("name", "nodes", "connections", "settings")}
+    payload = {
+        k: v for k, v in wf.to_dict().items() if k in ("name", "nodes", "connections", "settings")
+    }
     url = f"{base}/api/v1/workflows"
     try:
-        resp = _http_post(url, json=payload, headers={"X-N8N-API-KEY": api_key, "Content-Type": "application/json"})
+        resp = _http_post(
+            url,
+            json=payload,
+            headers={"X-N8N-API-KEY": api_key, "Content-Type": "application/json"},
+        )
     except httpx.HTTPError as exc:
         _LOG.warning("n8n deploy transport error: %s", exc)
-        return {"status": "transport_error", "deployed": False, "error": f"{type(exc).__name__}: {exc}"}
+        return {
+            "status": "transport_error",
+            "deployed": False,
+            "error": f"{type(exc).__name__}: {exc}",
+        }
 
     if resp.status_code not in (200, 201):
         return {"status": f"http_{resp.status_code}", "deployed": False, "error": resp.text[:200]}

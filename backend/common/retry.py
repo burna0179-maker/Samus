@@ -5,6 +5,7 @@ The new shape is a per-target ``CircuitState`` dataclass with a module-level
 ``CIRCUITS`` dict keyed by target URL. ``retry_request`` wraps a callable in
 exponential backoff + circuit-aware refusal.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -59,11 +60,13 @@ def _on_health_transition(target: str, *, healthy: bool) -> None:
     state = "healthy" if healthy else "unhealthy"
     try:
         from . import audit
+
         audit.record("gateway.health.transition", target=target, state=state)
     except Exception:  # noqa: BLE001 - transition side effects must never break the call
         pass
     try:
         from .notify import notify_operator
+
         if healthy:
             notify_operator(
                 "Gateway target recovered",
@@ -123,7 +126,7 @@ async def retry_request(
                 _on_health_transition(target, healthy=False)
             if not idempotent or attempt >= max_retries:
                 break
-            delay = base_delay * (2 ** attempt)
+            delay = base_delay * (2**attempt)
             await asyncio.sleep(delay)
         except Exception as exc:
             if circuit.record_failure():

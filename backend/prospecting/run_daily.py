@@ -8,6 +8,7 @@ Runs the prospecting pipeline in-process and writes the CSV under the Samus
 artifact root (``SAMUS_ARTIFACT_ROOT`` env override or default
 ``E:\\Hustleforge\\Samus\\data\\artifacts\\daily_calls\\``).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -30,19 +31,25 @@ def main(argv: list[str] | None = None) -> int:
         prog="backend.prospecting.run_daily",
         description="Run the daily Samus prospecting pipeline; emit call_list_*.csv.",
     )
-    parser.add_argument("--zipcodes", required=True,
-                        help="Comma-separated zipcodes, e.g. 95993,95991")
-    parser.add_argument("--industries", default="",
-                        help="Comma-separated industries / Google Places keywords")
+    parser.add_argument(
+        "--zipcodes", required=True, help="Comma-separated zipcodes, e.g. 95993,95991"
+    )
+    parser.add_argument(
+        "--industries", default="", help="Comma-separated industries / Google Places keywords"
+    )
     parser.add_argument("--max-per-zip", type=int, default=25)
     parser.add_argument("--radius-miles", type=int, default=15)
-    parser.add_argument("--include-no-website", action="store_true",
-                        help="Keep prospects with no website at discovery; they "
-                             "are tagged website_status=no_website and ranked as "
-                             "top web-design leads on the morning call list")
+    parser.add_argument(
+        "--include-no-website",
+        action="store_true",
+        help="Keep prospects with no website at discovery; they "
+        "are tagged website_status=no_website and ranked as "
+        "top web-design leads on the morning call list",
+    )
     parser.add_argument("--campaign", default="daily_call_list")
-    parser.add_argument("--task-id", default=None,
-                        help="Idempotency key (default: campaign + today's date)")
+    parser.add_argument(
+        "--task-id", default=None, help="Idempotency key (default: campaign + today's date)"
+    )
     args = parser.parse_args(argv)
 
     logging.basicConfig(

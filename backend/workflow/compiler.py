@@ -10,6 +10,7 @@ The compile is deterministic and offline. When ``use_llm`` is set, an optional
 budget-gated enrichment pass fills node parameters from the intake text; it
 fail-softs to the deterministic defaults on any error.
 """
+
 from __future__ import annotations
 
 import copy
@@ -52,9 +53,15 @@ def compile_workflow(
     x = _X0 + _COL
 
     # --- actions, then notifications, in order ----------------------------
-    chain = [("action", lbl) for lbl in plan.actions] + [("notification", lbl) for lbl in plan.notifications]
+    chain = [("action", lbl) for lbl in plan.actions] + [
+        ("notification", lbl) for lbl in plan.notifications
+    ]
     for kind, label in chain:
-        spec = action_spec(label, plan.tools) if kind == "action" else notification_spec(label, plan.tools)
+        spec = (
+            action_spec(label, plan.tools)
+            if kind == "action"
+            else notification_spec(label, plan.tools)
+        )
         node = _node(spec, _label_name(label), kind, (x, _ROW), used)
         wf.nodes.append(node)
         wf.connect(prev, node.name)
@@ -62,12 +69,27 @@ def compile_workflow(
         x += _COL
 
     # --- failure branch (always) ------------------------------------------
-    err = _node({"type": "n8n-nodes-base.errorTrigger", "type_version": 1.0, "parameters": {}, "credential_hint": ""},
-                "On Error", "error_trigger", (_X0, _ROW + 260), used)
+    err = _node(
+        {
+            "type": "n8n-nodes-base.errorTrigger",
+            "type_version": 1.0,
+            "parameters": {},
+            "credential_hint": "",
+        },
+        "On Error",
+        "error_trigger",
+        (_X0, _ROW + 260),
+        used,
+    )
     # Reuse the channel the plan already uses for alerts (notifications carry the
     # discord_webhook label; tools carry slack), so the failure branch matches.
-    alert = _node(error_alert_spec(plan.tools + plan.notifications), "Failure Alert",
-                  "notification", (_X0 + _COL, _ROW + 260), used)
+    alert = _node(
+        error_alert_spec(plan.tools + plan.notifications),
+        "Failure Alert",
+        "notification",
+        (_X0 + _COL, _ROW + 260),
+        used,
+    )
     wf.nodes.append(err)
     wf.nodes.append(alert)
     wf.connect(err.name, alert.name)

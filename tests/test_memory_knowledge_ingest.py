@@ -7,15 +7,12 @@ signature_verifier are injected as mock callables.
 from __future__ import annotations
 
 import json
-import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 
 from backend.memory.knowledge_ingest import (
     IngestRequest,
-    IngestReceipt,
     KnowledgeIngestPod,
     TrustLevel,
     _chunk_text,

@@ -1,17 +1,18 @@
 """Liabilities loader + per-lender balance math."""
+
 from __future__ import annotations
 
 
 def test_load_default_registry_validates():
     from backend.finance.liabilities import load_registry
+
     reg = load_registry()
     # PDF-seeded: 4 lenders, 24 loan entries, 0 repayments
     assert len(reg.lenders) == 4
     assert len(reg.loans) == 24
     assert reg.repayments == []
     ids = {l.id for l in reg.lenders}
-    assert ids == {"sample-lender", "sample-customer",
-                   "cristina-chomina", "ori-may"}
+    assert ids == {"sample-lender", "sample-customer", "cristina-chomina", "ori-may"}
 
 
 def test_load_registry_respects_env_override(tmp_path, monkeypatch):
@@ -29,6 +30,7 @@ def test_load_registry_respects_env_override(tmp_path, monkeypatch):
     )
     monkeypatch.setenv("SAMUS_LIABILITIES_PATH", str(custom))
     from backend.finance.liabilities import load_registry
+
     reg = load_registry()
     assert len(reg.lenders) == 1
     assert reg.loans[0].amount_usd == 100
@@ -38,6 +40,7 @@ def test_per_lender_balances_camille_total_572(monkeypatch):
     """Verify the real PDF math for Sample Lender."""
     monkeypatch.delenv("SAMUS_LIABILITIES_PATH", raising=False)
     from backend.finance.liabilities import load_registry, per_lender_balances
+
     balances = per_lender_balances(load_registry())
     by_id = {b.lender_id: b for b in balances}
     # 45+150+20+20+30+75+72+60+85+15 = 572
@@ -49,6 +52,7 @@ def test_per_lender_balances_camille_total_572(monkeypatch):
 def test_per_lender_balances_harmony_total_740(monkeypatch):
     monkeypatch.delenv("SAMUS_LIABILITIES_PATH", raising=False)
     from backend.finance.liabilities import load_registry, per_lender_balances
+
     balances = per_lender_balances(load_registry())
     by_id = {b.lender_id: b for b in balances}
     # 40+40+30+75+90+125+90+250 = 740
@@ -59,6 +63,7 @@ def test_per_lender_balances_harmony_total_740(monkeypatch):
 def test_per_lender_balances_sorted_desc(monkeypatch):
     monkeypatch.delenv("SAMUS_LIABILITIES_PATH", raising=False)
     from backend.finance.liabilities import load_registry, per_lender_balances
+
     balances = per_lender_balances(load_registry())
     outs = [b.outstanding_usd for b in balances]
     assert outs == sorted(outs, reverse=True)
@@ -70,6 +75,7 @@ def test_per_lender_balances_sorted_desc(monkeypatch):
 def test_summarize_aggregates_to_1642(monkeypatch):
     monkeypatch.delenv("SAMUS_LIABILITIES_PATH", raising=False)
     from backend.finance.liabilities import load_registry, summarize
+
     summary = summarize(load_registry(), "2026-05-15T00:00:00Z")
     # 572 + 740 + 75 + 255 = 1642
     assert summary.total_outstanding_usd == 1642.0
@@ -92,6 +98,7 @@ def test_repayment_reduces_outstanding(tmp_path, monkeypatch):
     )
     monkeypatch.setenv("SAMUS_LIABILITIES_PATH", str(custom))
     from backend.finance.liabilities import load_registry, summarize
+
     s = summarize(load_registry(), "2026-05-15T00:00:00Z")
     assert s.total_loans_received_usd == 150
     assert s.total_repayments_made_usd == 30
@@ -109,6 +116,7 @@ def test_unknown_lender_id_surfaces_as_unknown(tmp_path, monkeypatch):
     )
     monkeypatch.setenv("SAMUS_LIABILITIES_PATH", str(custom))
     from backend.finance.liabilities import load_registry, per_lender_balances
+
     balances = per_lender_balances(load_registry())
     assert len(balances) == 1
     assert balances[0].lender_name == "unknown:typo"

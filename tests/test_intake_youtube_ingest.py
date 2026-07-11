@@ -11,17 +11,15 @@ so the tests run offline. Per-stage failure modes are covered:
 The orchestrator's "always write a KB stub even on failure" policy is
 verified through the ledger row + KB-write-call assertions.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 
-import pytest
 
 from backend.intake.youtube_ingest import (
     DistillResult,
     TranscriptResult,
-    YouTubeInsightHandled,
     distill_with_claude,
     extract_video_id,
     handle_youtube_email,
@@ -32,6 +30,7 @@ from backend.intake.youtube_ingest import (
 # ---------------------------------------------------------------------------
 # Minimal fake of ParsedInboundEmail so we don't need email module wiring.
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class _FakeParsed:
@@ -53,6 +52,7 @@ class _FakeParsed:
 # ---------------------------------------------------------------------------
 # Classifier
 # ---------------------------------------------------------------------------
+
 
 def test_classifier_accepts_notifications_sender_with_watch_url():
     p = _FakeParsed()
@@ -93,13 +93,17 @@ def test_extract_video_id_returns_none_when_no_url():
 # Distiller — uses anthropic_messages mocked at module level.
 # ---------------------------------------------------------------------------
 
+
 def _patch_anthropic(monkeypatch, *, response_text: str, raise_exc=None):
     """Replace anthropic_messages used inside distill_with_claude."""
+
     def _fake(*, workcell, api_key, prompt, system=None, max_tokens=1024, **_kw):
         if raise_exc is not None:
             raise raise_exc
         return response_text, {"input_tokens": 100, "output_tokens": 50}
+
     import backend.common.llm_client as llm_mod
+
     monkeypatch.setattr(llm_mod, "anthropic_messages", _fake)
 
 
@@ -113,14 +117,17 @@ def _override_settings(monkeypatch, *, anthropic_api_key: str = "test-key"):
 
 def test_distill_extracted_path(monkeypatch):
     _override_settings(monkeypatch)
-    _patch_anthropic(monkeypatch, response_text='''
+    _patch_anthropic(
+        monkeypatch,
+        response_text="""
     {
       "insight_present": true,
       "summary": "Video demos a new agent-memory pattern using event sourcing.",
       "proposed_target_agent": "anita",
       "proposed_changes_md": "## Hypothesis\\nApply event sourcing to TaskLedger..."
     }
-    ''')
+    """,
+    )
     r = distill_with_claude("some transcript text", video_id="abc123abcde")
     assert r.status == "extracted"
     assert r.proposed_target_agent == "anita"
@@ -130,14 +137,17 @@ def test_distill_extracted_path(monkeypatch):
 
 def test_distill_empty_path_when_claude_says_no_insight(monkeypatch):
     _override_settings(monkeypatch)
-    _patch_anthropic(monkeypatch, response_text='''
+    _patch_anthropic(
+        monkeypatch,
+        response_text="""
     {
       "insight_present": false,
       "summary": "Marketing video about a SaaS product, no engineering content.",
       "proposed_target_agent": "none",
       "proposed_changes_md": ""
     }
-    ''')
+    """,
+    )
     r = distill_with_claude("some marketing transcript", video_id="aaaaaaaaaaa")
     assert r.status == "empty"
     assert r.proposed_target_agent == "none"
@@ -148,9 +158,12 @@ def test_distill_strips_markdown_fences_around_json(monkeypatch):
     """Claude sometimes wraps responses in ```json ... ``` despite the
     'output ONLY the JSON object' instruction; the distiller must tolerate."""
     _override_settings(monkeypatch)
-    _patch_anthropic(monkeypatch, response_text='''```json
+    _patch_anthropic(
+        monkeypatch,
+        response_text="""```json
     {"insight_present": true, "summary": "ok", "proposed_target_agent": "darwin", "proposed_changes_md": "x"}
-    ```''')
+    ```""",
+    )
     r = distill_with_claude("t", video_id="bbbbbbbbbbb")
     assert r.status == "extracted"
     assert r.proposed_target_agent == "darwin"
@@ -158,9 +171,12 @@ def test_distill_strips_markdown_fences_around_json(monkeypatch):
 
 def test_distill_failed_on_unknown_target_agent_collapses_to_none(monkeypatch):
     _override_settings(monkeypatch)
-    _patch_anthropic(monkeypatch, response_text='''
+    _patch_anthropic(
+        monkeypatch,
+        response_text="""
     {"insight_present": true, "summary": "x", "proposed_target_agent": "morpheus", "proposed_changes_md": "y"}
-    ''')
+    """,
+    )
     r = distill_with_claude("t", video_id="ccccccccccc")
     # 'morpheus' is not a Hustleforge agent -> collapses to 'none' -> empty.
     assert r.proposed_target_agent == "none"
@@ -170,9 +186,12 @@ def test_distill_failed_on_unknown_target_agent_collapses_to_none(monkeypatch):
 def test_distill_succeeds_without_api_key(monkeypatch):
     """LM Studio backend needs no API key — empty key must not block."""
     _override_settings(monkeypatch, anthropic_api_key="")
-    _patch_anthropic(monkeypatch, response_text='''
+    _patch_anthropic(
+        monkeypatch,
+        response_text="""
     {"insight_present": true, "summary": "ok", "proposed_target_agent": "anita", "proposed_changes_md": "x"}
-    ''')
+    """,
+    )
     r = distill_with_claude("transcript", video_id="ddddddddddd")
     assert r.status == "extracted"
 
@@ -188,11 +207,15 @@ def test_distill_failed_on_malformed_json(monkeypatch):
 def test_distill_failed_on_budget_exceeded(monkeypatch):
     _override_settings(monkeypatch)
     from backend.common.llm_client import BudgetExceeded
+
     class _D:
         used = 100
         quota = 100
         reason = "daily_quota_exhausted"
-        def __str__(self): return "denied"
+
+        def __str__(self):
+            return "denied"
+
     _patch_anthropic(monkeypatch, response_text="", raise_exc=BudgetExceeded(_D()))
     r = distill_with_claude("transcript", video_id="fffffffffff")
     assert r.status == "failed"
@@ -203,47 +226,55 @@ def test_distill_failed_on_budget_exceeded(monkeypatch):
 # Orchestrator — full pipeline with all externals mocked.
 # ---------------------------------------------------------------------------
 
+
 def _stub_transcript(monkeypatch, *, status: str, text: str = "", error: str = ""):
     import backend.intake.youtube_ingest as yt
+
     def _fake(_video_id: str) -> TranscriptResult:
         if status == "ok":
             excerpt = text[:2048] if len(text) > 2048 else text
             return TranscriptResult(status="ok", text=text, excerpt=excerpt)
         return TranscriptResult(status=status, error=error)
+
     monkeypatch.setattr(yt, "fetch_transcript", _fake)
 
 
 def _stub_distill(monkeypatch, *, result: DistillResult):
     import backend.intake.youtube_ingest as yt
+
     def _fake(transcript_text, *, video_id, video_title="", channel="", **_kw):
         return result
+
     monkeypatch.setattr(yt, "distill_with_claude", _fake)
 
 
-def _stub_kb_write(monkeypatch, *, returns: str = "video_id_ok",
-                    capture: dict | None = None):
+def _stub_kb_write(monkeypatch, *, returns: str = "video_id_ok", capture: dict | None = None):
     import backend.intake.youtube_ingest as yt
+
     def _fake(props):
         if capture is not None:
             capture["props"] = props
         return returns
+
     monkeypatch.setattr(yt, "write_kb_node", _fake)
 
 
-def _stub_persist(monkeypatch, *, returns: str = "/tmp/fake.txt",
-                   capture: dict | None = None):
+def _stub_persist(monkeypatch, *, returns: str = "/tmp/fake.txt", capture: dict | None = None):
     import backend.intake.youtube_ingest as yt
+
     def _fake(video_id, text):
         if capture is not None:
             capture["video_id"] = video_id
             capture["text_len"] = len(text)
         return returns
+
     monkeypatch.setattr(yt, "persist_full_transcript", _fake)
 
 
 def _redirect_ledger(monkeypatch, tmp_path):
     monkeypatch.setenv(
-        "SAMUS_YT_LEDGER", str(tmp_path / "youtube_ingest.jsonl"),
+        "SAMUS_YT_LEDGER",
+        str(tmp_path / "youtube_ingest.jsonl"),
     )
     # Lower the min-transcript-chars gate so existing fixtures with short
     # stubbed transcripts still exercise the LLM (distill) path. The gate
@@ -258,12 +289,15 @@ def test_handle_happy_path_writes_kb_node_and_ledger(monkeypatch, tmp_path):
     capture_persist: dict = {}
     _stub_kb_write(monkeypatch, returns="dQw4w9WgXcQ", capture=capture_kb)
     _stub_persist(monkeypatch, capture=capture_persist)
-    _stub_distill(monkeypatch, result=DistillResult(
-        status="extracted",
-        summary="A talk on agentic memory.",
-        proposed_target_agent="anita",
-        proposed_changes_md="## Hypothesis\nApply event sourcing...",
-    ))
+    _stub_distill(
+        monkeypatch,
+        result=DistillResult(
+            status="extracted",
+            summary="A talk on agentic memory.",
+            proposed_target_agent="anita",
+            proposed_changes_md="## Hypothesis\nApply event sourcing...",
+        ),
+    )
 
     handled = handle_youtube_email(_FakeParsed())
 
@@ -309,8 +343,10 @@ def test_handle_no_transcript_still_writes_stub_kb_node(monkeypatch, tmp_path):
     # Note: distill should NOT run when transcript missing; we stub it
     # anyway to fail-loud if it's called.
     import backend.intake.youtube_ingest as yt
+
     def _should_not_run(*a, **kw):
         raise AssertionError("distill_with_claude must not be called when no transcript")
+
     monkeypatch.setattr(yt, "distill_with_claude", _should_not_run)
 
     handled = handle_youtube_email(_FakeParsed())
@@ -328,12 +364,15 @@ def test_handle_distill_empty_writes_stub_with_empty_status(monkeypatch, tmp_pat
     _stub_persist(monkeypatch)
     capture: dict = {}
     _stub_kb_write(monkeypatch, returns="dQw4w9WgXcQ", capture=capture)
-    _stub_distill(monkeypatch, result=DistillResult(
-        status="empty",
-        summary="Just a marketing demo, no engineering content.",
-        proposed_target_agent="none",
-        proposed_changes_md="",
-    ))
+    _stub_distill(
+        monkeypatch,
+        result=DistillResult(
+            status="empty",
+            summary="Just a marketing demo, no engineering content.",
+            proposed_target_agent="none",
+            proposed_changes_md="",
+        ),
+    )
 
     handled = handle_youtube_email(_FakeParsed())
     assert handled.distill_status == "empty"
@@ -349,10 +388,15 @@ def test_handle_kb_write_failure_surfaces_in_result(monkeypatch, tmp_path):
     _stub_transcript(monkeypatch, status="ok", text="transcript")
     _stub_persist(monkeypatch)
     _stub_kb_write(monkeypatch, returns="")  # Neo4j unreachable
-    _stub_distill(monkeypatch, result=DistillResult(
-        status="extracted", summary="x",
-        proposed_target_agent="darwin", proposed_changes_md="y",
-    ))
+    _stub_distill(
+        monkeypatch,
+        result=DistillResult(
+            status="extracted",
+            summary="x",
+            proposed_target_agent="darwin",
+            proposed_changes_md="y",
+        ),
+    )
     handled = handle_youtube_email(_FakeParsed())
     assert handled.kb_node_written is False
     assert handled.error == "neo4j_write_failed"

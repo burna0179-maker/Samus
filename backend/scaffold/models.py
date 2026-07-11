@@ -1,4 +1,5 @@
 """Pydantic models for the scaffold workcell (doc §6)."""
+
 from __future__ import annotations
 
 from typing import Any, Literal

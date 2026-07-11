@@ -40,6 +40,7 @@ gate → token gate → live send. Any failure returns a clean
 ``SocialSendResult(sent=False, error=...)`` — never an exception, never a
 silent send.
 """
+
 from __future__ import annotations
 
 import json
@@ -273,30 +274,22 @@ def _send_linkedin(post: SocialPost) -> SocialSendResult:
     """
     if not _LINKEDIN_TOKEN:
         _LOG.warning("social_adapter linkedin token unset")
-        return SocialSendResult(
-            sent=False, platform="linkedin", error="linkedin_token_unset"
-        )
+        return SocialSendResult(sent=False, platform="linkedin", error="linkedin_token_unset")
     if not _LINKEDIN_AUTHOR_URN:
         _LOG.warning("social_adapter linkedin author urn unset")
-        return SocialSendResult(
-            sent=False, platform="linkedin", error="linkedin_author_urn_unset"
-        )
+        return SocialSendResult(sent=False, platform="linkedin", error="linkedin_author_urn_unset")
 
     share_content: dict = {
         "shareCommentary": {"text": post.body},
         "shareMediaCategory": "ARTICLE" if post.link else "NONE",
     }
     if post.link:
-        share_content["media"] = [
-            {"status": "READY", "originalUrl": post.link}
-        ]
+        share_content["media"] = [{"status": "READY", "originalUrl": post.link}]
     payload = {
         "author": _LINKEDIN_AUTHOR_URN,
         "lifecycleState": "PUBLISHED",
         "specificContent": {"com.linkedin.ugc.ShareContent": share_content},
-        "visibility": {
-            "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"
-        },
+        "visibility": {"com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"},
     }
     headers = {
         "Authorization": f"Bearer {_LINKEDIN_TOKEN}",
@@ -308,9 +301,7 @@ def _send_linkedin(post: SocialPost) -> SocialSendResult:
     for attempt in range(_RATE_LIMIT_MAX_RETRIES + 1):
         try:
             with httpx.Client(timeout=_HTTP_TIMEOUT) as client:
-                resp = client.post(
-                    _LINKEDIN_UGC_URL, json=payload, headers=headers
-                )
+                resp = client.post(_LINKEDIN_UGC_URL, json=payload, headers=headers)
         except httpx.HTTPError as exc:
             _LOG.warning("linkedin send transport error: %s", exc)
             return SocialSendResult(
@@ -324,16 +315,12 @@ def _send_linkedin(post: SocialPost) -> SocialSendResult:
                 time.sleep(_RATE_LIMIT_BACKOFF_SECONDS[attempt])
                 continue
             _LOG.warning("linkedin rate limited after %d attempts", attempt + 1)
-            return SocialSendResult(
-                sent=False, platform="linkedin", error="linkedin_rate_limited"
-            )
+            return SocialSendResult(sent=False, platform="linkedin", error="linkedin_rate_limited")
 
         if resp.status_code in (200, 201):
             post_id = _parse_linkedin_post_id(resp)
             _LOG.info("linkedin send ok post_id=%s", post_id)
-            return SocialSendResult(
-                sent=True, platform="linkedin", post_id=post_id
-            )
+            return SocialSendResult(sent=True, platform="linkedin", post_id=post_id)
 
         # Any other non-2xx — clean failure, no raise.
         _LOG.warning(
@@ -348,9 +335,7 @@ def _send_linkedin(post: SocialPost) -> SocialSendResult:
         )
 
     # Unreachable, but keep the contract.
-    return SocialSendResult(
-        sent=False, platform="linkedin", error="linkedin_rate_limited"
-    )
+    return SocialSendResult(sent=False, platform="linkedin", error="linkedin_rate_limited")
 
 
 def _parse_linkedin_post_id(resp: httpx.Response) -> str:
@@ -380,19 +365,12 @@ def _send_facebook(post: SocialPost) -> SocialSendResult:
     """
     if not _FACEBOOK_TOKEN:
         _LOG.warning("social_adapter facebook token unset")
-        return SocialSendResult(
-            sent=False, platform="facebook", error="facebook_token_unset"
-        )
+        return SocialSendResult(sent=False, platform="facebook", error="facebook_token_unset")
     if not _FACEBOOK_PAGE_ID:
         _LOG.warning("social_adapter facebook page id unset")
-        return SocialSendResult(
-            sent=False, platform="facebook", error="facebook_page_id_unset"
-        )
+        return SocialSendResult(sent=False, platform="facebook", error="facebook_page_id_unset")
 
-    url = (
-        f"https://graph.facebook.com/{_FACEBOOK_GRAPH_VERSION}/"
-        f"{_FACEBOOK_PAGE_ID}/feed"
-    )
+    url = f"https://graph.facebook.com/{_FACEBOOK_GRAPH_VERSION}/{_FACEBOOK_PAGE_ID}/feed"
     data: dict = {"message": post.body, "access_token": _FACEBOOK_TOKEN}
     if post.link:
         data["link"] = post.link
@@ -421,16 +399,12 @@ def _send_facebook(post: SocialPost) -> SocialSendResult:
                 fb_err_code,
                 attempt + 1,
             )
-            return SocialSendResult(
-                sent=False, platform="facebook", error="facebook_rate_limited"
-            )
+            return SocialSendResult(sent=False, platform="facebook", error="facebook_rate_limited")
 
         if resp.status_code == 200 and fb_err_code is None:
             post_id = _parse_facebook_post_id(resp)
             _LOG.info("facebook send ok post_id=%s", post_id)
-            return SocialSendResult(
-                sent=True, platform="facebook", post_id=post_id
-            )
+            return SocialSendResult(sent=True, platform="facebook", post_id=post_id)
 
         # Any other error — clean failure, no raise.
         _LOG.warning(
@@ -440,13 +414,9 @@ def _send_facebook(post: SocialPost) -> SocialSendResult:
             resp.text[:200],
         )
         detail = f"code_{fb_err_code}" if fb_err_code is not None else f"http_{resp.status_code}"
-        return SocialSendResult(
-            sent=False, platform="facebook", error=f"facebook_{detail}"
-        )
+        return SocialSendResult(sent=False, platform="facebook", error=f"facebook_{detail}")
 
-    return SocialSendResult(
-        sent=False, platform="facebook", error="facebook_rate_limited"
-    )
+    return SocialSendResult(sent=False, platform="facebook", error="facebook_rate_limited")
 
 
 def _facebook_error_code(resp: httpx.Response) -> int | None:
@@ -512,9 +482,7 @@ def send_post(post: SocialPost) -> SocialSendResult:
             dry_run=True,
         )
         _audit_send(post, result)
-        _LOG.debug(
-            "social_adapter dry_run platform=%s post_id=%s", post.platform, post_id
-        )
+        _LOG.debug("social_adapter dry_run platform=%s post_id=%s", post.platform, post_id)
         return result
 
     # --- LIVE PATH (operator opted in) -------------------------------------
@@ -544,9 +512,7 @@ def send_post(post: SocialPost) -> SocialSendResult:
 # LLM-assisted post composition
 # ---------------------------------------------------------------------------
 
-_LINKEDIN_TEMPLATE = (
-    "Excited to share an update: {summary} — reach out to learn more. #business"
-)
+_LINKEDIN_TEMPLATE = "Excited to share an update: {summary} — reach out to learn more. #business"
 _FACEBOOK_TEMPLATE = "Big news: {summary}! Let us know your thoughts."
 
 # Max body lengths by platform (chars, approximate platform limits)
@@ -580,7 +546,7 @@ def compose_post_via_llm(
 
     # Try LLM composition
     try:
-        from backend.common.llm_client import BudgetExceeded, LlmCallError, anthropic_messages
+        from backend.common.llm_client import anthropic_messages
 
         # LM Studio backend needs no auth — always pass "unused".
         api_key = "unused"
@@ -605,9 +571,7 @@ def compose_post_via_llm(
             "compose_post_via_llm llm unavailable (%s), falling back to template",
             type(exc).__name__,
         )
-        template = (
-            _LINKEDIN_TEMPLATE if platform == "linkedin" else _FACEBOOK_TEMPLATE
-        )
+        template = _LINKEDIN_TEMPLATE if platform == "linkedin" else _FACEBOOK_TEMPLATE
         raw = template.format(summary=summary)
         body_text = _truncate_to_limit(raw, platform)
 

@@ -10,6 +10,7 @@ Fail-soft end to end: if DocuSeal is down/misconfigured no email is sent and the
 caller gets ``{"ok": False, "error": ...}`` — a campaign step that cannot
 produce a link never sends a broken one.
 """
+
 from __future__ import annotations
 
 import logging
@@ -43,7 +44,7 @@ def _email_html(company: str, name: str, signing_url: str) -> str:
         f"<p>Your service agreement{org} is ready to sign — about a minute, no "
         f"account needed.</p>"
         f'<p><a href="{signing_url}" style="display:inline-block;padding:12px 20px;'
-        f'background:#7c6cff;color:#fff;border-radius:8px;text-decoration:none;'
+        f"background:#7c6cff;color:#fff;border-radius:8px;text-decoration:none;"
         f'font-weight:600">Review &amp; sign</a></p>'
         f'<p>Or open this link: <a href="{signing_url}">{signing_url}</a></p>'
         f"<p>&mdash; Hustleforge</p>"

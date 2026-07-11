@@ -1,9 +1,9 @@
 """Tests for backend.website.no_website_classifier."""
+
 import pytest
 
 from backend.prospecting.models import ProspectRecord
 from backend.website.no_website_classifier import (
-    NoWebsiteClassification,
     WebsiteGap,
     WebsiteProspectTier,
     classify,
@@ -29,17 +29,21 @@ def _rec(**kwargs) -> ProspectRecord:
 # classify — gap detection
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("status,expected_gap", [
-    ("no_website", WebsiteGap.NO_WEBSITE),
-    ("domain_unresolved", WebsiteGap.NO_WEBSITE),
-    ("gone", WebsiteGap.GONE),
-    ("parked", WebsiteGap.PARKED),
-    ("social_only", WebsiteGap.SOCIAL_ONLY),
-    ("empty", WebsiteGap.BROKEN),
-    ("unreachable", WebsiteGap.BROKEN),
-    ("unreachable_timeout", WebsiteGap.BROKEN),
-    ("server_error", WebsiteGap.BROKEN),
-])
+
+@pytest.mark.parametrize(
+    "status,expected_gap",
+    [
+        ("no_website", WebsiteGap.NO_WEBSITE),
+        ("domain_unresolved", WebsiteGap.NO_WEBSITE),
+        ("gone", WebsiteGap.GONE),
+        ("parked", WebsiteGap.PARKED),
+        ("social_only", WebsiteGap.SOCIAL_ONLY),
+        ("empty", WebsiteGap.BROKEN),
+        ("unreachable", WebsiteGap.BROKEN),
+        ("unreachable_timeout", WebsiteGap.BROKEN),
+        ("server_error", WebsiteGap.BROKEN),
+    ],
+)
 def test_gap_from_status(status, expected_gap):
     rec = _rec(website_status=status)
     cls = classify(rec)
@@ -68,13 +72,16 @@ def test_empty_url_and_status_treated_as_no_website():
 # classify — tier assignment
 # ---------------------------------------------------------------------------
 
+
 def test_high_value_tier_requires_score_and_contact():
     rec = _rec(website_status="no_website", lead_score=80, phone="555-0000")
     assert classify(rec).tier == WebsiteProspectTier.HIGH_VALUE
 
 
 def test_high_score_no_contact_is_quick_win():
-    rec = _rec(website_status="no_website", lead_score=80, phone="", owner_email="", contact_emails="")
+    rec = _rec(
+        website_status="no_website", lead_score=80, phone="", owner_email="", contact_emails=""
+    )
     assert classify(rec).tier == WebsiteProspectTier.QUICK_WIN
 
 
@@ -91,6 +98,7 @@ def test_low_score_is_low_priority():
 # ---------------------------------------------------------------------------
 # classify — output shape
 # ---------------------------------------------------------------------------
+
 
 def test_classification_has_pitch_hook_and_brief():
     rec = _rec(website_status="no_website")
@@ -116,6 +124,7 @@ def test_revenue_floor():
 # ---------------------------------------------------------------------------
 # surface — ranking
 # ---------------------------------------------------------------------------
+
 
 def test_surface_filters_live_sites():
     records = [

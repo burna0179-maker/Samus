@@ -9,6 +9,7 @@ bucketed against a pinned ``today``:
 
 Items with status != open are excluded from all buckets.
 """
+
 from __future__ import annotations
 
 import logging
@@ -50,9 +51,14 @@ def _by_due(items: list[ActionItem]) -> list[ActionItem]:
     return sorted(items, key=lambda a: a.due_date)
 
 
-def summarize(registry: ActionsRegistry, registry_loaded: bool, *,
-              ts: str, today: _date | None = None,
-              week_window_days: int = 7) -> ActionsSummary:
+def summarize(
+    registry: ActionsRegistry,
+    registry_loaded: bool,
+    *,
+    ts: str,
+    today: _date | None = None,
+    week_window_days: int = 7,
+) -> ActionsSummary:
     """Bucket open actions relative to ``today``."""
     anchor = today or _date.today()
     week_end = anchor + timedelta(days=week_window_days)

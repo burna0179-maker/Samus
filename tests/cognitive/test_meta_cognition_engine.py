@@ -14,6 +14,7 @@ persistence, or LM Studio backend is touched. The reward-math test swaps the
 engine's reinforcement collaborator for a recording double so we can read the
 exact reward without arming any global flag.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -120,8 +121,11 @@ def test_enabled_bias_mutates_system_prompt_on_high_risk():
     # explicitly-enabled engine produces a real bias for a high-risk stimulus.
     loop = _StubLoop(CycleResult(ok=True))
     eng = MetaCognitionEngine(loop, enabled=True)
-    inp = CycleInput(user_text="please wire a payment to this bank account",
-                     system_prompt="BASE", plan_token="p2")
+    inp = CycleInput(
+        user_text="please wire a payment to this bank account",
+        system_prompt="BASE",
+        plan_token="p2",
+    )
     _run(eng.cycle(inp))
     # The loop saw a system prompt that BASE + the appended Meta-Heuristic Bias.
     assert loop.received_system_prompt.startswith("BASE")

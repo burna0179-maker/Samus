@@ -19,6 +19,7 @@ Produce the reel MP4 (requires the flag + key + deps)::
     python -m backend.social.video.cli reel --title "The 44% rule" \\
         --key-points "Front-load the answer;Add an FAQ block" --use-llm
 """
+
 from __future__ import annotations
 
 import argparse
@@ -43,7 +44,10 @@ def _cmd_script(args: argparse.Namespace) -> int:
     from backend.social.video.script import build_reel_script
 
     script = build_reel_script(
-        _blog(args), max_segments=args.max_segments, use_llm=args.use_llm, aspect=args.aspect,
+        _blog(args),
+        max_segments=args.max_segments,
+        use_llm=args.use_llm,
+        aspect=args.aspect,
     )
     print(json.dumps(script.to_dict(), indent=2, ensure_ascii=False))
     return 0
@@ -73,10 +77,15 @@ def build_parser() -> argparse.ArgumentParser:
         p.add_argument("--cluster", default="")
         p.add_argument("--aspect", default="9:16")
         p.add_argument("--max-segments", type=int, default=5, dest="max_segments")
-        p.add_argument("--use-llm", action="store_true", help="budget-gated LLM (default templated)")
+        p.add_argument(
+            "--use-llm", action="store_true", help="budget-gated LLM (default templated)"
+        )
         if name == "reel":
-            p.add_argument("--approve-video", action="store_true",
-                           help="approve Veo motion clips (only with SAMUS_SOCIAL_REEL_VIDEO_ENABLED)")
+            p.add_argument(
+                "--approve-video",
+                action="store_true",
+                help="approve Veo motion clips (only with SAMUS_SOCIAL_REEL_VIDEO_ENABLED)",
+            )
         p.set_defaults(func=func)
 
     return parser

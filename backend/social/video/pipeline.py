@@ -11,6 +11,7 @@ This produces an asset; it does NOT post. Dispatching a reel to a live network
 remains the deliberate, DRY-RUN-by-default job of
 :mod:`backend.social.adapters` (and needs a public ``video_url`` first).
 """
+
 from __future__ import annotations
 
 import logging
@@ -44,22 +45,34 @@ def produce_reel(
         settings = get_settings()
 
     if not bool(getattr(settings, "social_reel_enabled", False)):
-        return ReelResult(ok=False, status="disabled",
-                          error="social_reel_enabled is off (set SAMUS_SOCIAL_REEL_ENABLED=true)")
+        return ReelResult(
+            ok=False,
+            status="disabled",
+            error="social_reel_enabled is off (set SAMUS_SOCIAL_REEL_ENABLED=true)",
+        )
 
     aspect = str(getattr(settings, "social_reel_aspect", "9:16") or "9:16")
     max_segments = int(getattr(settings, "social_reel_max_segments", 5) or 5)
     footage_mode = str(getattr(settings, "social_reel_footage_mode", "image") or "image")
-    voice = str(getattr(settings, "social_reel_tts_voice", "en-US-AriaNeural") or "en-US-AriaNeural")
+    voice = str(
+        getattr(settings, "social_reel_tts_voice", "en-US-AriaNeural") or "en-US-AriaNeural"
+    )
 
     # 1. Script ------------------------------------------------------------
     script = reel_script or _script.build_reel_script(
-        blog, max_segments=max_segments, use_llm=use_llm,
-        is_video=(footage_mode == "video"), aspect=aspect,
+        blog,
+        max_segments=max_segments,
+        use_llm=use_llm,
+        is_video=(footage_mode == "video"),
+        aspect=aspect,
     )
     result = ReelResult(
-        ok=False, status="error", title=script.title, aspect=aspect,
-        segments_planned=len(script.segments), used_llm=script.used_llm,
+        ok=False,
+        status="error",
+        title=script.title,
+        aspect=aspect,
+        segments_planned=len(script.segments),
+        used_llm=script.used_llm,
     )
     if not script.segments:
         result.error = "script produced no segments"
@@ -77,7 +90,10 @@ def produce_reel(
 
     # 3. Footage (budget-metered) -----------------------------------------
     footage_paths, footage_report = _footage.generate_segment_footage(
-        script.segments, settings=settings, out_dir=out_dir, video_approved=video_approved,
+        script.segments,
+        settings=settings,
+        out_dir=out_dir,
+        video_approved=video_approved,
     )
     result.spent_usd = float(footage_report.get("spent_usd", 0.0))
     result.segments_generated = len(footage_paths)
@@ -89,12 +105,18 @@ def produce_reel(
     # 4. Compose -----------------------------------------------------------
     from backend.social.video import compose as _compose
 
-    music_path = _compose.resolve_music_path(str(getattr(settings, "social_reel_music_dir", "") or ""))
+    music_path = _compose.resolve_music_path(
+        str(getattr(settings, "social_reel_music_dir", "") or "")
+    )
     mp4_path = out_dir / "reel.mp4"
     try:
         _compose.compose_reel(
-            footage_paths, vo.mp3_path, vo.srt_path,
-            out_path=mp4_path, aspect=aspect, music_path=music_path,
+            footage_paths,
+            vo.mp3_path,
+            vo.srt_path,
+            out_path=mp4_path,
+            aspect=aspect,
+            music_path=music_path,
         )
     except _compose.ComposeError as exc:
         result.error = f"compose: {exc}"
@@ -105,8 +127,13 @@ def produce_reel(
     result.mp4_path = str(mp4_path)
     result.srt_path = vo.srt_path
     result.duration_s = vo.duration_s
-    _LOG.info("produced reel '%s' -> %s (%.2fs, $%.4f)",
-              script.title, mp4_path, result.duration_s, result.spent_usd)
+    _LOG.info(
+        "produced reel '%s' -> %s (%.2fs, $%.4f)",
+        script.title,
+        mp4_path,
+        result.duration_s,
+        result.spent_usd,
+    )
     return result
 
 

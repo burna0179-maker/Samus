@@ -15,6 +15,7 @@ Minutes are rounded UP to whole minutes (telecom convention — a 61-second
 call bills 2 minutes). ``call_id`` is passed to Stripe as the meter event
 ``identifier`` so a webhook redelivery is idempotent and cannot double-bill.
 """
+
 from __future__ import annotations
 
 import json
@@ -83,8 +84,12 @@ def report_call_minutes(
 
     def _fail(error: str, minutes: int = 0) -> MeterReportResult:
         result = MeterReportResult(
-            ok=False, call_id=call_id, stripe_customer_id=stripe_customer_id,
-            minutes_reported=minutes, error=error, ts=ts,
+            ok=False,
+            call_id=call_id,
+            stripe_customer_id=stripe_customer_id,
+            minutes_reported=minutes,
+            error=error,
+            ts=ts,
         )
         _append_meter_log({**result.model_dump(), "sku_id": sku_id})
         return result
@@ -106,11 +111,17 @@ def report_call_minutes(
         # A 0-second call (failed connect, immediate hangup) is billable-clean
         # — log the no-op so the ledger still has a row for the call.
         result = MeterReportResult(
-            ok=True, call_id=call_id, stripe_customer_id=stripe_customer_id,
-            minutes_reported=0, meter_event_id="", error="", ts=ts,
+            ok=True,
+            call_id=call_id,
+            stripe_customer_id=stripe_customer_id,
+            minutes_reported=0,
+            meter_event_id="",
+            error="",
+            ts=ts,
         )
-        _append_meter_log({**result.model_dump(), "sku_id": sku_id,
-                           "note": "zero_billable_minutes"})
+        _append_meter_log(
+            {**result.model_dump(), "sku_id": sku_id, "note": "zero_billable_minutes"}
+        )
         return result
 
     if client is None:
@@ -124,16 +135,19 @@ def report_call_minutes(
             event_name=event_name,
             stripe_customer_id=stripe_customer_id,
             value=billable,
-            identifier=call_id,   # idempotency — redelivery can't double-bill
+            identifier=call_id,  # idempotency — redelivery can't double-bill
         )
     except (StripeError, ValueError) as exc:
         return _fail(f"stripe_meter_event_failed: {exc}", minutes=billable)
 
     result = MeterReportResult(
-        ok=True, call_id=call_id, stripe_customer_id=stripe_customer_id,
+        ok=True,
+        call_id=call_id,
+        stripe_customer_id=stripe_customer_id,
         minutes_reported=billable,
         meter_event_id=str(raw.get("identifier") or raw.get("id") or ""),
-        error="", ts=ts,
+        error="",
+        ts=ts,
     )
     _append_meter_log({**result.model_dump(), "sku_id": sku_id})
     return result

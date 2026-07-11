@@ -18,6 +18,7 @@ prints the durable build STATE (which contains no secrets).
 (see ``scripts/website_orders/_template.json``). The state is keyed by
 ``order_id`` under ``SAMUS_STATE_ROOT`` so every later verb resumes it.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -53,7 +54,8 @@ def _ensure_codex() -> None:
             _LOG.error(
                 "codex registry load failed (%s) — every build stage will "
                 "fail-closed and escalate. Fix the Codex parse error, do not "
-                "bypass.", exc,
+                "bypass.",
+                exc,
             )
 
 

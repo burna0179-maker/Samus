@@ -7,6 +7,7 @@ service function and surface its return value as a JSON-serializable
 dict. The new ``close_payment_to_opportunity`` action is the only logic
 that exists in the worker but not in the /work HTTP route.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -42,23 +43,27 @@ class _FakeTable:
             target_attr = names.get("#f")
             target_val = vals.get(":v")
             if target_attr is not None:
-                out = [it for it in out
-                       if str(it.get(target_attr, "")).strip().lower() ==
-                          str(target_val or "").strip().lower()]
+                out = [
+                    it
+                    for it in out
+                    if str(it.get(target_attr, "")).strip().lower()
+                    == str(target_val or "").strip().lower()
+                ]
         limit = kwargs.get("Limit", 50)
         return {"Items": out[:limit]}
 
 
 def _patch_tables(monkeypatch):
     import backend.crm.persistence as p
+
     tables = {
-        "_prospects_table":        _FakeTable(),
-        "_contacts_table":         _FakeTable(),
-        "_conversations_table":    _FakeTable(),
-        "_call_state_table":       _FakeTable(),
-        "_opportunities_table":    _FakeTable(),
-        "_operator_tasks_table":   _FakeTable(),
-        "_artifacts_table":        _FakeTable(),
+        "_prospects_table": _FakeTable(),
+        "_contacts_table": _FakeTable(),
+        "_conversations_table": _FakeTable(),
+        "_call_state_table": _FakeTable(),
+        "_opportunities_table": _FakeTable(),
+        "_operator_tasks_table": _FakeTable(),
+        "_artifacts_table": _FakeTable(),
         "_onboarding_leads_table": _FakeTable(),
     }
     tables["_prospects_table"].pk_attr = "prospect_id"
@@ -81,6 +86,7 @@ def _audit_to_tmp(monkeypatch, tmp_path):
 # ---------------------------------------------------------------------------
 # Action routing — happy paths
 # ---------------------------------------------------------------------------
+
 
 def test_create_artifact_action(tmp_path, monkeypatch):
     _audit_to_tmp(monkeypatch, tmp_path)
@@ -116,9 +122,14 @@ def test_upsert_conversation_action(tmp_path, monkeypatch):
 def test_upsert_call_state_action(tmp_path, monkeypatch):
     _audit_to_tmp(monkeypatch, tmp_path)
     tables = _patch_tables(monkeypatch)
-    out = crm_worker._handle_action("upsert_call_state", {
-        "prospect_id": "pr_x", "state": "completed", "attempt_count": 1,
-    })
+    out = crm_worker._handle_action(
+        "upsert_call_state",
+        {
+            "prospect_id": "pr_x",
+            "state": "completed",
+            "attempt_count": 1,
+        },
+    )
     assert out["persisted"] is True
     assert out["id"] == "pr_x"
 
@@ -126,9 +137,13 @@ def test_upsert_call_state_action(tmp_path, monkeypatch):
 def test_create_task_action(tmp_path, monkeypatch):
     _audit_to_tmp(monkeypatch, tmp_path)
     tables = _patch_tables(monkeypatch)
-    out = crm_worker._handle_action("create_task", {
-        "kind": "review", "title": "Review the new lead",
-    })
+    out = crm_worker._handle_action(
+        "create_task",
+        {
+            "kind": "review",
+            "title": "Review the new lead",
+        },
+    )
     assert out["status"] == "created"
     assert out["operator_task_id"].startswith("ot_")
 
@@ -137,15 +152,21 @@ def test_create_task_action(tmp_path, monkeypatch):
 # close_payment_to_opportunity — the new collapsed action
 # ---------------------------------------------------------------------------
 
-def _seed_prospect_contact_opportunity(tables, email: str = "buyer@x.com",
-                                       opp_stage: str = "qualified"):
+
+def _seed_prospect_contact_opportunity(
+    tables, email: str = "buyer@x.com", opp_stage: str = "qualified"
+):
     tables["_contacts_table"].items[("contact_id", "co_b")] = {
-        "contact_id": "co_b", "prospect_id": "pr_buyer",
-        "name": "Buyer", "email": email,
+        "contact_id": "co_b",
+        "prospect_id": "pr_buyer",
+        "name": "Buyer",
+        "email": email,
     }
     tables["_opportunities_table"].items[("opportunity_id", "op_b")] = {
-        "opportunity_id": "op_b", "prospect_id": "pr_buyer",
-        "stage": opp_stage, "name": "Buyer deal",
+        "opportunity_id": "op_b",
+        "prospect_id": "pr_buyer",
+        "stage": opp_stage,
+        "name": "Buyer deal",
         "created_at": "2026-05-01T00:00:00Z",
     }
 
@@ -153,13 +174,15 @@ def _seed_prospect_contact_opportunity(tables, email: str = "buyer@x.com",
 def test_close_payment_advances_open_opportunity_to_won(tmp_path, monkeypatch):
     _audit_to_tmp(monkeypatch, tmp_path)
     tables = _patch_tables(monkeypatch)
-    _seed_prospect_contact_opportunity(tables, email="buyer@x.com",
-                                       opp_stage="qualified")
-    out = crm_worker._handle_action("close_payment_to_opportunity", {
-        "email": "buyer@x.com",
-        "amount_usd": 999.0,  # under the FIN-10 cap; test is about the flow
-        "payment_ref": "evt_test_001",
-    })
+    _seed_prospect_contact_opportunity(tables, email="buyer@x.com", opp_stage="qualified")
+    out = crm_worker._handle_action(
+        "close_payment_to_opportunity",
+        {
+            "email": "buyer@x.com",
+            "amount_usd": 999.0,  # under the FIN-10 cap; test is about the flow
+            "payment_ref": "evt_test_001",
+        },
+    )
     assert out["status"] == "advanced"
     assert out["opportunity_id"] == "op_b"
     assert out["email_tail"] == "buyer@x.com"[-12:]
@@ -171,10 +194,15 @@ def test_close_payment_advances_open_opportunity_to_won(tmp_path, monkeypatch):
 
 def test_close_payment_no_match_returns_no_open_opportunity(tmp_path, monkeypatch):
     _audit_to_tmp(monkeypatch, tmp_path)
-    _patch_tables(monkeypatch)   # no seed data
-    out = crm_worker._handle_action("close_payment_to_opportunity", {
-        "email": "ghost@x.com", "amount_usd": 999.0, "payment_ref": "evt_g",
-    })
+    _patch_tables(monkeypatch)  # no seed data
+    out = crm_worker._handle_action(
+        "close_payment_to_opportunity",
+        {
+            "email": "ghost@x.com",
+            "amount_usd": 999.0,
+            "payment_ref": "evt_g",
+        },
+    )
     assert out["status"] == "no_open_opportunity"
     assert out["opportunity_id"] is None
 
@@ -182,9 +210,14 @@ def test_close_payment_no_match_returns_no_open_opportunity(tmp_path, monkeypatc
 def test_close_payment_empty_email_returns_skipped(tmp_path, monkeypatch):
     _audit_to_tmp(monkeypatch, tmp_path)
     _patch_tables(monkeypatch)
-    out = crm_worker._handle_action("close_payment_to_opportunity", {
-        "email": "", "amount_usd": 100.0, "payment_ref": "evt_e",
-    })
+    out = crm_worker._handle_action(
+        "close_payment_to_opportunity",
+        {
+            "email": "",
+            "amount_usd": 100.0,
+            "payment_ref": "evt_e",
+        },
+    )
     assert out["status"] == "skipped"
     assert out["opportunity_id"] is None
 
@@ -192,11 +225,15 @@ def test_close_payment_empty_email_returns_skipped(tmp_path, monkeypatch):
 def test_close_payment_already_closed_returns_invalid_transition(tmp_path, monkeypatch):
     _audit_to_tmp(monkeypatch, tmp_path)
     tables = _patch_tables(monkeypatch)
-    _seed_prospect_contact_opportunity(tables, email="buyer@x.com",
-                                       opp_stage="closed_won")
-    out = crm_worker._handle_action("close_payment_to_opportunity", {
-        "email": "buyer@x.com", "amount_usd": 999.0, "payment_ref": "evt_dup",
-    })
+    _seed_prospect_contact_opportunity(tables, email="buyer@x.com", opp_stage="closed_won")
+    out = crm_worker._handle_action(
+        "close_payment_to_opportunity",
+        {
+            "email": "buyer@x.com",
+            "amount_usd": 999.0,
+            "payment_ref": "evt_dup",
+        },
+    )
     # find_opportunity_for_email scans only non-terminal opportunities, so
     # an already-closed deal looks like "no open opportunity" to this action.
     assert out["status"] == "no_open_opportunity"
@@ -205,6 +242,7 @@ def test_close_payment_already_closed_returns_invalid_transition(tmp_path, monke
 # ---------------------------------------------------------------------------
 # Routing — error paths
 # ---------------------------------------------------------------------------
+
 
 def test_unknown_action_raises(tmp_path, monkeypatch):
     _audit_to_tmp(monkeypatch, tmp_path)

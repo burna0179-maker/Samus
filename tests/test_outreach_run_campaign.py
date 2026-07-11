@@ -1,4 +1,5 @@
 """Tests for the outreach campaign CLI send path (SendGrid backend routing)."""
+
 from __future__ import annotations
 
 import backend.common.email_backend as email_backend
@@ -28,13 +29,15 @@ def test_send_all_routes_through_email_backend_and_records(tmp_path, monkeypatch
 
     crm_dispatched: list[str] = []
     monkeypatch.setattr(email_backend, "send_email", _fake_send_email)
-    monkeypatch.setattr(svc, "_dispatch_outreach_to_crm",
-                        lambda req, ts: crm_dispatched.append(req.prospect_id))
+    monkeypatch.setattr(
+        svc, "_dispatch_outreach_to_crm", lambda req, ts: crm_dispatched.append(req.prospect_id)
+    )
 
     ledger = tmp_path / "campaign.jsonl"
     supp = tmp_path / "emailed.txt"
-    sent, failed = rc._send_all([_msg(), _msg(to="b@x.com", pid="apollo_p2")],
-                                str(ledger), str(supp))
+    sent, failed = rc._send_all(
+        [_msg(), _msg(to="b@x.com", pid="apollo_p2")], str(ledger), str(supp)
+    )
 
     assert (sent, failed) == (2, 0)
     assert [c["to"] for c in calls] == ["a@x.com", "b@x.com"]
@@ -58,8 +61,9 @@ def test_send_all_one_failure_does_not_abort(tmp_path, monkeypatch):
 
     ledger = tmp_path / "c.jsonl"
     supp = tmp_path / "s.txt"
-    sent, failed = rc._send_all([_msg(to="bad@x.com"), _msg(to="good@x.com")],
-                                str(ledger), str(supp))
+    sent, failed = rc._send_all(
+        [_msg(to="bad@x.com"), _msg(to="good@x.com")], str(ledger), str(supp)
+    )
 
     assert (sent, failed) == (1, 1)
     assert supp.read_text(encoding="utf-8").split() == ["good@x.com"]

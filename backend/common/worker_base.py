@@ -8,6 +8,7 @@ The prior shell's BaseSqsWorker used a concrete ``handlers`` dict pattern; the
 doc-shape is single-method abstract. The class signature change is breaking —
 each workcell's ``worker.py`` must subclass and implement ``handle``.
 """
+
 from __future__ import annotations
 
 import inspect
@@ -109,13 +110,12 @@ class BaseSqsWorker(ABC):
         if name in params:
             return True
         # **kwargs catch-all counts — caller can safely pass the kwarg.
-        return any(
-            p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values()
-        )
+        return any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values())
 
     def _install_signal_handlers(self) -> None:
         def _stop(_signum, _frame):
             self.stop_event.set()
+
         try:
             signal.signal(signal.SIGTERM, _stop)
             signal.signal(signal.SIGINT, _stop)
@@ -264,16 +264,21 @@ class BaseSqsWorker(ABC):
             # 3. idempotency claim
             idem_key = envelope.idempotency_key or f"{self.service}:{task_id}"
             if not self.idempotency.first_seen(idem_key):
-                _LOG.info("worker_duplicate_suppressed", extra={
-                    "service": self.service, "task_id": task_id,
-                })
+                _LOG.info(
+                    "worker_duplicate_suppressed",
+                    extra={
+                        "service": self.service,
+                        "task_id": task_id,
+                    },
+                )
                 metrics.SAMUS_TASK_TOTAL.labels(self.service, "deduplicated").inc()
                 self.runtime.delete_message(receipt)
                 return
 
             # 4. build per-job action context from registry / envelope override
             budget_val = get_budget(
-                self.service, action,
+                self.service,
+                action,
                 override=envelope.action_budget,
             )
             action_ctx = ActionContext(self.service, action, budget_val)
@@ -290,10 +295,14 @@ class BaseSqsWorker(ABC):
 
             # 6. completed state + SNS event + delete
             try:
-                self.runtime.task_state_table().put_item(Item={
-                    "task_id": task_id, "status": "completed",
-                    "result": result, "ts": iso_now(),
-                })
+                self.runtime.task_state_table().put_item(
+                    Item={
+                        "task_id": task_id,
+                        "status": "completed",
+                        "result": result,
+                        "ts": iso_now(),
+                    }
+                )
             except Exception as exc:  # pragma: no cover
                 _LOG.warning("task_state put failed: %s", exc)
             try:
@@ -305,8 +314,12 @@ class BaseSqsWorker(ABC):
                 _LOG.warning("sns publish failed: %s", exc)
 
             audit = events.build_audit_event(
-                service=self.service, task_id=task_id, action=action,
-                input_payload=envelope.payload, output_payload=result, status="completed",
+                service=self.service,
+                task_id=task_id,
+                action=action,
+                input_payload=envelope.payload,
+                output_payload=result,
+                status="completed",
             )
             try:
                 ledger.append(audit)
@@ -333,17 +346,22 @@ class BaseSqsWorker(ABC):
             )
             metrics.SAMUS_TASK_TOTAL.labels(self.service, "budget_exhausted").inc()
             try:
-                self.runtime.task_state_table().put_item(Item={
-                    "task_id": task_id, "status": "budget_exhausted",
-                    "error": str(exc), "ts": iso_now(),
-                })
+                self.runtime.task_state_table().put_item(
+                    Item={
+                        "task_id": task_id,
+                        "status": "budget_exhausted",
+                        "error": str(exc),
+                        "ts": iso_now(),
+                    }
+                )
             except Exception:  # pragma: no cover
                 pass
             audit = events.build_audit_event(
-                service=self.service, task_id=task_id, action=action,
+                service=self.service,
+                task_id=task_id,
+                action=action,
                 input_payload=envelope.payload,
-                output_payload={"budget_exhausted": True, "used": exc.used,
-                                "budget": exc.budget},
+                output_payload={"budget_exhausted": True, "used": exc.used, "budget": exc.budget},
                 status="budget_exhausted",
             )
             try:
@@ -357,24 +375,35 @@ class BaseSqsWorker(ABC):
             _LOG.error("worker_handler_failed: %s\n%s", exc, stack)
             metrics.SAMUS_TASK_TOTAL.labels(self.service, "failed").inc()
             try:
-                self.runtime.task_state_table().put_item(Item={
-                    "task_id": task_id, "status": "failed",
-                    "error": str(exc), "ts": iso_now(),
-                })
+                self.runtime.task_state_table().put_item(
+                    Item={
+                        "task_id": task_id,
+                        "status": "failed",
+                        "error": str(exc),
+                        "ts": iso_now(),
+                    }
+                )
             except Exception:  # pragma: no cover
                 pass
             try:
                 self.runtime.publish_event(
                     "task.failed",
-                    {"service": self.service, "task_id": task_id, "action": action,
-                     "error": str(exc)},
+                    {
+                        "service": self.service,
+                        "task_id": task_id,
+                        "action": action,
+                        "error": str(exc),
+                    },
                 )
             except Exception:  # pragma: no cover
                 pass
             audit = events.build_audit_event(
-                service=self.service, task_id=task_id, action=action,
+                service=self.service,
+                task_id=task_id,
+                action=action,
                 input_payload=envelope.payload,
-                output_payload={"error": str(exc)}, status="failed",
+                output_payload={"error": str(exc)},
+                status="failed",
             )
             try:
                 ledger.append(audit)

@@ -27,6 +27,7 @@ at app construction. Development keeps the per-request 503 path so local
 work / tests aren't blocked by an unset key. The gateway workcell sets its
 own ``require_env`` after this call as a belt-and-suspenders check.
 """
+
 from __future__ import annotations
 
 import logging
@@ -85,7 +86,8 @@ def _ensure_codex_loaded(workcell_name: str) -> None:
         _LOG.error(
             "samus.app_factory.codex_load_failed: workcell=%s reason=%s "
             "— refusing to boot. Fix the Codex parse error, do not bypass.",
-            workcell_name, exc,
+            workcell_name,
+            exc,
         )
         raise
 
@@ -109,7 +111,8 @@ def _start_codex_watcher_if_enabled(workcell_name: str) -> None:
     except ImportError as exc:
         _LOG.warning(
             "samus.app_factory.codex_watcher_unavailable: workcell=%s err=%s",
-            workcell_name, exc,
+            workcell_name,
+            exc,
         )
         return
     try:
@@ -117,7 +120,8 @@ def _start_codex_watcher_if_enabled(workcell_name: str) -> None:
     except Exception as exc:  # noqa: BLE001
         _LOG.warning(
             "samus.app_factory.codex_watcher_start_failed: workcell=%s err=%s",
-            workcell_name, exc,
+            workcell_name,
+            exc,
         )
         return
     if handle is not None:
@@ -238,9 +242,7 @@ def create_base_app(
             # configuration would be a false positive. The check stays
             # fail-closed: if there is genuinely no key anywhere, no caller
             # could ever be verified, so boot is still refused.
-            _has_any_key = bool(
-                settings.shared_hmac_key or settings.per_service_hmac_keys
-            )
+            _has_any_key = bool(settings.shared_hmac_key or settings.per_service_hmac_keys)
             if (
                 not _has_any_key
                 and settings.env != "development"
@@ -301,13 +303,16 @@ def create_base_app(
     # stack trace. The trace id is the only thing the client sees.
     @app.exception_handler(Exception)
     async def _unhandled_exception_handler(
-        request: Request, exc: Exception,
+        request: Request,
+        exc: Exception,
     ) -> JSONResponse:
         trace_id = correlation.ensure_trace_id()
         _LOG.error(
-            "samus.unhandled_exception: service=%s method=%s path=%s "
-            "trace_id=%s exc_type=%s",
-            name, request.method, request.url.path, trace_id,
+            "samus.unhandled_exception: service=%s method=%s path=%s trace_id=%s exc_type=%s",
+            name,
+            request.method,
+            request.url.path,
+            trace_id,
             type(exc).__name__,
             exc_info=exc,
         )
@@ -316,8 +321,7 @@ def create_base_app(
             content={
                 "error": "internal_error",
                 "message": (
-                    "An internal error occurred. Quote the trace id to the "
-                    "operator for diagnosis."
+                    "An internal error occurred. Quote the trace id to the operator for diagnosis."
                 ),
                 "trace_id": trace_id,
             },

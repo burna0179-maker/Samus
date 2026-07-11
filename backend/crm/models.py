@@ -11,6 +11,7 @@ The :class:`FeedbackLogRequest` + :class:`FeedbackSnapshotResponse` at the
 bottom of this file are the I/O contracts for the in-memory feedback engine
 in :mod:`backend.crm.feedback_engine`.
 """
+
 from __future__ import annotations
 
 from typing import Any, Literal
@@ -25,7 +26,7 @@ from backend.prospecting.models import ProspectRecord
 
 
 def _validate_stake_sentence_field(value: str) -> str:
-    text = (value or "")
+    text = value or ""
     if not text.strip():
         return ""
     try:
@@ -49,6 +50,7 @@ class Prospect(ProspectRecord):
     CSV-export path in :mod:`backend.prospecting.csv_export`, which depends
     on the field set being closed.
     """
+
     model_config = ConfigDict(extra="ignore")
 
 
@@ -61,20 +63,21 @@ ContactChannel = Literal["email", "phone", "sms", "linkedin"]
 
 class Contact(BaseModel):
     """One person associated with a Prospect. PK=contact_id."""
+
     model_config = ConfigDict(extra="ignore")
 
     contact_id: str
-    prospect_id: str = ""               # FK -> samus_prospects.prospect_id
+    prospect_id: str = ""  # FK -> samus_prospects.prospect_id
     name: str = ""
-    role: str = ""                      # CEO, owner, marketing manager, etc.
+    role: str = ""  # CEO, owner, marketing manager, etc.
     email: str = ""
     phone: str = ""
     linkedin: str = ""
     preferred_channel: ContactChannel = "email"
     do_not_contact: bool = False
-    source: str = ""                    # "intake_lead", "manual", "import", etc.
-    source_ref: str = ""                # source entity id (e.g., lead_id)
-    created_at: str = ""                # ISO-8601
+    source: str = ""  # "intake_lead", "manual", "import", etc.
+    source_ref: str = ""  # source entity id (e.g., lead_id)
+    created_at: str = ""  # ISO-8601
     updated_at: str = ""
 
 
@@ -92,6 +95,7 @@ ConversationDirection = Literal["inbound", "outbound"]
 
 class Conversation(BaseModel):
     """A multi-turn exchange thread. PK=conversation_id."""
+
     model_config = ConfigDict(extra="ignore")
 
     conversation_id: str
@@ -99,25 +103,25 @@ class Conversation(BaseModel):
     contact_id: str = ""
     channel: ConversationChannel = "call"
     status: ConversationStatus = "open"
-    started_at: str = ""                # ISO-8601
+    started_at: str = ""  # ISO-8601
     ended_at: str = ""
     duration_sec: int = 0
-    transcript: str = ""                # full transcript text (long string)
-    summary: str = ""                   # LLM-generated synopsis
+    transcript: str = ""  # full transcript text (long string)
+    summary: str = ""  # LLM-generated synopsis
     structured_data: dict[str, Any] = Field(default_factory=dict)  # e.g., lead_summary
-    outcome: str = ""                   # "booked", "follow_up", "disqualified", etc.
-    recording_url: str = ""             # external storage URL if any
-    source: str = ""                    # "vapi", "operator", "import"
-    source_ref: str = ""                # e.g., Vapi call id
+    outcome: str = ""  # "booked", "follow_up", "disqualified", etc.
+    recording_url: str = ""  # external storage URL if any
+    source: str = ""  # "vapi", "operator", "import"
+    source_ref: str = ""  # e.g., Vapi call id
     # --- inbound receptionist fields (default to the outbound-call shape so
     # existing rows are non-breaking; model_config is extra="ignore") -------
     direction: ConversationDirection = "outbound"
-    customer_id: str = ""               # receptionist CLIENT slug (the
-                                        # business whose phone was answered) —
-                                        # NOT the caller; "" for outbound rows
-    caller_number: str = ""             # inbound caller ID (E.164)
-    answered: bool = False              # True if the receptionist picked up
-    voicemail_left: bool = False        # True if the caller left a message
+    customer_id: str = ""  # receptionist CLIENT slug (the
+    # business whose phone was answered) —
+    # NOT the caller; "" for outbound rows
+    caller_number: str = ""  # inbound caller ID (E.164)
+    answered: bool = False  # True if the receptionist picked up
+    voicemail_left: bool = False  # True if the caller left a message
 
 
 # ---------------------------------------------------------------------------
@@ -128,17 +132,17 @@ class Conversation(BaseModel):
 
 CallStateValue = Literal[
     "not_called",
-    "outreach_sent",   # an outreach message (e.g. a cold email) has gone out;
-                       # the prospect is now awaiting a follow-up call — the
-                       # scheduled day is in CallState.next_attempt_at
+    "outreach_sent",  # an outreach message (e.g. a cold email) has gone out;
+    # the prospect is now awaiting a follow-up call — the
+    # scheduled day is in CallState.next_attempt_at
     "queued",
     "dialing",
     "in_progress",
     "completed",
-    "gatekeeper",      # reached a gatekeeper, not the decision-maker — the
-                       # call did NOT conclude, so this is a non-terminal
-                       # state: the prospect stays callable (retry, now with
-                       # the DM name/contact captured in notes / last_outcome)
+    "gatekeeper",  # reached a gatekeeper, not the decision-maker — the
+    # call did NOT conclude, so this is a non-terminal
+    # state: the prospect stays callable (retry, now with
+    # the DM name/contact captured in notes / last_outcome)
     "no_answer",
     "voicemail",
     "busy",
@@ -149,15 +153,16 @@ CallStateValue = Literal[
 
 class CallState(BaseModel):
     """Current call-attempt state per prospect. PK=prospect_id."""
+
     model_config = ConfigDict(extra="ignore")
 
     prospect_id: str
     state: CallStateValue = "not_called"
     attempt_count: int = 0
     last_attempt_at: str = ""
-    next_attempt_at: str = ""           # for retries / scheduled re-dial
-    last_call_id: str = ""              # most recent Vapi call_id
-    last_outcome: str = ""              # human-readable last outcome
+    next_attempt_at: str = ""  # for retries / scheduled re-dial
+    last_call_id: str = ""  # most recent Vapi call_id
+    last_outcome: str = ""  # human-readable last outcome
     notes: str = ""
     updated_at: str = ""
 
@@ -171,8 +176,10 @@ class CallState(BaseModel):
 # rejects any unknown key instead of silently dropping it, and the path id
 # can no longer be overridden by a body value.
 
+
 class UpsertCallStateBody(BaseModel):
     """``POST /crm/call-state/{prospect_id}`` request body (no path id)."""
+
     model_config = ConfigDict(extra="forbid")
 
     state: CallStateValue = "not_called"
@@ -194,26 +201,28 @@ class UpsertCallStateBody(BaseModel):
 # id + email, so that contact detail has to come from the Conversation.
 # ---------------------------------------------------------------------------
 
+
 class FollowUpDue(BaseModel):
     """One prospect whose outreach follow-up call is due today or earlier."""
+
     model_config = ConfigDict(extra="ignore")
 
     prospect_id: str
     company: str = ""
     phone: str = ""
-    channel: str = ""               # outreach channel used (email / sms)
-    subject: str = ""               # the outreach message subject line
-    emailed_on: str = ""            # date the outreach went out (YYYY-MM-DD)
-    follow_up_on: str = ""          # scheduled follow-up day (YYYY-MM-DD)
-    days_waiting: int = 0           # whole days since the outreach went out
-    attempt_count: int = 0          # CallState.attempt_count
+    channel: str = ""  # outreach channel used (email / sms)
+    subject: str = ""  # the outreach message subject line
+    emailed_on: str = ""  # date the outreach went out (YYYY-MM-DD)
+    follow_up_on: str = ""  # scheduled follow-up day (YYYY-MM-DD)
+    days_waiting: int = 0  # whole days since the outreach went out
+    attempt_count: int = 0  # CallState.attempt_count
     # suggested "second opportunity" — a deterministic upsell pick from the
     # catalog (backend.catalog.registry), keyed off interest signals in the
     # prospect's conversations + Opportunity. All three stay "" when no signal
     # cleared the bar — the morning brief then shows no upsell hint.
-    upsell_sku: str = ""            # catalog sku_id, e.g. "service_workflow_buildout"
-    upsell_name: str = ""           # catalog display_name
-    upsell_pitch: str = ""          # one-line operator hint — what to offer + why
+    upsell_sku: str = ""  # catalog sku_id, e.g. "service_workflow_buildout"
+    upsell_name: str = ""  # catalog display_name
+    upsell_pitch: str = ""  # one-line operator hint — what to offer + why
 
 
 class FollowUpList(BaseModel):
@@ -241,21 +250,22 @@ OpportunityStage = Literal[
 
 class Opportunity(BaseModel):
     """One sales deal. PK=opportunity_id."""
+
     model_config = ConfigDict(extra="ignore")
 
     opportunity_id: str
     prospect_id: str = ""
     contact_id: str = ""
     stage: OpportunityStage = "new"
-    name: str = ""                      # human-friendly deal name
+    name: str = ""  # human-friendly deal name
     deal_size_usd: float = 0.0
-    close_probability: float = 0.0      # 0.0 - 1.0
+    close_probability: float = 0.0  # 0.0 - 1.0
     next_step: str = ""
-    expected_close: str = ""            # ISO-8601 date
-    actual_close: str = ""              # set on closed_won / closed_lost
-    won_amount_usd: float = 0.0         # populated on closed_won
-    lost_reason: str = ""               # populated on closed_lost
-    assigned_to: str = ""               # operator email
+    expected_close: str = ""  # ISO-8601 date
+    actual_close: str = ""  # set on closed_won / closed_lost
+    won_amount_usd: float = 0.0  # populated on closed_won
+    lost_reason: str = ""  # populated on closed_lost
+    assigned_to: str = ""  # operator email
     created_at: str = ""
     updated_at: str = ""
     # --- strategy bandit attribution (strategy-integration build, Unit 3) ---
@@ -269,10 +279,10 @@ class Opportunity(BaseModel):
     # so a pre-this-feature Opportunity reads back unchanged (no bandit credit).
     industry: str = ""
     policy_family: str = ""
-    seo_score: int = 0                  # 0-100 audit score (normalised later)
-    owner_email: bool = False           # enrichment found an owner email
-    social_facebook: bool = False       # enrichment found a Facebook handle
-    social_instagram: bool = False      # enrichment found an Instagram handle
+    seo_score: int = 0  # 0-100 audit score (normalised later)
+    owner_email: bool = False  # enrichment found an owner email
+    social_facebook: bool = False  # enrichment found a Facebook handle
+    social_instagram: bool = False  # enrichment found an Instagram handle
     # Total LLM dollars spent on this prospect during discovery (strategy-
     # integration build, Unit 4): the personalised callsheet + the warm/hot
     # audit's content drafts, priced from the Anthropic usage block. Fed into
@@ -310,7 +320,7 @@ TaskKind = Literal[
     "send_email",
     "send_proposal",
     "schedule",
-    "reply_email",       # inbound customer email surfaced by gmail poller
+    "reply_email",  # inbound customer email surfaced by gmail poller
     "client_correspondence",  # inbound email from a signed/existing client
     "customer_service",  # signed-client message flagged as service issue / escalation
     "other",
@@ -319,19 +329,20 @@ TaskKind = Literal[
 
 class OperatorTask(BaseModel):
     """A human-actionable to-do. PK=operator_task_id."""
+
     model_config = ConfigDict(extra="ignore")
 
     operator_task_id: str
     kind: TaskKind = "other"
-    title: str = ""                     # short label shown in lists
-    description: str = ""                # longer body
-    assignee: str = ""                  # operator email
+    title: str = ""  # short label shown in lists
+    description: str = ""  # longer body
+    assignee: str = ""  # operator email
     status: TaskStatus = "open"
-    due_at: str = ""                    # ISO-8601
+    due_at: str = ""  # ISO-8601
     completed_at: str = ""
-    related_entity_kind: str = ""       # "prospect", "contact", "opportunity", "lead"
-    related_entity_id: str = ""         # the ref id
-    source: str = ""                    # what produced this task
+    related_entity_kind: str = ""  # "prospect", "contact", "opportunity", "lead"
+    related_entity_id: str = ""  # the ref id
+    source: str = ""  # what produced this task
     source_ref: str = ""
     created_at: str = ""
     updated_at: str = ""
@@ -350,49 +361,53 @@ ArtifactKind = Literal[
     "fulfillment_plan",
     "contract",
     "invoice",
-    "inbound_email",     # raw parsed inbound message stored by gmail poller
+    "inbound_email",  # raw parsed inbound message stored by gmail poller
     "client_correspondence",  # inbound email from a signed/existing client
-    "calendar_event",    # samus- or operator-created event on the polled calendar
-    "call_recording",    # inbound-call audio captured by the receptionist
-    "call_transcript",   # inbound-call transcript text
-    "voicemail",         # after-hours / unanswered-call message
-    "stake_sentence",    # operator-authored opening line attached to an Opp
+    "calendar_event",  # samus- or operator-created event on the polled calendar
+    "call_recording",  # inbound-call audio captured by the receptionist
+    "call_transcript",  # inbound-call transcript text
+    "voicemail",  # after-hours / unanswered-call message
+    "stake_sentence",  # operator-authored opening line attached to an Opp
     "other",
 ]
 
 
 class Artifact(BaseModel):
     """A generated deliverable. PK=artifact_id."""
+
     model_config = ConfigDict(extra="ignore")
 
     artifact_id: str
     kind: ArtifactKind = "other"
-    owner_entity_kind: str = ""         # "prospect" | "opportunity" | "contact"
-    owner_entity_id: str = ""           # the ref id
+    owner_entity_kind: str = ""  # "prospect" | "opportunity" | "contact"
+    owner_entity_id: str = ""  # the ref id
     title: str = ""
-    storage_url: str = ""               # S3/GCS path if file is offsite
+    storage_url: str = ""  # S3/GCS path if file is offsite
     inline_data: dict[str, Any] = Field(default_factory=dict)  # small artifacts in-row
     mime_type: str = ""
     bytes: int = 0
-    source: str = ""                    # workcell that produced it
+    source: str = ""  # workcell that produced it
     created_at: str = ""
-    created_by: str = ""                # operator email or workcell name
+    created_by: str = ""  # operator email or workcell name
 
 
 # ---------------------------------------------------------------------------
 # Conversion request/result (POST /crm/convert/lead)
 # ---------------------------------------------------------------------------
 
+
 class ConvertLeadRequest(BaseModel):
     """``POST /crm/convert/lead`` body."""
+
     model_config = ConfigDict(extra="forbid")
 
     lead_id: str = Field(min_length=1)
-    assigned_to: str = ""               # operator email to assign follow-up tasks
+    assigned_to: str = ""  # operator email to assign follow-up tasks
 
 
 class ConvertLeadResult(BaseModel):
     """``POST /crm/convert/lead`` response."""
+
     model_config = ConfigDict(extra="forbid")
 
     status: Literal["created", "existing", "failed"]
@@ -408,6 +423,7 @@ class ConvertLeadResult(BaseModel):
 # (POST /crm/conversations, POST /crm/call-state/{prospect_id})
 # ---------------------------------------------------------------------------
 
+
 class UpsertResult(BaseModel):
     """Generic upsert response — Conversation + CallState writers share this.
 
@@ -415,6 +431,7 @@ class UpsertResult(BaseModel):
     inspect ``error`` for the underlying ddb_put_failed string). ``id`` is the
     PK of the row that was upserted so callers can correlate retries.
     """
+
     model_config = ConfigDict(extra="forbid")
 
     persisted: bool
@@ -426,6 +443,7 @@ class UpsertResult(BaseModel):
 # Opportunity create + advance (Phase 3)
 # ---------------------------------------------------------------------------
 
+
 class CreateOpportunityRequest(BaseModel):
     """``POST /crm/opportunities`` body.
 
@@ -434,17 +452,18 @@ class CreateOpportunityRequest(BaseModel):
     the service layer auto-fills tier / close_probability / deal_size via
     :mod:`backend.crm.scoring`.
     """
+
     model_config = ConfigDict(extra="forbid")
 
     prospect_id: str = Field(min_length=1)
     contact_id: str = ""
-    name: str = ""                      # human-friendly deal name
-    intent_score: int | None = None     # 0-100 (from lead summarizer)
-    monthly_budget: str = ""            # intake enum: e.g. "$500-$2000"
+    name: str = ""  # human-friendly deal name
+    intent_score: int | None = None  # 0-100 (from lead summarizer)
+    monthly_budget: str = ""  # intake enum: e.g. "$500-$2000"
     service_interest: list[str] = Field(default_factory=list)
-    assigned_to: str = ""               # operator email
+    assigned_to: str = ""  # operator email
     next_step: str = ""
-    expected_close: str = ""            # ISO-8601 date
+    expected_close: str = ""  # ISO-8601 date
     # --- strategy bandit attribution (strategy-integration build, Unit 3) ---
     # Captured at Opportunity creation so the deal outcome can be credited to
     # the exact bandit arm + scored by reward density. ``industry`` +
@@ -454,10 +473,10 @@ class CreateOpportunityRequest(BaseModel):
     # absent on an operator-created deal that has no call-list provenance.
     industry: str = ""
     policy_family: str = ""
-    seo_score: int = 0                  # 0-100 audit score
-    owner_email: bool = False           # enrichment found an owner email
-    social_facebook: bool = False       # enrichment found a Facebook handle
-    social_instagram: bool = False      # enrichment found an Instagram handle
+    seo_score: int = 0  # 0-100 audit score
+    owner_email: bool = False  # enrichment found an owner email
+    social_facebook: bool = False  # enrichment found a Facebook handle
+    social_instagram: bool = False  # enrichment found an Instagram handle
     # Per-prospect LLM dollars spent during discovery (strategy-integration
     # build, Unit 4) — see Opportunity.token_cost_usd. Optional — absent on an
     # operator-created deal that has no call-list provenance.
@@ -479,6 +498,7 @@ class CreateOpportunityRequest(BaseModel):
 
 class CreateOpportunityResult(BaseModel):
     """``POST /crm/opportunities`` response."""
+
     model_config = ConfigDict(extra="forbid")
 
     status: Literal["created", "failed"]
@@ -494,15 +514,21 @@ class AdvanceOpportunityRequest(BaseModel):
     the body so the worker contract (which only sees the body) stays
     self-contained.
     """
+
     model_config = ConfigDict(extra="forbid")
 
     opportunity_id: str = Field(min_length=1)
     target_stage: Literal[
-        "new", "qualified", "proposal", "negotiation",
-        "closed_won", "closed_won_retainer", "closed_lost",
+        "new",
+        "qualified",
+        "proposal",
+        "negotiation",
+        "closed_won",
+        "closed_won_retainer",
+        "closed_lost",
     ]
-    lost_reason: str = ""               # required if target == closed_lost
-    won_amount_usd: float = 0.0         # required if target == closed_won
+    lost_reason: str = ""  # required if target == closed_lost
+    won_amount_usd: float = 0.0  # required if target == closed_won
     notes: str = ""
 
 
@@ -518,25 +544,33 @@ class AdvanceOpportunityRequest(BaseModel):
 # ``service.advance_opportunity`` governs whether a given target_stage is a
 # valid move, so these stay caller-settable by design.
 
+
 class AdvanceOpportunityBody(BaseModel):
     """``POST /crm/opportunities/{opportunity_id}/advance`` request body.
 
     Path-id-free input shape — the route supplies ``opportunity_id`` from the
     URL. See the M3 note above.
     """
+
     model_config = ConfigDict(extra="forbid")
 
     target_stage: Literal[
-        "new", "qualified", "proposal", "negotiation",
-        "closed_won", "closed_won_retainer", "closed_lost",
+        "new",
+        "qualified",
+        "proposal",
+        "negotiation",
+        "closed_won",
+        "closed_won_retainer",
+        "closed_lost",
     ]
-    lost_reason: str = ""               # required if target == closed_lost
-    won_amount_usd: float = 0.0         # required if target == closed_won
+    lost_reason: str = ""  # required if target == closed_lost
+    won_amount_usd: float = 0.0  # required if target == closed_won
     notes: str = ""
 
 
 class AdvanceOpportunityResult(BaseModel):
     """``POST /crm/opportunities/{opportunity_id}/advance`` response."""
+
     model_config = ConfigDict(extra="forbid")
 
     # ``blocked_over_cap`` (redteam FIN-10): the advance was refused because the
@@ -547,7 +581,10 @@ class AdvanceOpportunityResult(BaseModel):
     # webhook + SQS worker callers — which only read ``status`` and never catch
     # — surface it gracefully.
     status: Literal[
-        "advanced", "invalid_transition", "not_found", "failed",
+        "advanced",
+        "invalid_transition",
+        "not_found",
+        "failed",
         "blocked_over_cap",
     ]
     opportunity_id: str
@@ -566,6 +603,7 @@ class AdvanceOpportunityResult(BaseModel):
 # Operator task create + update (Phase 4)
 # ---------------------------------------------------------------------------
 
+
 class CreateOperatorTaskRequest(BaseModel):
     """``POST /crm/operator-tasks`` body.
 
@@ -576,21 +614,23 @@ class CreateOperatorTaskRequest(BaseModel):
     still valid for ad-hoc operator-created tasks), but the auto-generators
     always set both.
     """
+
     model_config = ConfigDict(extra="forbid")
 
     kind: TaskKind
     title: str = Field(min_length=1)
     description: str = ""
-    assignee: str = ""                  # operator email
-    due_at: str = ""                    # ISO-8601
-    related_entity_kind: str = ""       # "prospect", "contact", "opportunity", "lead"
+    assignee: str = ""  # operator email
+    due_at: str = ""  # ISO-8601
+    related_entity_kind: str = ""  # "prospect", "contact", "opportunity", "lead"
     related_entity_id: str = ""
-    source: str = ""                    # what produced this task
+    source: str = ""  # what produced this task
     source_ref: str = ""
 
 
 class CreateOperatorTaskResult(BaseModel):
     """``POST /crm/operator-tasks`` response."""
+
     model_config = ConfigDict(extra="forbid")
 
     status: Literal["created", "failed"]
@@ -607,12 +647,13 @@ class UpdateOperatorTaskRequest(BaseModel):
     server timestamp when the new status is terminal (done/skipped) and
     the caller didn't supply one.
     """
+
     model_config = ConfigDict(extra="forbid")
 
     operator_task_id: str = Field(min_length=1)
     status: TaskStatus
-    completed_at: str = ""              # ISO-8601 (auto-set on done/skipped)
-    notes: str = ""                     # appended to description if non-empty
+    completed_at: str = ""  # ISO-8601 (auto-set on done/skipped)
+    notes: str = ""  # appended to description if non-empty
 
 
 # --- mass-assignment hardening (finding M3, 2026-05-20) --------------------
@@ -625,21 +666,24 @@ class UpdateOperatorTaskRequest(BaseModel):
 # the existing contract allows an explicit terminal timestamp (the service
 # auto-fills it only when omitted); ``notes`` is appended to the description.
 
+
 class UpdateOperatorTaskBody(BaseModel):
     """``PUT /crm/operator-tasks/{operator_task_id}`` request body.
 
     Path-id-free input shape — the route supplies ``operator_task_id`` from
     the URL. See the M3 note above.
     """
+
     model_config = ConfigDict(extra="forbid")
 
     status: TaskStatus
-    completed_at: str = ""              # ISO-8601 (auto-set on done/skipped)
-    notes: str = ""                     # appended to description if non-empty
+    completed_at: str = ""  # ISO-8601 (auto-set on done/skipped)
+    notes: str = ""  # appended to description if non-empty
 
 
 class UpdateOperatorTaskResult(BaseModel):
     """``PUT /crm/operator-tasks/{operator_task_id}`` response."""
+
     model_config = ConfigDict(extra="forbid")
 
     status: Literal["updated", "invalid_transition", "not_found", "failed"]
@@ -654,6 +698,7 @@ class UpdateOperatorTaskResult(BaseModel):
 # Artifact create (Phase 5 — deliverable registration)
 # ---------------------------------------------------------------------------
 
+
 class CreateArtifactRequest(BaseModel):
     """``POST /crm/artifacts`` body.
 
@@ -663,6 +708,7 @@ class CreateArtifactRequest(BaseModel):
     for small payloads that live in the DDB row itself; ``storage_url`` is
     the offsite pointer (S3/GCS/local-fs path) for anything substantial.
     """
+
     model_config = ConfigDict(extra="forbid")
 
     kind: ArtifactKind
@@ -673,12 +719,13 @@ class CreateArtifactRequest(BaseModel):
     inline_data: dict[str, Any] = Field(default_factory=dict)
     mime_type: str = ""
     bytes: int = 0
-    source: str = ""                    # workcell that produced it
-    created_by: str = ""                # operator email or workcell name
+    source: str = ""  # workcell that produced it
+    created_by: str = ""  # operator email or workcell name
 
 
 class CreateArtifactResult(BaseModel):
     """``POST /crm/artifacts`` response."""
+
     model_config = ConfigDict(extra="forbid")
 
     status: Literal["created", "failed"]
@@ -690,6 +737,7 @@ class CreateArtifactResult(BaseModel):
 # ---------------------------------------------------------------------------
 # List-result wrappers (used by ?param= scan endpoints)
 # ---------------------------------------------------------------------------
+
 
 class ContactList(BaseModel):
     model_config = ConfigDict(extra="forbid")

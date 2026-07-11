@@ -13,6 +13,7 @@ by Pydantic at model-construction time) rather than an ``enum.Enum``:
 audit-finding ledger, and a Literal stays a plain ``str`` on the wire
 with no custom encoder.
 """
+
 from __future__ import annotations
 
 from typing import Literal
@@ -44,18 +45,20 @@ EvidenceSource = Literal[
 # are direct readings of the rendered DOM — so they belong in the
 # verified set per G6's intent (rejecting LLM-inferred claims, not
 # deterministic parser output).
-EVIDENCE_VERIFIED_SOURCES: frozenset[str] = frozenset({
-    "crawled_header",
-    "crawled_html",
-    "crawled_meta",
-    "cert",
-    "dns",
-    "redirect",
-    "public_registry",
-    "robots_txt",
-    "sitemap",
-    "http_status",
-})
+EVIDENCE_VERIFIED_SOURCES: frozenset[str] = frozenset(
+    {
+        "crawled_header",
+        "crawled_html",
+        "crawled_meta",
+        "cert",
+        "dns",
+        "redirect",
+        "public_registry",
+        "robots_txt",
+        "sitemap",
+        "http_status",
+    }
+)
 
 
 __all__ = [

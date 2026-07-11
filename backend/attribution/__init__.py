@@ -13,6 +13,7 @@ is true. This is the explicitly-LAST component — it only pays off once there i
 real send volume and a catalog of >1 variant per slot to choose between; the
 engine ships ready so that wiring is a thin step when that volume exists.
 """
+
 from __future__ import annotations
 
 __all__: list[str] = []

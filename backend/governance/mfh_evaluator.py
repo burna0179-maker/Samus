@@ -30,6 +30,7 @@ dict (``{flagged: bool, anchors: [...], notes: str}``) the caller attaches to
 its decision record. A malformed action or a missing anchors file degrades to
 ``flagged=False`` (advisory: silence, not a false alarm).
 """
+
 from __future__ import annotations
 
 import logging
@@ -49,25 +50,36 @@ _AXIOMS_DIR = Path(__file__).resolve().parents[2] / "axioms"
 # anchors were declared to name (see meaning_anchors.yaml notes).
 _ANCHOR_PATTERNS: dict[str, list[str]] = {
     "axiom.meaning.capability_over_dependency": [
-        r"\bdependenc", r"\block\s*them\s*in", r"\bkeep\s+them\s+(?:on|paying)",
-        r"\btreadmill", r"\bmaintain(?:s|ing)?\s+the\s+status\s+quo",
+        r"\bdependenc",
+        r"\block\s*them\s*in",
+        r"\bkeep\s+them\s+(?:on|paying)",
+        r"\btreadmill",
+        r"\bmaintain(?:s|ing)?\s+the\s+status\s+quo",
         r"\brecurring\s+(?:fee|charge|bill)\s+to\s+keep",
     ],
     "axiom.meaning.persistence_beyond_relationship": [
-        r"\bonly\s+works\s+while\s+we", r"\bevaporat", r"\bstops?\s+the\s+moment\s+we",
+        r"\bonly\s+works\s+while\s+we",
+        r"\bevaporat",
+        r"\bstops?\s+the\s+moment\s+we",
         r"\bceases?\s+when\s+(?:we|the\s+engagement)",
     ],
     "axiom.meaning.externality_reality": [
-        r"\bvanity\s+metric", r"\blooks?\s+good\s+on\s+paper",
-        r"\bgame\s+the\s+(?:metric|number|kpi)", r"\binflate\s+the\s+(?:metric|number)",
+        r"\bvanity\s+metric",
+        r"\blooks?\s+good\s+on\s+paper",
+        r"\bgame\s+the\s+(?:metric|number|kpi)",
+        r"\binflate\s+the\s+(?:metric|number)",
     ],
     "axiom.meaning.substance_over_signal": [
-        r"\bappear(?:s|ance)\s+of\s+progress", r"\bmove\s+the\s+number\s+without",
+        r"\bappear(?:s|ance)\s+of\s+progress",
+        r"\bmove\s+the\s+number\s+without",
         r"\boptimis[ez]e?\s+for\s+the\s+(?:signal|metric)\s+not",
     ],
     "axiom.meaning.reversibility_for_recipient": [
-        r"\bswitching\s+cost", r"\bsunk[\s-]?cost", r"\bhard\s+to\s+(?:leave|cancel|switch)",
-        r"\bcancellation\s+(?:penalt|friction)", r"\bcontractual\s+lock",
+        r"\bswitching\s+cost",
+        r"\bsunk[\s-]?cost",
+        r"\bhard\s+to\s+(?:leave|cancel|switch)",
+        r"\bcancellation\s+(?:penalt|friction)",
+        r"\bcontractual\s+lock",
     ],
 }
 
@@ -115,9 +127,8 @@ class MeaningFailureHandler:
         if not flagged_anchors:
             return {"flagged": False, "anchors": [], "notes": "no meaning-anchor concern"}
 
-        notes = (
-            "advisory meaning-anchor concern (not a veto): "
-            + ", ".join(a.rsplit(".", 1)[-1] for a in flagged_anchors)
+        notes = "advisory meaning-anchor concern (not a veto): " + ", ".join(
+            a.rsplit(".", 1)[-1] for a in flagged_anchors
         )
         return {"flagged": True, "anchors": flagged_anchors, "notes": notes}
 

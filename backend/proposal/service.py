@@ -4,6 +4,7 @@ OnboardingIntake -> plan_workflow -> select_templates -> compile_workflow ->
 validate_workflow -> ProposalResult. In-process idempotency keyed on
 ``f"proposal.generate:{req.task_id}"``. Audit event appended on completion.
 """
+
 from __future__ import annotations
 
 import logging
@@ -66,14 +67,18 @@ def _dispatch_artifact_to_crm(payload: dict[str, Any]) -> None:
     }
     try:
         signed_post_json_sync(
-            gateway_url, "/dispatch/crm", envelope, retries=2,
+            gateway_url,
+            "/dispatch/crm",
+            envelope,
+            retries=2,
         )
     except Exception as exc:  # noqa: BLE001 — best-effort, never blocks producer
         _LOG.warning("proposal crm artifact dispatch failed: %s", exc)
 
 
 def _dispatch_proposal_pack_to_scaffold(
-    req: ProposalRequest, result: ProposalResult,
+    req: ProposalRequest,
+    result: ProposalResult,
 ) -> None:
     """Best-effort: an approved proposal -> render the client-facing pack.
 
@@ -122,7 +127,10 @@ def _dispatch_proposal_pack_to_scaffold(
     }
     try:
         signed_post_json_sync(
-            gateway_url, "/dispatch/scaffold", envelope, retries=2,
+            gateway_url,
+            "/dispatch/scaffold",
+            envelope,
+            retries=2,
         )
     except Exception as exc:  # noqa: BLE001 — best-effort, never blocks producer
         _LOG.warning("scaffold proposal-pack dispatch failed: %s", exc)
@@ -153,8 +161,7 @@ def generate_proposal(req: ProposalRequest) -> ProposalResult:
             "templates_exceeded",
         )
         is_overflow = any(
-            any(marker in r for marker in overflow_markers)
-            for r in validation.reasons
+            any(marker in r for marker in overflow_markers) for r in validation.reasons
         )
         if is_overflow:
             stage = PipelineStage.OUT_OF_SCOPE
@@ -206,22 +213,22 @@ def generate_proposal(req: ProposalRequest) -> ProposalResult:
         else:
             owner_kind = "prospect"
             owner_id = req.prospect_id
-        _dispatch_artifact_to_crm({
-            "kind": "proposal",
-            "owner_entity_kind": owner_kind,
-            "owner_entity_id": owner_id,
-            "title": f"Proposal: {req.intake.client_name}",
-            "inline_data": {
-                "task_id": req.task_id,
-                "stage": result.stage.value,
-                "status": result.status,
-                "total_steps": (
-                    result.workflow.total_steps if result.workflow else 0
-                ),
-            },
-            "source": "proposal",
-            "created_by": "samus-proposal",
-        })
+        _dispatch_artifact_to_crm(
+            {
+                "kind": "proposal",
+                "owner_entity_kind": owner_kind,
+                "owner_entity_id": owner_id,
+                "title": f"Proposal: {req.intake.client_name}",
+                "inline_data": {
+                    "task_id": req.task_id,
+                    "stage": result.stage.value,
+                    "status": result.status,
+                    "total_steps": (result.workflow.total_steps if result.workflow else 0),
+                },
+                "source": "proposal",
+                "created_by": "samus-proposal",
+            }
+        )
 
     # Inbound deal funnel (Unit S): an approved proposal -> render the
     # client-facing proposal pack via the scaffold workcell.

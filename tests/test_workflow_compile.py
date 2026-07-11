@@ -3,6 +3,7 @@
 Fully offline + deterministic (use_llm defaults off). Builds the plan via the
 real scope_planner so the test exercises the same path fulfillment uses.
 """
+
 from __future__ import annotations
 
 from backend.services.scope_planner import TaskPlan, generate_scope
@@ -12,8 +13,10 @@ from backend.workflow.compiler import compile_workflow
 def _rescue_plan() -> TaskPlan:
     intake = {
         "email": "t@x.com",
-        "bottleneck": ("Calendly booking creates a Stripe invoice, appends a row to a Google "
-                       "Sheet, sends an SMS to the tech via Twilio, and pings Discord on failure"),
+        "bottleneck": (
+            "Calendly booking creates a Stripe invoice, appends a row to a Google "
+            "Sheet, sends an SMS to the tech via Twilio, and pings Discord on failure"
+        ),
     }
     return generate_scope(intake, "service_workflow_rescue").plan
 
@@ -64,7 +67,9 @@ def test_compile_crm_is_tool_aware():
 
 def test_compile_unknown_action_falls_back_to_http():
     # A plan with an action label not in the library still compiles.
-    plan = TaskPlan(triggers=["form_submission"], actions=["frobnicate_widgets"], notifications=[], tools=[])
+    plan = TaskPlan(
+        triggers=["form_submission"], actions=["frobnicate_widgets"], notifications=[], tools=[]
+    )
     wf = compile_workflow(plan, name="Test")
     assert "n8n-nodes-base.httpRequest" in {n.type for n in wf.nodes}
 
@@ -78,8 +83,12 @@ def test_compile_empty_plan_defaults_to_webhook_trigger():
 
 def test_node_names_are_unique():
     # Two send_email actions would collide without de-duping.
-    plan = TaskPlan(triggers=["form_submission"], actions=["send_email", "send_email"],
-                    notifications=[], tools=[])
+    plan = TaskPlan(
+        triggers=["form_submission"],
+        actions=["send_email", "send_email"],
+        notifications=[],
+        tools=[],
+    )
     wf = compile_workflow(plan, name="Test")
     names = [n.name for n in wf.nodes]
     assert len(names) == len(set(names))

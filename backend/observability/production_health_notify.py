@@ -17,6 +17,7 @@ On a state read/write fault the module fails TOWARD alerting (sends this cycle)
 rather than going silent - a monitor that hides its own faults is worse than a
 duplicate email.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -42,9 +43,11 @@ _STATE_BASENAME = "production_health_alert_state.json"
 # State (last-sent fingerprint)
 # ---------------------------------------------------------------------------
 
+
 def _state_path() -> Optional[Path]:
     try:
         from backend.common import storage
+
         return storage.root() / "observability" / _STATE_BASENAME
     except Exception:  # noqa: BLE001
         return None
@@ -84,6 +87,7 @@ def _fingerprint(report: ProductionHealthReport) -> str:
 # Email composition
 # ---------------------------------------------------------------------------
 
+
 def _counts_phrase(report: ProductionHealthReport) -> str:
     counts: dict[str, int] = {}
     for c in report.alerts():
@@ -93,7 +97,9 @@ def _counts_phrase(report: ProductionHealthReport) -> str:
     return ", ".join(parts) or "0 alerts"
 
 
-def _compose(report: ProductionHealthReport, *, recovered: bool, now_ts: float) -> tuple[str, str, str]:
+def _compose(
+    report: ProductionHealthReport, *, recovered: bool, now_ts: float
+) -> tuple[str, str, str]:
     """Return (subject, text_body, html_body)."""
     stamp = time.strftime("%Y-%m-%d %H:%M %Z", time.localtime(now_ts))
     if recovered:
@@ -118,7 +124,7 @@ def _compose(report: ProductionHealthReport, *, recovered: bool, now_ts: float) 
     ]
     text = "\n".join(lines)
     html = (
-        "<html><body><pre style=\"font-family: Consolas, monospace; font-size: 13px;\">"
+        '<html><body><pre style="font-family: Consolas, monospace; font-size: 13px;">'
         + text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
         + "</pre></body></html>"
     )
@@ -128,6 +134,7 @@ def _compose(report: ProductionHealthReport, *, recovered: bool, now_ts: float) 
 # ---------------------------------------------------------------------------
 # Dispatch
 # ---------------------------------------------------------------------------
+
 
 def dispatch(
     *,
@@ -150,7 +157,9 @@ def dispatch(
     if not report.enabled:
         return {"action": "disabled"}
 
-    recipient = recipient if recipient is not None else (os.getenv("SAMUS_BRIEF_EMAIL_TO") or "").strip()
+    recipient = (
+        recipient if recipient is not None else (os.getenv("SAMUS_BRIEF_EMAIL_TO") or "").strip()
+    )
     path = state_path if state_path is not None else _state_path()
 
     fp = _fingerprint(report)
@@ -162,7 +171,7 @@ def dispatch(
 
     # State changed. Alert on new/changed failures; a transition to empty is a
     # recovery (only worth an email if we had previously alerted).
-    recovered = (fp == "" and prev_fp != "")
+    recovered = fp == "" and prev_fp != ""
     if fp == "" and prev_fp == "":
         return {"action": "unchanged", "fingerprint": fp}
 
@@ -175,6 +184,7 @@ def dispatch(
     send = sender
     if send is None:
         from backend.common.email_backend import send_email
+
         send = send_email
     try:
         send(

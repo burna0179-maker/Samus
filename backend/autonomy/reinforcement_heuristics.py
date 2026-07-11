@@ -29,6 +29,7 @@ Contract 2 methods: ``get_weight(name) -> float``, ``reinforce(name, reward)
 DORMANCY: constructed no-arg; no live importer. Inert unless the flag is on
 AND the wrapper (itself dormant) constructs it.
 """
+
 from __future__ import annotations
 
 import json

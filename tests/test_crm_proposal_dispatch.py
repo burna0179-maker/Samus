@@ -6,6 +6,7 @@ so a draft proposal is waiting in the artifact list by review time. The dispatch
 best-effort: a missing gateway URL / HMAC key, or any transport failure, must never
 undo the stage advance. ``signed_post_json_sync`` is stubbed so every test is offline.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -36,6 +37,7 @@ class _FakeTable:
 
 def _patch_tables(monkeypatch):
     import backend.crm.persistence as p
+
     tables = {
         "_prospects_table": _FakeTable(),
         "_contacts_table": _FakeTable(),
@@ -68,9 +70,11 @@ class _Resp:
 def _stub_settings(monkeypatch, *, gateway_url="http://gateway.local", hmac="secret"):
     class _S:
         gateway_urls = {"gateway": gateway_url} if gateway_url else {}
+
     s = _S()
     s.shared_hmac_key = hmac
     import backend.crm.service as svc
+
     monkeypatch.setattr(svc, "get_settings", lambda: s)
 
 
@@ -105,8 +109,11 @@ def test_advance_to_proposal_dispatches_generate_proposal(tmp_path, monkeypatch)
     monkeypatch.setenv("SAMUS_CRM_AUDIT_PATH", str(tmp_path / "crm_audit.jsonl"))
     tables = _patch_tables(monkeypatch)
     _seed_opportunity(
-        tables, "op_p1", "qualified",
-        name="Acme HVAC retainer", next_step="send the automation proposal",
+        tables,
+        "op_p1",
+        "qualified",
+        name="Acme HVAC retainer",
+        next_step="send the automation proposal",
         deal_size_usd=2500.0,
     )
     _stub_settings(monkeypatch)
@@ -114,9 +121,13 @@ def test_advance_to_proposal_dispatches_generate_proposal(tmp_path, monkeypatch)
 
     from backend.crm.models import AdvanceOpportunityRequest
     from backend.crm.service import advance_opportunity
-    result = advance_opportunity(AdvanceOpportunityRequest(
-        opportunity_id="op_p1", target_stage="proposal",
-    ))
+
+    result = advance_opportunity(
+        AdvanceOpportunityRequest(
+            opportunity_id="op_p1",
+            target_stage="proposal",
+        )
+    )
     assert result.status == "advanced"
     assert len(posts) == 1
     base, path, payload = posts[0]
@@ -142,13 +153,18 @@ def test_dispatched_payload_validates_as_a_proposal_request(tmp_path, monkeypatc
 
     from backend.crm.models import AdvanceOpportunityRequest
     from backend.crm.service import advance_opportunity
-    advance_opportunity(AdvanceOpportunityRequest(
-        opportunity_id="op_p2", target_stage="proposal",
-    ))
+
+    advance_opportunity(
+        AdvanceOpportunityRequest(
+            opportunity_id="op_p2",
+            target_stage="proposal",
+        )
+    )
     assert len(posts) == 1
     inner = posts[0][2]["payload"]
 
     from backend.proposal.models import ProposalRequest
+
     req = ProposalRequest.model_validate(inner)
     assert req.opportunity_id == "op_p2"
     # Empty want-lists -> proposal compiles an empty workflow / needs_review.
@@ -167,13 +183,17 @@ def test_unnamed_opportunity_gets_a_fallback_client_name(tmp_path, monkeypatch):
 
     from backend.crm.models import AdvanceOpportunityRequest
     from backend.crm.service import advance_opportunity
-    advance_opportunity(AdvanceOpportunityRequest(
-        opportunity_id="op_p2b", target_stage="proposal",
-    ))
+
+    advance_opportunity(
+        AdvanceOpportunityRequest(
+            opportunity_id="op_p2b",
+            target_stage="proposal",
+        )
+    )
     intake = posts[0][2]["payload"]["intake"]
-    assert intake["client_name"]      # fallback "Opportunity <id-tail>"
-    assert intake["business_goal"]    # fallback scoping note
-    assert intake["budget_usd"] is None   # deal_size_usd 0.0 -> None
+    assert intake["client_name"]  # fallback "Opportunity <id-tail>"
+    assert intake["business_goal"]  # fallback scoping note
+    assert intake["budget_usd"] is None  # deal_size_usd 0.0 -> None
 
 
 def test_non_proposal_advance_dispatches_nothing(tmp_path, monkeypatch):
@@ -186,9 +206,13 @@ def test_non_proposal_advance_dispatches_nothing(tmp_path, monkeypatch):
 
     from backend.crm.models import AdvanceOpportunityRequest
     from backend.crm.service import advance_opportunity
-    result = advance_opportunity(AdvanceOpportunityRequest(
-        opportunity_id="op_p3", target_stage="qualified",
-    ))
+
+    result = advance_opportunity(
+        AdvanceOpportunityRequest(
+            opportunity_id="op_p3",
+            target_stage="qualified",
+        )
+    )
     assert result.status == "advanced"
     assert posts == []
 
@@ -203,9 +227,13 @@ def test_proposal_dispatch_skipped_when_gateway_unconfigured(tmp_path, monkeypat
 
     from backend.crm.models import AdvanceOpportunityRequest
     from backend.crm.service import advance_opportunity
-    result = advance_opportunity(AdvanceOpportunityRequest(
-        opportunity_id="op_p4", target_stage="proposal",
-    ))
+
+    result = advance_opportunity(
+        AdvanceOpportunityRequest(
+            opportunity_id="op_p4",
+            target_stage="proposal",
+        )
+    )
     assert result.status == "advanced"
     assert posts == []
 
@@ -222,13 +250,18 @@ def test_proposal_dispatch_failure_does_not_undo_the_advance(tmp_path, monkeypat
 
     def _boom(*a, **k):
         raise RuntimeError("gateway unreachable")
+
     monkeypatch.setattr(svc, "signed_post_json_sync", _boom)
 
     from backend.crm.models import AdvanceOpportunityRequest
     from backend.crm.service import advance_opportunity, get_opportunity
-    result = advance_opportunity(AdvanceOpportunityRequest(
-        opportunity_id="op_p5", target_stage="proposal",
-    ))
+
+    result = advance_opportunity(
+        AdvanceOpportunityRequest(
+            opportunity_id="op_p5",
+            target_stage="proposal",
+        )
+    )
     assert result.status == "advanced"
     opp = get_opportunity("op_p5")
     assert opp is not None

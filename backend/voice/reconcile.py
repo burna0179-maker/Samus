@@ -20,6 +20,7 @@ Idempotent: a call that already has an end_of_call event is skipped. Best-
 effort + fail-open: a Vapi fetch error logs + skips that call, never aborts
 the sweep. Designed to run as a periodic scheduled sweep AND on-demand.
 """
+
 from __future__ import annotations
 
 import json
@@ -43,13 +44,20 @@ _DIAL_RUNS_PATH_DEFAULT = "/opt/samus/data/artifacts/voice/dial_runs"
 # reconciled events classify identically to webhook-written ones)
 # ---------------------------------------------------------------------------
 
+
 def _outcome_from_ended_reason(ended_reason: str) -> str:
     ended = (ended_reason or "").lower()
-    if ended in ("no-answer", "machine_detected_silence",
-                 "customer-did-not-answer", "twilio-failed-to-connect-call"):
+    if ended in (
+        "no-answer",
+        "machine_detected_silence",
+        "customer-did-not-answer",
+        "twilio-failed-to-connect-call",
+    ):
         return "no_answer"
     if "voicemail" in ended or ended in (
-        "machine_end_beep", "machine_end_silence", "machine_end_other",
+        "machine_end_beep",
+        "machine_end_silence",
+        "machine_end_other",
     ):
         return "voicemail_left"
     if "customer-ended" in ended or "customer-busy" in ended:
@@ -114,7 +122,10 @@ def _gatekeeper_detect_enabled() -> bool:
     """Gatekeeper reclassification (Gap-19) is a correctness fix — default ON.
     Set SAMUS_VOICE_GATEKEEPER_DETECT=0 to disable."""
     return os.getenv("SAMUS_VOICE_GATEKEEPER_DETECT", "1").strip().lower() in (
-        "1", "true", "yes", "on",
+        "1",
+        "true",
+        "yes",
+        "on",
     )
 
 
@@ -211,6 +222,7 @@ def _default_fetch_call(call_id: str) -> dict[str, Any] | None:
         return None
     try:
         import httpx
+
         resp = httpx.get(
             f"https://api.vapi.ai/call/{call_id}",
             headers={"Authorization": f"Bearer {api_key}"},
@@ -276,9 +288,7 @@ def reconcile_recent_calls(
 
     # Apply the idempotency filter to the MERGED set: drop any call_id that
     # already has an end_of_call event in voice_events.
-    candidates = {
-        cid: dial for cid, dial in candidates.items() if cid not in have_eoc
-    }
+    candidates = {cid: dial for cid, dial in candidates.items() if cid not in have_eoc}
 
     summary: dict[str, Any] = {
         "ts": iso_now(),
@@ -314,15 +324,19 @@ def reconcile_recent_calls(
         if outcome in ("voicemail_left", "no_answer") and _gatekeeper_detect_enabled():
             try:
                 from .gatekeeper_detector import detect_human_engagement
+
                 is_human, gk_reason = detect_human_engagement(
-                    transcript, ended_reason=ended_reason,
+                    transcript,
+                    ended_reason=ended_reason,
                 )
                 if is_human:
                     outcome = "gatekeeper"
                     gatekeeper_reason = gk_reason
                     _LOG.info(
                         "reconcile: reclassified %s (%s) voicemail->gatekeeper: %s",
-                        dial.get("company") or cid, cid, gk_reason,
+                        dial.get("company") or cid,
+                        cid,
+                        gk_reason,
                     )
             except Exception as exc:  # noqa: BLE001
                 _LOG.debug("reconcile: gatekeeper detect skipped: %s", exc)
@@ -348,8 +362,10 @@ def reconcile_recent_calls(
         append_event(event)
         summary["reconciled"] += 1
         detail = {
-            "call_id": cid, "prospect_id": dial.get("prospect_id"),
-            "company": dial.get("company"), "outcome": outcome,
+            "call_id": cid,
+            "prospect_id": dial.get("prospect_id"),
+            "company": dial.get("company"),
+            "outcome": outcome,
             "phone": dial.get("phone"),
         }
         if gatekeeper_reason:
@@ -364,6 +380,7 @@ def reconcile_recent_calls(
             try:
                 from .closure_detector import detect_closure_callback
                 from .callback_queue import schedule_callback
+
                 transcript = str(call.get("transcript") or "")
                 cb_date, reason = detect_closure_callback(transcript)
                 if cb_date and dial.get("prospect_id"):
@@ -376,15 +393,21 @@ def reconcile_recent_calls(
                     )
                     detail["callback_scheduled"] = cb_date
                     summary["callbacks_scheduled"] = summary.get("callbacks_scheduled", 0) + 1
-                    _LOG.info("reconcile: scheduled callback for %s on %s (%s)",
-                              dial.get("company") or cid, cb_date, reason)
+                    _LOG.info(
+                        "reconcile: scheduled callback for %s on %s (%s)",
+                        dial.get("company") or cid,
+                        cb_date,
+                        reason,
+                    )
             except Exception as exc:  # noqa: BLE001
                 _LOG.debug("reconcile: closure detect skipped: %s", exc)
 
         summary["details"].append(detail)
         _LOG.info(
             "reconcile: backfilled end_of_call for %s (%s) outcome=%s",
-            dial.get("company") or cid, cid, outcome,
+            dial.get("company") or cid,
+            cid,
+            outcome,
         )
 
     # After backfilling, give the session monitor a chance to act on the now-
@@ -392,6 +415,7 @@ def reconcile_recent_calls(
     if summary["reconciled"]:
         try:
             from .call_session_monitor import check_session
+
             check_session()
         except Exception as exc:  # noqa: BLE001
             _LOG.debug("reconcile: post-backfill session check skipped: %s", exc)

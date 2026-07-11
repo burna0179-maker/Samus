@@ -16,6 +16,7 @@ aggregator + per-prospect assessment in :mod:`backend.prospecting.legitimacy_che
 There is no "low" confidence tier on purpose: a signal that cannot be
 deterministically tagged "high" or "medium" does not count as warmth.
 """
+
 from __future__ import annotations
 
 from datetime import datetime

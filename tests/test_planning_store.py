@@ -4,6 +4,7 @@ Store isolation follows the approvals/business-events test pattern: point the
 SAMUS_GOALS_PATH / SAMUS_PLANS_PATH env vars at a tmp_path file per test so the
 JSON fallback is used with a clean slate (no DDB in the test env).
 """
+
 from __future__ import annotations
 
 import pytest
@@ -32,6 +33,7 @@ def planning_paths(tmp_path, monkeypatch):
 
 # --- Goal round-trip -------------------------------------------------------
 
+
 def test_save_and_get_goal(planning_paths):
     g = Goal(
         id="goal::year::2026",
@@ -58,8 +60,7 @@ def test_get_goal_unknown_returns_none(planning_paths):
 
 
 def test_save_goal_overwrites_in_place(planning_paths):
-    g = Goal(id="g1", horizon=HORIZON_DAY, target_metric="leads_created",
-             target_value=10.0)
+    g = Goal(id="g1", horizon=HORIZON_DAY, target_metric="leads_created", target_value=10.0)
     store.save_goal(g)
     g.status = GOAL_MET
     g.target_value = 12.0
@@ -71,14 +72,19 @@ def test_save_goal_overwrites_in_place(planning_paths):
 
 
 def test_list_goals_filters(planning_paths):
-    store.save_goals([
-        Goal(id="y", horizon=HORIZON_YEAR, target_metric="revenue_usd",
-             target_value=40000.0),
-        Goal(id="d1", horizon=HORIZON_DAY, target_metric="leads_created",
-             target_value=10.0),
-        Goal(id="d2", horizon=HORIZON_DAY, target_metric="tasks_completed",
-             target_value=10.0, status=GOAL_MET),
-    ])
+    store.save_goals(
+        [
+            Goal(id="y", horizon=HORIZON_YEAR, target_metric="revenue_usd", target_value=40000.0),
+            Goal(id="d1", horizon=HORIZON_DAY, target_metric="leads_created", target_value=10.0),
+            Goal(
+                id="d2",
+                horizon=HORIZON_DAY,
+                target_metric="tasks_completed",
+                target_value=10.0,
+                status=GOAL_MET,
+            ),
+        ]
+    )
     assert len(store.list_goals(horizon=HORIZON_DAY)) == 2
     assert len(store.list_goals(horizon=HORIZON_YEAR)) == 1
     assert len(store.list_goals(status=GOAL_ACTIVE)) == 2
@@ -86,12 +92,24 @@ def test_list_goals_filters(planning_paths):
 
 
 def test_list_goals_by_parent(planning_paths):
-    store.save_goals([
-        Goal(id="y", horizon=HORIZON_YEAR, target_metric="revenue_usd",
-             target_value=40000.0, parent_id=""),
-        Goal(id="q", horizon="90d", target_metric="revenue_usd",
-             target_value=10000.0, parent_id="y"),
-    ])
+    store.save_goals(
+        [
+            Goal(
+                id="y",
+                horizon=HORIZON_YEAR,
+                target_metric="revenue_usd",
+                target_value=40000.0,
+                parent_id="",
+            ),
+            Goal(
+                id="q",
+                horizon="90d",
+                target_metric="revenue_usd",
+                target_value=10000.0,
+                parent_id="y",
+            ),
+        ]
+    )
     children = store.list_goals(parent_id="y")
     assert [g.id for g in children] == ["q"]
     roots = store.list_goals(parent_id="")
@@ -100,16 +118,23 @@ def test_list_goals_by_parent(planning_paths):
 
 # --- Plan round-trip -------------------------------------------------------
 
+
 def test_save_and_get_plan(planning_paths):
     p = Plan(
         id="p1",
         goal_id="g1",
         plan_generation=1,
-        assumptions=[Assumption(id="a1", description=">=8 leads/day",
-                                metric="leads_per_day", op=">=", threshold=8.0,
-                                window_days=7)],
-        steps=[PlanStep(name="email", channel="email", action="send",
-                        target_value=8.0)],
+        assumptions=[
+            Assumption(
+                id="a1",
+                description=">=8 leads/day",
+                metric="leads_per_day",
+                op=">=",
+                threshold=8.0,
+                window_days=7,
+            )
+        ],
+        steps=[PlanStep(name="email", channel="email", action="send", target_value=8.0)],
         rationale="initial",
     )
     store.save_plan(p)
@@ -125,22 +150,17 @@ def test_save_and_get_plan(planning_paths):
 
 
 def test_list_plans_filters(planning_paths):
-    store.save_plan(Plan(id="p1", goal_id="g1", plan_generation=1,
-                         status=PLAN_SUPERSEDED))
-    store.save_plan(Plan(id="p2", goal_id="g1", plan_generation=2,
-                         status=PLAN_ACTIVE))
-    store.save_plan(Plan(id="p3", goal_id="g2", plan_generation=1,
-                         status=PLAN_ACTIVE))
+    store.save_plan(Plan(id="p1", goal_id="g1", plan_generation=1, status=PLAN_SUPERSEDED))
+    store.save_plan(Plan(id="p2", goal_id="g1", plan_generation=2, status=PLAN_ACTIVE))
+    store.save_plan(Plan(id="p3", goal_id="g2", plan_generation=1, status=PLAN_ACTIVE))
     assert len(store.list_plans(goal_id="g1")) == 2
     assert len(store.list_plans(status=PLAN_ACTIVE)) == 2
     assert len(store.list_plans(goal_id="g1", status=PLAN_ACTIVE)) == 1
 
 
 def test_active_plan_for_goal_picks_latest_generation(planning_paths):
-    store.save_plan(Plan(id="p1", goal_id="g1", plan_generation=1,
-                         status=PLAN_ACTIVE))
-    store.save_plan(Plan(id="p2", goal_id="g1", plan_generation=2,
-                         status=PLAN_ACTIVE))
+    store.save_plan(Plan(id="p1", goal_id="g1", plan_generation=1, status=PLAN_ACTIVE))
+    store.save_plan(Plan(id="p2", goal_id="g1", plan_generation=2, status=PLAN_ACTIVE))
     active = store.active_plan_for_goal("g1")
     assert active is not None
     assert active.plan_generation == 2
@@ -148,8 +168,7 @@ def test_active_plan_for_goal_picks_latest_generation(planning_paths):
 
 
 def test_active_plan_for_goal_none_when_all_superseded(planning_paths):
-    store.save_plan(Plan(id="p1", goal_id="g1", plan_generation=1,
-                         status=PLAN_SUPERSEDED))
+    store.save_plan(Plan(id="p1", goal_id="g1", plan_generation=1, status=PLAN_SUPERSEDED))
     assert store.active_plan_for_goal("g1") is None
 
 
@@ -161,6 +180,7 @@ def test_latest_generation_for_goal(planning_paths):
 
 
 # --- degradation -----------------------------------------------------------
+
 
 def test_store_reads_empty_when_no_file(planning_paths):
     # No writes yet -> both lists empty, no raise.

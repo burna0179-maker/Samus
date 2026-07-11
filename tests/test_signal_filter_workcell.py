@@ -4,11 +4,11 @@ Covers: /health smoke, /work + REST-alias routing, the deterministic
 scoring map, the should_enqueue boundary at 0.62, and enrichment graceful
 degradation. All network I/O is monkeypatched — no test touches the wire.
 """
+
 from __future__ import annotations
 
 from typing import Any
 
-import pytest
 from fastapi.testclient import TestClient
 
 
@@ -105,15 +105,18 @@ def test_work_admits_high_quality_prospect(monkeypatch):
     from backend.signal_filter.app import app
 
     client = TestClient(app)
-    r = client.post("/work", json={
-        "task_id": "t-high",
-        "payload": {
-            "prospect_id": "p-high",
-            "business_name": "Acme Co",
-            "website_url": "https://example.com",
+    r = client.post(
+        "/work",
+        json={
+            "task_id": "t-high",
+            "payload": {
+                "prospect_id": "p-high",
+                "business_name": "Acme Co",
+                "website_url": "https://example.com",
+            },
+            "metadata": {"action": "evaluate"},
         },
-        "metadata": {"action": "evaluate"},
-    })
+    )
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["admitted"] is True
@@ -121,8 +124,13 @@ def test_work_admits_high_quality_prospect(monkeypatch):
     assert body["weighted_score"] >= body["threshold"]
     # Seven signal axes, all present.
     assert set(body["signals"]) == {
-        "domain_health", "seo_score", "review_velocity", "contactability",
-        "social_activity", "revenue_estimate", "infrastructure_maturity",
+        "domain_health",
+        "seo_score",
+        "review_velocity",
+        "contactability",
+        "social_activity",
+        "revenue_estimate",
+        "infrastructure_maturity",
     }
 
 
@@ -131,11 +139,14 @@ def test_work_rejects_low_quality_prospect(monkeypatch):
     from backend.signal_filter.app import app
 
     client = TestClient(app)
-    r = client.post("/work", json={
-        "task_id": "t-low",
-        "payload": {"prospect_id": "p-low", "website_url": ""},
-        "metadata": {"action": "evaluate"},
-    })
+    r = client.post(
+        "/work",
+        json={
+            "task_id": "t-low",
+            "payload": {"prospect_id": "p-low", "website_url": ""},
+            "metadata": {"action": "evaluate"},
+        },
+    )
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["admitted"] is False
@@ -149,10 +160,13 @@ def test_work_default_action_is_evaluate(monkeypatch):
     from backend.signal_filter.app import app
 
     client = TestClient(app)
-    r = client.post("/work", json={
-        "task_id": "t-default",
-        "payload": {"prospect_id": "p-default", "website_url": "https://example.com"},
-    })
+    r = client.post(
+        "/work",
+        json={
+            "task_id": "t-default",
+            "payload": {"prospect_id": "p-default", "website_url": "https://example.com"},
+        },
+    )
     assert r.status_code == 200, r.text
     assert r.json()["admitted"] is True
 
@@ -162,11 +176,14 @@ def test_work_unknown_action_400(monkeypatch):
     from backend.signal_filter.app import app
 
     client = TestClient(app)
-    r = client.post("/work", json={
-        "task_id": "t-x",
-        "payload": {"website_url": "https://example.com"},
-        "metadata": {"action": "not_a_real_action"},
-    })
+    r = client.post(
+        "/work",
+        json={
+            "task_id": "t-x",
+            "payload": {"website_url": "https://example.com"},
+            "metadata": {"action": "not_a_real_action"},
+        },
+    )
     assert r.status_code == 400
     assert "unknown_action" in r.json()["detail"]
 
@@ -176,11 +193,14 @@ def test_work_malformed_prospect_422(monkeypatch):
     from backend.signal_filter.app import app
 
     client = TestClient(app)
-    r = client.post("/work", json={
-        "task_id": "t-bad",
-        "payload": {"unexpected_field": "boom"},  # extra="forbid" → reject
-        "metadata": {"action": "evaluate"},
-    })
+    r = client.post(
+        "/work",
+        json={
+            "task_id": "t-bad",
+            "payload": {"unexpected_field": "boom"},  # extra="forbid" → reject
+            "metadata": {"action": "evaluate"},
+        },
+    )
     assert r.status_code == 422
 
 
@@ -192,10 +212,13 @@ def test_rest_alias_evaluate(monkeypatch):
     from backend.signal_filter.app import app
 
     client = TestClient(app)
-    r = client.post("/signal_filter/evaluate", json={
-        "prospect_id": "p-rest",
-        "website_url": "https://example.com",
-    })
+    r = client.post(
+        "/signal_filter/evaluate",
+        json={
+            "prospect_id": "p-rest",
+            "website_url": "https://example.com",
+        },
+    )
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["prospect_id"] == "p-rest"

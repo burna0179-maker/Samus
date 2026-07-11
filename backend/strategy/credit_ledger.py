@@ -19,6 +19,7 @@ Design notes
   caller can persist however it wants (or feed back into a future
   reconstitution constructor — out of scope here).
 """
+
 from __future__ import annotations
 
 import threading
@@ -47,8 +48,8 @@ class CreditTransaction:
     txn_type: TxnType
     amount: int
     category: str
-    timestamp: str   # ISO8601 UTC
-    txn_id: str      # uuid4 hex
+    timestamp: str  # ISO8601 UTC
+    txn_id: str  # uuid4 hex
     note: str = ""
 
 
@@ -57,7 +58,7 @@ class AgentBalance:
     """Aggregated snapshot of one agent's position in the ledger."""
 
     agent_id: str
-    credits: int                                 # signed running balance
+    credits: int  # signed running balance
     earned_categories: dict[str, int] = field(default_factory=dict)
     spent_categories: dict[str, int] = field(default_factory=dict)
 
@@ -185,12 +186,8 @@ class CreditLedger:
                     for t in self._transactions
                 ],
                 "balances": dict(self._balances),
-                "earned_categories": {
-                    agent: dict(cats) for agent, cats in self._earned.items()
-                },
-                "spent_categories": {
-                    agent: dict(cats) for agent, cats in self._spent.items()
-                },
+                "earned_categories": {agent: dict(cats) for agent, cats in self._earned.items()},
+                "spent_categories": {agent: dict(cats) for agent, cats in self._spent.items()},
             }
 
     # ------------------------------------------------------------------
@@ -203,9 +200,7 @@ class CreditLedger:
                 f"amount must be a positive int, got {type(amount).__name__}={amount!r}"
             )
         if amount <= 0:
-            raise InvalidAmountError(
-                f"amount must be strictly positive, got {amount}"
-            )
+            raise InvalidAmountError(f"amount must be strictly positive, got {amount}")
 
     @staticmethod
     def _build_txn(

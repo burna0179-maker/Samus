@@ -4,6 +4,7 @@ Covers the contract §10 conventions: /health smoke, /work route, a
 determinism check, an unknown-task-kind safe-generic-scaffold check, and a
 pivot-decision boundary check around ``efficiency_ema`` 0.45.
 """
+
 from __future__ import annotations
 
 import pytest

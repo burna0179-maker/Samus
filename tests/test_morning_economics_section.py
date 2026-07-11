@@ -1,10 +1,9 @@
 """Morning brief ECONOMICS section — best-effort render of ROI + arbitration."""
+
 from __future__ import annotations
 
 import datetime as _dt
-import json
 
-import pytest
 
 from backend import morning
 
@@ -30,7 +29,9 @@ def test_render_economics_shows_roi_and_top10_queue(monkeypatch, tmp_path):
 
     def fake_get_rollup(day=None, **kw):
         return {
-            "day": str(day), "revenue_usd": 500.0, "cost_usd": 120.0,
+            "day": str(day),
+            "revenue_usd": 500.0,
+            "cost_usd": 120.0,
             "net_usd": 380.0,
             "by_channel": {
                 "email": {"revenue_usd": 500.0, "cost_usd": 20.0, "net_usd": 480.0},
@@ -40,8 +41,12 @@ def test_render_economics_shows_roi_and_top10_queue(monkeypatch, tmp_path):
 
     ranked = [
         {
-            "rank": i, "action": "call_follow_up", "target_id": f"p_{i}",
-            "ev_usd": 1000.0 - i, "probability": 0.4, "priority": 900.0 - i,
+            "rank": i,
+            "action": "call_follow_up",
+            "target_id": f"p_{i}",
+            "ev_usd": 1000.0 - i,
+            "probability": 0.4,
+            "priority": 900.0 - i,
             "rationale": "outreach sent 2d ago — call due",
         }
         for i in range(1, 13)
@@ -56,7 +61,7 @@ def test_render_economics_shows_roi_and_top10_queue(monkeypatch, tmp_path):
     lines = morning._render_economics(TODAY)
     text = "\n".join(lines)
     assert "ECONOMICS" in text
-    assert "$500.00" in text          # revenue
+    assert "$500.00" in text  # revenue
     assert "email" in text
     assert "bandit-preferred channel: email" in text
     # Top 10 only — ranks 11 and 12 are cut.
@@ -78,5 +83,6 @@ def test_render_briefing_call_site_is_wired():
     finance registries that aren't present in the test env — the section
     function itself is covered above)."""
     import inspect
+
     src = inspect.getsource(morning.render_briefing)
     assert "_render_economics(today)" in src

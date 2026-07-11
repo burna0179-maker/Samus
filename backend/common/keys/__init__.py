@@ -22,6 +22,7 @@ fail-closed: an absent master degrades to a deterministic dev key (boot is
 never blocked) and ``key_vault.master_is_configured()`` is the gate for any
 caller that must not trust the dev fallback.
 """
+
 from __future__ import annotations
 
 from .dpapi_vault import (

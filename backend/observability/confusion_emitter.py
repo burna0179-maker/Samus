@@ -3,6 +3,7 @@
 Cross-agent depth-layer participant; PDC stressors consume these events.
 Writer only — no integrations, no enforcement, no tests yet.
 """
+
 from __future__ import annotations
 
 import json

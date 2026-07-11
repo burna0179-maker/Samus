@@ -5,6 +5,7 @@ Covers the regression where the live cold-send path recorded nothing to
 actual outbound. The fix is RECORD-ONLY: ``send_message`` appends a ramp row
 after a real send succeeds; it does not gate/throttle.
 """
+
 from __future__ import annotations
 
 import datetime as _dt
@@ -14,6 +15,7 @@ import json
 # ---------------------------------------------------------------------------
 # unit: the ledger module records the canonical row shape
 # ---------------------------------------------------------------------------
+
 
 def test_record_send_appends_canonical_row(tmp_path, monkeypatch):
     ledger = tmp_path / "outreach" / "send_ramp.jsonl"
@@ -48,12 +50,19 @@ def test_record_send_fails_open_on_io_error(tmp_path, monkeypatch):
 # integration: a successful send_message email appends exactly one ramp row
 # ---------------------------------------------------------------------------
 
+
 def _email_req(**over):
     from backend.outreach.models import OutreachMessageRequest
+
     base = dict(
-        prospect_id="pr_acme", channel="email", template_id="cash_engine_initial",
-        body="hello", to="owner@acme.com", subject="Quick question",
-        company="Acme HVAC", phone="555-0100",
+        prospect_id="pr_acme",
+        channel="email",
+        template_id="cash_engine_initial",
+        body="hello",
+        to="owner@acme.com",
+        subject="Quick question",
+        company="Acme HVAC",
+        phone="555-0100",
     )
     base.update(over)
     return OutreachMessageRequest(**base)
@@ -72,8 +81,7 @@ def test_successful_send_message_appends_send_ramp_row(tmp_path, monkeypatch):
 
     def _fake_send_email(to, subject, body, **kwargs):
         sent_calls.append(to)
-        return {"message_id": "m_1", "channel": "email", "to": to,
-                "ts": "2026-06-24T09:00:00Z"}
+        return {"message_id": "m_1", "channel": "email", "to": to, "ts": "2026-06-24T09:00:00Z"}
 
     # send_message imports send_email from email_backend at call time.
     monkeypatch.setattr(email_backend, "send_email", _fake_send_email)
@@ -85,6 +93,7 @@ def test_successful_send_message_appends_send_ramp_row(tmp_path, monkeypatch):
     assert sent_calls == ["owner@acme.com"]  # the real send fired once
 
     from backend.common import send_ramp
+
     rows = send_ramp.read_rows(ledger)
     assert len(rows) == 1
     assert rows[0]["to"] == "owner@acme.com"
@@ -106,8 +115,10 @@ def test_failed_send_message_appends_no_ramp_row(tmp_path, monkeypatch):
     monkeypatch.setattr(email_backend, "send_email", _boom_send_email)
 
     import pytest
+
     with pytest.raises(email_backend.EmailBackendError):
         svc.send_message(_email_req())
 
     from backend.common import send_ramp
+
     assert send_ramp.read_rows(ledger) == []  # nothing recorded for a failed send

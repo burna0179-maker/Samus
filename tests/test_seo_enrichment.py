@@ -6,15 +6,16 @@ so failures point at one piece of the parsing chain at a time. The
 integration paths (audit_url + _build_issues) are covered by the broader
 smoke tests in test_seo_workcell.py + test_seo_deeper.py.
 """
+
 from __future__ import annotations
 
-import httpx
 import pytest
 
 
 # ---------------------------------------------------------------------------
 # Helpers (same shape as the existing seo test fixtures)
 # ---------------------------------------------------------------------------
+
 
 def _patch_fetch(monkeypatch, html: str, status: int = 200):
     class _Resp:
@@ -24,19 +25,27 @@ def _patch_fetch(monkeypatch, html: str, status: int = 200):
             self.headers = {"content-type": "text/html"}
 
     class _Client:
-        def __init__(self, *a, **kw): pass
-        def __enter__(self): return self
-        def __exit__(self, *a): return False
+        def __init__(self, *a, **kw):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
         def get(self, url, headers=None):
             return _Resp()
 
     import backend.seo.audit as audit_mod
+
     monkeypatch.setattr(audit_mod.httpx, "Client", _Client)
 
 
 def _audit(monkeypatch, html: str):
     _patch_fetch(monkeypatch, html)
     from backend.seo.audit import audit_url
+
     return audit_url("https://example.com/")
 
 
@@ -47,6 +56,7 @@ def _issue_ids(result) -> set[str]:
 # ---------------------------------------------------------------------------
 # Canonical URL
 # ---------------------------------------------------------------------------
+
 
 def test_canonical_extracted_from_link_rel(monkeypatch):
     html = (
@@ -65,12 +75,22 @@ def test_canonical_extracted_from_link_rel(monkeypatch):
 def test_missing_canonical_flagged_as_high():
     from backend.seo.audit import _build_enrichment_issues
     from backend.seo.models import SeoIssue
-    parsed = {"canonical_url": "", "og": {"title": "x", "image": "y"},
-              "schema_types": ["Plumber"], "has_local_business_schema": True,
-              "has_organization_schema": False, "image_count": 1,
-              "images_with_alt": 1, "link_internal_count": 1,
-              "link_external_count": 0, "has_ga4": True, "has_gtm": False,
-              "has_meta_pixel": False, "has_legacy_ga": False}
+
+    parsed = {
+        "canonical_url": "",
+        "og": {"title": "x", "image": "y"},
+        "schema_types": ["Plumber"],
+        "has_local_business_schema": True,
+        "has_organization_schema": False,
+        "image_count": 1,
+        "images_with_alt": 1,
+        "link_internal_count": 1,
+        "link_external_count": 0,
+        "has_ga4": True,
+        "has_gtm": False,
+        "has_meta_pixel": False,
+        "has_legacy_ga": False,
+    }
     issues: list[SeoIssue] = []
     _build_enrichment_issues("https://x.example.com/", parsed, issues)
     by_id = {i.id: i for i in issues}
@@ -82,6 +102,7 @@ def test_missing_canonical_flagged_as_high():
 # ---------------------------------------------------------------------------
 # Open Graph
 # ---------------------------------------------------------------------------
+
 
 def test_open_graph_keys_stripped_of_og_prefix(monkeypatch):
     html = (
@@ -125,6 +146,7 @@ def test_missing_og_title_and_image_both_flagged(monkeypatch):
 # ---------------------------------------------------------------------------
 # schema.org JSON-LD
 # ---------------------------------------------------------------------------
+
 
 def test_schema_org_local_business_recognized(monkeypatch):
     html = (
@@ -212,6 +234,7 @@ def test_schema_org_malformed_block_skipped_not_crashing(monkeypatch):
 # Alt-text coverage
 # ---------------------------------------------------------------------------
 
+
 def test_alt_text_coverage_calculated(monkeypatch):
     html = (
         "<html><head>"
@@ -246,7 +269,7 @@ def test_alt_text_coverage_below_50pct_is_high_severity(monkeypatch):
         "<meta name='viewport' content='w'>"
         "<link rel='canonical' href='https://example.com/'>"
         "<meta property='og:title' content='t'><meta property='og:image' content='i'>"
-        "<script type='application/ld+json'>{\"@type\":\"Plumber\"}</script>"
+        '<script type=\'application/ld+json\'>{"@type":"Plumber"}</script>'
         "<script>gtag('config','G-ABC12345');</script>"
         "</head><body><h1>h</h1>"
         "<img src='a.png'><img src='b.png'><img src='c.png'><img src='d.png' alt='d'>"
@@ -263,6 +286,7 @@ def test_alt_text_coverage_below_50pct_is_high_severity(monkeypatch):
 # Link graph
 # ---------------------------------------------------------------------------
 
+
 def test_link_graph_internal_vs_external(monkeypatch):
     html = (
         "<html><head>"
@@ -271,7 +295,7 @@ def test_link_graph_internal_vs_external(monkeypatch):
         "<meta name='viewport' content='w'>"
         "<link rel='canonical' href='https://example.com/'>"
         "<meta property='og:title' content='t'><meta property='og:image' content='i'>"
-        "<script type='application/ld+json'>{\"@type\":\"Plumber\"}</script>"
+        '<script type=\'application/ld+json\'>{"@type":"Plumber"}</script>'
         "<script>gtag('config','G-ABC12345');</script>"
         "</head><body><h1>h</h1>"
         "<img src='a.png' alt='a'>"
@@ -300,7 +324,7 @@ def test_no_internal_links_flagged(monkeypatch):
         "<meta name='viewport' content='w'>"
         "<link rel='canonical' href='https://example.com/'>"
         "<meta property='og:title' content='t'><meta property='og:image' content='i'>"
-        "<script type='application/ld+json'>{\"@type\":\"Plumber\"}</script>"
+        '<script type=\'application/ld+json\'>{"@type":"Plumber"}</script>'
         "<script>gtag('config','G-ABC12345');</script>"
         "</head><body><h1>h</h1>"
         "<img src='a.png' alt='a'>"
@@ -315,6 +339,7 @@ def test_no_internal_links_flagged(monkeypatch):
 # Analytics detection
 # ---------------------------------------------------------------------------
 
+
 def test_no_analytics_flagged(monkeypatch):
     html = (
         "<html><head>"
@@ -323,7 +348,7 @@ def test_no_analytics_flagged(monkeypatch):
         "<meta name='viewport' content='w'>"
         "<link rel='canonical' href='https://example.com/'>"
         "<meta property='og:title' content='t'><meta property='og:image' content='i'>"
-        "<script type='application/ld+json'>{\"@type\":\"Plumber\"}</script>"
+        '<script type=\'application/ld+json\'>{"@type":"Plumber"}</script>'
         # No GA / GTM / Pixel
         "</head><body><h1>h</h1>"
         "<img src='a.png' alt='a'><a href='/'>i</a>"
@@ -343,7 +368,7 @@ def test_ga4_recognized_via_gtag_snippet(monkeypatch):
         "<meta name='viewport' content='w'>"
         "<link rel='canonical' href='https://example.com/'>"
         "<meta property='og:title' content='t'><meta property='og:image' content='i'>"
-        "<script type='application/ld+json'>{\"@type\":\"Plumber\"}</script>"
+        '<script type=\'application/ld+json\'>{"@type":"Plumber"}</script>'
         "<script async src='https://www.googletagmanager.com/gtag/js?id=G-ABCDEF1234'></script>"
         "<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-ABCDEF1234');</script>"
         "</head><body><h1>h</h1>"
@@ -364,7 +389,7 @@ def test_gtm_recognized_via_googletagmanager_src(monkeypatch):
         "<meta name='viewport' content='w'>"
         "<link rel='canonical' href='https://example.com/'>"
         "<meta property='og:title' content='t'><meta property='og:image' content='i'>"
-        "<script type='application/ld+json'>{\"@type\":\"Plumber\"}</script>"
+        '<script type=\'application/ld+json\'>{"@type":"Plumber"}</script>'
         "<script async src='https://www.googletagmanager.com/gtm.js?id=GTM-ABCDEF1'></script>"
         "</head><body><h1>h</h1><img src='a.png' alt='a'><a href='/'>i</a></body></html>"
     )
@@ -382,7 +407,7 @@ def test_legacy_ga_only_flagged(monkeypatch):
         "<meta name='viewport' content='w'>"
         "<link rel='canonical' href='https://example.com/'>"
         "<meta property='og:title' content='t'><meta property='og:image' content='i'>"
-        "<script type='application/ld+json'>{\"@type\":\"Plumber\"}</script>"
+        '<script type=\'application/ld+json\'>{"@type":"Plumber"}</script>'
         "<script>ga('create','UA-12345678-1','auto');</script>"
         "</head><body><h1>h</h1><img src='a.png' alt='a'><a href='/'>i</a></body></html>"
     )
@@ -402,7 +427,7 @@ def test_meta_pixel_recognized(monkeypatch):
         "<meta name='viewport' content='w'>"
         "<link rel='canonical' href='https://example.com/'>"
         "<meta property='og:title' content='t'><meta property='og:image' content='i'>"
-        "<script type='application/ld+json'>{\"@type\":\"Plumber\"}</script>"
+        '<script type=\'application/ld+json\'>{"@type":"Plumber"}</script>'
         "<script>!function(f,b,e,v,n,t,s){fbq('init','1234567890');}(window);</script>"
         "</head><body><h1>h</h1><img src='a.png' alt='a'><a href='/'>i</a></body></html>"
     )
@@ -415,6 +440,7 @@ def test_meta_pixel_recognized(monkeypatch):
 # Lazy-loading
 # ---------------------------------------------------------------------------
 
+
 def test_lazy_load_counted(monkeypatch):
     html = (
         "<html><head>"
@@ -423,7 +449,7 @@ def test_lazy_load_counted(monkeypatch):
         "<meta name='viewport' content='w'>"
         "<link rel='canonical' href='https://example.com/'>"
         "<meta property='og:title' content='t'><meta property='og:image' content='i'>"
-        "<script type='application/ld+json'>{\"@type\":\"Plumber\"}</script>"
+        '<script type=\'application/ld+json\'>{"@type":"Plumber"}</script>'
         "<script>gtag('config','G-ABC12345');</script>"
         "</head><body><h1>h</h1>"
         "<img src='1.png' alt='1' loading='lazy'>"
@@ -467,10 +493,11 @@ def test_every_enrichment_issue_has_a_dedicated_recommendation(issue_id):
     'Resolve <id>' message in the customer report."""
     from backend.seo.models import AuditResult, SeoIssue
     from backend.seo.recommendations import build_recommendations
+
     audit = AuditResult(
-        url="https://x.example/", seo_score=50,
-        issues=[SeoIssue(id=issue_id, severity="high", category="technical",
-                         message="probe")],
+        url="https://x.example/",
+        seo_score=50,
+        issues=[SeoIssue(id=issue_id, severity="high", category="technical", message="probe")],
         findings={"industry": "plumbing", "title": "X"},
         ts="2026-05-16T00:00:00Z",
     )
@@ -492,17 +519,15 @@ def test_enrichment_recommendations_produce_on_page_suggestions():
     contribute concrete paste-ready snippets to on_page_changes."""
     from backend.seo.models import AuditResult, SeoIssue
     from backend.seo.recommendations import build_recommendations
+
     audit = AuditResult(
-        url="https://x.example/", seo_score=50,
+        url="https://x.example/",
+        seo_score=50,
         issues=[
-            SeoIssue(id="missing_canonical", severity="high",
-                     category="technical", message="x"),
-            SeoIssue(id="missing_og_title", severity="medium",
-                     category="content", message="x"),
-            SeoIssue(id="missing_og_image", severity="medium",
-                     category="content", message="x"),
-            SeoIssue(id="missing_schema_org", severity="high",
-                     category="technical", message="x"),
+            SeoIssue(id="missing_canonical", severity="high", category="technical", message="x"),
+            SeoIssue(id="missing_og_title", severity="medium", category="content", message="x"),
+            SeoIssue(id="missing_og_image", severity="medium", category="content", message="x"),
+            SeoIssue(id="missing_schema_org", severity="high", category="technical", message="x"),
         ],
         findings={"industry": "plumbing", "title": "Acme Plumbing"},
         ts="2026-05-16T00:00:00Z",
@@ -521,6 +546,7 @@ def test_enrichment_recommendations_produce_on_page_suggestions():
 def test_regex_fallback_extracts_canonical_and_og(monkeypatch):
     """When bs4 is unavailable, the regex path still pulls canonical + OG."""
     import backend.seo.audit as audit_mod
+
     monkeypatch.setattr(audit_mod, "_HAS_BS4", False)
     html = (
         "<html><head>"
@@ -530,7 +556,7 @@ def test_regex_fallback_extracts_canonical_and_og(monkeypatch):
         "<link rel='canonical' href='https://example.com/page'>"
         "<meta property='og:title' content='OG'>"
         "<meta property='og:image' content='https://example.com/i.png'>"
-        "<script type='application/ld+json'>{\"@type\":\"Restaurant\"}</script>"
+        '<script type=\'application/ld+json\'>{"@type":"Restaurant"}</script>'
         "<script>gtag('config','G-ABC');</script>"
         "</head><body><h1>h</h1></body></html>"
     )

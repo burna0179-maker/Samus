@@ -20,6 +20,7 @@ Storage follows the crm/persistence.py table pattern: DDB table
 fallback under the state root so a dev box / test run needs no AWS. Writes
 never raise; readers auto-expire stale rows.
 """
+
 from __future__ import annotations
 
 import json
@@ -50,8 +51,8 @@ STATUS_APPROVED = "approved"
 STATUS_REJECTED = "rejected"
 STATUS_EXPIRED = "expired"
 
-_DEFAULT_TTL_EMERGENCY_SEC = 4 * 3600    # per-item, operator alerted same day
-_DEFAULT_TTL_ROUTINE_SEC = 72 * 3600     # survives a weekend of morning briefs
+_DEFAULT_TTL_EMERGENCY_SEC = 4 * 3600  # per-item, operator alerted same day
+_DEFAULT_TTL_ROUTINE_SEC = 72 * 3600  # survives a weekend of morning briefs
 
 
 def severity_for(risk_level: str) -> str:
@@ -226,6 +227,7 @@ def _plain(item: dict[str, Any]) -> dict[str, Any]:
 # Expiry
 # ---------------------------------------------------------------------------
 
+
 def _expire_if_due(row: dict[str, Any]) -> dict[str, Any]:
     """Flip a stale ``pending`` row to ``expired`` (fail-closed, persisted)."""
     if row.get("status") == STATUS_PENDING:
@@ -240,6 +242,7 @@ def _expire_if_due(row: dict[str, Any]) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def create_approval(
     kind: str,
@@ -325,8 +328,10 @@ def decide_approval(
     """
     verb = (decision or "").strip().lower()
     normalized = {
-        "approve": STATUS_APPROVED, "approved": STATUS_APPROVED,
-        "reject": STATUS_REJECTED, "rejected": STATUS_REJECTED,
+        "approve": STATUS_APPROVED,
+        "approved": STATUS_APPROVED,
+        "reject": STATUS_REJECTED,
+        "rejected": STATUS_REJECTED,
     }.get(verb)
     if normalized is None:
         return None

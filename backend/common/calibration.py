@@ -24,6 +24,7 @@ Store shape (one JSON document, atomic replace)::
      "tier_close_probability": {"low": 0.04, ...},
      "optimizer_seeds": {"conversion_prob_default": 0.12, ...}}
 """
+
 from __future__ import annotations
 
 import json
@@ -77,9 +78,7 @@ def write_calibration(
         "tier_close_probability": {
             str(k): float(v) for k, v in (tier_close_probability or {}).items()
         },
-        "optimizer_seeds": {
-            str(k): float(v) for k, v in (optimizer_seeds or {}).items()
-        },
+        "optimizer_seeds": {str(k): float(v) for k, v in (optimizer_seeds or {}).items()},
     }
     path = calibration_path()
     try:

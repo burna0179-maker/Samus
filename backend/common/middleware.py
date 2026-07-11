@@ -29,6 +29,7 @@ denials; in ``enforce`` it returns 403. Per-service keys + the caller header
 are ALWAYS active (additive, harmless); only the authz DECISION is gated by
 the mode.
 """
+
 from __future__ import annotations
 
 import collections
@@ -71,10 +72,15 @@ class MetricsMiddleware(BaseHTTPMiddleware):
         path = request.url.path
         method = request.method
         metrics.SAMUS_HTTP_REQUESTS_TOTAL.labels(
-            self._service, method, path, str(response.status_code),
+            self._service,
+            method,
+            path,
+            str(response.status_code),
         ).inc()
         metrics.SAMUS_HTTP_REQUEST_DURATION_SECONDS.labels(
-            self._service, method, path,
+            self._service,
+            method,
+            path,
         ).observe(duration)
         return response
 
@@ -87,9 +93,9 @@ _IDEMPOTENCY_HEADER = "Idempotency-Key"
 # when the idempotency store is unavailable rather than risk a duplicate. All
 # other routes fail open to preserve availability. (Red/blue drill #6b, 2026-06-30.)
 _IDEMPOTENCY_FAIL_CLOSED_PATHS = frozenset(
-    p.strip() for p in os.getenv(
-        "SAMUS_IDEMPOTENCY_FAIL_CLOSED_PATHS", "/meter-event"
-    ).split(",") if p.strip()
+    p.strip()
+    for p in os.getenv("SAMUS_IDEMPOTENCY_FAIL_CLOSED_PATHS", "/meter-event").split(",")
+    if p.strip()
 )
 _IDEMPOTENCY_IN_FLIGHT_TTL = 30  # seconds to wait before treating a claim as orphaned
 
@@ -179,7 +185,9 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
                     media_type="application/json",
                     headers={"Retry-After": "5"},
                 )
-            _LOG.warning("idempotency_claim failed for key=%r; proceeding without deduplication", idem_key)
+            _LOG.warning(
+                "idempotency_claim failed for key=%r; proceeding without deduplication", idem_key
+            )
             return await call_next(request)
 
         if not claimed:
@@ -224,14 +232,20 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
 
         try:
             _ddb.idempotency_complete(
-                self._workcell, idem_key,
-                response.status_code, body_str, content_type,
+                self._workcell,
+                idem_key,
+                response.status_code,
+                body_str,
+                content_type,
             )
-            self._local_set(pk, {
-                "status_code": response.status_code,
-                "body": body_str,
-                "content_type": content_type,
-            })
+            self._local_set(
+                pk,
+                {
+                    "status_code": response.status_code,
+                    "body": body_str,
+                    "content_type": content_type,
+                },
+            )
         except Exception:
             _LOG.warning(
                 "idempotency_complete failed for key=%r; response returned but not cached",
@@ -366,8 +380,7 @@ class VerifyHMACMiddleware(BaseHTTPMiddleware):
             # Pre-R-1 signer: shared key only. Never resolve a per-service
             # key here — a legacy signer has no caller identity and could not
             # have signed with anything but the shared secret.
-            secret = self._pinned_secret if self._pinned_secret is not None \
-                else self._shared_secret
+            secret = self._pinned_secret if self._pinned_secret is not None else self._shared_secret
         if not secret:
             return JSONResponse({"error": "hmac_not_configured"}, status_code=503)
 
@@ -401,7 +414,12 @@ class VerifyHMACMiddleware(BaseHTTPMiddleware):
         # reconstructed and old signers keep verifying.
         sign_caller = caller if caller else None
         expected = security.sign_request(
-            secret, request.method, request.url.path, ts, nonce, body,
+            secret,
+            request.method,
+            request.url.path,
+            ts,
+            nonce,
+            body,
             caller=sign_caller,
             query_string=request.url.query or "",
         )
@@ -411,6 +429,7 @@ class VerifyHMACMiddleware(BaseHTTPMiddleware):
             # pages once, not per request. Fail-soft; lazy import avoids cycles.
             try:
                 from .notify import notify_operator
+
                 _who = caller or "unknown"
                 notify_operator(
                     "Auth signature mismatch",
@@ -433,7 +452,9 @@ class VerifyHMACMiddleware(BaseHTTPMiddleware):
         # this workcell. This is the boundary that subsumes the cross-workcell
         # IDOR (finding M2).
         allowed = capabilities.authorize_caller_to_callee(
-            resolved_caller, self._self_service, path=request.url.path,
+            resolved_caller,
+            self._self_service,
+            path=request.url.path,
         )
         if not allowed:
             return JSONResponse(

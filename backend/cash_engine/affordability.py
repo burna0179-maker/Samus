@@ -20,6 +20,7 @@ reserve):
 Consuming the reasoner's own headroom keeps the two systems CONSISTENT: the
 pacer can no longer say "push max" while the reasoner says "cash is tight."
 """
+
 from __future__ import annotations
 
 import logging
@@ -50,6 +51,7 @@ class Affordability:
     per-campaign volume + the campaign count; ``marketing_budget_usd`` is the
     hard per-tick spend ceiling (= headroom, which already excludes the reserve).
     """
+
     posture: str
     allowed_tiers: frozenset
     intensity_factor: float
@@ -101,8 +103,12 @@ def _cautious_unknown() -> Affordability:
     """When financials can't be read: a cautious LEAN posture (cheap channels,
     moderate volume, no paid spend) — never a blind full push."""
     return Affordability(
-        posture="lean", allowed_tiers=_TIERS["lean"], intensity_factor=0.5,
-        marketing_budget_usd=0.0, headroom_usd=0.0, available_cash_usd=0.0,
+        posture="lean",
+        allowed_tiers=_TIERS["lean"],
+        intensity_factor=0.5,
+        marketing_budget_usd=0.0,
+        headroom_usd=0.0,
+        available_cash_usd=0.0,
         source="unavailable-cautious",
     )
 
@@ -112,11 +118,13 @@ def _default_financials_reader():
     /snapshot, with its fallbacks) so pacing sees the SAME numbers the reasoner
     ranks CODB actions with."""
     from backend.cognitive.codb_reasoner import read_financials
+
     return read_financials()
 
 
 def assess_affordability(
-    *, financials_reader: Optional[Callable[[], object]] = None,
+    *,
+    financials_reader: Optional[Callable[[], object]] = None,
 ) -> Affordability:
     """Read financials + derive the posture. Defensive: any failure => cautious
     lean, so a finance outage never becomes a blind full-capacity push."""

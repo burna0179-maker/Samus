@@ -11,6 +11,7 @@ stays fastapi-free for non-HTTP consumers.
     reversibility}, return the recommended reasoning depth + rationale
     (capability ``budget_admin``, matching the other read-only /admin views).
 """
+
 from __future__ import annotations
 
 from typing import Any

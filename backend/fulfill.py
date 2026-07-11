@@ -20,6 +20,7 @@ Run from the Samus venv:
 The companion PowerShell wrapper (``scripts/Run-Fulfill.ps1``) pulls
 HivemindPassword (Neo4j) + AWS keys + Stripe key from DPAPI before invoking.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -51,6 +52,7 @@ StepStatus = Literal["ok", "skipped", "failed"]
 
 class FulfillStep(BaseModel):
     """One step's outcome inside a fulfillment run."""
+
     model_config = ConfigDict(extra="forbid")
 
     name: StepName
@@ -61,6 +63,7 @@ class FulfillStep(BaseModel):
 
 class FulfillmentResult(BaseModel):
     """Full audit trail of a fulfill_customer() invocation."""
+
     model_config = ConfigDict(extra="forbid")
 
     email: str
@@ -88,6 +91,7 @@ def _now_iso() -> str:
 
 def _ms_since(start: float) -> int:
     import time
+
     return int((time.monotonic() - start) * 1000)
 
 
@@ -149,18 +153,26 @@ def fulfill_customer(
     def _step(name: StepName, status: StepStatus, detail: str, t0: float) -> FulfillStep:
         s = FulfillStep(name=name, status=status, detail=detail, elapsed_ms=_ms_since(t0))
         steps.append(s)
-        _LOG.info("fulfill_step", extra={
-            "step": name, "status": status, "detail": detail,
-            "email": email, "url": audit_url,
-        })
+        _LOG.info(
+            "fulfill_step",
+            extra={
+                "step": name,
+                "status": status,
+                "detail": detail,
+                "email": email,
+                "url": audit_url,
+            },
+        )
         return s
 
     # Lazy service resolution (so test fixtures can inject before import).
     if customer_store is None:
         from backend.memory.customers import CustomerStore
+
         customer_store = CustomerStore()
     if audit_and_report_fn is None:
         from backend.seo.service import audit_and_report as _real_audit
+
         audit_and_report_fn = _real_audit
     if send_email_fn is None:
         # Try the common adapter selector first (EMAIL_BACKEND env-var driven).
@@ -172,9 +184,11 @@ def fulfill_customer(
         except ImportError:
             # Direct SES adapter has no message_kind/guard concept — use as-is.
             from backend.outreach.ses_adapter import send_email_via_ses as _real_send
+
             send_email_fn = _real_send
         else:
             from functools import partial
+
             # Fulfillment delivery is transactional — exempt from the
             # ComplianceGuard unsubscribe/postal rules in enforce mode.
             send_email_fn = partial(_real_send, message_kind="transactional")
@@ -185,33 +199,52 @@ def fulfill_customer(
         existing = customer_store.get_by_email(email)
         if existing is not None:
             customer = existing
-            _step("find_or_create_customer", "ok",
-                  f"found existing {customer.id} (state={customer.current_state})", t0)
+            _step(
+                "find_or_create_customer",
+                "ok",
+                f"found existing {customer.id} (state={customer.current_state})",
+                t0,
+            )
         else:
             customer = customer_store.create_customer(
-                email=email, name=name, company=company, source="fulfill_cli",
+                email=email,
+                name=name,
+                company=company,
+                source="fulfill_cli",
             )
-            _step("find_or_create_customer", "ok",
-                  f"created {customer.id} in state={customer.current_state}", t0)
+            _step(
+                "find_or_create_customer",
+                "ok",
+                f"created {customer.id} in state={customer.current_state}",
+                t0,
+            )
         customer_id = customer.id
         prior_state = customer.current_state
         final_state = customer.current_state
     except Exception as exc:
         _step("find_or_create_customer", "failed", str(exc), t0)
         return FulfillmentResult(
-            email=email, audit_url=audit_url, customer_id=customer_id,
-            prior_state=prior_state, final_state=final_state,
-            ok=False, steps=steps, ts=started,
+            email=email,
+            audit_url=audit_url,
+            customer_id=customer_id,
+            prior_state=prior_state,
+            final_state=final_state,
+            ok=False,
+            steps=steps,
+            ts=started,
         )
 
     # ---- 2. advance to in_delivery (if not already past it) --------------
     t0 = time.monotonic()
     if customer.current_state in ("delivered", "renewed", "churned"):
-        _step("advance_to_in_delivery", "skipped",
-              f"current_state={customer.current_state} already past in_delivery", t0)
+        _step(
+            "advance_to_in_delivery",
+            "skipped",
+            f"current_state={customer.current_state} already past in_delivery",
+            t0,
+        )
     elif customer.current_state == "in_delivery":
-        _step("advance_to_in_delivery", "skipped",
-              "already in_delivery", t0)
+        _step("advance_to_in_delivery", "skipped", "already in_delivery", t0)
     else:
         try:
             event = customer_store.advance_state(
@@ -220,20 +253,25 @@ def fulfill_customer(
                 reason="fulfill_cli started delivery",
             )
             final_state = event.to_state
-            _step("advance_to_in_delivery", "ok",
-                  f"{event.from_state} -> in_delivery", t0)
+            _step("advance_to_in_delivery", "ok", f"{event.from_state} -> in_delivery", t0)
         except Exception as exc:
             _step("advance_to_in_delivery", "failed", str(exc), t0)
             return FulfillmentResult(
-                email=email, audit_url=audit_url, customer_id=customer_id,
-                prior_state=prior_state, final_state=final_state,
-                ok=False, steps=steps, ts=started,
+                email=email,
+                audit_url=audit_url,
+                customer_id=customer_id,
+                prior_state=prior_state,
+                final_state=final_state,
+                ok=False,
+                steps=steps,
+                ts=started,
             )
 
     # ---- 3. SEO audit + report ------------------------------------------
     t0 = time.monotonic()
     try:
         from backend.seo.models import AuditRequest
+
         req = AuditRequest(url=audit_url, keywords=target_keywords or [], industry="")
         result = audit_and_report_fn(
             req,
@@ -243,14 +281,19 @@ def fulfill_customer(
         )
         report_path = result.get("report_path")
         seo_score = (result.get("audit") or {}).get("seo_score")
-        _step("audit_and_report", "ok",
-              f"report written to {report_path} (score={seo_score})", t0)
+        _step("audit_and_report", "ok", f"report written to {report_path} (score={seo_score})", t0)
     except Exception as exc:
         _step("audit_and_report", "failed", str(exc), t0)
         return FulfillmentResult(
-            email=email, audit_url=audit_url, customer_id=customer_id,
-            prior_state=prior_state, final_state=final_state,
-            report_path=report_path, ok=False, steps=steps, ts=started,
+            email=email,
+            audit_url=audit_url,
+            customer_id=customer_id,
+            prior_state=prior_state,
+            final_state=final_state,
+            report_path=report_path,
+            ok=False,
+            steps=steps,
+            ts=started,
         )
 
     # ---- 4. email the report (optional) ---------------------------------
@@ -266,8 +309,7 @@ def fulfill_customer(
             )
             email_message_id = send_result.get("message_id")
             channel = send_result.get("channel", "?")
-            _step("send_email", "ok",
-                  f"{channel} message_id={email_message_id}", t0)
+            _step("send_email", "ok", f"{channel} message_id={email_message_id}", t0)
         except Exception as exc:
             # Email failure leaves state at in_delivery — operator can retry
             # the send_email step alone via outreach workcell, then advance
@@ -275,9 +317,15 @@ def fulfill_customer(
             # send.
             _step("send_email", "failed", str(exc), t0)
             return FulfillmentResult(
-                email=email, audit_url=audit_url, customer_id=customer_id,
-                prior_state=prior_state, final_state=final_state,
-                report_path=report_path, ok=False, steps=steps, ts=started,
+                email=email,
+                audit_url=audit_url,
+                customer_id=customer_id,
+                prior_state=prior_state,
+                final_state=final_state,
+                report_path=report_path,
+                ok=False,
+                steps=steps,
+                ts=started,
             )
     else:
         _step("send_email", "skipped", "--no-send", 0.0)
@@ -294,15 +342,20 @@ def fulfill_customer(
             reason=reason,
         )
         final_state = event.to_state
-        _step("advance_to_delivered", "ok",
-              f"{event.from_state} -> delivered", t0)
+        _step("advance_to_delivered", "ok", f"{event.from_state} -> delivered", t0)
     except Exception as exc:
         _step("advance_to_delivered", "failed", str(exc), t0)
         return FulfillmentResult(
-            email=email, audit_url=audit_url, customer_id=customer_id,
-            prior_state=prior_state, final_state=final_state,
-            report_path=report_path, email_message_id=email_message_id,
-            ok=False, steps=steps, ts=started,
+            email=email,
+            audit_url=audit_url,
+            customer_id=customer_id,
+            prior_state=prior_state,
+            final_state=final_state,
+            report_path=report_path,
+            email_message_id=email_message_id,
+            ok=False,
+            steps=steps,
+            ts=started,
         )
 
     # ---- 6. queue the audit->monthly upsell nurture sequence -------------
@@ -312,6 +365,7 @@ def fulfill_customer(
     try:
         from datetime import datetime, timezone
         from backend.finance.upsell_queue import enqueue_upsell
+
         enqueue_upsell(
             customer_id=customer.id,
             customer_email=email,
@@ -322,16 +376,23 @@ def fulfill_customer(
         _LOG.warning("upsell enqueue failed for %s: %s", email, exc)
 
     return FulfillmentResult(
-        email=email, audit_url=audit_url, customer_id=customer_id,
-        prior_state=prior_state, final_state=final_state,
-        report_path=report_path, email_message_id=email_message_id,
-        ok=True, steps=steps, ts=started,
+        email=email,
+        audit_url=audit_url,
+        customer_id=customer_id,
+        prior_state=prior_state,
+        final_state=final_state,
+        report_path=report_path,
+        email_message_id=email_message_id,
+        ok=True,
+        steps=steps,
+        ts=started,
     )
 
 
 # ---------------------------------------------------------------------------
 # CLI rendering
 # ---------------------------------------------------------------------------
+
 
 def _render_result(result: FulfillmentResult) -> str:
     sep = "=" * 75
@@ -364,15 +425,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--name", default="", help="Customer's name (optional)")
     parser.add_argument("--company", default="", help="Customer's company name (optional)")
     parser.add_argument(
-        "--keywords", default="",
+        "--keywords",
+        default="",
         help="Comma-separated target keywords for the audit (optional)",
     )
     parser.add_argument(
-        "--tone", default="professional",
+        "--tone",
+        default="professional",
         help="Content draft tone: professional | friendly | technical",
     )
     parser.add_argument(
-        "--no-send", action="store_true",
+        "--no-send",
+        action="store_true",
         help="Skip the email step (still writes the report + advances state to delivered)",
     )
     args = parser.parse_args(argv)

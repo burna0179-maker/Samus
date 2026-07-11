@@ -1,4 +1,5 @@
 """Fail-closed contract: unloaded registry refuses to validate."""
+
 from __future__ import annotations
 
 import pytest

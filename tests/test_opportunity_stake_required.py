@@ -1,4 +1,5 @@
 """Pydantic validation: CreateOpportunityRequest stake_sentence behavior."""
+
 from __future__ import annotations
 
 import pytest
@@ -29,10 +30,7 @@ def test_create_opportunity_with_valid_stake_passes():
 
 
 def test_create_opportunity_banned_phrase_rejected():
-    bad = (
-        "Hello Acme Plumbing, we help businesses just like yours close more "
-        "deals every quarter."
-    )
+    bad = "Hello Acme Plumbing, we help businesses just like yours close more deals every quarter."
     with pytest.raises(ValidationError):
         CreateOpportunityRequest(prospect_id="pr_x", stake_sentence=bad)
 

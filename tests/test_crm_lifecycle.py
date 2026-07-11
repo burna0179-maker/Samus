@@ -3,11 +3,11 @@
 All tests exercise the lifecycle module without any persistence or I/O.
 Phase 6.
 """
+
 from __future__ import annotations
 
 import re
 
-import pytest
 
 from backend.crm.lifecycle import (
     OPPORTUNITY_CLOSED_LOST_TASK_KIND,
@@ -24,9 +24,7 @@ from backend.crm.models import Opportunity
 # Helpers
 # ---------------------------------------------------------------------------
 
-_ISO8601_RE = re.compile(
-    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$"
-)
+_ISO8601_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 
 
 def _make_opp(**kwargs) -> Opportunity:
@@ -45,6 +43,7 @@ def _make_opp(**kwargs) -> Opportunity:
 # ---------------------------------------------------------------------------
 # tasks_for_new_opportunity
 # ---------------------------------------------------------------------------
+
 
 def test_tasks_for_new_opportunity_yields_followup_for_new_stage():
     opp = _make_opp(stage="new")
@@ -88,6 +87,7 @@ def test_tasks_for_new_opportunity_none_intent_score_yields_only_followup():
 # tasks_for_stage_advance
 # ---------------------------------------------------------------------------
 
+
 def test_tasks_for_stage_advance_proposal_yields_send_proposal_task():
     opp = _make_opp(stage="proposal")
     tasks = tasks_for_stage_advance(opp, prior_stage="qualified", new_stage="proposal")
@@ -121,6 +121,7 @@ def test_tasks_for_stage_advance_unhandled_stage_returns_empty():
 # ---------------------------------------------------------------------------
 # Due-date and assignee assertions
 # ---------------------------------------------------------------------------
+
 
 def test_task_due_dates_are_iso8601_strings():
     opp = _make_opp(stage="new")

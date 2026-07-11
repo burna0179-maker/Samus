@@ -20,6 +20,7 @@ Usage:
 
 The operator id defaults to ``SAMUS_OPERATOR`` env or ``"alex"``.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -61,7 +62,7 @@ def attach_stake_sentence(
 ) -> dict:
     """Run the full gate -> persist -> artifact pipeline. Raises on any failure."""
     opp_id = (opportunity_id or "").strip()
-    text = (stake_sentence or "")
+    text = stake_sentence or ""
     op_id = (operator_id or "").strip() or "alex"
 
     if not opp_id:
@@ -127,7 +128,8 @@ def attach_stake_sentence(
         # already-persisted stake stays.
         _LOG.error(
             "stake_sentence persisted but budget record_use failed opp=%s: %s",
-            opp_id, exc,
+            opp_id,
+            exc,
         )
         raise StakeOpportunityError(
             "budget_record_failed",
@@ -136,19 +138,21 @@ def attach_stake_sentence(
 
     record_hash(text)
 
-    artifact = crm_service.create_artifact(CreateArtifactRequest(
-        kind="stake_sentence",
-        owner_entity_kind="opportunity",
-        owner_entity_id=opp_id,
-        title="stake_sentence",
-        inline_data={
-            "stake_sentence": text.strip(),
-            "authored_by": op_id,
-            "authored_at": authored_at,
-        },
-        source="stake_opportunity_cli",
-        created_by=op_id,
-    ))
+    artifact = crm_service.create_artifact(
+        CreateArtifactRequest(
+            kind="stake_sentence",
+            owner_entity_kind="opportunity",
+            owner_entity_id=opp_id,
+            title="stake_sentence",
+            inline_data={
+                "stake_sentence": text.strip(),
+                "authored_by": op_id,
+                "authored_at": authored_at,
+            },
+            source="stake_opportunity_cli",
+            created_by=op_id,
+        )
+    )
 
     return {
         "ok": True,
@@ -192,6 +196,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     import json
+
     print(json.dumps(result, indent=2))
     return 0
 

@@ -12,38 +12,91 @@ fresh sender reputation is exactly the damage that gets a domain blocklisted.
 that are clearly NOT a real business inbox, so legitimate small-business emails
 (gmail/yahoo/company domains) always pass.
 """
+
 from __future__ import annotations
 
 import re
 
 # Filenames masquerading as emails: the whole string ends in an asset extension.
 _ASSET_EXT: tuple[str, ...] = (
-    ".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".ico", ".bmp",
-    ".css", ".js", ".mjs", ".json", ".woff", ".woff2", ".ttf", ".eot",
-    ".pdf", ".mp4", ".webm", ".mov", ".map",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".svg",
+    ".webp",
+    ".ico",
+    ".bmp",
+    ".css",
+    ".js",
+    ".mjs",
+    ".json",
+    ".woff",
+    ".woff2",
+    ".ttf",
+    ".eot",
+    ".pdf",
+    ".mp4",
+    ".webm",
+    ".mov",
+    ".map",
 )
 
 # Placeholder / example stubs (exact addresses, local-parts, or domains).
-_PLACEHOLDER_ADDRESSES: frozenset[str] = frozenset({
-    "user@domain.com", "email@domain.com", "example@example.com",
-    "test@test.com", "your@email.com", "youremail@example.com",
-    "name@example.com", "email@example.com", "info@example.com",
-    "someone@example.com", "no-reply@example.com",
-})
-_PLACEHOLDER_LOCALS: frozenset[str] = frozenset({
-    "user", "example", "test", "youremail", "yourname", "firstname",
-    "lastname", "sample",
-})
-_PLACEHOLDER_DOMAINS: frozenset[str] = frozenset({
-    "domain.com", "example.com", "example.org", "example.net", "email.com",
-    "yourdomain.com", "test.com", "company.com", "sentry.io", "wix.com",
-})
+_PLACEHOLDER_ADDRESSES: frozenset[str] = frozenset(
+    {
+        "user@domain.com",
+        "email@domain.com",
+        "example@example.com",
+        "test@test.com",
+        "your@email.com",
+        "youremail@example.com",
+        "name@example.com",
+        "email@example.com",
+        "info@example.com",
+        "someone@example.com",
+        "no-reply@example.com",
+    }
+)
+_PLACEHOLDER_LOCALS: frozenset[str] = frozenset(
+    {
+        "user",
+        "example",
+        "test",
+        "youremail",
+        "yourname",
+        "firstname",
+        "lastname",
+        "sample",
+    }
+)
+_PLACEHOLDER_DOMAINS: frozenset[str] = frozenset(
+    {
+        "domain.com",
+        "example.com",
+        "example.org",
+        "example.net",
+        "email.com",
+        "yourdomain.com",
+        "test.com",
+        "company.com",
+        "sentry.io",
+        "wix.com",
+    }
+)
 
 # Website-builder / platform support inboxes — deliverable but NOT the business.
-_PLATFORM_DOMAINS: frozenset[str] = frozenset({
-    "webador.com", "wixsite.com", "godaddy.com", "squarespace.com",
-    "weebly.com", "wordpress.com", "sentry-next.wixpress.com",
-})
+_PLATFORM_DOMAINS: frozenset[str] = frozenset(
+    {
+        "webador.com",
+        "wixsite.com",
+        "godaddy.com",
+        "squarespace.com",
+        "weebly.com",
+        "wordpress.com",
+        "sentry-next.wixpress.com",
+    }
+)
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 

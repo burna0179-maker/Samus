@@ -5,9 +5,9 @@ hints) and produces a ``TasteProfile``: the resolved dials, the official
 design-system to install, and the palette/type/constraint guidance a producer
 should honor before generating a deliverable. No LLM, no I/O.
 """
+
 from __future__ import annotations
 
-from typing import Any
 
 from . import rules
 from .models import DesignRead, TasteDials, TasteProfile
@@ -156,7 +156,8 @@ def _palette_guidance(vibe: str) -> list[str]:
         guidance.append(
             "Premium-consumer: the beige/cream + brass/clay/oxblood + espresso "
             "default is BANNED. Rotate a fresh family: "
-            + " | ".join(rules.PALETTE_ROTATION_POOL[:4]) + "."
+            + " | ".join(rules.PALETTE_ROTATION_POOL[:4])
+            + "."
         )
     return guidance
 

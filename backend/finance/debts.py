@@ -4,6 +4,7 @@ Pure functions. ``debts.yaml`` is operator-curated PII (gitignored); when
 absent the loader returns an empty registry with ``registry_loaded=False``
 so the workcell still serves /snapshot without raising.
 """
+
 from __future__ import annotations
 
 import logging
@@ -67,12 +68,14 @@ def by_tier(debts: list[Debt]) -> list[DebtTierTotal]:
     out: list[DebtTierTotal] = []
     for tier in sorted(buckets):
         bucket = buckets[tier]
-        out.append(DebtTierTotal(
-            tier=tier,
-            debt_count=len(bucket),
-            confirmed_total_usd=_confirmed_total(bucket),
-            unknown_balance_count=sum(1 for d in bucket if d.balance_unknown),
-        ))
+        out.append(
+            DebtTierTotal(
+                tier=tier,
+                debt_count=len(bucket),
+                confirmed_total_usd=_confirmed_total(bucket),
+                unknown_balance_count=sum(1 for d in bucket if d.balance_unknown),
+            )
+        )
     return out
 
 

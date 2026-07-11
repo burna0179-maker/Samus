@@ -15,6 +15,7 @@ Two implementations behind the :class:`executor.Dispatcher` protocol:
 
 :class:`CompositeDispatcher` routes between them by target workcell.
 """
+
 from __future__ import annotations
 
 import logging
@@ -117,9 +118,7 @@ class LocalCapabilityDispatcher:
 class CompositeDispatcher:
     """Route by target workcell: local ``campaigns`` vs signed gateway."""
 
-    def __init__(
-        self, local: LocalCapabilityDispatcher, remote: GatewayDispatcher
-    ) -> None:
+    def __init__(self, local: LocalCapabilityDispatcher, remote: GatewayDispatcher) -> None:
         self._local = local
         self._remote = remote
 

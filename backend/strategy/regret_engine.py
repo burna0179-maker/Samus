@@ -15,6 +15,7 @@ no per-arm cost). :func:`regret_per_token` therefore accepts
 function stays well-defined; once per-arm cost telemetry lands the caller
 just passes the real figure.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -66,9 +67,7 @@ class RegretLedger:
         return self.per_arm_regret.get(arm_id, 0.0)
 
 
-def cumulative_regret(
-    rewards: list[float], best_possible_reward: float
-) -> float:
+def cumulative_regret(rewards: list[float], best_possible_reward: float) -> float:
     """Cumulative regret for a series of rewards against a fixed optimum.
 
     ``regret_i = max(best_possible_reward - reward_i, 0.0)`` summed over the

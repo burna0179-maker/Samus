@@ -43,6 +43,7 @@ Ledger:
   Fail-open on read (assume fired to avoid double-send on a corrupt file)
   and fail-open on write (a mark failure logs but doesn't retry the send).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -92,10 +93,12 @@ def _now_pt():
     try:
         from datetime import datetime, timezone
         from backend.common.us_timezones import state_to_timezone
+
         now = datetime.now(timezone.utc).astimezone(state_to_timezone("CA"))
         return now.date().isoformat(), now.hour
     except Exception:  # noqa: BLE001
         from datetime import date, datetime
+
         now = datetime.utcnow()
         return date.today().isoformat(), now.hour
 
@@ -103,6 +106,7 @@ def _now_pt():
 def _ledger_path(business_date: str):
     """Per-day fire marker. Same dir as attestation + primer for locality."""
     from backend.common import storage
+
     d = storage.root() / "cognition"
     d.mkdir(parents=True, exist_ok=True)
     return d / f"morning_ritual_fired_{business_date}.json"
@@ -130,6 +134,7 @@ def _mark_fired(business_date: str, result: dict[str, Any]) -> None:
     """Stamp the fire record. Best-effort; a write fault doesn't retry."""
     try:
         from backend.common.dates import iso_now
+
         payload = {
             "kind": "morning_ritual_fired",
             "business_date": business_date,
@@ -138,9 +143,7 @@ def _mark_fired(business_date: str, result: dict[str, Any]) -> None:
             "ingested": result.get("ingested"),
             "send_rc": result.get("send_rc"),
         }
-        _ledger_path(business_date).write_text(
-            json.dumps(payload, indent=2), encoding="utf-8"
-        )
+        _ledger_path(business_date).write_text(json.dumps(payload, indent=2), encoding="utf-8")
     except Exception as exc:  # noqa: BLE001
         _LOG.warning("morning_ritual mark_fired failed: %s", exc)
 
@@ -174,6 +177,7 @@ def _do_attest() -> dict[str, Any]:
         return {"attested": False, "skipped": True}
     try:
         from backend.cognitive.intelligence_cycle import run_pre_shift_briefing
+
         result = run_pre_shift_briefing()
         return {
             "attested": True,
@@ -201,6 +205,7 @@ def _do_send() -> dict[str, Any]:
         os.environ[ENV_EMAIL_TO] = _DEFAULT_EMAIL_TO
     try:
         from backend import morning_send
+
         rc = morning_send.main([])
         return {"sent": True, "send_rc": int(rc)}
     except Exception as exc:  # noqa: BLE001
@@ -242,20 +247,30 @@ async def _morning_ritual_loop(interval: float) -> None:
             business_date, hour = _now_pt()
             fire, reason = should_fire_now(business_date, hour)
             if fire:
-                _LOG.info("morning_ritual firing: %s (business_date=%s hour_pt=%d)",
-                          reason, business_date, hour)
+                _LOG.info(
+                    "morning_ritual firing: %s (business_date=%s hour_pt=%d)",
+                    reason,
+                    business_date,
+                    hour,
+                )
                 result = _fire()
                 _LOG.info(
                     "morning_ritual fired: attested=%s sent=%s briefing_id=%s send_rc=%s",
-                    result.get("attested"), result.get("sent"),
-                    result.get("briefing_id"), result.get("send_rc"),
+                    result.get("attested"),
+                    result.get("sent"),
+                    result.get("briefing_id"),
+                    result.get("send_rc"),
                 )
             else:
                 # Log at INFO once per hour boundary so the ops timeline shows
                 # the ritual is alive without spamming every 5 min.
                 if hour != getattr(_morning_ritual_loop, "_last_hour", None):
-                    _LOG.info("morning_ritual skip: %s (business_date=%s hour_pt=%d)",
-                              reason, business_date, hour)
+                    _LOG.info(
+                        "morning_ritual skip: %s (business_date=%s hour_pt=%d)",
+                        reason,
+                        business_date,
+                        hour,
+                    )
                     _morning_ritual_loop._last_hour = hour  # type: ignore[attr-defined]
         except Exception:  # noqa: BLE001
             _LOG.exception("morning_ritual_loop tick faulted; continuing")
@@ -275,7 +290,8 @@ async def start_morning_ritual_loop(app: Any) -> Optional[asyncio.Task]:
         return existing
     interval = _float_env(ENV_INTERVAL, _DEFAULT_INTERVAL_SEC)
     task = asyncio.create_task(
-        _morning_ritual_loop(interval), name="samus.morning_ritual_loop",
+        _morning_ritual_loop(interval),
+        name="samus.morning_ritual_loop",
     )
     app.state.morning_ritual_task = task
     _LOG.info("morning_ritual loop started (interval=%.0fs)", interval)

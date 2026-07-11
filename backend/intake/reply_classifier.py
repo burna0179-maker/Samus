@@ -12,6 +12,7 @@ that must win even when a message also sounds interested ("unsubscribe me, and
 no I'm not interested"). After that: ``meeting_booked`` > ``interested`` >
 ``not_interested`` > ``unknown``.
 """
+
 from __future__ import annotations
 
 import re
@@ -26,29 +27,45 @@ INTENT_UNKNOWN = "unknown"
 
 # Pattern banks, checked in priority order. Each is a (label, [regex]) tuple.
 _OPT_OUT = [
-    r"\bunsubscribe\b", r"\bopt[\s\-]?out\b", r"\bremove me\b",
-    r"\btake me off\b", r"\bstop (?:emailing|contacting|messaging)\b",
-    r"\bdo not (?:contact|email|message)\b", r"\bno longer wish\b",
+    r"\bunsubscribe\b",
+    r"\bopt[\s\-]?out\b",
+    r"\bremove me\b",
+    r"\btake me off\b",
+    r"\bstop (?:emailing|contacting|messaging)\b",
+    r"\bdo not (?:contact|email|message)\b",
+    r"\bno longer wish\b",
     r"\bplease stop\b",
 ]
 _MEETING = [
     r"\b(?:schedule|set up|book|arrange) (?:a )?(?:call|meeting|time|demo)\b",
     r"\blet'?s (?:meet|talk|chat|connect|hop on)\b",
-    r"\b(?:my )?availabilit", r"\bwhat time(?:s)? work", r"\bcalendar\b",
-    r"\bhop on a (?:call|quick call)\b", r"\bbook a (?:slot|time)\b",
+    r"\b(?:my )?availabilit",
+    r"\bwhat time(?:s)? work",
+    r"\bcalendar\b",
+    r"\bhop on a (?:call|quick call)\b",
+    r"\bbook a (?:slot|time)\b",
     r"\bsend (?:me )?(?:a )?(?:calendar|invite|link)\b",
 ]
 _INTERESTED = [
-    r"\binterested\b", r"\btell me more\b", r"\bmore info(?:rmation)?\b",
-    r"\blearn more\b", r"\b(?:pricing|price|quote|cost|how much)\b",
-    r"\bsounds (?:good|great|interesting)\b", r"\byes,? (?:please|i'?m in)\b",
+    r"\binterested\b",
+    r"\btell me more\b",
+    r"\bmore info(?:rmation)?\b",
+    r"\blearn more\b",
+    r"\b(?:pricing|price|quote|cost|how much)\b",
+    r"\bsounds (?:good|great|interesting)\b",
+    r"\byes,? (?:please|i'?m in)\b",
     r"\bsend (?:me )?(?:the )?(?:details|info|deck|proposal)\b",
     r"\bi'?d like to\b",
 ]
 _NOT_INTERESTED = [
-    r"\bnot interested\b", r"\bno,? thank", r"\bno thanks\b",
-    r"\bwe'?re (?:all set|good|covered)\b", r"\bnot (?:a fit|for us|right now)\b",
-    r"\bpass\b", r"\balready have\b", r"\bno need\b",
+    r"\bnot interested\b",
+    r"\bno,? thank",
+    r"\bno thanks\b",
+    r"\bwe'?re (?:all set|good|covered)\b",
+    r"\bnot (?:a fit|for us|right now)\b",
+    r"\bpass\b",
+    r"\balready have\b",
+    r"\bno need\b",
 ]
 
 # Order matters. not_interested is checked BEFORE interested because the bare
@@ -73,8 +90,11 @@ class ReplyIntent:
     signals: tuple[str, ...] = field(default_factory=tuple)
 
     def to_dict(self) -> dict:
-        return {"intent": self.intent, "confidence": round(self.confidence, 3),
-                "signals": list(self.signals)}
+        return {
+            "intent": self.intent,
+            "confidence": round(self.confidence, 3),
+            "signals": list(self.signals),
+        }
 
 
 def classify_reply(subject: str, body: str) -> ReplyIntent:

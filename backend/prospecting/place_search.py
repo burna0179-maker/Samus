@@ -7,6 +7,7 @@ Cloud Run; from ``.env.prod`` locally — see project memory:
 Endpoint: ``POST https://places.googleapis.com/v1/places:searchText``
 Docs:     https://developers.google.com/maps/documentation/places/web-service/text-search
 """
+
 from __future__ import annotations
 
 import logging
@@ -29,21 +30,23 @@ _SEARCH_URL = "https://places.googleapis.com/v1/places:searchText"
 # Atmosphere-tier field, so requesting it bumps the per-request SKU one tier.
 # Accepted trade-off: it is the fallback "what this business does" line behind
 # the free homepage scrape — see backend.prospecting.enrichment._extract_description.
-_FIELD_MASK = ",".join((
-    "places.id",
-    "places.displayName",
-    "places.formattedAddress",
-    "places.addressComponents",
-    "places.nationalPhoneNumber",
-    "places.websiteUri",
-    "places.types",
-    "places.primaryTypeDisplayName",
-    "places.rating",
-    "places.userRatingCount",
-    "places.regularOpeningHours.weekdayDescriptions",
-    "places.editorialSummary",
-    "nextPageToken",
-))
+_FIELD_MASK = ",".join(
+    (
+        "places.id",
+        "places.displayName",
+        "places.formattedAddress",
+        "places.addressComponents",
+        "places.nationalPhoneNumber",
+        "places.websiteUri",
+        "places.types",
+        "places.primaryTypeDisplayName",
+        "places.rating",
+        "places.userRatingCount",
+        "places.regularOpeningHours.weekdayDescriptions",
+        "places.editorialSummary",
+        "nextPageToken",
+    )
+)
 
 _TIMEOUT = httpx.Timeout(connect=5.0, read=15.0, write=10.0, pool=5.0)
 
@@ -206,8 +209,11 @@ def discover_for_zipcode(
                 if excluded:
                     _LOG.info(
                         "discover_for_zipcode excluded prospect",
-                        extra={"company": prospect.company_name,
-                               "reason": excluded, "zipcode": zipcode},
+                        extra={
+                            "company": prospect.company_name,
+                            "reason": excluded,
+                            "zipcode": zipcode,
+                        },
                     )
                     continue
                 seen.add(place_id)

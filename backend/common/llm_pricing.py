@@ -10,6 +10,7 @@ LM Studio (local inference) is zero-cost. Legacy cloud pricing entries
 are retained for accounting compatibility but are never matched when
 the default model is ``local``.
 """
+
 from __future__ import annotations
 
 import re
@@ -32,7 +33,7 @@ class UnknownModelPricing(Exception):
 class ModelPricing:
     """USD per million tokens."""
 
-    model_pattern: str            # regex to match model id
+    model_pattern: str  # regex to match model id
     input_per_mtok: float
     output_per_mtok: float
     cache_write_per_mtok: float

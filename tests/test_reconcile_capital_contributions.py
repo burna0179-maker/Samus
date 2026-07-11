@@ -1,4 +1,5 @@
 """Reconciler: builds ledger + tracker rows from bank_activity idempotently."""
+
 from __future__ import annotations
 
 import json
@@ -55,36 +56,77 @@ def _add_scripts_to_path():
 
 def test_dry_run_reports_two_entries_from_5_bank_rows(tmp_path):
     _add_scripts_to_path()
-    bank = _bank_ledger(tmp_path, [
-        # 4 pre-formation Dec 2025 contributions folded into C-2026-001
-        {"ts": "2025-12-13T10:00:00Z", "source": "cash_app_personal_csv",
-         "category": "business_transfer", "amount_usd": -500.00,
-         "raw_description": "CASH_CARD HUSTLEFORGE", "external_id": "aa1"},
-        {"ts": "2025-12-13T11:00:00Z", "source": "cash_app_personal_csv",
-         "category": "business_transfer", "amount_usd": -1000.00,
-         "raw_description": "CASH_CARD HUSTLEFORGE", "external_id": "aa2"},
-        {"ts": "2025-12-13T12:00:00Z", "source": "cash_app_personal_csv",
-         "category": "business_transfer", "amount_usd": -1000.00,
-         "raw_description": "CASH_CARD HUSTLEFORGE", "external_id": "aa3"},
-        {"ts": "2025-12-14T08:00:00Z", "source": "cash_app_personal_csv",
-         "category": "business_transfer", "amount_usd": -1000.00,
-         "raw_description": "CASH_CARD HUSTLEFORGE", "external_id": "aa4"},
-        # 1 post-formation contribution -> C-2026-002
-        {"ts": "2026-03-14T08:00:00Z", "source": "cash_app_personal_csv",
-         "category": "business_transfer", "amount_usd": -1.00,
-         "raw_description": "CASH_CARD HUSTLEFORGE", "external_id": "bb1"},
-        # A confounder: LLC-side row that should NOT be counted
-        {"ts": "2026-03-16T08:00:00Z", "source": "cash_app_csv",
-         "category": "bill", "amount_usd": -20.00,
-         "raw_description": "HustleForge", "external_id": "cc1"},
-        # Another confounder: personal row that isn't a business_transfer
-        {"ts": "2026-04-01T08:00:00Z", "source": "cash_app_personal_csv",
-         "category": "personal", "amount_usd": -50.00,
-         "raw_description": "SUBWAY 46308", "external_id": "dd1"},
-    ])
+    bank = _bank_ledger(
+        tmp_path,
+        [
+            # 4 pre-formation Dec 2025 contributions folded into C-2026-001
+            {
+                "ts": "2025-12-13T10:00:00Z",
+                "source": "cash_app_personal_csv",
+                "category": "business_transfer",
+                "amount_usd": -500.00,
+                "raw_description": "CASH_CARD HUSTLEFORGE",
+                "external_id": "aa1",
+            },
+            {
+                "ts": "2025-12-13T11:00:00Z",
+                "source": "cash_app_personal_csv",
+                "category": "business_transfer",
+                "amount_usd": -1000.00,
+                "raw_description": "CASH_CARD HUSTLEFORGE",
+                "external_id": "aa2",
+            },
+            {
+                "ts": "2025-12-13T12:00:00Z",
+                "source": "cash_app_personal_csv",
+                "category": "business_transfer",
+                "amount_usd": -1000.00,
+                "raw_description": "CASH_CARD HUSTLEFORGE",
+                "external_id": "aa3",
+            },
+            {
+                "ts": "2025-12-14T08:00:00Z",
+                "source": "cash_app_personal_csv",
+                "category": "business_transfer",
+                "amount_usd": -1000.00,
+                "raw_description": "CASH_CARD HUSTLEFORGE",
+                "external_id": "aa4",
+            },
+            # 1 post-formation contribution -> C-2026-002
+            {
+                "ts": "2026-03-14T08:00:00Z",
+                "source": "cash_app_personal_csv",
+                "category": "business_transfer",
+                "amount_usd": -1.00,
+                "raw_description": "CASH_CARD HUSTLEFORGE",
+                "external_id": "bb1",
+            },
+            # A confounder: LLC-side row that should NOT be counted
+            {
+                "ts": "2026-03-16T08:00:00Z",
+                "source": "cash_app_csv",
+                "category": "bill",
+                "amount_usd": -20.00,
+                "raw_description": "HustleForge",
+                "external_id": "cc1",
+            },
+            # Another confounder: personal row that isn't a business_transfer
+            {
+                "ts": "2026-04-01T08:00:00Z",
+                "source": "cash_app_personal_csv",
+                "category": "personal",
+                "amount_usd": -50.00,
+                "raw_description": "SUBWAY 46308",
+                "external_id": "dd1",
+            },
+        ],
+    )
     import reconcile_capital_contributions as rc
+
     result = rc.reconcile(
-        bank_ledger=bank, exec_root=_exec_root(tmp_path), dry_run=True,
+        bank_ledger=bank,
+        exec_root=_exec_root(tmp_path),
+        dry_run=True,
     )
     assert result["candidate_bank_rows"] == 5
     assert result["entries_after_folding"] == 2
@@ -97,17 +139,28 @@ def test_dry_run_reports_two_entries_from_5_bank_rows(tmp_path):
 
 def test_apply_writes_both_files_and_state(tmp_path):
     _add_scripts_to_path()
-    bank = _bank_ledger(tmp_path, [
-        {"ts": "2025-12-13T10:00:00Z", "source": "cash_app_personal_csv",
-         "category": "business_transfer", "amount_usd": -3500.00,
-         "raw_description": "CASH_CARD HUSTLEFORGE", "external_id": "aa1"},
-    ])
+    bank = _bank_ledger(
+        tmp_path,
+        [
+            {
+                "ts": "2025-12-13T10:00:00Z",
+                "source": "cash_app_personal_csv",
+                "category": "business_transfer",
+                "amount_usd": -3500.00,
+                "raw_description": "CASH_CARD HUSTLEFORGE",
+                "external_id": "aa1",
+            },
+        ],
+    )
     root = _exec_root(tmp_path)
     import reconcile_capital_contributions as rc
+
     result = rc.reconcile(bank_ledger=bank, exec_root=root, dry_run=False)
     assert result["ledger_changed"] is True
     assert result["tracker_changed"] is True
-    ledger_md = (root / "03_Ownership" / "Capital_Contributions_Ledger.md").read_text(encoding="utf-8")
+    ledger_md = (root / "03_Ownership" / "Capital_Contributions_Ledger.md").read_text(
+        encoding="utf-8"
+    )
     assert "C-2026-001" in ledger_md
     assert "$3,500.00" in ledger_md
     tracker_md = (root / "07_Funding" / "Founder_Funding_Tracker.md").read_text(encoding="utf-8")
@@ -119,13 +172,22 @@ def test_apply_writes_both_files_and_state(tmp_path):
 
 def test_rerun_is_idempotent(tmp_path):
     _add_scripts_to_path()
-    bank = _bank_ledger(tmp_path, [
-        {"ts": "2025-12-13T10:00:00Z", "source": "cash_app_personal_csv",
-         "category": "business_transfer", "amount_usd": -1000.00,
-         "raw_description": "CASH_CARD HUSTLEFORGE", "external_id": "aa1"},
-    ])
+    bank = _bank_ledger(
+        tmp_path,
+        [
+            {
+                "ts": "2025-12-13T10:00:00Z",
+                "source": "cash_app_personal_csv",
+                "category": "business_transfer",
+                "amount_usd": -1000.00,
+                "raw_description": "CASH_CARD HUSTLEFORGE",
+                "external_id": "aa1",
+            },
+        ],
+    )
     root = _exec_root(tmp_path)
     import reconcile_capital_contributions as rc
+
     rc.reconcile(bank_ledger=bank, exec_root=root, dry_run=False)
     r2 = rc.reconcile(bank_ledger=bank, exec_root=root, dry_run=False)
     assert r2["ledger_changed"] is False
@@ -135,20 +197,37 @@ def test_rerun_is_idempotent(tmp_path):
 def test_new_contribution_gets_next_sequential_id(tmp_path):
     _add_scripts_to_path()
     root = _exec_root(tmp_path)
-    bank = _bank_ledger(tmp_path, [
-        {"ts": "2025-12-13T10:00:00Z", "source": "cash_app_personal_csv",
-         "category": "business_transfer", "amount_usd": -3500.00,
-         "raw_description": "CASH_CARD HUSTLEFORGE", "external_id": "aa1"},
-    ])
+    bank = _bank_ledger(
+        tmp_path,
+        [
+            {
+                "ts": "2025-12-13T10:00:00Z",
+                "source": "cash_app_personal_csv",
+                "category": "business_transfer",
+                "amount_usd": -3500.00,
+                "raw_description": "CASH_CARD HUSTLEFORGE",
+                "external_id": "aa1",
+            },
+        ],
+    )
     import reconcile_capital_contributions as rc
+
     rc.reconcile(bank_ledger=bank, exec_root=root, dry_run=False)
     # Now add a new bank row and re-reconcile
     with bank.open("a", encoding="utf-8") as fh:
-        fh.write(json.dumps({
-            "ts": "2026-08-01T10:00:00Z", "source": "cash_app_personal_csv",
-            "category": "business_transfer", "amount_usd": -250.00,
-            "raw_description": "CASH_CARD HUSTLEFORGE", "external_id": "bb1",
-        }) + "\n")
+        fh.write(
+            json.dumps(
+                {
+                    "ts": "2026-08-01T10:00:00Z",
+                    "source": "cash_app_personal_csv",
+                    "category": "business_transfer",
+                    "amount_usd": -250.00,
+                    "raw_description": "CASH_CARD HUSTLEFORGE",
+                    "external_id": "bb1",
+                }
+            )
+            + "\n"
+        )
     result = rc.reconcile(bank_ledger=bank, exec_root=root, dry_run=False)
     assert result["ledger_changed"] is True
     assert result["entries_after_folding"] == 2
@@ -175,13 +254,22 @@ def test_duplicate_marker_raises_marker_error(tmp_path):
         "<!-- reconciler:contributions-end -->\n"
     )
     (root / "03_Ownership" / "Capital_Contributions_Ledger.md").write_text(bad, encoding="utf-8")
-    bank = _bank_ledger(tmp_path, [
-        {"ts": "2025-12-13T10:00:00Z", "source": "cash_app_personal_csv",
-         "category": "business_transfer", "amount_usd": -100.00,
-         "raw_description": "CASH_CARD HUSTLEFORGE", "external_id": "aa1"},
-    ])
+    bank = _bank_ledger(
+        tmp_path,
+        [
+            {
+                "ts": "2025-12-13T10:00:00Z",
+                "source": "cash_app_personal_csv",
+                "category": "business_transfer",
+                "amount_usd": -100.00,
+                "raw_description": "CASH_CARD HUSTLEFORGE",
+                "external_id": "aa1",
+            },
+        ],
+    )
     import reconcile_capital_contributions as rc
     import pytest
+
     with pytest.raises(rc._MarkerError):
         rc.reconcile(bank_ledger=bank, exec_root=root, dry_run=False)
 
@@ -189,16 +277,30 @@ def test_duplicate_marker_raises_marker_error(tmp_path):
 def test_llc_side_rows_excluded(tmp_path):
     """A cash_app_csv (LLC-side) row is NOT a founder contribution."""
     _add_scripts_to_path()
-    bank = _bank_ledger(tmp_path, [
-        {"ts": "2026-03-16T08:00:00Z", "source": "cash_app_csv",
-         "category": "bill", "amount_usd": -20.00,
-         "raw_description": "HustleForge", "external_id": "cc1"},
-        {"ts": "2026-07-03T08:00:00Z", "source": "cash_app_csv",
-         "category": "personal", "amount_usd": -1.00,
-         "raw_description": "HUSTLEFORGE LLC", "external_id": "cc2"},
-    ])
+    bank = _bank_ledger(
+        tmp_path,
+        [
+            {
+                "ts": "2026-03-16T08:00:00Z",
+                "source": "cash_app_csv",
+                "category": "bill",
+                "amount_usd": -20.00,
+                "raw_description": "HustleForge",
+                "external_id": "cc1",
+            },
+            {
+                "ts": "2026-07-03T08:00:00Z",
+                "source": "cash_app_csv",
+                "category": "personal",
+                "amount_usd": -1.00,
+                "raw_description": "HUSTLEFORGE LLC",
+                "external_id": "cc2",
+            },
+        ],
+    )
     root = _exec_root(tmp_path)
     import reconcile_capital_contributions as rc
+
     result = rc.reconcile(bank_ledger=bank, exec_root=root, dry_run=True)
     assert result["candidate_bank_rows"] == 0
     assert result["entries_after_folding"] == 0

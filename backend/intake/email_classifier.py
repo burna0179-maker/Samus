@@ -24,6 +24,7 @@ signal kind (receipt/invoice/payment_declined/renewal).
 All classification is heuristic (no LLM, no network calls). Runs
 synchronously in the poller's per-message path.
 """
+
 from __future__ import annotations
 
 import re
@@ -34,8 +35,14 @@ from backend.intake.gmail_poller import ParsedInboundEmail
 
 CategoryType = Literal[
     "client_correspondence",
-    "bill", "account", "calendar", "developer",
-    "social", "business", "marketing", "other",
+    "bill",
+    "account",
+    "calendar",
+    "developer",
+    "social",
+    "business",
+    "marketing",
+    "other",
 ]
 
 
@@ -94,25 +101,47 @@ class EmailClassification:
         return d
 
 
-_SOCIAL_DOMAINS = frozenset({
-    "linkedin.com", "facebookmail.com", "twitter.com", "x.com",
-    "instagram.com", "tiktok.com", "reddit.com", "pinterest.com",
-})
+_SOCIAL_DOMAINS = frozenset(
+    {
+        "linkedin.com",
+        "facebookmail.com",
+        "twitter.com",
+        "x.com",
+        "instagram.com",
+        "tiktok.com",
+        "reddit.com",
+        "pinterest.com",
+    }
+)
 
-_CALENDAR_DOMAINS = frozenset({
-    "calendly.com", "calendar-notification@google.com",
-})
+_CALENDAR_DOMAINS = frozenset(
+    {
+        "calendly.com",
+        "calendar-notification@google.com",
+    }
+)
 _CALENDAR_SUBJECT_RE = re.compile(
     r"(booking|booked|confirmed|invitation|meeting|calendar|rsvp|schedule|reschedule|cancel)",
     re.IGNORECASE,
 )
 
-_DEVELOPER_DOMAINS = frozenset({
-    "gitlab.com", "github.com", "bitbucket.org", "circleci.com",
-    "app.circleci.com", "vercel.com", "netlify.com", "render.com",
-    "sentry.io", "pagerduty.com", "statuspage.io", "datadog.com",
-    "newrelic.com",
-})
+_DEVELOPER_DOMAINS = frozenset(
+    {
+        "gitlab.com",
+        "github.com",
+        "bitbucket.org",
+        "circleci.com",
+        "app.circleci.com",
+        "vercel.com",
+        "netlify.com",
+        "render.com",
+        "sentry.io",
+        "pagerduty.com",
+        "statuspage.io",
+        "datadog.com",
+        "newrelic.com",
+    }
+)
 _DEVELOPER_SUBJECT_RE = re.compile(
     r"(deploy|build|pipeline|ci/cd|merge request|pull request|commit|branch|release|incident|alert|downtime)",
     re.IGNORECASE,
@@ -122,9 +151,12 @@ _ACCOUNT_SUBJECT_RE = re.compile(
     r"(quota|limit|threshold|capacity|usage|health|security|password|auth|verification|suspended|disabled|warning|exceeded|action required)",
     re.IGNORECASE,
 )
-_ACCOUNT_DOMAINS = frozenset({
-    "grafana.com", "alerts.grafana.com",
-})
+_ACCOUNT_DOMAINS = frozenset(
+    {
+        "grafana.com",
+        "alerts.grafana.com",
+    }
+)
 
 _MARKETING_SUBJECT_RE = re.compile(
     r"(newsletter|unsubscribe|weekly digest|roundup|tips|webinar|announcement|% off|free trial|limited time)",
@@ -144,6 +176,7 @@ def classify(parsed: ParsedInboundEmail) -> EmailClassification:
     # instead of getting eaten by inline styles + wrapper divs.
     raw = parsed.body_text or ""
     from backend.intake.forwarded_email import _looks_like_html, strip_html
+
     if _looks_like_html(raw):
         # Larger raw window to compensate for HTML overhead — 20 KB of
         # HTML typically distills to ~2-4 KB of readable text.
@@ -171,6 +204,7 @@ def classify(parsed: ParsedInboundEmail) -> EmailClassification:
             is_operator_address,
             lookup_client,
         )
+
         # A) inbound from known client (address match)
         client = lookup_client(from_addr)
         if client is not None:
@@ -196,8 +230,9 @@ def classify(parsed: ParsedInboundEmail) -> EmailClassification:
         # to samus's inbox for archival.
         if is_operator_address(from_addr):
             from backend.intake.forwarded_email import parse_forwarded_body
+
             headers = parse_forwarded_body(body_head)
-            hit: KnownClient | None = None  # type: ignore[name-defined]
+            hit: KnownClient | None = None  # type: ignore[name-defined]  # noqa: F821
             hit_to = ""
             # B.1 forward preamble names any known recipient (checks the
             # first recipient AND every additional address in the To: line)
@@ -243,7 +278,7 @@ def classify(parsed: ParsedInboundEmail) -> EmailClassification:
             tags.append("content_match")
             return EmailClassification(
                 category="client_correspondence",
-                confidence=0.9,   # lower than direct-address match
+                confidence=0.9,  # lower than direct-address match
                 client_id=content_hit.client_id,
                 campaign_id=content_hit.campaign_id,
                 client_role=content_hit.role,
@@ -270,14 +305,22 @@ def classify(parsed: ParsedInboundEmail) -> EmailClassification:
             match_vendor,
             _pick_registry_id,
         )
+
         vendor_domain, candidates = match_vendor(from_addr, subject)
         if vendor_domain or _has_billing_keywords(subject):
             text = f"{subject}\n{body_head}"
             amount = extract_amount(text)
             signal_kind = classify_signal_kind(subject, body_head)
-            registry_id = _pick_registry_id(
-                vendor_domain, candidates, subject, amount,
-            ) if candidates else ""
+            registry_id = (
+                _pick_registry_id(
+                    vendor_domain,
+                    candidates,
+                    subject,
+                    amount,
+                )
+                if candidates
+                else ""
+            )
 
             # If the signal_kind is "other" AND account-alert keywords match,
             # this is an alert from a known vendor, not a bill.
@@ -286,7 +329,9 @@ def classify(parsed: ParsedInboundEmail) -> EmailClassification:
                 if vendor_domain:
                     tags.append(vendor_domain)
                 return EmailClassification(
-                    category="account", confidence=0.8, tags=tags,
+                    category="account",
+                    confidence=0.8,
+                    tags=tags,
                 )
 
             if vendor_domain or signal_kind != "other":
@@ -311,29 +356,31 @@ def classify(parsed: ParsedInboundEmail) -> EmailClassification:
         return EmailClassification(category="social", confidence=0.95, tags=tags)
 
     # --- Calendar / booking ---
-    if (_domain_match(from_domain, _CALENDAR_DOMAINS)
-            or _CALENDAR_SUBJECT_RE.search(subject)):
+    if _domain_match(from_domain, _CALENDAR_DOMAINS) or _CALENDAR_SUBJECT_RE.search(subject):
         tags.append("booking" if "book" in subject.lower() else "calendar")
         return EmailClassification(category="calendar", confidence=0.8, tags=tags)
 
     # --- Developer / CI ---
-    if (_domain_match(from_domain, _DEVELOPER_DOMAINS)
-            or _DEVELOPER_SUBJECT_RE.search(subject)):
+    if _domain_match(from_domain, _DEVELOPER_DOMAINS) or _DEVELOPER_SUBJECT_RE.search(subject):
         return EmailClassification(category="developer", confidence=0.8, tags=tags)
 
     # --- Account alerts (AWS health, Grafana, quota warnings) ---
-    if (_domain_match(from_domain, _ACCOUNT_DOMAINS)
-            or _ACCOUNT_SUBJECT_RE.search(subject)
-            or "aws.amazon.com" in from_domain
-            or "health" in from_addr):
+    if (
+        _domain_match(from_domain, _ACCOUNT_DOMAINS)
+        or _ACCOUNT_SUBJECT_RE.search(subject)
+        or "aws.amazon.com" in from_domain
+        or "health" in from_addr
+    ):
         tags.append("alert")
         return EmailClassification(category="account", confidence=0.7, tags=tags)
 
     # --- Marketing / newsletters ---
-    if (_MARKETING_SUBJECT_RE.search(subject)
-            or "noreply" in from_addr
-            or "no-reply" in from_addr
-            or "newsletter" in from_addr):
+    if (
+        _MARKETING_SUBJECT_RE.search(subject)
+        or "noreply" in from_addr
+        or "no-reply" in from_addr
+        or "newsletter" in from_addr
+    ):
         return EmailClassification(category="marketing", confidence=0.5, tags=tags)
 
     # --- Business (catch-all for real correspondence) ---
@@ -351,10 +398,20 @@ def _domain_match(domain: str, known: frozenset) -> bool:
 
 def _has_billing_keywords(subject: str) -> bool:
     s = subject.lower()
-    return any(kw in s for kw in (
-        "invoice", "receipt", "statement", "payment", "billing",
-        "declined", "charge", "renewal", "subscription",
-    ))
+    return any(
+        kw in s
+        for kw in (
+            "invoice",
+            "receipt",
+            "statement",
+            "payment",
+            "billing",
+            "declined",
+            "charge",
+            "renewal",
+            "subscription",
+        )
+    )
 
 
 def _looks_like_business(from_addr: str, subject: str, body: str) -> bool:

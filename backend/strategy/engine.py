@@ -4,6 +4,7 @@ Ported from recovery/strategy_engine.py.  No I/O; all methods are
 synchronous and side-effect-free (except the module-level pattern
 counters, which are intentionally mutable state for pattern learning).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -27,7 +28,7 @@ class StrategyContext:
     lead_score: float = 0.0
     seo_score: float = 100.0
     stage: str = "new"
-    engagement: str = "low"          # low | medium | high
+    engagement: str = "low"  # low | medium | high
     last_activity: str | None = None
     conversion_signals: list[str] = field(default_factory=list)
 

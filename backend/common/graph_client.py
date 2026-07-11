@@ -9,6 +9,7 @@ Writes are routed through :mod:`backend.common.graph_schema` for validation
 and queries are restricted to the named allowlist there — arbitrary Cypher is
 not exposed.
 """
+
 from __future__ import annotations
 
 import logging
@@ -194,6 +195,7 @@ class GraphClient:
                 raise RuntimeError("neo4j circuit open")
             return []
         from neo4j.exceptions import ServiceUnavailable, AuthError  # type: ignore
+
         try:
             with driver.session(database=self._database) as sess:
                 result = sess.run(cypher, **params)
@@ -239,11 +241,7 @@ class GraphClient:
             return False
         pk = graph_schema.primary_key(label)
         pk_value = properties[pk]
-        cypher = (
-            f"MERGE (n:{label} {{{pk}: $pk_value}}) "
-            f"SET n += $properties "
-            f"RETURN n"
-        )
+        cypher = f"MERGE (n:{label} {{{pk}: $pk_value}}) SET n += $properties RETURN n"
         self._run(cypher, {"pk_value": pk_value, "properties": dict(properties)})
         return self.available
 
@@ -341,10 +339,7 @@ class GraphClient:
             return []
         limit = max(1, min(int(limit), 1000))
         match = f"(n:{label})" if label else "(n)"
-        cypher = (
-            f"MATCH {match} WHERE n.{graph_schema.TIER_PROPERTY} = $tier "
-            f"RETURN n LIMIT $limit"
-        )
+        cypher = f"MATCH {match} WHERE n.{graph_schema.TIER_PROPERTY} = $tier RETURN n LIMIT $limit"
         return self._run(cypher, {"tier": tier, "limit": limit})
 
 

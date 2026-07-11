@@ -3,6 +3,7 @@
 No live network call is ever made. Live-path tests assert fail-closed refusals
 (missing credentials / missing stake sentence) which never touch the network.
 """
+
 from __future__ import annotations
 
 import importlib
@@ -31,8 +32,10 @@ def _reload(monkeypatch, *, dry_run: str = "true", ledger: Path | None = None):
     for key in _CRED_KEYS:
         monkeypatch.delenv(key, raising=False)
     import backend.outreach.social_adapter as outreach_mod
+
     importlib.reload(outreach_mod)
     import backend.social.adapters as mod
+
     importlib.reload(mod)
     return mod
 
@@ -40,14 +43,12 @@ def _reload(monkeypatch, *, dry_run: str = "true", ledger: Path | None = None):
 def _read_ledger(path: Path) -> list[dict]:
     if not path.exists():
         return []
-    return [
-        json.loads(ln)
-        for ln in path.read_text(encoding="utf-8").splitlines()
-        if ln.strip()
-    ]
+    return [json.loads(ln) for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()]
 
 
-def _post(platform: str, *, body: str = "A useful, specific insight about pipelines.", stake: str = "") -> PlannedPost:
+def _post(
+    platform: str, *, body: str = "A useful, specific insight about pipelines.", stake: str = ""
+) -> PlannedPost:
     return PlannedPost(
         week=1,
         day="Mon",
@@ -102,9 +103,7 @@ def test_live_instagram_without_token_refuses(monkeypatch, tmp_path):
 
 def test_live_x_without_token_refuses(monkeypatch, tmp_path):
     mod = _reload(monkeypatch, dry_run="false", ledger=tmp_path / "p.jsonl")
-    res = mod.dispatch_post(
-        _post("x", stake="I personally reviewed this and vouch for it.")
-    )
+    res = mod.dispatch_post(_post("x", stake="I personally reviewed this and vouch for it."))
     assert res.sent is False
     assert res.error == "x_token_unset"
 
@@ -129,9 +128,7 @@ def test_live_linkedin_delegates_to_outreach(monkeypatch, tmp_path):
     """LinkedIn routes through the outreach adapter, which (no token, live)
     refuses with its own error — proving delegation, no network call."""
     mod = _reload(monkeypatch, dry_run="false", ledger=tmp_path / "p.jsonl")
-    res = mod.dispatch_post(
-        _post("linkedin", stake="I personally reviewed this and vouch for it.")
-    )
+    res = mod.dispatch_post(_post("linkedin", stake="I personally reviewed this and vouch for it."))
     assert res.sent is False
     assert res.platform == "linkedin"
     assert res.error == "linkedin_token_unset"
@@ -142,9 +139,15 @@ def test_live_facebook_delegates_to_outreach(monkeypatch, tmp_path):
     refuses with its own error — proving delegation, no network call."""
     mod = _reload(monkeypatch, dry_run="false", ledger=tmp_path / "p.jsonl")
     fb_post = PlannedPost(
-        week=1, day="Mon", platform="facebook", fmt="fb_post",
-        pipeline_fn="educate", theme="Foundation", cluster="AI visibility",
-        brief="brief", body="Helpful community post about pipeline optimization.",
+        week=1,
+        day="Mon",
+        platform="facebook",
+        fmt="fb_post",
+        pipeline_fn="educate",
+        theme="Foundation",
+        cluster="AI visibility",
+        brief="brief",
+        body="Helpful community post about pipeline optimization.",
         stake_sentence="I personally reviewed this and vouch for it.",
     )
     res = mod.dispatch_post(fb_post)

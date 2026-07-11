@@ -6,6 +6,7 @@ It compiles the artifact's ``TaskPlan`` into an n8n workflow, validates it, writ
 (when armed) deploys it. Returns a structured report; raises only on a genuine IO
 error writing the artifact (the fulfillment caller wraps this fail-soft).
 """
+
 from __future__ import annotations
 
 import json
@@ -42,18 +43,27 @@ def generate_workflow_deliverable(
     use_llm = bool(getattr(settings, "workflow_n8n_llm_enrich", False))
 
     wf = compile_workflow(
-        artifact.plan, name=name, intake_text=getattr(artifact, "bottleneck_summary", ""),
-        use_llm=use_llm, settings=settings,
+        artifact.plan,
+        name=name,
+        intake_text=getattr(artifact, "bottleneck_summary", ""),
+        use_llm=use_llm,
+        settings=settings,
     )
     issues = validate_workflow(wf)
     valid = is_valid(issues)
 
     workflow_path = out_dir / "workflow.json"
     runbook_path = out_dir / "runbook.md"
-    workflow_path.write_text(json.dumps(wf.to_dict(), indent=2, ensure_ascii=False), encoding="utf-8")
+    workflow_path.write_text(
+        json.dumps(wf.to_dict(), indent=2, ensure_ascii=False), encoding="utf-8"
+    )
     runbook_path.write_text(
-        render_runbook(artifact.plan, wf, sku_name=sku_name,
-                       bottleneck=getattr(artifact, "bottleneck_summary", "")),
+        render_runbook(
+            artifact.plan,
+            wf,
+            sku_name=sku_name,
+            bottleneck=getattr(artifact, "bottleneck_summary", ""),
+        ),
         encoding="utf-8",
     )
 
@@ -63,8 +73,13 @@ def generate_workflow_deliverable(
     elif deploy and not valid:
         deploy_report = {"status": "blocked_invalid", "deployed": False}
 
-    _LOG.info("workflow_deliverable sku=%s nodes=%d valid=%s deploy=%s",
-              artifact.sku_id, len(wf.nodes), valid, deploy_report.get("status"))
+    _LOG.info(
+        "workflow_deliverable sku=%s nodes=%d valid=%s deploy=%s",
+        artifact.sku_id,
+        len(wf.nodes),
+        valid,
+        deploy_report.get("status"),
+    )
     return {
         "workflow_path": str(workflow_path),
         "runbook_path": str(runbook_path),

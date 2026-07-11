@@ -20,6 +20,7 @@ Entry point::
     summary = engine.refresh()          # rebuild + persist + return summary
     actions = engine.suggest_sales_actions(max_actions=20)
 """
+
 from __future__ import annotations
 
 import json
@@ -44,6 +45,7 @@ def _growth_root() -> Path:
 # Genome shapes
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class CustomerProfile:
     customer_id: str
@@ -54,7 +56,7 @@ class CustomerProfile:
     refund_count: int = 0
     charge_count: int = 0
     state_age_days: float = 0.0
-    engagement_score: float = 0.0   # (charges - refunds) / charges
+    engagement_score: float = 0.0  # (charges - refunds) / charges
     segment: str = "COLD"
     last_updated: float = 0.0
 
@@ -71,6 +73,7 @@ class GenomeSummary:
 # Segmentation
 # ---------------------------------------------------------------------------
 
+
 def _segment(p: CustomerProfile) -> str:
     if p.current_state in ("active_retainer", "renewed"):
         return "ACTIVE"
@@ -86,6 +89,7 @@ def _segment(p: CustomerProfile) -> str:
 # ---------------------------------------------------------------------------
 # Engine
 # ---------------------------------------------------------------------------
+
 
 class CustomerGenomeEngine:
     """Builds per-customer behavioral profiles from CRM + Stripe data."""
@@ -113,9 +117,7 @@ class CustomerGenomeEngine:
 
     def _save_raw(self, genome: dict[str, dict[str, Any]]) -> None:
         try:
-            self._genome_path.write_text(
-                json.dumps(genome, indent=2), encoding="utf-8"
-            )
+            self._genome_path.write_text(json.dumps(genome, indent=2), encoding="utf-8")
         except Exception as exc:  # noqa: BLE001
             _LOG.warning("customer_genome save failed: %s", exc)
 
@@ -130,6 +132,7 @@ class CustomerGenomeEngine:
                 StripeClient,
                 monthly_recurring_revenue_usd,
             )
+
             client = StripeClient(self._stripe_key)
             stripe_customers = client.fetch_customers_by_email(email, limit=5)
             if not stripe_customers:
@@ -175,6 +178,7 @@ class CustomerGenomeEngine:
 
         try:
             from backend.memory.customers import CustomerStore
+
             store = CustomerStore()
             customers = store.list_customers(limit=max(1, min(int(limit), 1000)))
         except Exception as exc:  # noqa: BLE001
@@ -188,10 +192,7 @@ class CustomerGenomeEngine:
             charge_count = int(stripe.get("charge_count", 0))
             mrr = float(stripe.get("mrr_usd", 0.0))
 
-            engagement = (
-                (charge_count - refunds) / float(charge_count)
-                if charge_count > 0 else 0.0
-            )
+            engagement = (charge_count - refunds) / float(charge_count) if charge_count > 0 else 0.0
             state_age = max(0.0, time.time() - cust.current_state_since) / 86400.0
 
             p = CustomerProfile(
@@ -247,33 +248,41 @@ class CustomerGenomeEngine:
         actions: list[dict[str, Any]] = []
 
         for cid in by_segment.get("RISKY", [])[:slot]:
-            actions.append({
-                "kind": "rescue_sequence",
-                "customer_id": cid,
-                "segment": "RISKY",
-                "playbook": "refund_recovery_v1",
-            })
+            actions.append(
+                {
+                    "kind": "rescue_sequence",
+                    "customer_id": cid,
+                    "segment": "RISKY",
+                    "playbook": "refund_recovery_v1",
+                }
+            )
         for cid in by_segment.get("VIP", [])[:slot]:
-            actions.append({
-                "kind": "vip_upsell",
-                "customer_id": cid,
-                "segment": "VIP",
-                "playbook": "vip_appreciation_v1",
-            })
+            actions.append(
+                {
+                    "kind": "vip_upsell",
+                    "customer_id": cid,
+                    "segment": "VIP",
+                    "playbook": "vip_appreciation_v1",
+                }
+            )
         for cid in by_segment.get("PROMISING", [])[:slot]:
-            actions.append({
-                "kind": "activation_sequence",
-                "customer_id": cid,
-                "segment": "PROMISING",
-                "playbook": "activation_v1",
-            })
+            actions.append(
+                {
+                    "kind": "activation_sequence",
+                    "customer_id": cid,
+                    "segment": "PROMISING",
+                    "playbook": "activation_v1",
+                }
+            )
         for cid in by_segment.get("COLD", [])[:slot]:
-            actions.append({
-                "kind": "reactivation_probe",
-                "customer_id": cid,
-                "segment": "COLD",
-                "playbook": "cold_reactivation_v1",
-            })
+            actions.append(
+                {
+                    "kind": "reactivation_probe",
+                    "customer_id": cid,
+                    "segment": "COLD",
+                    "playbook": "cold_reactivation_v1",
+                }
+            )
 
         _LOG.info("customer_genome suggested %d sales actions", len(actions))
         return actions
@@ -284,10 +293,15 @@ class CustomerGenomeEngine:
         out: list[CustomerProfile] = []
         for entry in raw.values():
             try:
-                out.append(CustomerProfile(**{
-                    k: entry[k] for k in CustomerProfile.__dataclass_fields__  # type: ignore[attr-defined]
-                    if k in entry
-                }))
+                out.append(
+                    CustomerProfile(
+                        **{
+                            k: entry[k]
+                            for k in CustomerProfile.__dataclass_fields__  # type: ignore[attr-defined]
+                            if k in entry
+                        }
+                    )
+                )
             except Exception as exc:  # noqa: BLE001
                 _LOG.debug("customer_genome bad entry: %s", exc)
         return out

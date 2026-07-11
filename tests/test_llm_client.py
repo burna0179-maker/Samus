@@ -1,4 +1,5 @@
 """anthropic_messages wrapper — budget enforcement + outcome accounting."""
+
 from __future__ import annotations
 
 import json
@@ -13,16 +14,19 @@ from backend.common.llm_budget import LlmBudgetStore
 
 def _store(tmp_path, **kwargs) -> LlmBudgetStore:
     base = dict(
-        base_token_budget=10_000, ema_alpha=0.5, floor_pct=0.10,
-        ddb_table=None, json_path=str(tmp_path / "b.json"),
+        base_token_budget=10_000,
+        ema_alpha=0.5,
+        floor_pct=0.10,
+        ddb_table=None,
+        json_path=str(tmp_path / "b.json"),
     )
     base.update(kwargs)
     return LlmBudgetStore(**base)
 
 
-def _patch_httpx(monkeypatch, *, status: int = 200,
-                 body: dict | None = None,
-                 raise_exc: Exception | None = None):
+def _patch_httpx(
+    monkeypatch, *, status: int = 200, body: dict | None = None, raise_exc: Exception | None = None
+):
     class _Resp:
         def __init__(self):
             self.status_code = status
@@ -53,11 +57,13 @@ def _patch_httpx(monkeypatch, *, status: int = 200,
             return _Resp()
 
     import backend.common.llm_client as mod
+
     monkeypatch.setattr(mod.httpx, "Client", _Client)
 
 
-def _ok_payload(in_tokens: int = 100, out_tokens: int = 50,
-                text: str = "hello world") -> dict[str, Any]:
+def _ok_payload(
+    in_tokens: int = 100, out_tokens: int = 50, text: str = "hello world"
+) -> dict[str, Any]:
     return {
         "choices": [{"message": {"content": text}}],
         "usage": {"prompt_tokens": in_tokens, "completion_tokens": out_tokens},
@@ -68,11 +74,15 @@ def _ok_payload(in_tokens: int = 100, out_tokens: int = 50,
 # Happy path
 # ---------------------------------------------------------------------------
 
+
 def test_call_returns_text_and_usage(tmp_path, monkeypatch):
     store = _store(tmp_path)
     _patch_httpx(monkeypatch, body=_ok_payload(in_tokens=42, out_tokens=21))
     text, usage = llm_client.anthropic_messages(
-        workcell="prospecting", api_key="k", prompt="hi", store=store,
+        workcell="prospecting",
+        api_key="k",
+        prompt="hi",
+        store=store,
     )
     assert text == "hello world"
     # Control D (token-cost-hardening 2026-05-18) added cache fields to the
@@ -88,7 +98,10 @@ def test_success_records_tokens_to_budget(tmp_path, monkeypatch):
     store = _store(tmp_path)
     _patch_httpx(monkeypatch, body=_ok_payload(in_tokens=42, out_tokens=21))
     llm_client.anthropic_messages(
-        workcell="prospecting", api_key="k", prompt="hi", store=store,
+        workcell="prospecting",
+        api_key="k",
+        prompt="hi",
+        store=store,
     )
     b = store.snapshot("prospecting")
     assert b.input_tokens_today == 42
@@ -101,15 +114,22 @@ def test_success_records_tokens_to_budget(tmp_path, monkeypatch):
 # Budget enforcement
 # ---------------------------------------------------------------------------
 
+
 def test_over_quota_raises_budget_exceeded_before_http_call(tmp_path, monkeypatch):
     """When pre-flight denies, we must not have hit Anthropic."""
     store = _store(tmp_path, base_token_budget=10)
     called = {"n": 0}
 
     class _Client:
-        def __init__(self, *a, **k): pass
-        def __enter__(self): return self
-        def __exit__(self, *a): return False
+        def __init__(self, *a, **k):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
         def post(self, *a, **k):
             called["n"] += 1
             raise AssertionError("should not be called when over budget")
@@ -119,7 +139,10 @@ def test_over_quota_raises_budget_exceeded_before_http_call(tmp_path, monkeypatc
     store.record_spend("prospecting", input_tokens=8, output_tokens=3, outcome="success")
     with pytest.raises(llm_client.BudgetExceeded) as ei:
         llm_client.anthropic_messages(
-            workcell="prospecting", api_key="k", prompt="x" * 1000, store=store,
+            workcell="prospecting",
+            api_key="k",
+            prompt="x" * 1000,
+            store=store,
             max_tokens=500,
         )
     assert called["n"] == 0
@@ -130,12 +153,16 @@ def test_over_quota_raises_budget_exceeded_before_http_call(tmp_path, monkeypatc
 # Error paths — do NOT punish efficiency EMA
 # ---------------------------------------------------------------------------
 
+
 def test_transport_error_records_as_error_outcome(tmp_path, monkeypatch):
     store = _store(tmp_path, ema_alpha=0.5)
     _patch_httpx(monkeypatch, raise_exc=httpx.ConnectError("down"))
     with pytest.raises(llm_client.LlmCallError) as ei:
         llm_client.anthropic_messages(
-            workcell="prospecting", api_key="k", prompt="hi", store=store,
+            workcell="prospecting",
+            api_key="k",
+            prompt="hi",
+            store=store,
         )
     assert "llm_transport_error" in str(ei.value)
     b = store.snapshot("prospecting")
@@ -149,7 +176,10 @@ def test_5xx_records_as_error_outcome(tmp_path, monkeypatch):
     _patch_httpx(monkeypatch, status=502, body={"error": "upstream"})
     with pytest.raises(llm_client.LlmCallError) as ei:
         llm_client.anthropic_messages(
-            workcell="prospecting", api_key="k", prompt="hi", store=store,
+            workcell="prospecting",
+            api_key="k",
+            prompt="hi",
+            store=store,
         )
     assert "llm_http_502" in str(ei.value)
     b = store.snapshot("prospecting")
@@ -162,7 +192,10 @@ def test_missing_content_records_as_error(tmp_path, monkeypatch):
     _patch_httpx(monkeypatch, body={"usage": {"input_tokens": 1, "output_tokens": 1}})
     with pytest.raises(llm_client.LlmCallError):
         llm_client.anthropic_messages(
-            workcell="prospecting", api_key="k", prompt="hi", store=store,
+            workcell="prospecting",
+            api_key="k",
+            prompt="hi",
+            store=store,
         )
     b = store.snapshot("prospecting")
     assert b.error_count_today == 1
@@ -173,13 +206,16 @@ def test_missing_content_records_as_error(tmp_path, monkeypatch):
 # Validation
 # ---------------------------------------------------------------------------
 
+
 def test_empty_api_key_accepted():
     """api_key is accepted for backward compat but no longer validated."""
     # Should not raise — auth is resolved from env vars, not the api_key param.
     # (Will fail on the HTTP call since there's no mock, but not on validation.)
     try:
         llm_client.anthropic_messages(
-            workcell="prospecting", api_key="", prompt="hi",
+            workcell="prospecting",
+            api_key="",
+            prompt="hi",
         )
     except llm_client.LlmCallError as exc:
         assert "api_key" not in str(exc).lower()
@@ -188,7 +224,9 @@ def test_empty_api_key_accepted():
 def test_empty_prompt_raises():
     with pytest.raises(llm_client.LlmCallError):
         llm_client.anthropic_messages(
-            workcell="prospecting", api_key="k", prompt="",
+            workcell="prospecting",
+            api_key="k",
+            prompt="",
         )
 
 
@@ -203,12 +241,16 @@ def test_estimate_tokens_grows_with_prompt():
 # record_outcome — caller-initiated EMA adjustment
 # ---------------------------------------------------------------------------
 
+
 def test_record_outcome_flips_success_to_failure(tmp_path, monkeypatch):
     """Caller can override the auto-recorded 'success' if validation fails."""
     store = _store(tmp_path, ema_alpha=0.5)
     _patch_httpx(monkeypatch, body=_ok_payload())
     llm_client.anthropic_messages(
-        workcell="prospecting", api_key="k", prompt="hi", store=store,
+        workcell="prospecting",
+        api_key="k",
+        prompt="hi",
+        store=store,
     )
     # Auto-recorded success
     assert store.snapshot("prospecting").efficiency_ema == pytest.approx(1.0)

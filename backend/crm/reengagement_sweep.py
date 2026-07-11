@@ -40,6 +40,7 @@ Each successful enqueue is appended to ``state_path("crm",
 helper drives the forge-ui HUD ``reengagement_queued_today`` counter so the
 operator can see the sweep actually working.
 """
+
 from __future__ import annotations
 
 import datetime as _dt
@@ -69,9 +70,14 @@ _HARD_NO_OUTCOMES = frozenset({"do_not_call", "disqualified"})
 # CallState.state values that mean "we already sent something and are waiting
 # on the prospect" — resurfacing now would double-message. Mirrors the
 # CallStateValue literal in models.py.
-_IN_FLIGHT_STATES = frozenset({
-    "outreach_sent", "queued", "dialing", "in_progress",
-})
+_IN_FLIGHT_STATES = frozenset(
+    {
+        "outreach_sent",
+        "queued",
+        "dialing",
+        "in_progress",
+    }
+)
 
 # JSONL ledger path. Each line: {ts, prospect_id, opportunity_id, task_id}.
 _LEDGER_DIR = "crm"
@@ -83,7 +89,10 @@ def _ledger_path() -> Path:
 
 
 def _record_queued(
-    *, prospect_id: str, opportunity_id: str, task_id: str,
+    *,
+    prospect_id: str,
+    opportunity_id: str,
+    task_id: str,
 ) -> bool:
     """Append one queued-record to the daily-counter ledger. Best-effort."""
     path = _ledger_path()
@@ -174,7 +183,7 @@ def _filter_eq(field_name: str, value: str) -> tuple[str, dict[str, Any], dict[s
     keeps the safe_scan helper's expression-attribute-name path exercised
     and future-proofs against schema renames.
     """
-    return f"#f = :v", {":v": value}, {"#f": field_name}
+    return "#f = :v", {":v": value}, {"#f": field_name}
 
 
 def scan_for_reengagement_triggers(
@@ -212,11 +221,13 @@ def scan_for_reengagement_triggers(
 
     cooldown = int(
         getattr(settings, "samus_reengagement_cooldown_days", 30)
-        if cooldown_days is None else cooldown_days
+        if cooldown_days is None
+        else cooldown_days
     )
     cap = int(
         getattr(settings, "samus_reengagement_max_per_run", 25)
-        if max_per_run is None else max_per_run
+        if max_per_run is None
+        else max_per_run
     )
     out.cooldown_days = cooldown
 
@@ -233,7 +244,8 @@ def scan_for_reengagement_triggers(
     scan_limit = max(50, cap * 4)
     fe, vals, names = _filter_eq("last_outcome", _SOFT_NO_OUTCOME)
     items, _trunc, err = p.safe_scan(
-        p._call_state_table(), limit=scan_limit,
+        p._call_state_table(),
+        limit=scan_limit,
         filter_expression=fe,
         expression_attribute_values=vals,
         expression_attribute_names=names,
@@ -285,7 +297,8 @@ def scan_for_reengagement_triggers(
         except Exception as exc:  # noqa: BLE001 — never fail the sweep on one read
             _LOG.warning(
                 "reengagement_sweep get_opportunity_for_prospect failed for %s: %s",
-                state.prospect_id, exc,
+                state.prospect_id,
+                exc,
             )
             opp = None
         if opp is None:
@@ -303,14 +316,9 @@ def scan_for_reengagement_triggers(
             prospect_id=state.prospect_id,
             trigger_source="reengagement",
             current_samus_state=(
-                f"last_outcome=not_interested "
-                f"call_state={state.state} "
-                f"days_quiet={days_quiet}"
+                f"last_outcome=not_interested call_state={state.state} days_quiet={days_quiet}"
             ),
-            trigger_reason=(
-                f"soft-no cooldown {cooldown}d elapsed "
-                f"(quiet for {days_quiet}d)"
-            ),
+            trigger_reason=(f"soft-no cooldown {cooldown}d elapsed (quiet for {days_quiet}d)"),
         )
         result = review(req, crm=crm)
         out.results.append(result)
@@ -328,9 +336,16 @@ def scan_for_reengagement_triggers(
         "reengagement_sweep: scanned=%d eligible=%d enqueued=%d escalated=%d "
         "skipped_in_flight=%d skipped_hard_no=%d skipped_within_cooldown=%d "
         "skipped_no_opportunity=%d capped=%d cooldown_days=%d",
-        out.scanned, out.eligible, out.enqueued, out.escalated,
-        out.skipped_in_flight, out.skipped_hard_no, out.skipped_within_cooldown,
-        out.skipped_no_opportunity, out.capped, out.cooldown_days,
+        out.scanned,
+        out.eligible,
+        out.enqueued,
+        out.escalated,
+        out.skipped_in_flight,
+        out.skipped_hard_no,
+        out.skipped_within_cooldown,
+        out.skipped_no_opportunity,
+        out.capped,
+        out.cooldown_days,
     )
     return out
 

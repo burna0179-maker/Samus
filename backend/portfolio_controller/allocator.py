@@ -13,6 +13,7 @@ The two rules are independent — a workcell can take both, one, or neither.
 The four magic numbers are named constants below so the policy is auditable
 in one place.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

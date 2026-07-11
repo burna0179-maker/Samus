@@ -4,6 +4,7 @@ disabled-noop, state-root path resolution.
 Mirrors tests/test_attribution.py: flag flipped via SAMUS_*_ENABLED env +
 reload_settings(); paths supplied per-test so the suite is hermetic.
 """
+
 from __future__ import annotations
 
 import json
@@ -17,12 +18,14 @@ from backend.memory.persona_self_model import PersonaMemory
 def _set_flag(monkeypatch, enabled: bool):
     monkeypatch.setenv("SAMUS_PERSONA_SELF_MODEL_ENABLED", "true" if enabled else "false")
     from backend.common.settings import reload_settings
+
     reload_settings()
 
 
 # ---------------------------------------------------------------------------
 # disabled-noop (default dormant)
 # ---------------------------------------------------------------------------
+
 
 def test_disabled_is_noop_no_disk_write(tmp_path, monkeypatch):
     _set_flag(monkeypatch, False)
@@ -64,6 +67,7 @@ def test_explicit_enabled_overrides_disabled_flag(tmp_path, monkeypatch):
 # atomic save + reload
 # ---------------------------------------------------------------------------
 
+
 def test_atomic_save_and_reload_roundtrip(tmp_path):
     path = tmp_path / "self_model.json"
     mem = PersonaMemory(path=str(path), enabled=True, async_flush=False)
@@ -85,6 +89,7 @@ def test_atomic_save_and_reload_roundtrip(tmp_path):
 # WAL recovery (corrupt primary JSON -> rebuild from WAL)
 # ---------------------------------------------------------------------------
 
+
 def test_wal_recovery_on_corrupt_primary(tmp_path):
     path = tmp_path / "self_model.json"
     mem = PersonaMemory(path=str(path), enabled=True, async_flush=False)
@@ -103,7 +108,8 @@ def test_wal_recovery_skips_corrupt_lines(tmp_path):
     wal.parent.mkdir(parents=True, exist_ok=True)
     # One good line, one garbage line -> only the good event is recovered.
     wal.write_text(
-        json.dumps({"ts": 1.0, "kind": "emotion", "details": {"valence": 0.1}}) + "\n"
+        json.dumps({"ts": 1.0, "kind": "emotion", "details": {"valence": 0.1}})
+        + "\n"
         + "<<<corrupt>>>\n",
         encoding="utf-8",
     )
@@ -114,6 +120,7 @@ def test_wal_recovery_skips_corrupt_lines(tmp_path):
 # ---------------------------------------------------------------------------
 # prune (bounded event buffer; keep recent + important error reflections)
 # ---------------------------------------------------------------------------
+
 
 def test_prune_bounds_event_count(tmp_path):
     path = tmp_path / "self_model.json"
@@ -130,14 +137,18 @@ def test_prune_retains_error_reflections(tmp_path):
     mem.log_event("reflection", {"text": "boom", "tags": {"status": "error", "drift": 0.9}})
     for _ in range(100):
         mem.log_event("emotion", {"valence": 0.0, "confidence": 0.5})
-    kept = [e for e in mem._events if e.get("kind") == "reflection"
-            and "error" in str(e.get("details", {}).get("tags", {}))]
+    kept = [
+        e
+        for e in mem._events
+        if e.get("kind") == "reflection" and "error" in str(e.get("details", {}).get("tags", {}))
+    ]
     assert kept, "important error reflection must survive prune"
 
 
 # ---------------------------------------------------------------------------
 # drift heuristic (recency-weighted) + apply_introspection
 # ---------------------------------------------------------------------------
+
 
 def test_drift_heuristic_recency_weighted(tmp_path):
     path = tmp_path / "self_model.json"
@@ -166,6 +177,7 @@ def test_apply_introspection_logs_and_returns(tmp_path):
 # ---------------------------------------------------------------------------
 # state-root path resolution (env override + state_paths fallback)
 # ---------------------------------------------------------------------------
+
 
 def test_path_env_override(monkeypatch, tmp_path):
     override = tmp_path / "override" / "model.json"

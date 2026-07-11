@@ -4,6 +4,7 @@ This module produces a small structured-enrichment dict that downstream scoring
 can consume. Real enrichment (firmographics, technographics, intent signals)
 lands in a later phase; for now we surface the deterministic, in-process facts.
 """
+
 from __future__ import annotations
 
 from typing import Any

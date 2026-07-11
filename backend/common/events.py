@@ -4,6 +4,7 @@
 append to their per-service JsonlLedger. ``_deterministic_hash`` is the helper
 used to fingerprint input/output payloads.
 """
+
 from __future__ import annotations
 
 import hashlib

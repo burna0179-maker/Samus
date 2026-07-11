@@ -3,20 +3,21 @@
 LLM calls are monkeypatched — no real Anthropic API calls are made.
 Bandit and RL state is reset between tests via the reset_* helpers.
 """
+
 from __future__ import annotations
 
 import json
-
-import pytest
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _reset(monkeypatch=None):
     """Reset module-level bandit and RL state for test isolation."""
     import backend.strategy.portfolio_manager as pm
+
     pm.reset_bandit()
     pm.reset_rl_credits()
 
@@ -25,9 +26,11 @@ def _reset(monkeypatch=None):
 # Bandit: update_bandit
 # ---------------------------------------------------------------------------
 
+
 def test_update_bandit_increments_arm_count():
     """update_bandit should increment trial count for the arm."""
     import backend.strategy.portfolio_manager as pm
+
     pm.reset_bandit()
 
     pm.update_bandit("accelerate", 1.0)
@@ -42,6 +45,7 @@ def test_update_bandit_increments_arm_count():
 def test_update_bandit_accumulates_wins():
     """update_bandit should sum reward into wins."""
     import backend.strategy.portfolio_manager as pm
+
     pm.reset_bandit()
 
     pm.update_bandit("maintain", 0.5)
@@ -55,6 +59,7 @@ def test_update_bandit_accumulates_wins():
 def test_update_bandit_multiple_arms_isolated():
     """Different arms must not share state."""
     import backend.strategy.portfolio_manager as pm
+
     pm.reset_bandit()
 
     pm.update_bandit("accelerate", 1.0)
@@ -71,9 +76,11 @@ def test_update_bandit_multiple_arms_isolated():
 # record_outcome + RL credits
 # ---------------------------------------------------------------------------
 
+
 def test_record_outcome_modifies_rl_state():
     """record_outcome should store credit keyed by prospect_id."""
     import backend.strategy.portfolio_manager as pm
+
     pm.reset_bandit()
     pm.reset_rl_credits()
 
@@ -90,6 +97,7 @@ def test_record_outcome_modifies_rl_state():
 def test_record_outcome_credit_assignment():
     """won=+1.0, lost=-0.5, stale=-0.1, unknown=0.0."""
     import backend.strategy.portfolio_manager as pm
+
     pm.reset_bandit()
     pm.reset_rl_credits()
 
@@ -115,10 +123,13 @@ def test_record_outcome_credit_assignment():
 # propose_allocation — monkeypatched LLM
 # ---------------------------------------------------------------------------
 
+
 def _mock_anthropic_returns(json_response: str):
     """Return a monkeypatch target that injects ``json_response`` as LLM output."""
+
     def _mock_anthropic_messages(**kwargs):
         return json_response, {"input_tokens": 10, "output_tokens": 20}
+
     return _mock_anthropic_messages
 
 
@@ -127,11 +138,13 @@ def test_propose_allocation_parses_valid_llm_response(monkeypatch):
     import backend.strategy.portfolio_manager as pm
     import backend.common.llm_client as llm_mod
 
-    response_payload = json.dumps({
-        "priorities": ["p1", "p2"],
-        "deprioritize": ["p3"],
-        "actions": [{"type": "accelerate", "prospect_id": "p1"}],
-    })
+    response_payload = json.dumps(
+        {
+            "priorities": ["p1", "p2"],
+            "deprioritize": ["p3"],
+            "actions": [{"type": "accelerate", "prospect_id": "p1"}],
+        }
+    )
     monkeypatch.setattr(llm_mod, "anthropic_messages", _mock_anthropic_returns(response_payload))
 
     state = pm.PortfolioState(

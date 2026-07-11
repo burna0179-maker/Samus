@@ -3,6 +3,7 @@
 Every HTTP request between Samus services wraps its payload in a TaskEnvelope.
 Per doc §3.19.
 """
+
 from __future__ import annotations
 
 from typing import Any

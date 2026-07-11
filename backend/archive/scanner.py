@@ -25,12 +25,13 @@ Hard rules enforced by this module:
   - All output is returned as a frozen ``ScanReport`` for downstream review;
     nothing is auto-routed anywhere.
 """
+
 from __future__ import annotations
 
 import hashlib
 import logging
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
@@ -81,16 +82,16 @@ _SCHEMA_SUFFIXES: frozenset[str] = frozenset({".sql", ".yaml", ".yml", ".json"})
 
 class ArtifactKind(str, Enum):
     PYTHON_MODULE = "python_module"  # .py
-    DESIGN_DOC = "design_doc"        # .md
-    SCHEMA = "schema"                # .sql, .yaml, .yml, .json
+    DESIGN_DOC = "design_doc"  # .md
+    SCHEMA = "schema"  # .sql, .yaml, .yml, .json
     UNKNOWN = "unknown"
 
 
 class GapType(str, Enum):
-    NEW_CONCEPT = "new_concept"               # introduces concept not in system
-    EXTENDS_SUBSYSTEM = "extends_subsystem"   # extends existing capability/module
-    MISSING_IMPL = "missing_impl"             # implies impl that doesn't exist
-    IMPLIES_FEATURE = "implies_feature"       # implies non-existent feature
+    NEW_CONCEPT = "new_concept"  # introduces concept not in system
+    EXTENDS_SUBSYSTEM = "extends_subsystem"  # extends existing capability/module
+    MISSING_IMPL = "missing_impl"  # implies impl that doesn't exist
+    IMPLIES_FEATURE = "implies_feature"  # implies non-existent feature
 
 
 # --------------------------------------------------------------------------- #
@@ -102,7 +103,7 @@ class GapType(str, Enum):
 class ArchiveArtifact:
     """A single file discovered in the archive tree."""
 
-    path: str           # relative path from scan root (POSIX-style)
+    path: str  # relative path from scan root (POSIX-style)
     kind: ArtifactKind
     size_bytes: int
     sha256: str
@@ -112,11 +113,11 @@ class ArchiveArtifact:
 class ExtractedConcept:
     """A concept/architecture/algorithm/feature name extracted from an artifact."""
 
-    name: str           # canonicalized snake_case
+    name: str  # canonicalized snake_case
     source_path: str
     line_number: int
-    excerpt: str        # ~120 chars of surrounding context
-    confidence: float   # 0.0-1.0 heuristic
+    excerpt: str  # ~120 chars of surrounding context
+    confidence: float  # 0.0-1.0 heuristic
 
 
 @dataclass(frozen=True)
@@ -343,11 +344,7 @@ class ArchiveScanner:
         # 1. MISSING_IMPL (design-doc sentinel)
         # Confidence 0.8 is set by _extract_md_concepts ONLY when the markdown
         # header line contained a `class X` / `def x(` declaration.
-        if (
-            concept.confidence == 0.8
-            and not in_caps
-            and not impl_exists
-        ):
+        if concept.confidence == 0.8 and not in_caps and not impl_exists:
             return GapFinding(
                 concept=concept,
                 gap_type=GapType.MISSING_IMPL,

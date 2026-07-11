@@ -3,6 +3,7 @@ enrollment, or a hand-logged warm outcome) must NOT appear in tomorrow's
 morning_call_list, but MUST be surfaced in the EXCLUDED footer so the
 operator knows they were intentionally held back.
 """
+
 from __future__ import annotations
 
 from datetime import date
@@ -16,18 +17,23 @@ import backend.outreach.buying_signal_route as bsr
 
 def _prospect(pid: str, name: str, **overrides):
     from backend.prospecting.models import ProspectRecord
+
     base = dict(
         prospect_id=pid,
         company_name=name,
         phone="(555) 111-2222",
         website_url=f"https://{pid}.example/",
-        city="Yuba City", state="CA", zipcode="95993",
+        city="Yuba City",
+        state="CA",
+        zipcode="95993",
         industry="finance",
         call_priority="hot",
         lead_score=80,
         seo_score=20,
-        callsheet_offer="x", callsheet_pitch="y",
-        callsheet_opener="z", callsheet_voicemail="w",
+        callsheet_offer="x",
+        callsheet_pitch="y",
+        callsheet_opener="z",
+        callsheet_voicemail="w",
         callsheet_objections="a — b",
     )
     base.update(overrides)
@@ -44,6 +50,7 @@ def isolated_store(monkeypatch, tmp_path):
             outreach_buying_signal_route_enabled=True,
             outreach_buying_signal_intent_threshold=70,
         )
+
     _gs.cache_clear = lambda: None
     monkeypatch.setattr(config_mod, "get_settings", _gs)
     return tmp_path
@@ -59,7 +66,8 @@ def test_warm_enrolled_prospect_excluded_from_call_list(isolated_store):
         prospect_id="pr_warm",
         reply_text="Yes — please send the quote.",
         now_iso="2026-06-30T00:00:00Z",
-        email="warm@example.com", company="Warm Co",
+        email="warm@example.com",
+        company="Warm Co",
     )
 
     out = render_morning_call_list([cold, warm], run_date=date(2026, 6, 30))
@@ -81,11 +89,9 @@ def test_warm_outcome_excludes_even_without_enrollment(isolated_store):
 
     p_cold = _prospect("pr_a", "Cold A")
     p_booked = _prospect("pr_b", "Booked B", last_contact_outcome="booked")
-    p_quoting = _prospect("pr_c", "Quoting C",
-                          last_contact_outcome="quote_pending")
+    p_quoting = _prospect("pr_c", "Quoting C", last_contact_outcome="quote_pending")
 
-    out = render_morning_call_list([p_cold, p_booked, p_quoting],
-                                   run_date=date(2026, 6, 30))
+    out = render_morning_call_list([p_cold, p_booked, p_quoting], run_date=date(2026, 6, 30))
     assert "#1  Cold A" in out
     assert "#2" not in out  # only one cold prospect remains
     assert "EXCLUDED FROM COLD LIST — 2 warm prospect(s)" in out
@@ -95,6 +101,7 @@ def test_warm_outcome_excludes_even_without_enrollment(isolated_store):
 
 def test_no_excluded_footer_when_all_cold(isolated_store):
     from backend.prospecting.text_export import render_morning_call_list
+
     p = _prospect("pr_a", "Cold A")
     out = render_morning_call_list([p], run_date=date(2026, 6, 30))
     assert "EXCLUDED FROM COLD LIST" not in out
@@ -107,6 +114,7 @@ def test_store_read_failure_falls_back_to_cold_only(monkeypatch):
 
     def _boom():
         raise RuntimeError("store unavailable")
+
     monkeypatch.setattr(bsr, "active_warm_prospect_ids", _boom)
     p = _prospect("pr_a", "Cold A")
     out = te.render_morning_call_list([p], run_date=date(2026, 6, 30))

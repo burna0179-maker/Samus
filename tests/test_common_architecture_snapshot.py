@@ -2,9 +2,9 @@
 
 Pure-data: every fixture is built inline, no filesystem or network I/O.
 """
+
 from __future__ import annotations
 
-import pytest
 
 from backend.common.architecture_snapshot import (
     ArchitectureSnapshot,
@@ -386,8 +386,7 @@ def test_adversarial_pattern_flags_duplicate_capability():
     diff = diff_snapshots(baseline, candidate)
     findings = detect_adversarial_patterns(diff)
     assert any(
-        "duplicate_or_repointed_capabilities" in f and "concept_extraction" in f
-        for f in findings
+        "duplicate_or_repointed_capabilities" in f and "concept_extraction" in f for f in findings
     )
 
 

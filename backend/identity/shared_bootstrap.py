@@ -17,6 +17,7 @@ found it returns ``False`` and the caller fails closed (the immutable gate /
 charter-signature treats an unavailable primitive as "cannot establish
 trust", never default-green).
 """
+
 from __future__ import annotations
 
 import sys

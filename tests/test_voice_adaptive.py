@@ -5,14 +5,11 @@ Tier-3 aspirational — pure-functional and testable, but not wired to a live
 Vapi mid-call transcript stream (see module docstring for the deferred-wiring
 caveat).
 """
+
 from __future__ import annotations
 
-import pytest
 
 from backend.voice.adaptive import (
-    HESITATION_WORDS,
-    NEGATIVE_WORDS,
-    POSITIVE_WORDS,
     adapt,
     decide_pacing,
     decide_strategy,
@@ -104,8 +101,15 @@ def test_decide_pacing_positive_other_states_normal():
 
 
 def test_decide_pacing_negative_always_slows():
-    for state in ("open", "pitch", "engage", "handle_objection",
-                  "close_attempt", "fallback", "exit"):
+    for state in (
+        "open",
+        "pitch",
+        "engage",
+        "handle_objection",
+        "close_attempt",
+        "fallback",
+        "exit",
+    ):
         assert decide_pacing("negative", state) == "slow_down", (
             f"expected slow_down for negative/{state}"
         )
@@ -191,8 +195,9 @@ def test_adapt_negative_pitch_cohesive():
 def test_adapt_hesitant_engage_with_info_gap_cohesive():
     """Hesitant prospect at engage with high info gap: educational + educate_then_close."""
     # Use a phrase with hesitation words that avoids negative-word substring collisions.
-    result = adapt("Maybe, let me think about what this involves", "engage",
-                   intel={"info_gap": "high"})
+    result = adapt(
+        "Maybe, let me think about what this involves", "engage", intel={"info_gap": "high"}
+    )
     assert result["sentiment"] == "hesitant"
     assert result["tone"] == "educational"
     assert result["pacing"] == "slow_down"

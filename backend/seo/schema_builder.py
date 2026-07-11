@@ -10,6 +10,7 @@ All builders are pure functions returning plain dicts. :func:`to_script_tag`
 renders one as an embeddable ``<script type="application/ld+json">`` block with
 ``<`` escaped to ``\\u003c`` (XSS hardening for the customer's HTML).
 """
+
 from __future__ import annotations
 
 import json
@@ -179,8 +180,7 @@ def how_to(*, name: str, steps: list[str], description: str = "") -> dict[str, A
             "name": name.strip(),
             "description": description.strip(),
             "step": [
-                {"@type": "HowToStep", "position": i + 1, "text": s}
-                for i, s in enumerate(kept)
+                {"@type": "HowToStep", "position": i + 1, "text": s} for i, s in enumerate(kept)
             ],
         }
     )
@@ -291,12 +291,16 @@ def build_article_schema(
     if author_name:
         schema["author"] = {"@type": "Person", "name": author_name.strip()}
     if publisher_name:
-        logo_obj: dict[str, Any] = {"@type": "ImageObject", "url": pub_logo_url} if pub_logo_url else {}
-        schema["publisher"] = _clean({
-            "@type": "Organization",
-            "name": publisher_name.strip(),
-            "logo": logo_obj or None,
-        })
+        logo_obj: dict[str, Any] = (
+            {"@type": "ImageObject", "url": pub_logo_url} if pub_logo_url else {}
+        )
+        schema["publisher"] = _clean(
+            {
+                "@type": "Organization",
+                "name": publisher_name.strip(),
+                "logo": logo_obj or None,
+            }
+        )
     if url:
         schema["mainEntityOfPage"] = {"@type": "WebPage", "@id": url}
         schema["url"] = url

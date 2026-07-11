@@ -9,6 +9,7 @@
 Both are dormant + fail-closed: with Medusa unconfigured they return empty/typed
 results and never raise.
 """
+
 from __future__ import annotations
 
 import logging
@@ -37,15 +38,21 @@ def publish_product(
     if not client.configured:
         return {"ok": False, "status": "unconfigured"}
     result = client.create_product(
-        title=title, description=description, price_usd_cents=price_usd_cents,
-        thumbnail=thumbnail, status="draft",
+        title=title,
+        description=description,
+        price_usd_cents=price_usd_cents,
+        thumbnail=thumbnail,
+        status="draft",
     )
     result["revenue_stream"] = revenue_streams.PRODUCTS
     return result
 
 
 def reconcile_orders(
-    *, settings: Any, limit: int = 50, client: MedusaClient | None = None,
+    *,
+    settings: Any,
+    limit: int = 50,
+    client: MedusaClient | None = None,
 ) -> dict[str, Any]:
     """Pull Medusa orders and attribute them to the `products` stream.
 

@@ -20,6 +20,7 @@ signed-bundle identity boundary), mirroring how Major's identity ships under
 root pubkey (``_shared/security/operator_root_pubkey.json``) that blesses the
 peer-quorum roster and the autonomy attestation.
 """
+
 from __future__ import annotations
 
 from .charter import (

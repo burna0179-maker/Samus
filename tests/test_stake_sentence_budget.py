@@ -1,4 +1,5 @@
 """Daily-cap tests for stake_sentence budget — fail-closed semantics."""
+
 from __future__ import annotations
 
 import pytest
@@ -92,7 +93,9 @@ def test_fail_closed_on_unwritable_dir(tmp_path, monkeypatch):
     monkeypatch.delenv("DDB_STAKE_SENTENCE_BUDGETS_TABLE", raising=False)
     b.reset_store()
     store = b.StakeSentenceBudgetStore(
-        daily_cap=3, ddb_table=None, json_path=str(bad_path),
+        daily_cap=3,
+        ddb_table=None,
+        json_path=str(bad_path),
     )
     with pytest.raises(b.StakeSentenceBudgetUnavailable):
         store.record_use("op_a")

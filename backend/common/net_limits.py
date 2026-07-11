@@ -28,6 +28,7 @@ Two entry points, one per transport Samus actually uses:
 The caps are deliberately generous — the goal is a hard ceiling that bounds
 peak memory, not a tight quota. Stdlib + httpx only; no new dependency.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -46,11 +47,11 @@ __all__ = [
 ]
 
 # Per-channel ceilings. Generous headroom over real payloads.
-QUORUM_HUB_MAX_BYTES: int = 4 * 1024 * 1024        # hub JSON-RPC is tiny
-INTER_WORKCELL_MAX_BYTES: int = 16 * 1024 * 1024   # CRM/funnel admin proxies
-LLM_MAX_BYTES: int = 16 * 1024 * 1024              # Anthropic message bodies
-BROKER_MAX_BYTES: int = 1 * 1024 * 1024            # reserve/release envelopes
-CRAWL_MAX_BYTES: int = 32 * 1024 * 1024            # third-party site fetches
+QUORUM_HUB_MAX_BYTES: int = 4 * 1024 * 1024  # hub JSON-RPC is tiny
+INTER_WORKCELL_MAX_BYTES: int = 16 * 1024 * 1024  # CRM/funnel admin proxies
+LLM_MAX_BYTES: int = 16 * 1024 * 1024  # Anthropic message bodies
+BROKER_MAX_BYTES: int = 1 * 1024 * 1024  # reserve/release envelopes
+CRAWL_MAX_BYTES: int = 32 * 1024 * 1024  # third-party site fetches
 
 
 class ResponseTooLarge(Exception):
@@ -68,14 +69,15 @@ def read_capped(resp: Any, *, max_bytes: int, source: str = "response") -> bytes
         raise ValueError("max_bytes must be > 0")
     data = resp.read(max_bytes + 1)
     if data is not None and len(data) > max_bytes:
-        raise ResponseTooLarge(
-            f"{source} response exceeded {max_bytes} bytes (DoS guard)"
-        )
+        raise ResponseTooLarge(f"{source} response exceeded {max_bytes} bytes (DoS guard)")
     return data or b""
 
 
 def check_httpx_size(
-    resp: "httpx.Response", *, max_bytes: int, source: str = "response",
+    resp: "httpx.Response",
+    *,
+    max_bytes: int,
+    source: str = "response",
 ) -> None:
     """Post-hoc byte-cap for an ``httpx.Response``; raise if the body is larger.
 
@@ -127,6 +129,4 @@ def check_httpx_size(
         content = None
 
     if content is not None and len(content) > max_bytes:
-        raise ResponseTooLarge(
-            f"{source} response exceeded {max_bytes} bytes (DoS guard)"
-        )
+        raise ResponseTooLarge(f"{source} response exceeded {max_bytes} bytes (DoS guard)")

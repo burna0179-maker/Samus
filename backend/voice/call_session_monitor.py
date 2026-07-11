@@ -26,6 +26,7 @@ event when SAMUS_VOICE_SESSION_MONITOR=1. Dormant by default.
 
 Fully offline — all reasoning runs through local_llm.chat().
 """
+
 from __future__ import annotations
 
 import json
@@ -33,7 +34,7 @@ import logging
 import os
 import time
 from dataclasses import asdict, dataclass, field
-from datetime import date, datetime, timezone
+from datetime import date
 from pathlib import Path
 
 from backend.common import storage
@@ -47,35 +48,56 @@ _SESSION_STATE_FILE = "voice/session_state.json"
 
 _EVENTS_PATH_DEFAULT = "/opt/samus/data/voice/voice_events.jsonl"
 
-_POSITIVE_OUTCOMES = frozenset({
-    "converted", "warm_lead", "follow_up_scheduled", "call_back_requested",
-})
-_NEGATIVE_OUTCOMES = frozenset({
-    "no_answer", "voicemail_left", "not_interested", "gatekeeper",
-    "objection_unresolved", "dnc_requested",
-})
+_POSITIVE_OUTCOMES = frozenset(
+    {
+        "converted",
+        "warm_lead",
+        "follow_up_scheduled",
+        "call_back_requested",
+    }
+)
+_NEGATIVE_OUTCOMES = frozenset(
+    {
+        "no_answer",
+        "voicemail_left",
+        "not_interested",
+        "gatekeeper",
+        "objection_unresolved",
+        "dnc_requested",
+    }
+)
 
 
 def _is_enabled() -> bool:
-    return os.getenv("SAMUS_VOICE_SESSION_MONITOR", "0").strip().lower() in ("1", "true", "yes", "on")
+    return os.getenv("SAMUS_VOICE_SESSION_MONITOR", "0").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
 
 
 # ── Configuration (env-tunable) ───────────────────────────────────
 
+
 def _streak_threshold() -> int:
     return int(os.getenv("SAMUS_SESSION_STREAK_THRESHOLD", "3"))
+
 
 def _rate_drop_threshold() -> float:
     return float(os.getenv("SAMUS_SESSION_RATE_DROP_THRESHOLD", "0.5"))
 
+
 def _min_calls_before_check() -> int:
     return int(os.getenv("SAMUS_SESSION_MIN_CALLS", "3"))
+
 
 def _cooldown_seconds() -> float:
     return float(os.getenv("SAMUS_SESSION_COOLDOWN_S", "1800"))  # 30 min
 
 
 # ── Data structures ───────────────────────────────────────────────
+
 
 @dataclass
 class IntraDayReport:
@@ -104,6 +126,7 @@ class SessionAdjustment:
 
 # ── Core monitor ──────────────────────────────────────────────────
 
+
 def check_session(*, force: bool = False) -> SessionAdjustment | None:
     """Sample today's calls and fire a mid-session adjustment if warranted.
 
@@ -119,14 +142,20 @@ def check_session(*, force: bool = False) -> SessionAdjustment | None:
     if not force and state.get("last_adjustment_ts"):
         elapsed = now - state["last_adjustment_ts"]
         if elapsed < _cooldown_seconds():
-            _LOG.debug("session_monitor: in cooldown (%.0fs remaining)", _cooldown_seconds() - elapsed)
+            _LOG.debug(
+                "session_monitor: in cooldown (%.0fs remaining)", _cooldown_seconds() - elapsed
+            )
             return None
 
     # Build intraday report from today's events
     report = _build_intraday_report()
 
     if report.total_calls < _min_calls_before_check():
-        _LOG.debug("session_monitor: only %d calls today, need %d", report.total_calls, _min_calls_before_check())
+        _LOG.debug(
+            "session_monitor: only %d calls today, need %d",
+            report.total_calls,
+            _min_calls_before_check(),
+        )
         return None
 
     # Check triggers
@@ -262,6 +291,7 @@ def _evaluate_triggers(report: IntraDayReport) -> tuple[str | None, str]:
 
     # T2: Rate collapse vs morning baseline
     from .call_strategy_reasoner import load_strategy_brief
+
     brief = load_strategy_brief()
     if brief and brief.trend_deltas:
         for delta in brief.trend_deltas:
@@ -276,6 +306,7 @@ def _evaluate_triggers(report: IntraDayReport) -> tuple[str | None, str]:
 
     # T3: Unhandled objection spike
     from .callsheet_updater import load_dynamic_callsheet_intel
+
     intel = load_dynamic_callsheet_intel()
     handled_texts = set()
     if intel:
@@ -312,7 +343,9 @@ ADJUSTMENTS:
 
 
 def _generate_adjustment(
-    report: IntraDayReport, trigger: str, detail: str,
+    report: IntraDayReport,
+    trigger: str,
+    detail: str,
 ) -> SessionAdjustment:
     """Call LM Studio for a mid-session correction."""
     ts = iso_now()
@@ -329,6 +362,7 @@ def _generate_adjustment(
 
     # Include morning strategy for context
     from .call_strategy_reasoner import load_strategy_brief
+
     brief = load_strategy_brief()
     if brief and brief.recommendations:
         recs = [r for r in brief.recommendations if not r.startswith("[KEEP]")]
@@ -368,7 +402,9 @@ def _generate_adjustment(
         generated_ts=ts,
         trigger=trigger,
         trigger_detail=detail,
-        intraday_report=asdict(report) if report.total_calls <= 50 else {
+        intraday_report=asdict(report)
+        if report.total_calls <= 50
+        else {
             "session_date": report.session_date,
             "total_calls": report.total_calls,
             "positive_rate": report.positive_rate,
@@ -426,6 +462,7 @@ def _apply_to_callsheet(adjustment: SessionAdjustment) -> None:
 
     try:
         from backend.common import storage as _storage
+
         target = _storage.root() / "voice" / "dynamic_callsheet_intel.json"
         target.write_text(
             json.dumps(intel, indent=2, ensure_ascii=False),
@@ -452,6 +489,7 @@ def _patch_vapi_system_prompt(adjustment: SessionAdjustment) -> None:
     """Append a mid-session directive block to the Vapi assistant's system prompt."""
     try:
         from backend.common.config import get_settings
+
         settings = get_settings()
         assistant_id = settings.vapi_assistant_id
         api_key = settings.vapi_api_key
@@ -460,6 +498,7 @@ def _patch_vapi_system_prompt(adjustment: SessionAdjustment) -> None:
             return
 
         from .client import VapiClient
+
         client = VapiClient(api_key=api_key)
         assistant = client.get_assistant(assistant_id)
         current_prompt = ""
@@ -479,7 +518,7 @@ def _patch_vapi_system_prompt(adjustment: SessionAdjustment) -> None:
         # Strip any prior mid-session directive block
         marker = "## MID-SESSION ADJUSTMENT"
         if marker in current_prompt:
-            current_prompt = current_prompt[:current_prompt.index(marker)].rstrip()
+            current_prompt = current_prompt[: current_prompt.index(marker)].rstrip()
 
         # Build the directive block
         directive_lines = [

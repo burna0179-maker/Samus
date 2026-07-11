@@ -18,6 +18,7 @@ Transcription body formats supported:
   Format C — plain text block (older / non-AI):
     Hi, this is Alex calling from HustleForge...
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -48,9 +49,7 @@ _FILENAME_RE_PHONE = re.compile(
 _SPEAKER_A_RE = re.compile(
     r"^\[(?P<start>[\d:]+)\s*-\s*[\d:]+\]\s+(?P<speaker>[^:]{1,40}):\s*(?P<text>.+)$"
 )
-_SPEAKER_B_RE = re.compile(
-    r"^\[(?P<ts>[\d:]+)\]\s+(?P<speaker>[^:]{1,40}):\s*(?P<text>.+)$"
-)
+_SPEAKER_B_RE = re.compile(r"^\[(?P<ts>[\d:]+)\]\s+(?P<speaker>[^:]{1,40}):\s*(?P<text>.+)$")
 
 
 @dataclass
@@ -106,9 +105,7 @@ def _parse_filename(filename: str) -> tuple[datetime, str, str, str]:
     if m:
         try:
             date_str = m.group("date") + m.group("time")
-            call_ts = datetime.strptime(date_str, "%Y%m%d%H%M%S").replace(
-                tzinfo=timezone.utc
-            )
+            call_ts = datetime.strptime(date_str, "%Y%m%d%H%M%S").replace(tzinfo=timezone.utc)
         except ValueError:
             call_ts = datetime.now(timezone.utc)
 
@@ -122,9 +119,7 @@ def _parse_filename(filename: str) -> tuple[datetime, str, str, str]:
     if m2:
         try:
             date_str = m2.group("date") + m2.group("time")
-            call_ts = datetime.strptime(date_str, "%Y%m%d%H%M%S").replace(
-                tzinfo=timezone.utc
-            )
+            call_ts = datetime.strptime(date_str, "%Y%m%d%H%M%S").replace(tzinfo=timezone.utc)
         except ValueError:
             call_ts = datetime.now(timezone.utc)
         phone = m2.group("phone") or ""
@@ -152,11 +147,13 @@ def _parse_body(raw_text: str) -> tuple[list[TranscriptTurn], str]:
         turns = []
         for line, m in zip(lines, a_matches):
             if m:
-                turns.append(TranscriptTurn(
-                    speaker=m.group("speaker").strip(),
-                    text=m.group("text").strip(),
-                    timestamp_offset=m.group("start"),
-                ))
+                turns.append(
+                    TranscriptTurn(
+                        speaker=m.group("speaker").strip(),
+                        text=m.group("text").strip(),
+                        timestamp_offset=m.group("start"),
+                    )
+                )
         return turns, "speaker_labeled_range"
 
     # Try Format B (bare timestamp + speaker)
@@ -165,11 +162,13 @@ def _parse_body(raw_text: str) -> tuple[list[TranscriptTurn], str]:
         turns = []
         for line, m in zip(lines, b_matches):
             if m:
-                turns.append(TranscriptTurn(
-                    speaker=m.group("speaker").strip(),
-                    text=m.group("text").strip(),
-                    timestamp_offset=m.group("ts"),
-                ))
+                turns.append(
+                    TranscriptTurn(
+                        speaker=m.group("speaker").strip(),
+                        text=m.group("text").strip(),
+                        timestamp_offset=m.group("ts"),
+                    )
+                )
         return turns, "speaker_labeled_bare"
 
     # Format C — plain block

@@ -3,6 +3,7 @@
 Each test calls reset_metrics() first for isolation, since the engine stores
 state at module level.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -12,6 +13,7 @@ import pytest
 def _reset():
     """Ensure a clean slate before every test in this module."""
     from backend.crm import feedback_engine
+
     feedback_engine.reset_metrics()
     yield
     feedback_engine.reset_metrics()
@@ -20,6 +22,7 @@ def _reset():
 # ---------------------------------------------------------------------------
 # reset_metrics
 # ---------------------------------------------------------------------------
+
 
 def test_reset_metrics_yields_empty_state():
     from backend.crm import feedback_engine
@@ -40,6 +43,7 @@ def test_reset_metrics_yields_empty_state():
 # log_interaction — closed outcome
 # ---------------------------------------------------------------------------
 
+
 def test_log_interaction_closed_increments_closes_and_angle_wins():
     from backend.crm import feedback_engine
 
@@ -56,6 +60,7 @@ def test_log_interaction_closed_increments_closes_and_angle_wins():
 # log_interaction — non-closed outcome
 # ---------------------------------------------------------------------------
 
+
 def test_log_interaction_not_closed_increments_failures_and_angle_losses():
     from backend.crm import feedback_engine
 
@@ -71,6 +76,7 @@ def test_log_interaction_not_closed_increments_failures_and_angle_losses():
 # ---------------------------------------------------------------------------
 # log_interaction — objection handling
 # ---------------------------------------------------------------------------
+
 
 def test_log_interaction_with_objection_increments_objection_count():
     from backend.crm import feedback_engine
@@ -106,6 +112,7 @@ def test_log_interaction_accumulates_objection_count_across_calls():
 # get_top_objections
 # ---------------------------------------------------------------------------
 
+
 def test_get_top_objections_sorted_desc():
     from backend.crm import feedback_engine
 
@@ -127,6 +134,7 @@ def test_get_top_objections_empty_when_no_interactions():
 # ---------------------------------------------------------------------------
 # get_best_products
 # ---------------------------------------------------------------------------
+
 
 def test_get_best_products_sorted_desc():
     from backend.crm import feedback_engine
@@ -150,6 +158,7 @@ def test_get_best_products_empty_when_no_closes():
 # ---------------------------------------------------------------------------
 # get_angle_performance
 # ---------------------------------------------------------------------------
+
 
 def test_get_angle_performance_yields_win_rate():
     from backend.crm import feedback_engine
@@ -175,8 +184,12 @@ def test_get_angle_performance_skips_zero_total_angles():
     path = os.environ["SAMUS_FEEDBACK_STORE_PATH"]
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(
-            {"objections": {}, "closes": {}, "failures": {},
-             "angles": {"ghost": {"wins": 0, "losses": 0}}},
+            {
+                "objections": {},
+                "closes": {},
+                "failures": {},
+                "angles": {"ghost": {"wins": 0, "losses": 0}},
+            },
             fh,
         )
 
@@ -187,6 +200,7 @@ def test_get_angle_performance_skips_zero_total_angles():
 # ---------------------------------------------------------------------------
 # optimize_weights
 # ---------------------------------------------------------------------------
+
 
 def test_optimize_weights_sets_best_angle_in_strategy():
     from backend.crm import feedback_engine
@@ -225,6 +239,7 @@ def test_optimize_weights_no_data_leaves_intel_strategy_absent():
 # ---------------------------------------------------------------------------
 # snapshot — type safety
 # ---------------------------------------------------------------------------
+
 
 def test_snapshot_returns_plain_dicts_not_defaultdicts():
     from collections import defaultdict

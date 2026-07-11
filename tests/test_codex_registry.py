@@ -1,4 +1,5 @@
 """CodexRegistry load/reload/is_loaded + fail-closed semantics."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -148,5 +149,7 @@ def test_search_decisions_title_boost_beats_body_frequency():
     out = reg.search_decisions("codex", k=5)
     # Top result's title should contain the query token.
     if out:
-        assert any("codex" in m.title.lower() or "codex" in m.adr_id.lower()
-                   or m.source == "resolved" for m in out[:3])
+        assert any(
+            "codex" in m.title.lower() or "codex" in m.adr_id.lower() or m.source == "resolved"
+            for m in out[:3]
+        )

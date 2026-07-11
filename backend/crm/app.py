@@ -5,6 +5,7 @@ tasks + artifacts + in-memory feedback engine. HMAC-signed (inherits from
 create_base_app). No CORS — never called directly from a browser; other workcells
 dispatch via signed_post_json.
 """
+
 from __future__ import annotations
 
 import logging
@@ -64,7 +65,6 @@ from .service import (
     get_call_state,
     get_contact,
     get_conversation,
-    get_feedback_snapshot,
     get_funnel_snapshot,
     get_operator_task,
     get_opportunity,
@@ -119,7 +119,8 @@ def create_app():
 
     @app.get("/crm/contacts", response_model=ContactList)
     async def list_contacts_route(
-        prospect_id: str | None = None, limit: int = 50,
+        prospect_id: str | None = None,
+        limit: int = 50,
     ) -> ContactList:
         check_capability("crm", "read_contacts")
         return list_contacts(prospect_id=prospect_id, limit=limit)
@@ -130,12 +131,15 @@ def create_app():
     async def get_conversation_route(conversation_id: str) -> Conversation:
         check_capability("crm", "read_conversations")
         return _require(
-            get_conversation(conversation_id), "conversation", conversation_id,
+            get_conversation(conversation_id),
+            "conversation",
+            conversation_id,
         )
 
     @app.get("/crm/conversations", response_model=ConversationList)
     async def list_conversations_route(
-        prospect_id: str | None = None, limit: int = 50,
+        prospect_id: str | None = None,
+        limit: int = 50,
     ) -> ConversationList:
         check_capability("crm", "read_conversations")
         return list_conversations(prospect_id=prospect_id, limit=limit)
@@ -153,7 +157,8 @@ def create_app():
         conv = _parse(Conversation, body)
         if not conv.conversation_id:
             raise HTTPException(
-                status_code=422, detail="invalid_Conversation: conversation_id required",
+                status_code=422,
+                detail="invalid_Conversation: conversation_id required",
             )
         ok = upsert_conversation(conv)
         return UpsertResult(
@@ -174,7 +179,8 @@ def create_app():
 
     @app.post("/crm/call-state/{prospect_id}", response_model=UpsertResult)
     async def upsert_call_state_route(
-        prospect_id: str, request: Request,
+        prospect_id: str,
+        request: Request,
     ) -> UpsertResult:
         """Phase 2 — refresh the per-prospect dialer FSM row.
 
@@ -202,12 +208,15 @@ def create_app():
     async def get_opportunity_route(opportunity_id: str) -> Opportunity:
         check_capability("crm", "read_opportunities")
         return _require(
-            get_opportunity(opportunity_id), "opportunity", opportunity_id,
+            get_opportunity(opportunity_id),
+            "opportunity",
+            opportunity_id,
         )
 
     @app.get("/crm/opportunities", response_model=OpportunityList)
     async def list_opportunities_route(
-        stage: str | None = None, limit: int = 50,
+        stage: str | None = None,
+        limit: int = 50,
     ) -> OpportunityList:
         check_capability("crm", "read_opportunities")
         return list_opportunities(stage=stage, limit=limit)
@@ -224,7 +233,8 @@ def create_app():
         response_model=AdvanceOpportunityResult,
     )
     async def advance_opportunity_route(
-        opportunity_id: str, request: Request,
+        opportunity_id: str,
+        request: Request,
     ) -> AdvanceOpportunityResult:
         check_capability("crm", "advance_opportunity")
         body = await request.json()
@@ -234,7 +244,8 @@ def create_app():
         # opportunity_id (or any other field) onto the domain model.
         input_body = _parse(AdvanceOpportunityBody, body)
         req = AdvanceOpportunityRequest(
-            opportunity_id=opportunity_id, **input_body.model_dump(),
+            opportunity_id=opportunity_id,
+            **input_body.model_dump(),
         )
         return advance_opportunity(req)
 
@@ -244,13 +255,15 @@ def create_app():
     async def get_operator_task_route(operator_task_id: str) -> OperatorTask:
         check_capability("crm", "read_tasks")
         return _require(
-            get_operator_task(operator_task_id), "operator_task",
+            get_operator_task(operator_task_id),
+            "operator_task",
             operator_task_id,
         )
 
     @app.get("/crm/operator-tasks", response_model=OperatorTaskList)
     async def list_operator_tasks_route(
-        status: str | None = "open", limit: int = 50,
+        status: str | None = "open",
+        limit: int = 50,
     ) -> OperatorTaskList:
         check_capability("crm", "read_tasks")
         return list_operator_tasks(status=status, limit=limit)
@@ -269,7 +282,8 @@ def create_app():
         response_model=UpdateOperatorTaskResult,
     )
     async def update_operator_task_route(
-        operator_task_id: str, request: Request,
+        operator_task_id: str,
+        request: Request,
     ) -> UpdateOperatorTaskResult:
         check_capability("crm", "update_task")
         body = await request.json()
@@ -278,7 +292,8 @@ def create_app():
         # forced from the URL path.
         input_body = _parse(UpdateOperatorTaskBody, body)
         req = UpdateOperatorTaskRequest(
-            operator_task_id=operator_task_id, **input_body.model_dump(),
+            operator_task_id=operator_task_id,
+            **input_body.model_dump(),
         )
         return update_operator_task(req)
 
@@ -291,7 +306,8 @@ def create_app():
 
     @app.get("/crm/artifacts", response_model=ArtifactList)
     async def list_artifacts_route(
-        owner_entity_id: str | None = None, limit: int = 50,
+        owner_entity_id: str | None = None,
+        limit: int = 50,
     ) -> ArtifactList:
         check_capability("crm", "read_artifacts")
         return list_artifacts(owner_entity_id=owner_entity_id, limit=limit)
@@ -334,7 +350,6 @@ def create_app():
 
     # --- TaskEnvelope route (gateway / future SQS parity) --------------
 
-
     @app.post("/work")
     async def work(request: Request) -> dict[str, Any]:
         body = await request.json()
@@ -363,7 +378,8 @@ def create_app():
             conv = Conversation.model_validate(payload)
             ok = upsert_conversation(conv)
             return UpsertResult(
-                persisted=ok, id=conv.conversation_id,
+                persisted=ok,
+                id=conv.conversation_id,
                 error=None if ok else "ddb_put_failed",
             ).model_dump()
         if action == "upsert_call_state":
@@ -371,7 +387,8 @@ def create_app():
             state = CallState.model_validate(payload)
             ok = upsert_call_state(state)
             return UpsertResult(
-                persisted=ok, id=state.prospect_id,
+                persisted=ok,
+                id=state.prospect_id,
                 error=None if ok else "ddb_put_failed",
             ).model_dump()
         if action == "create_task":
@@ -532,15 +549,21 @@ def create_app():
         """
         import datetime as _dt  # noqa: PLC0415 — only used here
         import os as _os  # noqa: PLC0415
+
         check_capability("crm", "read_call_state")
         day = (today or "").strip()
 
         if _os.getenv("SAMUS_CRM_STATS_BUSINESS_TZ", "").strip().lower() in (
-            "1", "true", "yes", "on",
+            "1",
+            "true",
+            "yes",
+            "on",
         ):
             from backend.common.dates import (  # noqa: PLC0415
-                business_today, business_day_utc_bounds,
+                business_today,
+                business_day_utc_bounds,
             )
+
             if not day:
                 day = business_today()
             start, end = business_day_utc_bounds(day)

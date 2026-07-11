@@ -13,6 +13,7 @@ Covers the build-plan Phase-A test bullets:
   * a wired classifier can short-circuit to ``compliance_blocked``.
   * DORMANCY: nothing live imports the loop.
 """
+
 from __future__ import annotations
 
 import asyncio

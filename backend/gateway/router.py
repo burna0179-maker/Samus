@@ -4,6 +4,7 @@ The gateway's queue path bypasses this; the HTTP fallback (used when no SQS
 queue is configured for ``target``) needs a base URL to POST ``/work`` to.
 ``resolve_target`` reads the ``gateway_urls`` map from settings.
 """
+
 from __future__ import annotations
 
 from backend.common.settings import get_settings

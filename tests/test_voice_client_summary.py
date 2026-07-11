@@ -1,12 +1,11 @@
 """AI Digital Receptionist — client call-summary report (render + build/send)."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-import pytest
 
-from backend.voice import client_summary
 from backend.voice.client_summary import (
     build_and_send_summary,
     load_calls_in_window,
@@ -15,13 +14,25 @@ from backend.voice.client_summary import (
 from backend.voice.models import InboundCallRecord, InboundSummary
 
 
-def _rec(call_id: str, *, written: str, duration: int = 120,
-         answered: bool = True, voicemail: bool = False,
-         appointment: bool = False, caller: str = "+14155550100") -> InboundCallRecord:
+def _rec(
+    call_id: str,
+    *,
+    written: str,
+    duration: int = 120,
+    answered: bool = True,
+    voicemail: bool = False,
+    appointment: bool = False,
+    caller: str = "+14155550100",
+) -> InboundCallRecord:
     return InboundCallRecord(
-        call_id=call_id, customer_slug="acme", caller_number=caller,
-        duration_sec=duration, answered=answered, voicemail_left=voicemail,
-        written_at=written, ended_at=written,
+        call_id=call_id,
+        customer_slug="acme",
+        caller_number=caller,
+        duration_sec=duration,
+        answered=answered,
+        voicemail_left=voicemail,
+        written_at=written,
+        ended_at=written,
         inbound_summary=InboundSummary(appointment_requested=appointment),
     )
 
@@ -29,6 +40,7 @@ def _rec(call_id: str, *, written: str, duration: int = 120,
 # ---------------------------------------------------------------------------
 # render_call_summary — pure
 # ---------------------------------------------------------------------------
+
 
 def test_render_call_summary_counts_and_sections():
     until = datetime(2026, 5, 20, tzinfo=timezone.utc)
@@ -39,8 +51,12 @@ def test_render_call_summary_counts_and_sections():
         _rec("c3", written="2026-05-19T12:00:00Z", duration=0, answered=False),
     ]
     body = render_call_summary(
-        business_name="Acme Plumbing", customer_slug="acme",
-        calls=calls, since=since, until=until, ts="2026-05-20T00:00:00Z",
+        business_name="Acme Plumbing",
+        customer_slug="acme",
+        calls=calls,
+        since=since,
+        until=until,
+        ts="2026-05-20T00:00:00Z",
     )
     assert "# Call Summary - Acme Plumbing" in body
     assert "**Calls received:** 3" in body
@@ -53,8 +69,11 @@ def test_render_call_summary_counts_and_sections():
 def test_render_call_summary_empty_period():
     until = datetime(2026, 5, 20, tzinfo=timezone.utc)
     body = render_call_summary(
-        business_name="Acme", customer_slug="acme", calls=[],
-        since=until - timedelta(days=7), until=until,
+        business_name="Acme",
+        customer_slug="acme",
+        calls=[],
+        since=until - timedelta(days=7),
+        until=until,
     )
     assert "**Calls received:** 0" in body
     assert "No calls received this period" in body
@@ -63,6 +82,7 @@ def test_render_call_summary_empty_period():
 # ---------------------------------------------------------------------------
 # load_calls_in_window
 # ---------------------------------------------------------------------------
+
 
 def test_load_calls_in_window_filters_by_time(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_ARTIFACT_ROOT", str(tmp_path))
@@ -74,7 +94,8 @@ def test_load_calls_in_window_filters_by_time(tmp_path, monkeypatch):
         d = calls_root / cid
         d.mkdir(parents=True)
         (d / "call.json").write_text(
-            _rec(cid, written=written).model_dump_json(), encoding="utf-8",
+            _rec(cid, written=written).model_dump_json(),
+            encoding="utf-8",
         )
     until = datetime(2026, 5, 20, tzinfo=timezone.utc)
     found = load_calls_in_window("acme", since=until - timedelta(days=7), until=until)
@@ -85,6 +106,7 @@ def test_load_calls_in_window_filters_by_time(tmp_path, monkeypatch):
 # build_and_send_summary
 # ---------------------------------------------------------------------------
 
+
 def _write_receptionist_config(root: Path, slug: str, body: str) -> None:
     d = root / "customers" / slug / "receptionist"
     d.mkdir(parents=True, exist_ok=True)
@@ -94,9 +116,11 @@ def _write_receptionist_config(root: Path, slug: str, body: str) -> None:
 def test_build_and_send_summary_writes_and_emails(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_ARTIFACT_ROOT", str(tmp_path))
     from backend.voice import receptionist_config as rc
+
     rc.clear_cache()
-    _write_receptionist_config(tmp_path, "acme",
-                               "business_name: Acme\nsummary_email: owner@acme.test\n")
+    _write_receptionist_config(
+        tmp_path, "acme", "business_name: Acme\nsummary_email: owner@acme.test\n"
+    )
     # One call inside the weekly window.
     d = tmp_path / "customers" / "acme" / "calls" / "c1"
     d.mkdir(parents=True)
@@ -112,8 +136,7 @@ def test_build_and_send_summary_writes_and_emails(tmp_path, monkeypatch):
         sent.append((to, subject))
         return {"message_id": "m1", "channel": "test"}
 
-    result = build_and_send_summary("acme", cadence="weekly",
-                                    send_email_fn=_fake_send)
+    result = build_and_send_summary("acme", cadence="weekly", send_email_fn=_fake_send)
     assert result["ok"] is True
     assert result["calls"] == 1
     assert result["emailed"] is True
@@ -124,6 +147,7 @@ def test_build_and_send_summary_writes_and_emails(tmp_path, monkeypatch):
 def test_build_and_send_summary_no_config(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_ARTIFACT_ROOT", str(tmp_path))
     from backend.voice import receptionist_config as rc
+
     rc.clear_cache()
     result = build_and_send_summary("ghost", send=False)
     assert result["ok"] is False

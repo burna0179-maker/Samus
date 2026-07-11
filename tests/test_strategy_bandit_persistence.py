@@ -10,6 +10,7 @@ The conftest points the bandit store's JSON fallback at a per-process
 tmpfile and forces ``DDB_STRATEGY_BANDIT_TABLE=""``, so these run against the
 JSON file only — no real DDB.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -21,6 +22,7 @@ from backend.strategy.bandit_store import BanditStore, set_default_store
 # ---------------------------------------------------------------------------
 # Read-your-own-writes — identical behaviour to the in-memory bandit
 # ---------------------------------------------------------------------------
+
 
 def test_update_bandit_persists_and_reads_back():
     """update_bandit -> get_bandit_stats round-trips through the store."""
@@ -107,6 +109,7 @@ def test_reset_bandit_clears_persisted_state():
 # Survives restart / cross-process — the whole point of Unit 1
 # ---------------------------------------------------------------------------
 
+
 def test_bandit_survives_a_simulated_process_restart(tmp_path):
     """State written by one store instance is visible after a 'restart'.
 
@@ -160,6 +163,7 @@ def test_decide_step_sees_learn_step_writes_from_another_process(tmp_path):
 # ---------------------------------------------------------------------------
 # Graceful degradation through the public API
 # ---------------------------------------------------------------------------
+
 
 def test_update_bandit_does_not_raise_on_store_failure(monkeypatch):
     """A catastrophic store failure must not break update_bandit."""
@@ -223,6 +227,7 @@ def test_get_bandit_stats_degrades_to_empty_on_store_failure(monkeypatch):
 # ---------------------------------------------------------------------------
 # _BANDIT_TOTAL derivation — sum of all arms' trials
 # ---------------------------------------------------------------------------
+
 
 def test_bandit_total_is_sum_of_trials():
     """_BANDIT_TOTAL is derived as the sum of every arm's trial count."""

@@ -15,6 +15,7 @@ Both operations are fail-soft and the whole thing is a no-op when the table
 is unconfigured (empty name), so dev/test without DDB is unaffected. Pass
 ``tbl`` to inject a fake table in tests.
 """
+
 from __future__ import annotations
 
 import logging
@@ -60,13 +61,15 @@ def record_recipient(
     if target is None:
         return False
     try:
-        target.put_item(Item={
-            "email": em,
-            "prospect_id": pid,
-            "opportunity_id": (opportunity_id or "").strip(),
-            "source": source,
-            "ts": iso_now(),
-        })
+        target.put_item(
+            Item={
+                "email": em,
+                "prospect_id": pid,
+                "opportunity_id": (opportunity_id or "").strip(),
+                "source": source,
+                "ts": iso_now(),
+            }
+        )
         return True
     except Exception as exc:  # noqa: BLE001 — index write never fatal
         _LOG.warning("recipient_index record failed for %s: %s", em, exc)

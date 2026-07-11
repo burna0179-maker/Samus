@@ -5,6 +5,7 @@ queue URL from settings. Per doc §3.25 + §4.
 ``get_settings().sqs_queue_urls``. Tests that mutate settings should call
 ``reload_queue_urls()`` (provided here) before exercising dispatch.
 """
+
 from __future__ import annotations
 
 import logging

@@ -1,10 +1,12 @@
 """Debts loader + portfolio summary math."""
+
 from __future__ import annotations
 
 
 def test_missing_file_returns_empty_registry(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_DEBTS_PATH", str(tmp_path / "nonexistent.yaml"))
     from backend.finance.debts import load_registry
+
     reg, loaded = load_registry()
     assert loaded is False
     assert reg.debts == []
@@ -26,6 +28,7 @@ def test_load_minimal_registry(tmp_path, monkeypatch):
     )
     monkeypatch.setenv("SAMUS_DEBTS_PATH", str(p))
     from backend.finance.debts import load_registry
+
     reg, loaded = load_registry()
     assert loaded is True
     assert len(reg.debts) == 1
@@ -50,6 +53,7 @@ def test_recommended_path_returns_first_recommended(tmp_path, monkeypatch):
     )
     monkeypatch.setenv("SAMUS_DEBTS_PATH", str(p))
     from backend.finance.debts import load_registry, recommended_path
+
     reg, _ = load_registry()
     rec = recommended_path(reg.debts[0])
     assert rec is not None
@@ -72,6 +76,7 @@ def test_recommended_path_none_when_none_flagged(tmp_path, monkeypatch):
     )
     monkeypatch.setenv("SAMUS_DEBTS_PATH", str(p))
     from backend.finance.debts import load_registry, recommended_path
+
     reg, _ = load_registry()
     assert recommended_path(reg.debts[0]) is None
 
@@ -88,6 +93,7 @@ def test_by_tier_excludes_unknown_from_total(tmp_path, monkeypatch):
     )
     monkeypatch.setenv("SAMUS_DEBTS_PATH", str(p))
     from backend.finance.debts import by_tier, load_registry
+
     reg, _ = load_registry()
     bins = by_tier(reg.debts)
     by_t = {b.tier: b for b in bins}
@@ -109,6 +115,7 @@ def test_summarize_full_pipeline(tmp_path, monkeypatch):
     )
     monkeypatch.setenv("SAMUS_DEBTS_PATH", str(p))
     from backend.finance.debts import load_registry, summarize
+
     reg, loaded = load_registry()
     summary = summarize(reg, loaded, "2026-05-15T00:00:00Z")
     assert summary.debt_count == 2

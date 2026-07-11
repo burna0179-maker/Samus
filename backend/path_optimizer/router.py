@@ -4,6 +4,7 @@ No LLM calls, no I/O — pure functions over a small ``WorkcellState`` value.
 The thresholds are module-level named constants so the routing policy is
 auditable and tunable in one place.
 """
+
 from __future__ import annotations
 
 from collections.abc import Iterable

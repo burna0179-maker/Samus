@@ -38,6 +38,7 @@ subsystems and stays dormant. Later phases wire concrete deps:
 DORMANCY: NO live importer. Nothing in the running Samus stack constructs
 or calls this loop; it is wired to a caller only in Phase F (operator-gated).
 """
+
 from __future__ import annotations
 
 import logging
@@ -347,7 +348,9 @@ class CognitiveLoop:
             # Perception failure must not error the cycle — record a SKIPPED
             # degraded stage and continue (no errors entry). Perception is {}.
             perception = {}
-            self._record(result, "PERCEIVE", started, StageStatus.SKIPPED, {"degraded": type(exc).__name__})
+            self._record(
+                result, "PERCEIVE", started, StageStatus.SKIPPED, {"degraded": type(exc).__name__}
+            )
         return perception
 
     def _stage_classify(self, inp: CycleInput, result: CycleResult) -> bool:
@@ -385,7 +388,9 @@ class CognitiveLoop:
             if meta.get("codex_action") is None:
                 # No classifier and no concrete action: record one SKIPPED
                 # CLASSIFY stage and proceed (never blocks). Phase-A behaviour.
-                self._record(result, "CLASSIFY", started, StageStatus.SKIPPED, {"reason": "no_classifier"})
+                self._record(
+                    result, "CLASSIFY", started, StageStatus.SKIPPED, {"reason": "no_classifier"}
+                )
                 return False
             # No EFH but a concrete action is present -> let Codex vote (it
             # writes the single CLASSIFY record itself).
@@ -401,7 +406,8 @@ class CognitiveLoop:
                     "gate": "efh",
                     "blocked": blocked,
                     "breached": list((veto or {}).get("inviolable_axioms_breached", []))
-                    if isinstance(veto, dict) else [],
+                    if isinstance(veto, dict)
+                    else [],
                 }
                 if blocked:
                     self._record(result, "CLASSIFY", started, StageStatus.OK, verdict)
@@ -419,8 +425,12 @@ class CognitiveLoop:
                 summary = f"CLASSIFY:efh_error:{type(exc).__name__}:{exc}"
                 result.errors.append(summary)
                 self._record(
-                    result, "CLASSIFY", started, StageStatus.ERROR,
-                    {"gate": "efh", "blocked": True, "fail_closed": True}, error=summary,
+                    result,
+                    "CLASSIFY",
+                    started,
+                    StageStatus.ERROR,
+                    {"gate": "efh", "blocked": True, "fail_closed": True},
+                    error=summary,
                 )
                 return True
 
@@ -456,7 +466,9 @@ class CognitiveLoop:
             return blocked
         except Exception as exc:
             # Skeleton posture: a classifier error degrades to non-blocking.
-            self._record(result, "CLASSIFY", started, StageStatus.SKIPPED, {"degraded": type(exc).__name__})
+            self._record(
+                result, "CLASSIFY", started, StageStatus.SKIPPED, {"degraded": type(exc).__name__}
+            )
             return False
 
     # ---- CLASSIFY helpers ----------------------------------------------
@@ -511,10 +523,14 @@ class CognitiveLoop:
             return False
         try:
             from backend.common.codex.validator import check_action
+
             v = check_action(codex_action)
             blocked = not getattr(v, "allowed", True)
-            rec = {**verdict, "codex_blocked": blocked,
-                   "codex_rule": getattr(v, "violated_rule_id", None)}
+            rec = {
+                **verdict,
+                "codex_blocked": blocked,
+                "codex_rule": getattr(v, "violated_rule_id", None),
+            }
             self._record(result, "CLASSIFY", started, StageStatus.OK, rec)
             return blocked
         except Exception as exc:
@@ -522,7 +538,10 @@ class CognitiveLoop:
             summary = f"CLASSIFY:codex_error:{type(exc).__name__}:{exc}"
             result.errors.append(summary)
             self._record(
-                result, "CLASSIFY", started, StageStatus.ERROR,
+                result,
+                "CLASSIFY",
+                started,
+                StageStatus.ERROR,
                 {**verdict, "gate": "codex", "blocked": True, "fail_closed": True},
                 error=summary,
             )

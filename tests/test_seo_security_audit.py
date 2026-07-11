@@ -8,11 +8,11 @@ ALL network I/O is mocked - no test here touches the real internet. HTTP
 probes are stubbed via ``_passive_get``, TLS via ``ssl``/``socket`` patches,
 and DNS via a fake ``dns.resolver.Resolver``.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-import pytest
 
 from backend.seo import security_audit as sec
 from backend.seo.models import AuditResult, SecurityFinding
@@ -58,16 +58,28 @@ def test_headers_all_absent_flags_every_header():
         # ...and punchy, jargon-free client copy.
         assert f.client_headline, f"{f.id} has no client_headline"
         assert f.client_impact, f"{f.id} has no client_impact"
-        assert not f.client_headline.endswith("."), \
-            f"{f.id} client_headline ends with a period"
+        assert not f.client_headline.endswith("."), f"{f.id} client_headline ends with a period"
 
 
 # Words that must never appear in client-facing copy (jargon ban).
 _CLIENT_JARGON_BAN = (
-    "CSP", "Content-Security-Policy", "HSTS", "Strict-Transport-Security",
-    "SPF", "DMARC", "DKIM", "CAA", "X-Frame-Options", "Referrer-Policy",
-    "Permissions-Policy", "XML-RPC", "xmlrpc", "nosniff", "directive",
-    "wp-config", "header",
+    "CSP",
+    "Content-Security-Policy",
+    "HSTS",
+    "Strict-Transport-Security",
+    "SPF",
+    "DMARC",
+    "DKIM",
+    "CAA",
+    "X-Frame-Options",
+    "Referrer-Policy",
+    "Permissions-Policy",
+    "XML-RPC",
+    "xmlrpc",
+    "nosniff",
+    "directive",
+    "wp-config",
+    "header",
 )
 
 
@@ -84,10 +96,12 @@ def test_every_security_finding_has_jargon_free_client_copy():
         {"strict-transport-security": "max-age=600"},
     )
     all_findings += sec.check_cookie_flags(
-        {"set-cookie": "s=1; Path=/"}, "https://x.example.com",
+        {"set-cookie": "s=1; Path=/"},
+        "https://x.example.com",
     )
     all_findings += sec.check_mixed_content(
-        "https://x.example.com", ["http://cdn.example.com/a.js"],
+        "https://x.example.com",
+        ["http://cdn.example.com/a.js"],
     )
     all_findings += sec.check_tls_certificate("")
 
@@ -97,10 +111,10 @@ def test_every_security_finding_has_jargon_free_client_copy():
             assert value, f"{f.id}.{field_name} is empty"
             low = value.lower()
             for banned in _CLIENT_JARGON_BAN:
-                assert banned.lower() not in low, \
+                assert banned.lower() not in low, (
                     f"{f.id}.{field_name} contains banned jargon '{banned}'"
-            assert f.id not in value, \
-                f"{f.id}.{field_name} leaks the finding id"
+                )
+            assert f.id not in value, f"{f.id}.{field_name} leaks the finding id"
     # The function is exercised; inspect import keeps the helper honest.
     assert inspect.isfunction(sec.check_security_headers)
 
@@ -139,9 +153,11 @@ def test_headers_case_insensitive_keys():
 # Cookie flags + mixed content
 # ---------------------------------------------------------------------------
 
+
 def test_insecure_cookie_flagged_on_https():
     findings = sec.check_cookie_flags(
-        {"set-cookie": "session=abc; Path=/"}, "https://acme.example.com",
+        {"set-cookie": "session=abc; Path=/"},
+        "https://acme.example.com",
     )
     assert len(findings) == 1
     assert findings[0].id == "insecure_cookie_flags"
@@ -172,7 +188,8 @@ def test_mixed_content_flagged_on_https_page():
 
 def test_mixed_content_ignored_on_http_page():
     findings = sec.check_mixed_content(
-        "http://acme.example.com", ["http://cdn.example.com/a.js"],
+        "http://acme.example.com",
+        ["http://cdn.example.com/a.js"],
     )
     assert findings == []
 
@@ -181,10 +198,16 @@ def test_mixed_content_ignored_on_http_page():
 # Grade computation (deterministic)
 # ---------------------------------------------------------------------------
 
+
 def _finding(severity: str) -> SecurityFinding:
     return SecurityFinding(
-        id=f"x_{severity}", severity=severity, category="headers",
-        title="t", evidence="e", risk="r", remediation="rem",
+        id=f"x_{severity}",
+        severity=severity,
+        category="headers",
+        title="t",
+        evidence="e",
+        risk="r",
+        remediation="rem",
     )
 
 
@@ -221,6 +244,7 @@ def test_grade_is_clamped_and_deterministic():
 # DNS parsing with a mocked resolver
 # ---------------------------------------------------------------------------
 
+
 class _FakeAnswer:
     """Mimics a dnspython TXT rdata with a .strings attribute."""
 
@@ -240,6 +264,7 @@ class _FakeResolver:
         key = (name, rtype)
         if key not in self._table:
             import dns.resolver
+
             raise dns.resolver.NoAnswer()
         result = self._table[key]
         if isinstance(result, Exception):
@@ -252,7 +277,9 @@ def _patch_resolver(monkeypatch, table: dict):
     import dns.resolver
 
     monkeypatch.setattr(
-        dns.resolver, "Resolver", lambda: _FakeResolver(table),
+        dns.resolver,
+        "Resolver",
+        lambda: _FakeResolver(table),
     )
     monkeypatch.setattr(sec, "_HAS_DNSPYTHON", True)
 
@@ -318,6 +345,7 @@ def test_email_auth_degrades_when_dnspython_absent(monkeypatch):
 
 def test_email_auth_degrades_when_dns_unreachable(monkeypatch):
     import dns.resolver
+
     # Apex TXT lookup raises a non-NXDOMAIN/NoAnswer error -> DNS unreachable.
     table = {
         ("acme.example.com", "TXT"): dns.resolver.LifetimeTimeout(),
@@ -338,21 +366,25 @@ def test_email_auth_empty_domain_skips():
 # WordPress detection + exposure probes
 # ---------------------------------------------------------------------------
 
+
 def test_detect_wordpress_via_link_header():
     assert sec.detect_wordpress(
-        "<html></html>", {"link": '<https://x/wp-json/>; rel="https://api.w.org/"'},
+        "<html></html>",
+        {"link": '<https://x/wp-json/>; rel="https://api.w.org/"'},
     )
 
 
 def test_detect_wordpress_via_asset_path():
     assert sec.detect_wordpress(
-        "<html><link href='/wp-content/themes/x/style.css'></html>", {},
+        "<html><link href='/wp-content/themes/x/style.css'></html>",
+        {},
     )
 
 
 def test_detect_wordpress_via_generator_meta():
     assert sec.detect_wordpress(
-        "<meta name=\"generator\" content=\"WordPress 6.4\">", {},
+        '<meta name="generator" content="WordPress 6.4">',
+        {},
     )
 
 
@@ -382,15 +414,20 @@ def _patch_probes(monkeypatch, responses: dict):
 
 def test_wordpress_exposure_full_detection(monkeypatch):
     users_json = '[{"id":1,"name":"Site Admin","slug":"admin"}]'
-    _patch_probes(monkeypatch, {
-        "/wp-json/wp/v2/users": _FakeResp(200, users_json),
-        "/xmlrpc.php": _FakeResp(405, ""),
-        "/readme.html": _FakeResp(200, "<title>WordPress &rsaquo; ReadMe</title>"),
-    })
+    _patch_probes(
+        monkeypatch,
+        {
+            "/wp-json/wp/v2/users": _FakeResp(200, users_json),
+            "/xmlrpc.php": _FakeResp(405, ""),
+            "/readme.html": _FakeResp(200, "<title>WordPress &rsaquo; ReadMe</title>"),
+        },
+    )
     budget = sec._ProbeBudget()
     findings = sec.check_platform_exposure(
         "https://wp.example.com",
-        "<link href='/wp-content/x.css'>", {}, budget,
+        "<link href='/wp-content/x.css'>",
+        {},
+        budget,
     )
     ids = {f.id for f in findings}
     assert "platform_wordpress_detected" in ids
@@ -403,15 +440,20 @@ def test_wordpress_exposure_full_detection(monkeypatch):
 
 def test_wordpress_exposure_clean_install(monkeypatch):
     # WordPress detected, but every exposure probe returns 404/403.
-    _patch_probes(monkeypatch, {
-        "/wp-json/wp/v2/users": _FakeResp(401, ""),
-        "/xmlrpc.php": _FakeResp(403, ""),
-        "/readme.html": _FakeResp(404, ""),
-    })
+    _patch_probes(
+        monkeypatch,
+        {
+            "/wp-json/wp/v2/users": _FakeResp(401, ""),
+            "/xmlrpc.php": _FakeResp(403, ""),
+            "/readme.html": _FakeResp(404, ""),
+        },
+    )
     budget = sec._ProbeBudget()
     findings = sec.check_platform_exposure(
         "https://wp.example.com",
-        "<link href='/wp-includes/x.js'>", {}, budget,
+        "<link href='/wp-includes/x.js'>",
+        {},
+        budget,
     )
     ids = {f.id for f in findings}
     assert ids == {"platform_wordpress_detected"}
@@ -421,7 +463,10 @@ def test_non_wordpress_site_skips_probes(monkeypatch):
     _patch_probes(monkeypatch, {})
     budget = sec._ProbeBudget()
     findings = sec.check_platform_exposure(
-        "https://plain.example.com", "<html>plain</html>", {}, budget,
+        "https://plain.example.com",
+        "<html>plain</html>",
+        {},
+        budget,
     )
     assert findings == []
     # No probe requests were spent on a non-WordPress site.
@@ -429,10 +474,13 @@ def test_non_wordpress_site_skips_probes(monkeypatch):
 
 
 def test_exposed_git_directory_flagged(monkeypatch):
-    _patch_probes(monkeypatch, {
-        "/.well-known/security.txt": _FakeResp(404, ""),
-        "/.git/config": _FakeResp(200, "[core]\n\trepositoryformatversion = 0\n"),
-    })
+    _patch_probes(
+        monkeypatch,
+        {
+            "/.well-known/security.txt": _FakeResp(404, ""),
+            "/.git/config": _FakeResp(200, "[core]\n\trepositoryformatversion = 0\n"),
+        },
+    )
     budget = sec._ProbeBudget()
     findings = sec.check_exposed_artifacts("https://exposed.example.com", budget)
     ids = {f.id for f in findings}
@@ -443,10 +491,13 @@ def test_exposed_git_directory_flagged(monkeypatch):
 
 
 def test_security_txt_present_is_info(monkeypatch):
-    _patch_probes(monkeypatch, {
-        "/.well-known/security.txt": _FakeResp(200, "Contact: mailto:sec@x.com"),
-        "/.git/config": _FakeResp(404, ""),
-    })
+    _patch_probes(
+        monkeypatch,
+        {
+            "/.well-known/security.txt": _FakeResp(200, "Contact: mailto:sec@x.com"),
+            "/.git/config": _FakeResp(404, ""),
+        },
+    )
     budget = sec._ProbeBudget()
     findings = sec.check_exposed_artifacts("https://safe.example.com", budget)
     ids = {f.id for f in findings}
@@ -457,6 +508,7 @@ def test_security_txt_present_is_info(monkeypatch):
 # ---------------------------------------------------------------------------
 # Probe budget cap
 # ---------------------------------------------------------------------------
+
 
 def test_probe_budget_caps_total_requests():
     budget = sec._ProbeBudget(limit=2)
@@ -469,6 +521,7 @@ def test_probe_budget_caps_total_requests():
 # ---------------------------------------------------------------------------
 # TLS certificate (graceful degradation)
 # ---------------------------------------------------------------------------
+
 
 def test_tls_handshake_failure_degrades(monkeypatch):
     def _boom(*a, **kw):
@@ -549,10 +602,14 @@ def _patch_tls(monkeypatch, cert: dict):
             return _FakeSSLSock()
 
     monkeypatch.setattr(
-        sec.socket, "create_connection", lambda *a, **kw: _FakeSock(),
+        sec.socket,
+        "create_connection",
+        lambda *a, **kw: _FakeSock(),
     )
     monkeypatch.setattr(
-        sec.ssl, "create_default_context", lambda: _FakeContext(),
+        sec.ssl,
+        "create_default_context",
+        lambda: _FakeContext(),
     )
 
 
@@ -560,18 +617,22 @@ def _patch_tls(monkeypatch, cert: dict):
 # Orchestrator
 # ---------------------------------------------------------------------------
 
+
 def test_audit_security_never_raises_and_returns_grade(monkeypatch):
     # Force every check into its degraded path: no DNS, TLS fails, probes 404.
     monkeypatch.setattr(sec, "_HAS_DNSPYTHON", False)
     monkeypatch.setattr(
-        sec.socket, "create_connection",
+        sec.socket,
+        "create_connection",
         lambda *a, **kw: (_ for _ in ()).throw(OSError("no route")),
     )
     monkeypatch.setattr(sec, "_passive_get", lambda url, budget: None)
 
     result = sec.audit_security(
         "https://degraded.example.com",
-        headers={}, html="<html></html>", http_resources=[],
+        headers={},
+        html="<html></html>",
+        http_resources=[],
     )
     assert result["grade"] in ("A", "B", "C", "D", "F")
     assert isinstance(result["findings"], list)
@@ -583,7 +644,8 @@ def test_audit_security_never_raises_and_returns_grade(monkeypatch):
 def test_audit_security_respects_probe_budget(monkeypatch):
     monkeypatch.setattr(sec, "_HAS_DNSPYTHON", False)
     monkeypatch.setattr(
-        sec.socket, "create_connection",
+        sec.socket,
+        "create_connection",
         lambda *a, **kw: (_ for _ in ()).throw(OSError("no route")),
     )
     calls = {"n": 0}
@@ -597,7 +659,8 @@ def test_audit_security_respects_probe_budget(monkeypatch):
     monkeypatch.setattr(sec, "_passive_get", _counting_get)
     result = sec.audit_security(
         "https://wp.example.com",
-        headers={}, html="<link href='/wp-content/x.css'>",
+        headers={},
+        html="<link href='/wp-content/x.css'>",
         http_resources=[],
     )
     # Never more than the documented ~6-request cap.
@@ -609,13 +672,17 @@ def test_audit_security_respects_probe_budget(monkeypatch):
 # Report renderer - "Security & Trust Posture" section
 # ---------------------------------------------------------------------------
 
+
 def _audit_with_security(security: dict | None) -> AuditResult:
     findings: dict = {"industry": "plumbing"}
     if security is not None:
         findings["security"] = security
     return AuditResult(
-        url="https://acme.example.com", seo_score=80, issues=[],
-        findings=findings, ts="2026-05-20T00:00:00Z",
+        url="https://acme.example.com",
+        seo_score=80,
+        issues=[],
+        findings=findings,
+        ts="2026-05-20T00:00:00Z",
     )
 
 
@@ -628,20 +695,24 @@ def test_render_security_section_client_facing_no_jargon():
         "checks_run": ["security_headers", "tls_certificate"],
         "findings": [
             SecurityFinding(
-                id="missing_content_security_policy", severity="medium",
-                category="headers", title="No Content-Security-Policy header",
+                id="missing_content_security_policy",
+                severity="medium",
+                category="headers",
+                title="No Content-Security-Policy header",
                 evidence="Content-Security-Policy header absent",
                 risk="injected scripts run freely",
                 remediation="Add a Content-Security-Policy header.",
                 client_headline="One hacked plugin away from a customer-data leak",
-                client_impact=(
-                    "Your site has no safety net for a compromised script."
-                ),
+                client_impact=("Your site has no safety net for a compromised script."),
             ).model_dump(),
             SecurityFinding(
-                id="tls_certificate_valid", severity="info", category="tls",
-                title="TLS certificate valid", evidence="expires 2027-01-01",
-                risk="", remediation="No action required.",
+                id="tls_certificate_valid",
+                severity="info",
+                category="tls",
+                title="TLS certificate valid",
+                evidence="expires 2027-01-01",
+                risk="",
+                remediation="No action required.",
                 client_headline="Your secure-connection certificate is healthy",
                 client_impact="Visitors see the padlock and browsers trust you.",
             ).model_dump(),
@@ -685,15 +756,23 @@ def test_render_security_section_groups_worst_first():
         "checks_run": [],
         "findings": [
             SecurityFinding(
-                id="medium_one", severity="medium", category="tls",
-                title="Medium item", evidence="", risk="meh",
+                id="medium_one",
+                severity="medium",
+                category="tls",
+                title="Medium item",
+                evidence="",
+                risk="meh",
                 remediation="ok",
                 client_headline="A medium problem on your site",
                 client_impact="This one is worth fixing.",
             ).model_dump(),
             SecurityFinding(
-                id="crit_one", severity="critical", category="tls",
-                title="Critical item", evidence="", risk="bad",
+                id="crit_one",
+                severity="critical",
+                category="tls",
+                title="Critical item",
+                evidence="",
+                risk="bad",
                 remediation="fix now",
                 client_headline="An urgent problem on your site",
                 client_impact="This one is dangerous.",
@@ -702,8 +781,9 @@ def test_render_security_section_groups_worst_first():
     }
     body = "\n".join(_render_security_posture(_audit_with_security(security)))
     # The critical (urgent) finding's headline appears before the medium one.
-    assert body.index("An urgent problem on your site") < \
-        body.index("A medium problem on your site")
+    assert body.index("An urgent problem on your site") < body.index(
+        "A medium problem on your site"
+    )
 
 
 def test_render_security_technical_keeps_all_detail():
@@ -715,8 +795,10 @@ def test_render_security_technical_keeps_all_detail():
         "checks_run": ["security_headers"],
         "findings": [
             SecurityFinding(
-                id="missing_content_security_policy", severity="medium",
-                category="headers", title="No Content-Security-Policy header",
+                id="missing_content_security_policy",
+                severity="medium",
+                category="headers",
+                title="No Content-Security-Policy header",
                 evidence="Content-Security-Policy header absent",
                 risk="injected scripts run freely",
                 remediation="Add a Content-Security-Policy header.",
@@ -787,21 +869,25 @@ def test_audit_url_wires_security_into_findings(monkeypatch):
             req = _httpx.Request("GET", url)
             if "robots.txt" in url:
                 return _httpx.Response(404, text="", request=req)
-            if any(p in url for p in ("/wp-", "/.git/", "/.well-known/",
-                                      "/xmlrpc.php", "/readme.html")):
+            if any(
+                p in url for p in ("/wp-", "/.git/", "/.well-known/", "/xmlrpc.php", "/readme.html")
+            ):
                 return _httpx.Response(404, text="", request=req)
             return _httpx.Response(200, text=page_html, request=req)
 
     import backend.seo.audit as audit_mod
+
     monkeypatch.setattr(audit_mod.httpx, "Client", _Client)
     # TLS handshake -> degrade. DNS -> dnspython absent path.
     monkeypatch.setattr(
-        sec.socket, "create_connection",
+        sec.socket,
+        "create_connection",
         lambda *a, **kw: (_ for _ in ()).throw(OSError("blocked in test")),
     )
     monkeypatch.setattr(sec, "_HAS_DNSPYTHON", False)
 
     from backend.seo.audit import audit_url
+
     result = audit_url("https://acme.example.com/")
 
     assert "security" in result.findings
@@ -846,9 +932,11 @@ def test_audit_url_skips_security_when_toggle_off(monkeypatch):
             return _httpx.Response(200, text=page_html, request=req)
 
     import backend.seo.audit as audit_mod
+
     monkeypatch.setattr(audit_mod.httpx, "Client", _Client)
 
     from backend.seo.audit import audit_url
+
     result = audit_url("https://acme.example.com/")
     assert "security" not in result.findings
 
@@ -862,9 +950,13 @@ def test_full_report_includes_security_section_after_recommendations():
         "checks_run": ["security_headers"],
         "findings": [
             SecurityFinding(
-                id="caa_missing", severity="low", category="email_auth",
-                title="No CAA record", evidence="no CAA",
-                risk="any CA may issue", remediation="Publish a CAA record.",
+                id="caa_missing",
+                severity="low",
+                category="email_auth",
+                title="No CAA record",
+                evidence="no CAA",
+                risk="any CA may issue",
+                remediation="Publish a CAA record.",
                 client_headline="Anyone could create a lookalike of your secure site",
                 client_impact="It is easier for a scammer to fake your site.",
             ).model_dump(),
@@ -872,7 +964,9 @@ def test_full_report_includes_security_section_after_recommendations():
     }
     audit = _audit_with_security(security)
     optimize = OptimizeResult(
-        url=audit.url, recommendations=[], on_page_changes={},
+        url=audit.url,
+        recommendations=[],
+        on_page_changes={},
         ts="2026-05-20T00:00:00Z",
     )
     body = render_seo_report_markdown(audit, optimize, None)
@@ -889,11 +983,18 @@ def test_full_report_includes_security_section_after_recommendations():
 # infrastructure_health telemetry (additive, 2026-05-20)
 # ---------------------------------------------------------------------------
 
+
 def _finding(severity: str, category: str = "headers") -> SecurityFinding:
     return SecurityFinding(
-        id=f"{category}_{severity}", severity=severity, category=category,
-        title="t", evidence="e", risk="r", remediation="rem",
-        client_headline="h", client_impact="i",
+        id=f"{category}_{severity}",
+        severity=severity,
+        category=category,
+        title="t",
+        evidence="e",
+        risk="r",
+        remediation="rem",
+        client_headline="h",
+        client_impact="i",
     )
 
 

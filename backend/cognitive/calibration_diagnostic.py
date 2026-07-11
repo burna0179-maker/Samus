@@ -31,6 +31,7 @@ read fault logs a warning and returns a sensible empty. This mirrors
 ``record_decision`` / ``emit_business_event`` -- diagnostic instrumentation
 must never break the system it is observing.
 """
+
 from __future__ import annotations
 
 import json
@@ -82,17 +83,28 @@ _INTENT_MAP: Final[dict[str, tuple[str, ...]]] = {
 # loop-completion accounting -- everything that isn't itself a decision.made
 # or an experiment.assigned (both are internal cognition events, not
 # revenue-journey outcomes).
-_OUTCOME_EVENT_TYPES: Final[frozenset[str]] = frozenset({
-    "lead.created", "lead.enriched",
-    "email.sent", "email.opened", "email.clicked",
-    "call.placed", "call.answered",
-    "meeting.booked", "proposal.sent", "contract.sent",
-    "invoice.sent", "payment.received",
-    "customer.retained", "customer.churned",
-})
+_OUTCOME_EVENT_TYPES: Final[frozenset[str]] = frozenset(
+    {
+        "lead.created",
+        "lead.enriched",
+        "email.sent",
+        "email.opened",
+        "email.clicked",
+        "call.placed",
+        "call.answered",
+        "meeting.booked",
+        "proposal.sent",
+        "contract.sent",
+        "invoice.sent",
+        "payment.received",
+        "customer.retained",
+        "customer.churned",
+    }
+)
 
 
 # --- Small helpers ---------------------------------------------------------
+
 
 def _iso_utc(dt: datetime) -> str:
     """Same shape as ``dates.iso_now()`` (Z-suffixed UTC)."""
@@ -179,6 +191,7 @@ def _correlation_keys(rec_or_event: dict[str, Any]) -> tuple[str, str, str]:
 
 
 # --- Public API ------------------------------------------------------------
+
 
 def reconcile_decisions(
     *,
@@ -359,9 +372,7 @@ def reconcile_decisions(
                     "bucket": label,
                     "count": agg.buckets[label]["count"],
                     "hits": agg.buckets[label]["hits"],
-                    "hit_rate": _rate(
-                        agg.buckets[label]["hits"], agg.buckets[label]["count"]
-                    ),
+                    "hit_rate": _rate(agg.buckets[label]["hits"], agg.buckets[label]["count"]),
                 }
                 for _, _, label in _BUCKETS
             ],
@@ -391,6 +402,7 @@ def write_calibration_report(day: str) -> Path:
     # storage after import.
     try:
         from backend.common import storage
+
         base = storage.root() / "cognition"
     except Exception as exc:  # noqa: BLE001
         _LOG.warning("calibration write: storage.root() failed: %s", exc)
@@ -411,8 +423,7 @@ def write_calibration_report(day: str) -> Path:
         _LOG.warning("calibration write: reconcile faulted: %s", exc)
         report = {
             "window": {"start": "", "end": "", "days": _DEFAULT_WINDOW_DAYS},
-            "overall": {"decisions": 0, "unscoreable": 0,
-                        "loop_completion_rate": 0.0},
+            "overall": {"decisions": 0, "unscoreable": 0, "loop_completion_rate": 0.0},
             "per_actor": {},
         }
     report["day"] = day

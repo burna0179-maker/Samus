@@ -8,9 +8,9 @@ DPAPI vault's off-platform fail-closed behaviour.
 State is isolated per test via SAMUS_STATE_ROOT -> tmp_path so nothing
 touches the real <code root>/state tree.
 """
+
 from __future__ import annotations
 
-import os
 
 import pytest
 
@@ -72,7 +72,13 @@ def test_key_vault_rejects_unknown_purpose():
     with pytest.raises(ValueError):
         v.derive("not-a-purpose")
     assert set(PURPOSES) == {
-        "hmac", "tls", "governance", "transit", "enclave", "token", "audit",
+        "hmac",
+        "tls",
+        "governance",
+        "transit",
+        "enclave",
+        "token",
+        "audit",
     }
 
 
@@ -189,12 +195,8 @@ def test_rotation_no_op_when_disabled(monkeypatch):
 
 
 def test_rotation_fires_when_enabled_and_interval_elapsed(monkeypatch):
-    monkeypatch.setattr(
-        secret_rotation_manager, "_rotation_enabled", lambda: True
-    )
-    monkeypatch.setattr(
-        secret_rotation_manager, "_rotation_interval_sec", lambda: 0
-    )
+    monkeypatch.setattr(secret_rotation_manager, "_rotation_enabled", lambda: True)
+    monkeypatch.setattr(secret_rotation_manager, "_rotation_interval_sec", lambda: 0)
     reset_secret_rotation_manager_for_tests()
     reset_key_vault_for_tests()
     vault_gen_before = get_key_vault().generation
@@ -208,12 +210,8 @@ def test_rotation_fires_when_enabled_and_interval_elapsed(monkeypatch):
 
 
 def test_rotation_emits_to_injected_ledger(monkeypatch):
-    monkeypatch.setattr(
-        secret_rotation_manager, "_rotation_enabled", lambda: True
-    )
-    monkeypatch.setattr(
-        secret_rotation_manager, "_rotation_interval_sec", lambda: 0
-    )
+    monkeypatch.setattr(secret_rotation_manager, "_rotation_enabled", lambda: True)
+    monkeypatch.setattr(secret_rotation_manager, "_rotation_interval_sec", lambda: 0)
     events: list[tuple[str, dict]] = []
 
     class _Ledger:
@@ -231,12 +229,8 @@ def test_rotation_emits_to_injected_ledger(monkeypatch):
 
 
 def test_rotation_interval_not_elapsed_is_noop(monkeypatch):
-    monkeypatch.setattr(
-        secret_rotation_manager, "_rotation_enabled", lambda: True
-    )
-    monkeypatch.setattr(
-        secret_rotation_manager, "_rotation_interval_sec", lambda: 10_000
-    )
+    monkeypatch.setattr(secret_rotation_manager, "_rotation_enabled", lambda: True)
+    monkeypatch.setattr(secret_rotation_manager, "_rotation_interval_sec", lambda: 10_000)
     reset_secret_rotation_manager_for_tests()
     mgr = get_secret_rotation_manager()
     assert mgr.tick() == "rotated"  # first ever fire (last_rotated_at=0)

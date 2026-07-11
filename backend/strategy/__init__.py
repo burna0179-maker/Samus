@@ -9,4 +9,5 @@ Also hosts pure-function decision primitives (trust scorer, credit ledger,
 capability marketplace) consumed by higher-level orchestration / governance
 gates. Those primitives perform no I/O.
 """
+
 from __future__ import annotations

@@ -4,6 +4,7 @@ No network: the Gemini/Veo HTTP calls are monkeypatched. Verifies dormancy
 (keyless-safe), the budget fail-closed gate, taste-governed planning, image
 response parsing, and the video approval/fail-closed paths.
 """
+
 from __future__ import annotations
 
 import base64
@@ -52,13 +53,20 @@ def _settings(**over):
 
 def _img_response(png=b"\x89PNG-fake"):
     b64 = base64.b64encode(png).decode("ascii")
-    return httpx.Response(200, json={"candidates": [
-        {"content": {"parts": [{"inlineData": {"mimeType": "image/png", "data": b64}}]}}]})
+    return httpx.Response(
+        200,
+        json={
+            "candidates": [
+                {"content": {"parts": [{"inlineData": {"mimeType": "image/png", "data": b64}}]}}
+            ]
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
 # media_budget
 # ---------------------------------------------------------------------------
+
 
 def test_budget_allows_under_cap(tmp_path):
     b = MediaBudgetStore(2.0, path=tmp_path / "b.json", today="2026-06-06")
@@ -93,6 +101,7 @@ def test_budget_unreadable_fails_closed(tmp_path):
 # planning
 # ---------------------------------------------------------------------------
 
+
 def test_plan_has_images_no_video_by_default():
     plan = media_gen.build_media_plan(_brief(), settings=_settings())
     kinds = [r.kind for r in plan]
@@ -101,7 +110,9 @@ def test_plan_has_images_no_video_by_default():
 
 
 def test_plan_includes_video_when_enabled():
-    plan = media_gen.build_media_plan(_brief(), settings=_settings(website_media_video_enabled=True))
+    plan = media_gen.build_media_plan(
+        _brief(), settings=_settings(website_media_video_enabled=True)
+    )
     assert any(r.is_video and r.kind == "hero_video" for r in plan)
 
 
@@ -113,6 +124,7 @@ def test_plan_prompt_forbids_text_in_image():
 # ---------------------------------------------------------------------------
 # generate_image
 # ---------------------------------------------------------------------------
+
 
 def test_generate_image_parses_inline_data(monkeypatch):
     monkeypatch.setattr(media_gen, "_http_post", lambda *a, **k: _img_response(b"PNGDATA"))
@@ -127,7 +139,9 @@ def test_generate_image_non_200_raises(monkeypatch):
 
 
 def test_generate_image_no_image_raises(monkeypatch):
-    monkeypatch.setattr(media_gen, "_http_post", lambda *a, **k: httpx.Response(200, json={"candidates": []}))
+    monkeypatch.setattr(
+        media_gen, "_http_post", lambda *a, **k: httpx.Response(200, json={"candidates": []})
+    )
     with pytest.raises(media_gen.MediaGenError):
         media_gen.generate_image("x", api_key="gk")
 
@@ -141,8 +155,11 @@ def test_generate_image_no_key_raises():
 # orchestrator dormancy + budget
 # ---------------------------------------------------------------------------
 
+
 def test_generate_media_disabled_returns_nothing():
-    assets, report = media_gen.generate_media(_brief(), settings=_settings(website_media_gen_enabled=False))
+    assets, report = media_gen.generate_media(
+        _brief(), settings=_settings(website_media_gen_enabled=False)
+    )
     assert assets == [] and report["status"] == "disabled"
 
 
@@ -162,7 +179,9 @@ def test_generate_media_generates_images(monkeypatch):
 def test_generate_media_budget_caps_spend(monkeypatch):
     monkeypatch.setattr(media_gen, "_http_post", lambda *a, **k: _img_response())
     # cap only affords one image (0.04); rest skipped on budget.
-    assets, report = media_gen.generate_media(_brief(), settings=_settings(media_daily_dollar_cap=0.04))
+    assets, report = media_gen.generate_media(
+        _brief(), settings=_settings(media_daily_dollar_cap=0.04)
+    )
     ok = [a for a in assets if a.ok]
     assert len(ok) == 1
     assert any("cap" in s for s in report["skipped"])
@@ -171,7 +190,8 @@ def test_generate_media_budget_caps_spend(monkeypatch):
 def test_video_skipped_without_approval(monkeypatch):
     monkeypatch.setattr(media_gen, "_http_post", lambda *a, **k: _img_response())
     _, report = media_gen.generate_media(
-        _brief(), settings=_settings(website_media_video_enabled=True, media_daily_dollar_cap=10.0))
+        _brief(), settings=_settings(website_media_video_enabled=True, media_daily_dollar_cap=10.0)
+    )
     assert any("video_requires_approval" in s for s in report["skipped"])
 
 
@@ -182,14 +202,21 @@ def test_video_runs_when_approved(monkeypatch):
         return _img_response()
 
     def fake_get(url, **k):
-        return httpx.Response(200, json={"done": True, "response": {
-            "generatedVideos": [{"video": {"uri": "https://v/clip.mp4"}}]}})
+        return httpx.Response(
+            200,
+            json={
+                "done": True,
+                "response": {"generatedVideos": [{"video": {"uri": "https://v/clip.mp4"}}]},
+            },
+        )
 
     monkeypatch.setattr(media_gen, "_http_post", fake_post)
     monkeypatch.setattr(media_gen, "_http_get", fake_get)
     assets, report = media_gen.generate_media(
-        _brief(), settings=_settings(website_media_video_enabled=True, media_daily_dollar_cap=10.0),
-        video_approved=True)
+        _brief(),
+        settings=_settings(website_media_video_enabled=True, media_daily_dollar_cap=10.0),
+        video_approved=True,
+    )
     vids = [a for a in assets if a.is_video]
     assert vids and vids[0].ok and vids[0].video_uri == "https://v/clip.mp4"
 
@@ -199,10 +226,13 @@ def test_video_failure_is_fail_closed(monkeypatch):
         if ":predictLongRunning" in url:
             return httpx.Response(500, text="veo down")
         return _img_response()
+
     monkeypatch.setattr(media_gen, "_http_post", fake_post)
     assets, _ = media_gen.generate_media(
-        _brief(), settings=_settings(website_media_video_enabled=True, media_daily_dollar_cap=10.0),
-        video_approved=True)
+        _brief(),
+        settings=_settings(website_media_video_enabled=True, media_daily_dollar_cap=10.0),
+        video_approved=True,
+    )
     vids = [a for a in assets if a.is_video]
     assert vids and vids[0].ok is False and vids[0].error
 
@@ -211,10 +241,12 @@ def test_video_failure_is_fail_closed(monkeypatch):
 # media build stage (wired into the walk)
 # ---------------------------------------------------------------------------
 
+
 def _media_ctx(brief, settings, **state_over):
     from backend.website import stages as stages_mod
     from backend.website.models import WebsiteOrder
     from backend.website.state import WebsiteBuildState
+
     order = WebsiteOrder(customer_name="Harmony", brief=brief)
     st = WebsiteBuildState(order_id="wb-m", order=order, **state_over)
     return stages_mod.StageContext(state=st, order=order, settings=settings), st
@@ -222,6 +254,7 @@ def _media_ctx(brief, settings, **state_over):
 
 def test_media_stage_disabled_passthrough():
     from backend.website import stages as stages_mod
+
     ctx, _ = _media_ctx(_brief(), _settings(website_media_gen_enabled=False))
     res = stages_mod._media_stage(ctx)
     assert res.ok and res.detail == {"media": "disabled"}
@@ -229,6 +262,7 @@ def test_media_stage_disabled_passthrough():
 
 def test_media_stage_enabled_no_key_passthrough():
     from backend.website import stages as stages_mod
+
     ctx, _ = _media_ctx(_brief(), _settings(gemini_api_key=""))
     res = stages_mod._media_stage(ctx)
     assert res.ok and res.detail["media_report"]["status"] == "no_api_key"
@@ -247,12 +281,25 @@ def test_media_stage_generates_uploads_and_reports(monkeypatch):
         if p.endswith("/files/generate-upload-url"):
             return httpx.Response(200, json={"uploadUrl": "https://up.test/u"})
         if p == "/u":
-            return httpx.Response(200, json={"file": {
-                "id": "img-1", "wixUrl": "wix:image://v1/img-1/hero.png",
-                "url": "https://static/img-1.png", "mediaType": "image", "mimeType": "image/png"}})
+            return httpx.Response(
+                200,
+                json={
+                    "file": {
+                        "id": "img-1",
+                        "wixUrl": "wix:image://v1/img-1/hero.png",
+                        "url": "https://static/img-1.png",
+                        "mediaType": "image",
+                        "mimeType": "image/png",
+                    }
+                },
+            )
         if p.endswith("/items/query"):
-            return httpx.Response(200, json={"dataItems": [
-                {"id": "row1", "data": {"_id": "row1", "homeHeadline": "Mighty"}}]})
+            return httpx.Response(
+                200,
+                json={
+                    "dataItems": [{"id": "row1", "data": {"_id": "row1", "homeHeadline": "Mighty"}}]
+                },
+            )
         if "/wix-data/v2/items/" in p:
             return httpx.Response(200, json={"dataItem": {"id": "row1"}})
         return httpx.Response(404)
@@ -267,18 +314,21 @@ def test_media_stage_generates_uploads_and_reports(monkeypatch):
     assert res.ok
     report = res.detail["media_report"]
     assert report["status"] == "ok"
-    assert report["generated"]                      # images generated
+    assert report["generated"]  # images generated
     assert "hero_image" in report["publish"]["refs"]
     assert report["publish"]["cms_updated"] is True
 
 
 def test_people_directive_appended_to_people_prompts():
     plan = media_gen.build_media_plan(
-        _brief(), settings=_settings(website_media_people_directive="DIVERSE_TEAM_MARKER"))
+        _brief(), settings=_settings(website_media_people_directive="DIVERSE_TEAM_MARKER")
+    )
     people = [r for r in plan if r.kind in ("hero_image", "section_image", "og_image")]
     assert people and all("DIVERSE_TEAM_MARKER" in r.prompt for r in people)
 
 
 def test_no_people_directive_when_empty():
-    plan = media_gen.build_media_plan(_brief(), settings=_settings(website_media_people_directive=""))
+    plan = media_gen.build_media_plan(
+        _brief(), settings=_settings(website_media_people_directive="")
+    )
     assert all("DIVERSE_TEAM_MARKER" not in r.prompt for r in plan)

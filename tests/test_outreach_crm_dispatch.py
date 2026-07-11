@@ -5,6 +5,7 @@ Conversation (outcome='outreach_sent') + a CallState (state='outreach_sent',
 next_attempt_at = sent + 2 days) to samus-crm, so the morning brief can surface
 the prospect as a follow-up call. A CRM outage must never break the send.
 """
+
 from __future__ import annotations
 
 
@@ -17,9 +18,11 @@ class _Resp:
 def _stub_settings(monkeypatch, *, crm_url="http://crm.local", hmac="secret"):
     class _S:
         gateway_urls = {"crm": crm_url}
+
     s = _S()
     s.shared_hmac_key = hmac
     import backend.outreach.service as svc
+
     monkeypatch.setattr(svc, "get_settings", lambda: s)
 
 
@@ -30,6 +33,7 @@ def _stub_ses(monkeypatch, *, ts="2026-05-22T09:00:00Z"):
     (function-local import) which dispatches by ``settings.email_backend``. Patch
     that dispatcher directly so the test bypasses the SendGrid/SES selection.
     """
+
     def _fake_send(to, subject, body, **kw):
         return {"message_id": "m_1", "channel": "email", "to": to, "ts": ts}
 
@@ -53,10 +57,16 @@ def _capture_posts(monkeypatch, *, raises=None):
 
 def _email_req(**over):
     from backend.outreach.models import OutreachMessageRequest
+
     base = dict(
-        prospect_id="pr_acme", channel="email", template_id="cold_v7",
-        body="hello", to="owner@acme.com", subject="Quick question",
-        company="Acme HVAC", phone="555-0100",
+        prospect_id="pr_acme",
+        channel="email",
+        template_id="cold_v7",
+        body="hello",
+        to="owner@acme.com",
+        subject="Quick question",
+        company="Acme HVAC",
+        phone="555-0100",
     )
     base.update(over)
     return OutreachMessageRequest(**base)
@@ -77,6 +87,7 @@ def test_send_message_dispatches_conversation_and_call_state(tmp_path, monkeypat
     posts = _capture_posts(monkeypatch)
 
     from backend.outreach.service import send_message
+
     result = send_message(_email_req())
 
     assert result["channel"] == "email"
@@ -92,7 +103,7 @@ def test_send_message_dispatches_conversation_and_call_state(tmp_path, monkeypat
     assert conv["structured_data"]["company"] == "Acme HVAC"
     assert conv["structured_data"]["phone"] == "555-0100"
     assert conv["structured_data"]["emailed_on"] == "2026-05-22"
-    assert conv["structured_data"]["follow_up_on"] == "2026-05-24"   # sent + 2d
+    assert conv["structured_data"]["follow_up_on"] == "2026-05-24"  # sent + 2d
 
     state = state_post[2]
     assert state_post[1] == "/crm/call-state/pr_acme"
@@ -109,8 +120,9 @@ def test_send_message_succeeds_when_crm_dispatch_raises(tmp_path, monkeypatch):
     _capture_posts(monkeypatch, raises=RuntimeError("simulated crm outage"))
 
     from backend.outreach.service import send_message
+
     result = send_message(_email_req())
-    assert result["channel"] == "email"   # the send itself still succeeded
+    assert result["channel"] == "email"  # the send itself still succeeded
 
 
 def test_send_message_skips_dispatch_when_crm_url_unset(tmp_path, monkeypatch):
@@ -121,6 +133,7 @@ def test_send_message_skips_dispatch_when_crm_url_unset(tmp_path, monkeypatch):
     posts = _capture_posts(monkeypatch)
 
     from backend.outreach.service import send_message
+
     result = send_message(_email_req())
     assert result["channel"] == "email"
-    assert posts == []   # short-circuited before any POST
+    assert posts == []  # short-circuited before any POST

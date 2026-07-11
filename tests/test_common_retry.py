@@ -3,6 +3,7 @@
 Async tests are wrapped in synchronous defs via ``asyncio.run`` so the suite
 doesn't need pytest-asyncio (not currently in requirements.lock).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -139,9 +140,7 @@ def test_retry_request_does_not_retry_when_idempotent_false():
         raise httpx.TimeoutException("slow")
 
     with pytest.raises(httpx.TimeoutException):
-        asyncio.run(
-            retry_request(always_timeout, target, max_retries=3, idempotent=False)
-        )
+        asyncio.run(retry_request(always_timeout, target, max_retries=3, idempotent=False))
     # With idempotent=False the loop breaks after the first failure.
     assert calls["n"] == 1
     assert CIRCUITS[target].failures == 1

@@ -15,6 +15,7 @@ verbatim into an email opener, a voicemail line, or an LLM personalization
 prompt. No LLM cost — pure projection. NEVER raises; every failure degrades
 to an empty string (the prospect just proceeds without enrichment).
 """
+
 from __future__ import annotations
 
 import logging
@@ -73,7 +74,8 @@ def build_touch_summary(prospect_id: str) -> str:
         # outcomes). Newest handful only.
         try:
             resp = signed_get_json_sync(
-                base, f"/crm/conversations?prospect_id={pid}&limit={_MAX_CONVERSATIONS}",
+                base,
+                f"/crm/conversations?prospect_id={pid}&limit={_MAX_CONVERSATIONS}",
                 timeout=8.0,
             )
             if resp.status_code == 200:

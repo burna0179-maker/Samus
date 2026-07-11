@@ -3,6 +3,7 @@
 Core invariant: pace = min(revenue-urgency, affordability). Being far behind on
 revenue NEVER overrides the cash safety reserve — a conserve posture runs only
 free channels even when behind_pace says push to the max."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -19,6 +20,7 @@ from backend.cash_engine.campaign_portfolio import (
 
 
 # --- posture derivation (pure) -----------------------------------------------
+
 
 def test_conserve_when_headroom_nonpositive():
     a = derive_affordability(headroom_usd=0.0, available_cash_usd=100.0, invest_min=300)
@@ -45,6 +47,7 @@ def test_negative_headroom_is_conserve():
 
 # --- assess_affordability (injected reader) ----------------------------------
 
+
 def test_assess_reads_financials_headroom():
     fin = SimpleNamespace(headroom_usd=500.0, available_cash_usd=2000.0, source="test")
     a = assess_affordability(financials_reader=lambda: fin)
@@ -67,19 +70,30 @@ def test_assess_none_financials_is_cautious():
 
 # --- portfolio gating by affordability ---------------------------------------
 
+
 def _camp(cid, *, tier, cost=0.0, priority=1.0, produced=1):
     return Campaign(
-        campaign_id=cid, kind="t", priority=priority, monitor_cost=1.0,
-        is_eligible=lambda: True, actuate=lambda cap: {"initiated": produced, "cap": cap},
-        default_cap=10, cost_tier=tier, est_cost_usd=cost,
+        campaign_id=cid,
+        kind="t",
+        priority=priority,
+        monitor_cost=1.0,
+        is_eligible=lambda: True,
+        actuate=lambda cap: {"initiated": produced, "cap": cap},
+        default_cap=10,
+        cost_tier=tier,
+        est_cost_usd=cost,
     )
 
 
 def _deps():
     return PortfolioDeps(
-        campaigns=[_camp("vm", tier="free"), _camp("email", tier="low", cost=0.5),
-                   _camp("calls", tier="paid", cost=3.0)],
-        monitor_budget=99, max_concurrent=4,
+        campaigns=[
+            _camp("vm", tier="free"),
+            _camp("email", tier="low", cost=0.5),
+            _camp("calls", tier="paid", cost=3.0),
+        ],
+        monitor_budget=99,
+        max_concurrent=4,
     )
 
 

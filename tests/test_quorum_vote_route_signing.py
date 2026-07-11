@@ -5,6 +5,7 @@ operator-signed roster (admission is the operator U8 step), but the signing
 path is wired now so it is live the moment Samus is admitted + enabled. These
 tests exercise the best-effort signer directly.
 """
+
 from __future__ import annotations
 
 import backend.standard.inter_agent.quorum_vote_route as qv

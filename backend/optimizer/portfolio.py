@@ -2,6 +2,7 @@
 
 Pure-Python ranking + tiering. No state.
 """
+
 from __future__ import annotations
 
 from .models import Opportunity

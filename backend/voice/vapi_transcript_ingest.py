@@ -46,6 +46,7 @@ Everything here is fail-soft: a Vapi error, an unreadable ledger, or a bad row
 degrades to a skip + a populated summary dict. Ingest is an optimization; it
 must never raise into the gateway loop that drives it.
 """
+
 from __future__ import annotations
 
 import json
@@ -68,7 +69,7 @@ _MANIFEST_NAME = "transcript_manifest.json"
 # Append-only call_id dedup ledger (one JSON row per staged call).
 _INGESTED_LEDGER = "voice/vapi_ingested_calls.jsonl"
 
-_DEFAULT_LIMIT = 100          # Vapi list_calls clamps to [1, 100]
+_DEFAULT_LIMIT = 100  # Vapi list_calls clamps to [1, 100]
 _DEFAULT_LOOKBACK_HOURS = 72  # bound a fresh-boot backfill; dedup handles repeats
 
 # Vapi transcript filename phone group must satisfy transcript_ingest's
@@ -78,6 +79,7 @@ _DEFAULT_LOOKBACK_HOURS = 72  # bound a fresh-boot backfill; dedup handles repea
 # ---------------------------------------------------------------------------
 # Vapi call field access (tolerates a VapiCall model OR a plain dict row)
 # ---------------------------------------------------------------------------
+
 
 def _g(call: Any, name: str, default: Any = None) -> Any:
     if isinstance(call, dict):
@@ -127,6 +129,7 @@ def _call_ts(call: Any, now: datetime) -> datetime:
 # Staged-filename construction (round-trips through transcript_ingest)
 # ---------------------------------------------------------------------------
 
+
 def _phone_for_filename(phone: str) -> str:
     """Keep only a leading '+' and digits -- the shape the legacy filename regex
     accepts, and the shape ``_norm10`` collapses to the CSV join key."""
@@ -162,6 +165,7 @@ def _staged_filename(call: Any, ts: datetime, phone: str) -> str:
 # ---------------------------------------------------------------------------
 # Paths + dedup ledger
 # ---------------------------------------------------------------------------
+
 
 def _staging_dir() -> Path:
     p = storage.root() / _STAGING_SUBDIR
@@ -209,10 +213,13 @@ def _append_ingested(call_id: str, filename: str) -> None:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("a", encoding="utf-8", newline="\n") as fh:
-            fh.write(json.dumps(
-                {"ts": iso_now(), "call_id": call_id, "staged_file": filename},
-                ensure_ascii=False,
-            ) + "\n")
+            fh.write(
+                json.dumps(
+                    {"ts": iso_now(), "call_id": call_id, "staged_file": filename},
+                    ensure_ascii=False,
+                )
+                + "\n"
+            )
     except OSError as exc:
         _LOG.warning("vapi ingest: dedup ledger append failed for %s: %s", call_id, exc)
 
@@ -240,7 +247,8 @@ def _freshen_manifest(summary: dict[str, Any]) -> None:
             "error": summary.get("error"),
         }
         _manifest_path().write_text(
-            json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8",
+            json.dumps(payload, indent=2, ensure_ascii=False),
+            encoding="utf-8",
         )
     except OSError as exc:
         _LOG.warning("vapi ingest: manifest freshen failed: %s", exc)
@@ -249,6 +257,7 @@ def _freshen_manifest(summary: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 # Vapi client (read-only) -- same idiom as reconcile / call_batch_analyzer
 # ---------------------------------------------------------------------------
+
 
 def _build_client() -> Any | None:
     """A read-only :class:`VapiClient` from settings, or None when the API key
@@ -269,6 +278,7 @@ def _build_client() -> Any | None:
 # ---------------------------------------------------------------------------
 # The pull -- stage recently-completed Vapi transcripts for the pipeline
 # ---------------------------------------------------------------------------
+
 
 def pull_and_stage_recent(
     *,
@@ -362,7 +372,9 @@ def pull_and_stage_recent(
         summary["staged"] += 1
         summary["staged_files"].append(filename)
         _LOG.info(
-            "vapi ingest: staged transcript call=%s -> %s", call_id, filename,
+            "vapi ingest: staged transcript call=%s -> %s",
+            call_id,
+            filename,
         )
 
     _freshen_manifest(summary)

@@ -12,17 +12,18 @@ work in a detached background task. These tests assert the ACK is prompt even
 when downstream dispatch is slow, that the background work still runs, and that
 a re-delivered report is deduped.
 """
+
 from __future__ import annotations
 
 import asyncio
 import time
-from typing import Any
 
 import pytest
 
 
-def _override_settings(monkeypatch, *, memory_url="http://samus-memory:8080",
-                       crm_url="http://samus-crm:8080"):
+def _override_settings(
+    monkeypatch, *, memory_url="http://samus-memory:8080", crm_url="http://samus-crm:8080"
+):
     class _S:
         pass
 
@@ -38,29 +39,37 @@ def _override_settings(monkeypatch, *, memory_url="http://samus-memory:8080",
         gw["crm"] = crm_url
     s.gateway_urls = gw
     import backend.voice.service as svc_mod
+
     monkeypatch.setattr(svc_mod, "get_settings", lambda: s)
 
 
 def _eoc_event(call_id="call_fastack_1"):
     from backend.voice.models import VapiWebhookEvent
-    return VapiWebhookEvent.model_validate({
-        "message": {
-            "type": "end-of-call-report",
-            "call": {"id": call_id, "status": "ended",
-                     "metadata": {"prospect_id": "p1"}},
-            "endedReason": "customer-ended-call",
-            "summary": "they liked the pitch",
-            "recordingUrl": "https://vapi.example/r1.mp3",
-            "structuredData": {"lead_summary": {
-                "company": "Acme", "intent_score": 82, "tier": "high",
-                "recommended_action": "book_call",
-            }},
+
+    return VapiWebhookEvent.model_validate(
+        {
+            "message": {
+                "type": "end-of-call-report",
+                "call": {"id": call_id, "status": "ended", "metadata": {"prospect_id": "p1"}},
+                "endedReason": "customer-ended-call",
+                "summary": "they liked the pitch",
+                "recordingUrl": "https://vapi.example/r1.mp3",
+                "structuredData": {
+                    "lead_summary": {
+                        "company": "Acme",
+                        "intent_score": 82,
+                        "tier": "high",
+                        "recommended_action": "book_call",
+                    }
+                },
+            }
         }
-    })
+    )
 
 
 def _reset_dedupe():
     import backend.voice.service as svc_mod
+
     svc_mod._PROCESSED_CALL_IDS = None
 
 
@@ -92,10 +101,13 @@ def test_fast_ack_returns_promptly_even_with_slow_downstream(monkeypatch):
         return _Resp()
 
     import backend.voice.service as svc_mod
+
     monkeypatch.setattr(svc_mod, "signed_post_json", _slow_post)
     # Neutralise the other best-effort side-channels so the test is hermetic.
     monkeypatch.setattr(svc_mod, "index_outbound_call", lambda **k: None)
-    monkeypatch.setattr(svc_mod, "submit_product_page", lambda **k: {"status": "skipped_existing_sku"})
+    monkeypatch.setattr(
+        svc_mod, "submit_product_page", lambda **k: {"status": "skipped_existing_sku"}
+    )
 
     from backend.voice.service import handle_webhook_event
 
@@ -132,9 +144,12 @@ def test_fast_ack_dedupes_redelivered_report(monkeypatch):
         return _Resp()
 
     import backend.voice.service as svc_mod
+
     monkeypatch.setattr(svc_mod, "signed_post_json", _post)
     monkeypatch.setattr(svc_mod, "index_outbound_call", lambda **k: None)
-    monkeypatch.setattr(svc_mod, "submit_product_page", lambda **k: {"status": "skipped_existing_sku"})
+    monkeypatch.setattr(
+        svc_mod, "submit_product_page", lambda **k: {"status": "skipped_existing_sku"}
+    )
 
     from backend.voice.service import handle_webhook_event
 
@@ -164,11 +179,15 @@ def test_sync_path_preserved_when_fast_ack_disabled(monkeypatch):
         return _Resp()
 
     import backend.voice.service as svc_mod
+
     monkeypatch.setattr(svc_mod, "signed_post_json", _post)
     monkeypatch.setattr(svc_mod, "index_outbound_call", lambda **k: None)
-    monkeypatch.setattr(svc_mod, "submit_product_page", lambda **k: {"status": "skipped_existing_sku"})
+    monkeypatch.setattr(
+        svc_mod, "submit_product_page", lambda **k: {"status": "skipped_existing_sku"}
+    )
 
     from backend.voice.service import handle_webhook_event
+
     result = asyncio.run(handle_webhook_event(_eoc_event("sync_call")))
     # Real result, not the async sentinel.
     assert result.memory_dispatch_error != "accepted_async"
@@ -184,6 +203,7 @@ def test_non_terminal_event_unaffected_by_fast_ack(monkeypatch):
     _override_settings(monkeypatch)
     from backend.voice.service import handle_webhook_event
     from backend.voice.models import VapiWebhookEvent
+
     event = VapiWebhookEvent.model_validate(
         {"message": {"type": "status-update", "call": {"id": "c9"}}}
     )

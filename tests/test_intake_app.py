@@ -1,4 +1,5 @@
 """Intake workcell FastAPI endpoint tests — including CORS preflight."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -7,9 +8,11 @@ from typing import Any
 def _reset_idempotency(monkeypatch):
     from backend.common.idempotency import IdempotencyStore
     import backend.common.idempotency as idem_mod
+
     fresh = IdempotencyStore()
     monkeypatch.setattr(idem_mod, "GLOBAL_IDEMPOTENCY_STORE", fresh)
     import backend.intake.service as svc_mod
+
     monkeypatch.setattr(svc_mod, "GLOBAL_IDEMPOTENCY_STORE", fresh)
 
 
@@ -26,6 +29,7 @@ class _FakeTable:
 
 def _patch_table(monkeypatch, table: _FakeTable):
     import backend.intake.service as svc_mod
+
     monkeypatch.setattr(svc_mod, "_leads_table", lambda: table)
 
 
@@ -48,13 +52,16 @@ def _fresh_app(monkeypatch, *, allowed_origins=None):
         )
     # Force settings re-bootstrap so the CORS allow-list reflects the env
     from backend.common.config import reload_settings
+
     reload_settings()
     from backend.intake.app import create_app
+
     return create_app()
 
 
 def _client(monkeypatch, *, allowed_origins=None):
     from fastapi.testclient import TestClient
+
     return TestClient(_fresh_app(monkeypatch, allowed_origins=allowed_origins))
 
 
@@ -74,6 +81,7 @@ def _valid_body():
 # ---------------------------------------------------------------------------
 # POST /intake/onboarding
 # ---------------------------------------------------------------------------
+
 
 def test_post_onboarding_persists(tmp_path, monkeypatch):
     _reset_idempotency(monkeypatch)
@@ -160,6 +168,7 @@ def test_post_onboarding_rejects_extra_fields(tmp_path, monkeypatch):
 # CORS — preflight + actual POST
 # ---------------------------------------------------------------------------
 
+
 def test_cors_preflight_allows_hustleforge(tmp_path, monkeypatch):
     _reset_idempotency(monkeypatch)
     _audit_to_tmp(monkeypatch, tmp_path)
@@ -217,6 +226,7 @@ def test_cors_post_response_includes_allow_origin(tmp_path, monkeypatch):
 # /work TaskEnvelope route
 # ---------------------------------------------------------------------------
 
+
 def test_work_envelope_routes_submit_lead(tmp_path, monkeypatch):
     _reset_idempotency(monkeypatch)
     _audit_to_tmp(monkeypatch, tmp_path)
@@ -252,6 +262,7 @@ def test_work_envelope_rejects_unknown_action(tmp_path, monkeypatch):
 # Finding 1 — rate limiting + CAPTCHA enforcement through the endpoint
 # ---------------------------------------------------------------------------
 
+
 class _CountingTable(_FakeTable):
     """_FakeTable plus a shared atomic-ADD counter for the rate limiter."""
 
@@ -259,17 +270,17 @@ class _CountingTable(_FakeTable):
         super().__init__()
         self.counters: dict[str, int] = {}
 
-    def update_item(self, *, Key, UpdateExpression, ExpressionAttributeValues,
-                    ReturnValues=None, **kwargs):
+    def update_item(
+        self, *, Key, UpdateExpression, ExpressionAttributeValues, ReturnValues=None, **kwargs
+    ):
         key = Key["idempotency_key"]
-        self.counters[key] = self.counters.get(key, 0) + int(
-            ExpressionAttributeValues[":one"]
-        )
+        self.counters[key] = self.counters.get(key, 0) + int(ExpressionAttributeValues[":one"])
         return {"Attributes": {"request_count": self.counters[key]}}
 
 
 def _patch_counter_table(monkeypatch, table):
     import backend.intake.rate_limit as rl_mod
+
     monkeypatch.setattr(rl_mod, "_counter_table", lambda: table)
 
 
@@ -287,8 +298,7 @@ def test_endpoint_returns_429_when_rate_limited(tmp_path, monkeypatch):
     # each request a *distinct* lead and isolate the rate-limit behavior.
     bodies = [dict(_valid_body(), email=f"flood{i}@acme.com") for i in range(4)]
     statuses = [
-        client.post("/intake/onboarding", json=b, headers=headers).status_code
-        for b in bodies
+        client.post("/intake/onboarding", json=b, headers=headers).status_code for b in bodies
     ]
     # First 2 served, then the 3rd + 4th are throttled.
     assert statuses == [200, 200, 429, 429]
@@ -376,8 +386,10 @@ def test_endpoint_accepts_valid_captcha(tmp_path, monkeypatch):
     # Stub the CAPTCHA verifier so no real Turnstile call happens.
     import backend.intake.app as app_mod
     from backend.intake.captcha import CaptchaResult
-    monkeypatch.setattr(app_mod, "verify_captcha",
-                        lambda token, source_ip="": CaptchaResult(ok=True))
+
+    monkeypatch.setattr(
+        app_mod, "verify_captcha", lambda token, source_ip="": CaptchaResult(ok=True)
+    )
 
     client = _client(monkeypatch)
     body = dict(_valid_body(), captcha_token="turnstile-ok")
@@ -396,10 +408,13 @@ def test_endpoint_rejects_invalid_captcha(tmp_path, monkeypatch):
 
     import backend.intake.app as app_mod
     from backend.intake.captcha import CaptchaResult
+
     monkeypatch.setattr(
-        app_mod, "verify_captcha",
+        app_mod,
+        "verify_captcha",
         lambda token, source_ip="": CaptchaResult(
-            ok=False, detail="captcha_verification_failed: bad",
+            ok=False,
+            detail="captcha_verification_failed: bad",
         ),
     )
 

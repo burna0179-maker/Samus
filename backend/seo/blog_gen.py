@@ -17,6 +17,7 @@ Fallback: deterministic template built from keywords + topic. Always
 
 ASCII-only output (Windows-safe).
 """
+
 from __future__ import annotations
 
 import json
@@ -24,7 +25,6 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-import httpx
 
 from backend.common.llm_client import (
     BudgetExceeded,
@@ -44,8 +44,8 @@ _BLOG_TIMEOUT_S = 120.0  # default 30s is too short for max_tokens=3500 completi
 _BLOG_FIELDS = (
     "title",
     "intro",
-    "sections",   # list of {heading, golden_answer, body, stat_markers}
-    "faq",        # list of {q, a}
+    "sections",  # list of {heading, golden_answer, body, stat_markers}
+    "faq",  # list of {q, a}
     "cta",
     "author",
     "date_published",
@@ -60,15 +60,17 @@ _BLOG_FIELDS = (
 @dataclass
 class BlogSection:
     """One H2 section of the blog post."""
-    heading: str          # question-formatted: "How does X work?"
-    golden_answer: str    # 40-60 word answer block for AI extraction
-    body: str             # 240-260 word expansion
+
+    heading: str  # question-formatted: "How does X work?"
+    golden_answer: str  # 40-60 word answer block for AI extraction
+    body: str  # 240-260 word expansion
     stat_markers: list[str] = field(default_factory=list)  # e.g. ["[STAT:source]"]
 
 
 @dataclass
 class BlogFaqItem:
     """A single FAQ question + 40-60 word answer."""
+
     question: str
     answer: str
 
@@ -76,14 +78,15 @@ class BlogFaqItem:
 @dataclass
 class BlogPost:
     """Fully-formed blog post ready for rendering / schema injection."""
+
     title: str
-    intro: str               # 200w introduction
+    intro: str  # 200w introduction
     sections: list[BlogSection]
     faq: list[BlogFaqItem]
-    cta: str                 # 150w conclusion + CTA
+    cta: str  # 150w conclusion + CTA
     author: str
-    date_published: str      # ISO-8601 date
-    date_modified: str       # ISO-8601 date (same as published on first publish)
+    date_published: str  # ISO-8601 date
+    date_modified: str  # ISO-8601 date (same as published on first publish)
     used_llm: bool = False
     word_count: int = 0
     llm_cost_usd: float = 0.0
@@ -252,10 +255,10 @@ def _template_faq(primary_kw: str) -> list[BlogFaqItem]:
         BlogFaqItem(
             question=f"How long does {primary_kw} take to show results?",
             answer=(
-                f"Most businesses see their first AI citation appearances within 4-8 "
-                f"weeks of adding FAQPage schema and restructuring key pages. Compounding "
-                f"topical authority, which drives consistent citation across many "
-                f"queries, typically takes 3-6 months of steady content publishing."
+                "Most businesses see their first AI citation appearances within 4-8 "
+                "weeks of adding FAQPage schema and restructuring key pages. Compounding "
+                "topical authority, which drives consistent citation across many "
+                "queries, typically takes 3-6 months of steady content publishing."
             ),
         ),
         BlogFaqItem(
@@ -268,31 +271,31 @@ def _template_faq(primary_kw: str) -> list[BlogFaqItem]:
             ),
         ),
         BlogFaqItem(
-            question=f"Which AI search bots should I allow in robots.txt?",
+            question="Which AI search bots should I allow in robots.txt?",
             answer=(
-                f"Allow OAI-SearchBot, ChatGPT-User, PerplexityBot, Claude-SearchBot, "
-                f"and Claude-User. Each represents a major AI citation engine. A blanket "
-                f"Disallow or an overly restrictive WAF rule blocks all of them and "
-                f"removes your site from AI-generated answers entirely."
+                "Allow OAI-SearchBot, ChatGPT-User, PerplexityBot, Claude-SearchBot, "
+                "and Claude-User. Each represents a major AI citation engine. A blanket "
+                "Disallow or an overly restrictive WAF rule blocks all of them and "
+                "removes your site from AI-generated answers entirely."
             ),
         ),
         BlogFaqItem(
             question=f"What schema types matter most for {primary_kw}?",
             answer=(
-                f"FAQPage schema is the highest-impact addition for most small business "
-                f"sites because it maps directly to question-and-answer queries. Article "
-                f"schema with datePublished and dateModified adds freshness signals. "
-                f"LocalBusiness schema adds geographic relevance for location-based queries."
+                "FAQPage schema is the highest-impact addition for most small business "
+                "sites because it maps directly to question-and-answer queries. Article "
+                "schema with datePublished and dateModified adds freshness signals. "
+                "LocalBusiness schema adds geographic relevance for location-based queries."
             ),
         ),
         BlogFaqItem(
             question=f"How often should I update my content for {primary_kw}?",
             answer=(
-                f"Update your most important pages at least quarterly: refresh a "
-                f"statistic, add a new FAQ, or expand a section. Update the dateModified "
-                f"field in your Article schema on each pass. AI systems treat recently "
-                f"modified content as more authoritative than pages with stale or "
-                f"missing modification dates."
+                "Update your most important pages at least quarterly: refresh a "
+                "statistic, add a new FAQ, or expand a section. Update the dateModified "
+                "field in your Article schema on each pass. AI systems treat recently "
+                "modified content as more authoritative than pages with stale or "
+                "missing modification dates."
             ),
         ),
     ]
@@ -419,12 +422,14 @@ def _parse_blog_text(text: str) -> BlogPost:
     for i, s in enumerate(sections_raw[:4]):
         if not isinstance(s, dict):
             raise ValueError(f"section[{i}] not a dict")
-        sections.append(BlogSection(
-            heading=str(s.get("heading") or "").strip(),
-            golden_answer=str(s.get("golden_answer") or "").strip(),
-            body=str(s.get("body") or "").strip(),
-            stat_markers=[str(m) for m in (s.get("stat_markers") or []) if m],
-        ))
+        sections.append(
+            BlogSection(
+                heading=str(s.get("heading") or "").strip(),
+                golden_answer=str(s.get("golden_answer") or "").strip(),
+                body=str(s.get("body") or "").strip(),
+                stat_markers=[str(m) for m in (s.get("stat_markers") or []) if m],
+            )
+        )
 
     faq_raw = req("faq")
     if not isinstance(faq_raw, list) or len(faq_raw) < 6:
@@ -433,10 +438,12 @@ def _parse_blog_text(text: str) -> BlogPost:
     for i, f in enumerate(faq_raw[:8]):
         if not isinstance(f, dict):
             raise ValueError(f"faq[{i}] not a dict")
-        faq.append(BlogFaqItem(
-            question=str(f.get("q") or "").strip(),
-            answer=str(f.get("a") or "").strip(),
-        ))
+        faq.append(
+            BlogFaqItem(
+                question=str(f.get("q") or "").strip(),
+                answer=str(f.get("a") or "").strip(),
+            )
+        )
 
     now = iso_now()
     post = BlogPost(
@@ -457,6 +464,7 @@ def _parse_blog_text(text: str) -> BlogPost:
 def _price_blog_usage(usage: dict[str, int] | None) -> float:
     try:
         from backend.common.llm_pricing import cost_from_usage
+
         return cost_from_usage(_ANTHROPIC_MODEL, usage)
     except Exception as exc:  # noqa: BLE001
         _LOG.debug("blog gen llm cost pricing skipped: %s", exc)
@@ -476,11 +484,14 @@ def _scrub_post_numbers(post: "BlogPost", allowed_sources: list[str]) -> list[st
     (typically the brief's proof_points + the topic / keyword inputs).
     """
     from backend.marketing.brand_brief import scrub_invented_numbers
+
     all_flags: list[str] = []
     post.intro, f = scrub_invented_numbers(post.intro, allowed_sources=allowed_sources)
     all_flags.extend(f)
     for s in post.sections:
-        s.golden_answer, f = scrub_invented_numbers(s.golden_answer, allowed_sources=allowed_sources)
+        s.golden_answer, f = scrub_invented_numbers(
+            s.golden_answer, allowed_sources=allowed_sources
+        )
         all_flags.extend(f)
         s.body, f = scrub_invented_numbers(s.body, allowed_sources=allowed_sources)
         all_flags.extend(f)
@@ -532,7 +543,8 @@ def generate_blog_post(
     except BudgetExceeded as exc:
         _LOG.info(
             "blog gen budget denied workcell=%s reason=%s; falling back to template",
-            _BUDGET_WORKCELL, exc.decision.reason,
+            _BUDGET_WORKCELL,
+            exc.decision.reason,
         )
         post = _build_template_post(topic, primary_kw, secondary_kws, author, date_str)
         _scrub_post_numbers(post, allowed)

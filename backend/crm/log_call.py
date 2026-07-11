@@ -18,6 +18,7 @@ DPAPI). Non-interactive: one call logged per invocation.
   python -m backend.crm.log_call --prospect-id pr_x --company "Acme HVAC" \\
       --outcome booked --notes "spoke with owner, booked audit Thu 2pm"
 """
+
 from __future__ import annotations
 
 import argparse
@@ -31,6 +32,7 @@ from typing import Any
 from backend.common import storage
 from backend.common.dates import iso_now
 from backend.crm import service as crm_service
+
 # Canonical outcome taxonomy — shared with the Vapi agent path
 # (backend.voice.service) so both record into the same vocabulary.
 from backend.crm.call_outcomes import (
@@ -98,16 +100,23 @@ def log_call(
     """
     outcome = (outcome or "").strip().lower()
     if not is_valid_outcome(outcome):
-        return {"ok": False, "error": f"invalid_outcome: {outcome!r} "
-                f"(expected one of {', '.join(VALID_OUTCOMES)})"}
+        return {
+            "ok": False,
+            "error": f"invalid_outcome: {outcome!r} (expected one of {', '.join(VALID_OUTCOMES)})",
+        }
     if not (prospect_id or "").strip():
         return {"ok": False, "error": "prospect_id is required"}
 
     ts = iso_now()
     record = {
-        "ts": ts, "prospect_id": prospect_id, "company": company,
-        "phone": phone, "outcome": outcome, "notes": notes,
-        "duration_sec": duration_sec, "source": "operator",
+        "ts": ts,
+        "prospect_id": prospect_id,
+        "company": company,
+        "phone": phone,
+        "outcome": outcome,
+        "notes": notes,
+        "duration_sec": duration_sec,
+        "source": "operator",
     }
     journal_ok = _append_journal(record)
 
@@ -156,22 +165,24 @@ def log_call(
     opportunity_id = ""
     if outcome == "booked":
         try:
-            opp = crm_service.create_opportunity(CreateOpportunityRequest(
-                prospect_id=prospect_id,
-                name=company or f"Opportunity for {prospect_id}",
-                intent_score=85,  # a booked call is high-intent
-                next_step=notes or "Follow up on booked call",
-                # Strategy bandit attribution snapshot (Unit 3) — carried from
-                # the call-list CSV so a closed deal credits the right arm.
-                industry=industry,
-                policy_family=policy_family,
-                seo_score=seo_score,
-                owner_email=owner_email,
-                social_facebook=social_facebook,
-                social_instagram=social_instagram,
-                # Per-prospect LLM cost (Unit 4) — carried from the call-list CSV.
-                token_cost_usd=token_cost_usd,
-            ))
+            opp = crm_service.create_opportunity(
+                CreateOpportunityRequest(
+                    prospect_id=prospect_id,
+                    name=company or f"Opportunity for {prospect_id}",
+                    intent_score=85,  # a booked call is high-intent
+                    next_step=notes or "Follow up on booked call",
+                    # Strategy bandit attribution snapshot (Unit 3) — carried from
+                    # the call-list CSV so a closed deal credits the right arm.
+                    industry=industry,
+                    policy_family=policy_family,
+                    seo_score=seo_score,
+                    owner_email=owner_email,
+                    social_facebook=social_facebook,
+                    social_instagram=social_instagram,
+                    # Per-prospect LLM cost (Unit 4) — carried from the call-list CSV.
+                    token_cost_usd=token_cost_usd,
+                )
+            )
             if opp.status == "created":
                 opportunity_id = opp.opportunity_id
             else:
@@ -186,6 +197,7 @@ def log_call(
     if notes:
         try:
             from backend.crm.note_distiller import distill_notes
+
             distilled = distill_notes(
                 prospect_id=prospect_id,
                 company=company,
@@ -212,33 +224,49 @@ def log_call(
 def main(argv: list[str] | None = None) -> int:
     """CLI entry — log one call. Exit 0 on a clean CRM write, 1 otherwise."""
     parser = argparse.ArgumentParser(
-        prog="log_call", description="Record one hand-dialed call into the CRM.",
+        prog="log_call",
+        description="Record one hand-dialed call into the CRM.",
     )
     parser.add_argument("--prospect-id", required=True)
     parser.add_argument("--company", default="")
     parser.add_argument("--phone", default="")
     parser.add_argument("--outcome", required=True, choices=VALID_OUTCOMES)
     parser.add_argument("--notes", default="")
-    parser.add_argument("--duration", type=int, default=0,
-                        help="call duration in seconds (optional)")
+    parser.add_argument(
+        "--duration", type=int, default=0, help="call duration in seconds (optional)"
+    )
     # --- strategy bandit attribution snapshot (Unit 3) --------------------
     # Threaded from the call-list CSV row by Log-Call.ps1. seo_score is the
     # 0-100 audit score; the three social/owner flags are booleans ("did
     # enrichment find one"), passed as --owner-email-found etc.
     parser.add_argument("--industry", default="")
     parser.add_argument("--policy-family", default="")
-    parser.add_argument("--seo-score", type=int, default=0,
-                        help="0-100 SEO audit score from the call-list row")
-    parser.add_argument("--owner-email-found", action="store_true",
-                        help="enrichment found an owner email for this prospect")
-    parser.add_argument("--social-facebook-found", action="store_true",
-                        help="enrichment found a Facebook handle for this prospect")
-    parser.add_argument("--social-instagram-found", action="store_true",
-                        help="enrichment found an Instagram handle for this prospect")
+    parser.add_argument(
+        "--seo-score", type=int, default=0, help="0-100 SEO audit score from the call-list row"
+    )
+    parser.add_argument(
+        "--owner-email-found",
+        action="store_true",
+        help="enrichment found an owner email for this prospect",
+    )
+    parser.add_argument(
+        "--social-facebook-found",
+        action="store_true",
+        help="enrichment found a Facebook handle for this prospect",
+    )
+    parser.add_argument(
+        "--social-instagram-found",
+        action="store_true",
+        help="enrichment found an Instagram handle for this prospect",
+    )
     # --- per-prospect LLM cost (strategy-integration build, Unit 4) -------
     # Threaded from the call-list CSV row by Log-Call.ps1.
-    parser.add_argument("--token-cost-usd", type=float, default=0.0,
-                        help="per-prospect LLM dollars spent during discovery")
+    parser.add_argument(
+        "--token-cost-usd",
+        type=float,
+        default=0.0,
+        help="per-prospect LLM dollars spent during discovery",
+    )
     args = parser.parse_args(argv)
 
     result = log_call(

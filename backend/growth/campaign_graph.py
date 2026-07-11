@@ -26,6 +26,7 @@ UCB formula per edge::
 where C = 1.4 (standard UCB1 exploration constant). Untried edges score inf
 so every edge is tried before exploitation begins.
 """
+
 from __future__ import annotations
 
 import json
@@ -55,12 +56,13 @@ def _growth_root() -> Path:
 # Graph shapes
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class GraphNode:
     id: str
-    objective: str       # "retain_existing" | "cold_top_funnel" | "upsell_vip" | ...
-    channel: str         # "email" | "blog" | "social" | "outreach"
-    angle: str           # content hook / approach
+    objective: str  # "retain_existing" | "cold_top_funnel" | "upsell_vip" | ...
+    channel: str  # "email" | "blog" | "social" | "outreach"
+    angle: str  # content hook / approach
     industry: str = ""
     persona_mode: str = "helpful"
     created_at: float = 0.0
@@ -73,6 +75,7 @@ class GraphNode:
 @dataclass
 class ContentBrief:
     """One suggested content production task from the campaign graph."""
+
     task_id: str
     node_id: str
     objective: str
@@ -137,23 +140,48 @@ _SEED_NODES: list[dict[str, Any]] = [
 ]
 
 _SEED_EDGES: list[dict[str, Any]] = [
-    {"source": "social_cold_curiosity",       "target": "blog_cold_authority",
-     "trials": 0, "wins": 0, "reward_sum": 0.0},
-    {"source": "blog_cold_authority",          "target": "email_retention_helpful",
-     "trials": 0, "wins": 0, "reward_sum": 0.0},
-    {"source": "email_retention_helpful",      "target": "email_vip_upsell",
-     "trials": 0, "wins": 0, "reward_sum": 0.0},
-    {"source": "email_vip_upsell",             "target": "outreach_promising_activate",
-     "trials": 0, "wins": 0, "reward_sum": 0.0},
-    {"source": "outreach_promising_activate",  "target": "social_cold_curiosity",
-     "trials": 0, "wins": 0, "reward_sum": 0.0},
+    {
+        "source": "social_cold_curiosity",
+        "target": "blog_cold_authority",
+        "trials": 0,
+        "wins": 0,
+        "reward_sum": 0.0,
+    },
+    {
+        "source": "blog_cold_authority",
+        "target": "email_retention_helpful",
+        "trials": 0,
+        "wins": 0,
+        "reward_sum": 0.0,
+    },
+    {
+        "source": "email_retention_helpful",
+        "target": "email_vip_upsell",
+        "trials": 0,
+        "wins": 0,
+        "reward_sum": 0.0,
+    },
+    {
+        "source": "email_vip_upsell",
+        "target": "outreach_promising_activate",
+        "trials": 0,
+        "wins": 0,
+        "reward_sum": 0.0,
+    },
+    {
+        "source": "outreach_promising_activate",
+        "target": "social_cold_curiosity",
+        "trials": 0,
+        "wins": 0,
+        "reward_sum": 0.0,
+    },
 ]
 
 # Deterministic keyword mapping: objective -> base keyword set
 _OBJECTIVE_KEYWORDS: dict[str, list[str]] = {
-    "retain_existing":    ["customer retention", "client success"],
-    "cold_top_funnel":    ["local SEO", "small business marketing"],
-    "upsell_vip":         ["website optimization", "business growth"],
+    "retain_existing": ["customer retention", "client success"],
+    "cold_top_funnel": ["local SEO", "small business marketing"],
+    "upsell_vip": ["website optimization", "business growth"],
     "activate_promising": ["online marketing", "quick wins"],
 }
 
@@ -161,6 +189,7 @@ _OBJECTIVE_KEYWORDS: dict[str, list[str]] = {
 # ---------------------------------------------------------------------------
 # UCB scoring
 # ---------------------------------------------------------------------------
+
 
 def _ucb_score(trials: int, reward_sum: float, total_trials: int) -> float:
     if trials == 0:
@@ -191,6 +220,7 @@ def _best_ucb_by_source(
 # Campaign Graph Engine
 # ---------------------------------------------------------------------------
 
+
 class CampaignGraphEngine:
     """UCB-driven campaign graph: schedules content tasks, learns from outcomes."""
 
@@ -217,9 +247,7 @@ class CampaignGraphEngine:
 
     def _save(self, graph: dict[str, Any]) -> None:
         try:
-            self._graph_path.write_text(
-                json.dumps(graph, indent=2), encoding="utf-8"
-            )
+            self._graph_path.write_text(json.dumps(graph, indent=2), encoding="utf-8")
         except Exception as exc:  # noqa: BLE001
             _LOG.warning("campaign_graph save failed: %s", exc)
 
@@ -266,17 +294,19 @@ class CampaignGraphEngine:
 
         briefs: list[ContentBrief] = []
         for node in ranked[:batch_size]:
-            briefs.append(ContentBrief(
-                task_id=uuid.uuid4().hex,
-                node_id=str(node.get("id", "")),
-                objective=str(node.get("objective", "")),
-                channel=str(node.get("channel", "")),
-                angle=str(node.get("angle", "")),
-                industry=str(node.get("industry", "")),
-                persona_mode=str(node.get("persona_mode", "helpful")),
-                primary_keywords=self._keywords_for_node(node, signals),
-                context={"signals": signals},
-            ))
+            briefs.append(
+                ContentBrief(
+                    task_id=uuid.uuid4().hex,
+                    node_id=str(node.get("id", "")),
+                    objective=str(node.get("objective", "")),
+                    channel=str(node.get("channel", "")),
+                    angle=str(node.get("angle", "")),
+                    industry=str(node.get("industry", "")),
+                    persona_mode=str(node.get("persona_mode", "helpful")),
+                    primary_keywords=self._keywords_for_node(node, signals),
+                    context={"signals": signals},
+                )
+            )
 
         _LOG.info("campaign_graph suggested %d briefs", len(briefs))
         return briefs
@@ -327,7 +357,9 @@ class CampaignGraphEngine:
 
         _LOG.info(
             "campaign_graph recorded outcome node=%s reward=%.3f updated_edges=%s",
-            node_id, reward, updated,
+            node_id,
+            reward,
+            updated,
         )
 
     def add_node(self, node: GraphNode) -> None:

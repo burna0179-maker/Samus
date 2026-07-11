@@ -4,6 +4,7 @@
 dominant business gap, a pain hypothesis, a HustleForge offer, a prospect-
 specific pitch, and the qualifying questions the operator should ask.
 """
+
 from __future__ import annotations
 
 from backend.prospecting.callsheet_intel import derive_callsheet_intel
@@ -43,8 +44,9 @@ def test_no_website_offer_is_a_build_not_an_audit():
     intel = derive_callsheet_intel(_p(website_status="no_website"))
     offer = (intel.offer or "").lower()
     assert "audit" not in offer, f"no-website offer must not mention an audit: {intel.offer!r}"
-    assert any(w in offer for w in ("build", "site", "presence", "website")), \
+    assert any(w in offer for w in ("build", "site", "presence", "website")), (
         f"no-website offer should be a build: {intel.offer!r}"
+    )
     # The pitch should pitch building a presence, not auditing one.
     assert "build" in (intel.pitch or "").lower()
 
@@ -131,9 +133,7 @@ def test_clean_security_grade_no_trust_gap():
 
 def test_secondary_gap_yields_a_pivot():
     """Two real gaps → the secondary rides as a pitch pivot."""
-    intel = derive_callsheet_intel(
-        _p(website_status="live", seo_score=15, security_grade="F")
-    )
+    intel = derive_callsheet_intel(_p(website_status="live", seo_score=15, security_grade="F"))
     assert intel.primary_gap == "trust_posture"
     assert intel.secondary_gap == "weak_visibility"
     assert intel.pivot
@@ -149,9 +149,7 @@ def test_single_dominant_gap_pivots_to_manual_ops():
 
 
 def test_issues_reflect_only_observed_signals():
-    intel = derive_callsheet_intel(
-        _p(website_status="live", seo_score=30, security_grade="D")
-    )
+    intel = derive_callsheet_intel(_p(website_status="live", seo_score=30, security_grade="D"))
     joined = " ; ".join(intel.issues)
     assert "30/100" in joined
     assert "grade D" in joined
@@ -172,13 +170,18 @@ def test_qualify_prompts_include_base_vapi_questions():
 def test_gap_scores_always_carry_every_axis():
     intel = derive_callsheet_intel(ProspectRecord())
     assert set(intel.gap_scores) == {
-        "no_presence", "weak_visibility", "reputation", "trust_posture", "manual_ops",
+        "no_presence",
+        "weak_visibility",
+        "reputation",
+        "trust_posture",
+        "manual_ops",
     }
 
 
 def test_pitch_names_the_company():
-    intel = derive_callsheet_intel(_p(company_name="Bright Smile Dental",
-                                      website_status="no_website"))
+    intel = derive_callsheet_intel(
+        _p(company_name="Bright Smile Dental", website_status="no_website")
+    )
     assert "Bright Smile Dental" in intel.pitch
 
 
@@ -198,31 +201,24 @@ def test_unparseable_review_fields_do_not_raise():
 def test_manual_ops_scores_zero_at_or_below_volume_floor():
     """A quiet business (<=25 reviews) reads as no manual-ops signal — that
     thin profile is a reputation gap, not a volume gap."""
-    intel = derive_callsheet_intel(
-        _p(website_status="live", seo_score=80, review_count="25")
-    )
+    intel = derive_callsheet_intel(_p(website_status="live", seo_score=80, review_count="25"))
     assert intel.gap_scores["manual_ops"] == 0
 
 
 def test_manual_ops_saturates_at_high_volume():
-    intel = derive_callsheet_intel(
-        _p(website_status="live", seo_score=80, review_count="1127")
-    )
+    intel = derive_callsheet_intel(_p(website_status="live", seo_score=80, review_count="1127"))
     assert intel.gap_scores["manual_ops"] == 100
 
 
 def test_manual_ops_ramps_between_floor_and_ceiling():
-    intel = derive_callsheet_intel(
-        _p(website_status="live", seo_score=80, review_count="140")
-    )
+    intel = derive_callsheet_intel(_p(website_status="live", seo_score=80, review_count="140"))
     assert 0 < intel.gap_scores["manual_ops"] < 100
 
 
 def test_high_volume_alone_drives_manual_ops_primary():
     """High volume with no other observed gap makes automation the primary."""
     intel = derive_callsheet_intel(
-        _p(website_status="live", seo_score=80, review_rating="4.8",
-           review_count="600")
+        _p(website_status="live", seo_score=80, review_rating="4.8", review_count="600")
     )
     assert intel.primary_gap == "manual_ops"
     assert intel.gap_scores["manual_ops"] == 100
@@ -231,10 +227,15 @@ def test_high_volume_alone_drives_manual_ops_primary():
 def test_high_volume_leads_with_automation_over_security_f():
     """The Magnolia case: a high-volume practice with a security-F site leads
     with the automation angle; the trust gap rides as the pivot."""
-    intel = derive_callsheet_intel(_p(
-        website_status="live", seo_score=80, review_rating="4.9",
-        review_count="1127", security_grade="F",
-    ))
+    intel = derive_callsheet_intel(
+        _p(
+            website_status="live",
+            seo_score=80,
+            review_rating="4.9",
+            review_count="1127",
+            security_grade="F",
+        )
+    )
     assert intel.primary_gap == "manual_ops"
     assert intel.secondary_gap == "trust_posture"
     assert intel.pivot and intel.pivot != intel.pitch
@@ -244,7 +245,12 @@ def test_high_volume_leads_with_automation_over_security_f():
 def test_low_volume_security_f_still_leads_with_trust_gap():
     """Below the volume-saturation point the automation flip does NOT fire —
     a security-F still leads. The flip is targeted at high-volume prospects."""
-    intel = derive_callsheet_intel(_p(
-        website_status="live", seo_score=80, review_count="40", security_grade="F",
-    ))
+    intel = derive_callsheet_intel(
+        _p(
+            website_status="live",
+            seo_score=80,
+            review_count="40",
+            security_grade="F",
+        )
+    )
     assert intel.primary_gap == "trust_posture"

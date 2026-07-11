@@ -5,6 +5,7 @@ The module reads the operator-action ledger at
 prospect's most-recent prior outcome + note. These tests point HF_DATA_DIR at
 a tmp dir and write synthetic journals.
 """
+
 from __future__ import annotations
 
 import json
@@ -35,17 +36,21 @@ def journal_dir(tmp_path, monkeypatch):
 
 def test_returns_latest_outcome_and_notes(journal_dir):
     today = date.today()
-    _write_journal(journal_dir, today, [
-        {
-            "ts": f"{today.isoformat()}T10:00:00",
-            "prospect_id": "pr_ABC",
-            "company": "Acme",
-            "phone": "(530) 111-2222",
-            "outcome": "follow_up",
-            "notes": "Send the SEO audit; decision-maker is Pat.",
-            "source": "forge-ui",
-        },
-    ])
+    _write_journal(
+        journal_dir,
+        today,
+        [
+            {
+                "ts": f"{today.isoformat()}T10:00:00",
+                "prospect_id": "pr_ABC",
+                "company": "Acme",
+                "phone": "(530) 111-2222",
+                "outcome": "follow_up",
+                "notes": "Send the SEO audit; decision-maker is Pat.",
+                "source": "forge-ui",
+            },
+        ],
+    )
 
     ctx = build_prospect_context("pr_ABC")
 
@@ -61,25 +66,33 @@ def test_latest_wins_across_days(journal_dir):
     yesterday = today - timedelta(days=1)
 
     # Older prior-day record.
-    _write_journal(journal_dir, yesterday, [
-        {
-            "ts": f"{yesterday.isoformat()}T09:00:00",
-            "prospect_id": "pr_ABC",
-            "outcome": "not_interested",
-            "notes": "Old note.",
-            "source": "forge-ui",
-        },
-    ])
+    _write_journal(
+        journal_dir,
+        yesterday,
+        [
+            {
+                "ts": f"{yesterday.isoformat()}T09:00:00",
+                "prospect_id": "pr_ABC",
+                "outcome": "not_interested",
+                "notes": "Old note.",
+                "source": "forge-ui",
+            },
+        ],
+    )
     # Newer record today -> must win.
-    _write_journal(journal_dir, today, [
-        {
-            "ts": f"{today.isoformat()}T15:30:00",
-            "prospect_id": "pr_ABC",
-            "outcome": "voicemail",
-            "notes": "Left a voicemail today.",
-            "source": "forge-ui",
-        },
-    ])
+    _write_journal(
+        journal_dir,
+        today,
+        [
+            {
+                "ts": f"{today.isoformat()}T15:30:00",
+                "prospect_id": "pr_ABC",
+                "outcome": "voicemail",
+                "notes": "Left a voicemail today.",
+                "source": "forge-ui",
+            },
+        ],
+    )
 
     ctx = build_prospect_context("pr_ABC")
 
@@ -89,22 +102,26 @@ def test_latest_wins_across_days(journal_dir):
 
 def test_latest_wins_within_same_day(journal_dir):
     today = date.today()
-    _write_journal(journal_dir, today, [
-        {
-            "ts": f"{today.isoformat()}T08:00:00",
-            "prospect_id": "pr_ABC",
-            "outcome": "no_answer",
-            "notes": "early",
-            "source": "forge-ui",
-        },
-        {
-            "ts": f"{today.isoformat()}T17:00:00",
-            "prospect_id": "pr_ABC",
-            "outcome": "follow_up",
-            "notes": "later",
-            "source": "forge-ui",
-        },
-    ])
+    _write_journal(
+        journal_dir,
+        today,
+        [
+            {
+                "ts": f"{today.isoformat()}T08:00:00",
+                "prospect_id": "pr_ABC",
+                "outcome": "no_answer",
+                "notes": "early",
+                "source": "forge-ui",
+            },
+            {
+                "ts": f"{today.isoformat()}T17:00:00",
+                "prospect_id": "pr_ABC",
+                "outcome": "follow_up",
+                "notes": "later",
+                "source": "forge-ui",
+            },
+        ],
+    )
 
     ctx = build_prospect_context("pr_ABC")
 
@@ -114,15 +131,19 @@ def test_latest_wins_within_same_day(journal_dir):
 
 def test_unknown_prospect_returns_empty(journal_dir):
     today = date.today()
-    _write_journal(journal_dir, today, [
-        {
-            "ts": f"{today.isoformat()}T10:00:00",
-            "prospect_id": "pr_SOMEONE_ELSE",
-            "outcome": "follow_up",
-            "notes": "not for us",
-            "source": "forge-ui",
-        },
-    ])
+    _write_journal(
+        journal_dir,
+        today,
+        [
+            {
+                "ts": f"{today.isoformat()}T10:00:00",
+                "prospect_id": "pr_SOMEONE_ELSE",
+                "outcome": "follow_up",
+                "notes": "not for us",
+                "source": "forge-ui",
+            },
+        ],
+    )
 
     ctx = build_prospect_context("pr_NOBODY")
 
@@ -136,15 +157,19 @@ def test_unknown_prospect_returns_empty(journal_dir):
 def test_notes_truncated(journal_dir):
     today = date.today()
     long_note = "x" * 500
-    _write_journal(journal_dir, today, [
-        {
-            "ts": f"{today.isoformat()}T10:00:00",
-            "prospect_id": "pr_ABC",
-            "outcome": "noted",
-            "notes": long_note,
-            "source": "forge-ui",
-        },
-    ])
+    _write_journal(
+        journal_dir,
+        today,
+        [
+            {
+                "ts": f"{today.isoformat()}T10:00:00",
+                "prospect_id": "pr_ABC",
+                "outcome": "noted",
+                "notes": long_note,
+                "source": "forge-ui",
+            },
+        ],
+    )
 
     ctx = build_prospect_context("pr_ABC")
 
@@ -179,13 +204,16 @@ def test_malformed_lines_skipped(journal_dir):
     path.write_text(
         "this is not json\n"
         "\n"
-        + json.dumps({
-            "ts": f"{today.isoformat()}T10:00:00",
-            "prospect_id": "pr_ABC",
-            "outcome": "follow_up",
-            "notes": "valid",
-            "source": "forge-ui",
-        }) + "\n"
+        + json.dumps(
+            {
+                "ts": f"{today.isoformat()}T10:00:00",
+                "prospect_id": "pr_ABC",
+                "outcome": "follow_up",
+                "notes": "valid",
+                "source": "forge-ui",
+            }
+        )
+        + "\n"
         + "{broken json\n",
         encoding="utf-8",
     )
@@ -199,15 +227,19 @@ def test_malformed_lines_skipped(journal_dir):
 def test_outside_window_excluded(journal_dir):
     today = date.today()
     old_day = today - timedelta(days=40)
-    _write_journal(journal_dir, old_day, [
-        {
-            "ts": f"{old_day.isoformat()}T10:00:00",
-            "prospect_id": "pr_ABC",
-            "outcome": "follow_up",
-            "notes": "ancient",
-            "source": "forge-ui",
-        },
-    ])
+    _write_journal(
+        journal_dir,
+        old_day,
+        [
+            {
+                "ts": f"{old_day.isoformat()}T10:00:00",
+                "prospect_id": "pr_ABC",
+                "outcome": "follow_up",
+                "notes": "ancient",
+                "source": "forge-ui",
+            },
+        ],
+    )
 
     # Default days=30 -> the 40-day-old record is outside the scan window.
     ctx = build_prospect_context("pr_ABC")

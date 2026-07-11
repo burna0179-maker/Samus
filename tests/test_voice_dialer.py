@@ -1,4 +1,5 @@
 """Morning dialer — CSV walk, priority sort, TCPA gate, dry-run, variable injection."""
+
 from __future__ import annotations
 
 import csv
@@ -29,6 +30,7 @@ from backend.prospecting.models import ProspectRecord
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(autouse=True)
 def _phone_preflight_failopen(monkeypatch):
     """Default every dialer test to fail-OPEN on the Vapi phone-number
@@ -40,8 +42,10 @@ def _phone_preflight_failopen(monkeypatch):
 
     class _NonOk:
         status_code = 503
+
         def json(self):  # pragma: no cover — not reached on non-200
             return []
+
     monkeypatch.setattr(httpx, "get", lambda *a, **k: _NonOk())
 
 
@@ -71,16 +75,17 @@ def _prospect_row(**overrides) -> dict:
     return base
 
 
-def _override_vapi_settings(monkeypatch, *, assistant: str = "ast_x",
-                            phone: str = "pn_y"):
+def _override_vapi_settings(monkeypatch, *, assistant: str = "ast_x", phone: str = "pn_y"):
     class _S:
         pass
+
     s = _S()
     s.vapi_assistant_id = assistant
     s.vapi_phone_number_id = phone
     s.vapi_api_key = "vapi_test"
     s.aws_region = "us-west-1"
     import backend.voice.dialer as mod
+
     monkeypatch.setattr(mod, "get_settings", lambda: s)
     # DNC/suppression is fail-closed (needs a real samus_suppression table).
     # These tests exercise cooldown/warm-exclusion, not DNC — a phone with no
@@ -90,16 +95,15 @@ def _override_vapi_settings(monkeypatch, *, assistant: str = "ast_x",
 
 
 def _isolate_audit(monkeypatch, tmp_path):
-    monkeypatch.setenv("SAMUS_VOICE_AUDIT_PATH",
-                       str(tmp_path / "voice_audit.jsonl"))
-    monkeypatch.setenv("SAMUS_VOICE_EVENTS_PATH",
-                       str(tmp_path / "voice_events.jsonl"))
+    monkeypatch.setenv("SAMUS_VOICE_AUDIT_PATH", str(tmp_path / "voice_audit.jsonl"))
+    monkeypatch.setenv("SAMUS_VOICE_EVENTS_PATH", str(tmp_path / "voice_events.jsonl"))
     monkeypatch.setenv("SAMUS_ARTIFACT_ROOT", str(tmp_path / "artifacts"))
 
 
 # ---------------------------------------------------------------------------
 # Phone normalization
 # ---------------------------------------------------------------------------
+
 
 def test_normalize_phone_us_10_digit():
     assert _normalize_phone("530-555-1234") == "+15305551234"
@@ -126,10 +130,12 @@ def test_normalize_phone_rejects_too_short():
 # CSV load
 # ---------------------------------------------------------------------------
 
+
 def test_load_prospects_from_csv_round_trips(tmp_path):
     csv_path = tmp_path / "call_list.csv"
-    _write_csv(csv_path, [_prospect_row(), _prospect_row(prospect_id="p_002",
-                                                        company_name="Bar Inc")])
+    _write_csv(
+        csv_path, [_prospect_row(), _prospect_row(prospect_id="p_002", company_name="Bar Inc")]
+    )
     out = load_prospects_from_csv(csv_path)
     assert len(out) == 2
     assert out[0].company_name == "Acme Co"
@@ -139,8 +145,7 @@ def test_load_prospects_from_csv_round_trips(tmp_path):
 def test_load_prospects_from_csv_skips_malformed(tmp_path, caplog):
     csv_path = tmp_path / "bad.csv"
     # Write a row with junk in lead_score (Pydantic should fail).
-    rows = [_prospect_row(),
-            _prospect_row(prospect_id="p_bad", lead_score="not-a-number")]
+    rows = [_prospect_row(), _prospect_row(prospect_id="p_bad", lead_score="not-a-number")]
     _write_csv(csv_path, rows)
     out = load_prospects_from_csv(csv_path)
     # Both succeed because ProspectRecord coerces lead_score to str.
@@ -157,11 +162,12 @@ def test_load_prospects_missing_file_raises(tmp_path):
 # Priority sort
 # ---------------------------------------------------------------------------
 
+
 def test_sort_prospects_priority_then_score_then_seo():
     a = ProspectRecord(prospect_id="a", call_priority="warm", lead_score="50", seo_score="60")
-    b = ProspectRecord(prospect_id="b", call_priority="hot",  lead_score="80", seo_score="40")
-    c = ProspectRecord(prospect_id="c", call_priority="hot",  lead_score="80", seo_score="20")
-    d = ProspectRecord(prospect_id="d", call_priority="low",  lead_score="99", seo_score="10")
+    b = ProspectRecord(prospect_id="b", call_priority="hot", lead_score="80", seo_score="40")
+    c = ProspectRecord(prospect_id="c", call_priority="hot", lead_score="80", seo_score="20")
+    d = ProspectRecord(prospect_id="d", call_priority="low", lead_score="99", seo_score="10")
     out = _sort_prospects([a, b, c, d])
     # hot first (c before b because lower seo wins tie on score)
     assert [p.prospect_id for p in out] == ["c", "b", "a", "d"]
@@ -171,14 +177,19 @@ def test_sort_prospects_priority_then_score_then_seo():
 # Variable values projection
 # ---------------------------------------------------------------------------
 
+
 def test_build_variable_values_projects_callsheet_fields():
     p = ProspectRecord(
-        prospect_id="p1", company_name="Acme", industry="plumbing",
-        city="Yuba City", state="CA",
+        prospect_id="p1",
+        company_name="Acme",
+        industry="plumbing",
+        city="Yuba City",
+        state="CA",
         callsheet_opener="Hey",
         callsheet_pitch="We can help",
         callsheet_voicemail="Sorry we missed you",
-        lead_score="80", seo_score="30",
+        lead_score="80",
+        seo_score="30",
     )
     vv = _build_variable_values(p)
     assert vv["company_name"] == "Acme"
@@ -195,7 +206,9 @@ def test_owner_name_flows_to_variable_values_when_present():
     variableValues so {{owner_name}} interpolates in Morgan's gatekeeper
     handoff. Must be a str."""
     p = ProspectRecord(
-        prospect_id="p1", company_name="Acme", owner_name="Dana Reyes",
+        prospect_id="p1",
+        company_name="Acme",
+        owner_name="Dana Reyes",
     )
     vv = _build_variable_values(p)
     assert vv["owner_name"] == "Dana Reyes"
@@ -217,7 +230,8 @@ def test_callsheet_finding_flows_to_variable_values(monkeypatch):
     (prompt Step 2). Must be a str."""
     _fake_voice_settings(monkeypatch)
     p = ProspectRecord(
-        prospect_id="p1", company_name="Acme",
+        prospect_id="p1",
+        company_name="Acme",
         callsheet_finding="a security warning grading the site an F",
     )
     vv = _build_variable_values(p)
@@ -240,9 +254,14 @@ def test_callsheet_finding_round_trips_through_csv(tmp_path):
     """callsheet_finding is a real CSV column: it survives write -> load so the
     prospecting-time finding reaches the dialer's variableValues."""
     csv_path = tmp_path / "call_list.csv"
-    _write_csv(csv_path, [_prospect_row(
-        callsheet_finding="a local-search score of 42 out of a hundred",
-    )])
+    _write_csv(
+        csv_path,
+        [
+            _prospect_row(
+                callsheet_finding="a local-search score of 42 out of a hundred",
+            )
+        ],
+    )
     out = load_prospects_from_csv(csv_path)
     assert len(out) == 1
     assert out[0].callsheet_finding == "a local-search score of 42 out of a hundred"
@@ -252,21 +271,25 @@ def test_callsheet_finding_round_trips_through_csv(tmp_path):
 # Gap-6: [NAME]/[PHONE] placeholder substitution (the live-call voicemail bug)
 # ---------------------------------------------------------------------------
 
+
 def _fake_voice_settings(monkeypatch, *, rep="Morgan", callback="(530) 418-5105"):
     class _S:
         samus_voice_rep_name = rep
         samus_voice_callback_number = callback
+
     import backend.voice.dialer as mod
+
     monkeypatch.setattr(mod, "get_settings", lambda: _S())
 
 
 def test_placeholders_substituted_in_opener_and_voicemail(monkeypatch):
     _fake_voice_settings(monkeypatch)
     p = ProspectRecord(
-        prospect_id="p1", company_name="American Home Realty",
+        prospect_id="p1",
+        company_name="American Home Realty",
         callsheet_opener="Hi, this is [NAME] calling from HustleForge.",
         callsheet_voicemail="Hi, this is [NAME] from HustleForge. Give me a "
-                            "call at [PHONE] or visit hustleforge.tech.",
+        "call at [PHONE] or visit hustleforge.tech.",
         callsheet_pitch="[NAME] here with a quick idea.",
     )
     vv = _build_variable_values(p)
@@ -303,14 +326,18 @@ def test_no_placeholder_is_noop(monkeypatch):
 # dial_call_list — dry-run + TCPA gate + priority filter
 # ---------------------------------------------------------------------------
 
+
 def test_dial_call_list_preflight_fails_without_assistant(tmp_path, monkeypatch):
     _isolate_audit(monkeypatch, tmp_path)
+
     # Settings missing assistant/phone.
     class _S:
         vapi_assistant_id = ""
         vapi_phone_number_id = ""
         vapi_api_key = "vapi_test"
+
     import backend.voice.dialer as mod
+
     monkeypatch.setattr(mod, "get_settings", lambda: _S())
     csv_path = tmp_path / "x.csv"
     _write_csv(csv_path, [_prospect_row()])
@@ -322,21 +349,21 @@ def test_dial_call_list_dry_run_does_not_call_initiate_fn(tmp_path, monkeypatch)
     _isolate_audit(monkeypatch, tmp_path)
     _override_vapi_settings(monkeypatch)
     csv_path = tmp_path / "x.csv"
-    _write_csv(csv_path, [_prospect_row(prospect_id="p1"),
-                          _prospect_row(prospect_id="p2")])
+    _write_csv(csv_path, [_prospect_row(prospect_id="p1"), _prospect_row(prospect_id="p2")])
 
     called: list = []
+
     def boom(req, vv):
         called.append((req, vv))
-        return InitiateCallResult(call_id="should_not_happen", status=None,
-                                  vapi_error=None)
+        return InitiateCallResult(call_id="should_not_happen", status=None, vapi_error=None)
 
     # Fixed clock inside TCPA window (3pm UTC = 8am PT)
     fixed_now = datetime(2026, 5, 15, 16, 0, tzinfo=timezone.utc)
     result = dial_call_list(
         csv_path,
         DialerConfig(dry_run=True, delay_between_calls_s=0),
-        initiate_fn=boom, now=fixed_now,
+        initiate_fn=boom,
+        now=fixed_now,
     )
     assert called == []
     assert result.initiated_count == 2
@@ -362,16 +389,18 @@ def test_dial_call_list_priority_filter_skips_low(tmp_path, monkeypatch):
     _isolate_audit(monkeypatch, tmp_path)
     _override_vapi_settings(monkeypatch)
     csv_path = tmp_path / "x.csv"
-    _write_csv(csv_path, [
-        _prospect_row(prospect_id="hot1", call_priority="hot"),
-        _prospect_row(prospect_id="low1", call_priority="low"),
-        _prospect_row(prospect_id="warm1", call_priority="warm"),
-    ])
+    _write_csv(
+        csv_path,
+        [
+            _prospect_row(prospect_id="hot1", call_priority="hot"),
+            _prospect_row(prospect_id="low1", call_priority="low"),
+            _prospect_row(prospect_id="warm1", call_priority="warm"),
+        ],
+    )
     fixed_now = datetime(2026, 5, 15, 16, 0, tzinfo=timezone.utc)
     result = dial_call_list(
         csv_path,
-        DialerConfig(dry_run=True, delay_between_calls_s=0,
-                     only_priorities=["hot"]),
+        DialerConfig(dry_run=True, delay_between_calls_s=0, only_priorities=["hot"]),
         now=fixed_now,
     )
     assert result.eligible_count == 1
@@ -433,18 +462,23 @@ def test_dial_call_list_skips_unusable_phone(tmp_path, monkeypatch):
 # exclusion that prospecting/text_export applies to the morning TXT)
 # ---------------------------------------------------------------------------
 
+
 def test_dial_call_list_excludes_warm_enrolled_prospect(tmp_path, monkeypatch):
     """A prospect in an active buying_signal enrollment must never be dialed,
     even if it sits at the top of the priority sort."""
     _isolate_audit(monkeypatch, tmp_path)
     _override_vapi_settings(monkeypatch)
     csv_path = tmp_path / "x.csv"
-    _write_csv(csv_path, [
-        _prospect_row(prospect_id="pr_warm", company_name="Kelly Z", call_priority="hot"),
-        _prospect_row(prospect_id="pr_cold", company_name="Cold Co", call_priority="hot"),
-    ])
+    _write_csv(
+        csv_path,
+        [
+            _prospect_row(prospect_id="pr_warm", company_name="Kelly Z", call_priority="hot"),
+            _prospect_row(prospect_id="pr_cold", company_name="Cold Co", call_priority="hot"),
+        ],
+    )
     # Kelly is warm-enrolled; the dialer must drop her.
     import backend.voice.dialer as mod
+
     monkeypatch.setattr(mod, "_active_warm_prospect_ids", lambda: {"pr_warm"})
 
     fixed_now = datetime(2026, 5, 15, 20, 0, tzinfo=timezone.utc)
@@ -464,11 +498,15 @@ def test_dial_call_list_warm_filter_empty_is_noop(tmp_path, monkeypatch):
     _isolate_audit(monkeypatch, tmp_path)
     _override_vapi_settings(monkeypatch)
     csv_path = tmp_path / "x.csv"
-    _write_csv(csv_path, [
-        _prospect_row(prospect_id="p1", call_priority="hot"),
-        _prospect_row(prospect_id="p2", call_priority="hot"),
-    ])
+    _write_csv(
+        csv_path,
+        [
+            _prospect_row(prospect_id="p1", call_priority="hot"),
+            _prospect_row(prospect_id="p2", call_priority="hot"),
+        ],
+    )
     import backend.voice.dialer as mod
+
     monkeypatch.setattr(mod, "_active_warm_prospect_ids", lambda: set())
 
     fixed_now = datetime(2026, 5, 15, 20, 0, tzinfo=timezone.utc)
@@ -484,6 +522,7 @@ def test_dial_call_list_warm_filter_empty_is_noop(tmp_path, monkeypatch):
 # Vapi phone-number existence preflight (Gap-5 — a stale id must fail fast)
 # ---------------------------------------------------------------------------
 
+
 def test_phone_number_preflight_blocks_stale_id(tmp_path, monkeypatch):
     """A configured phone-number id that does NOT exist in the Vapi account
     must abort the run up front, not burn dial attempts."""
@@ -494,10 +533,13 @@ def test_phone_number_preflight_blocks_stale_id(tmp_path, monkeypatch):
 
     # Vapi reports only pn_real exists — pn_stale is gone.
     import backend.voice.dialer as mod
+
     monkeypatch.setattr(
-        mod, "_validate_phone_numbers_exist",
-        lambda ids, settings: ({"missing": ["pn_stale"], "available": ["pn_real"]}
-                               if "pn_stale" in ids else None),
+        mod,
+        "_validate_phone_numbers_exist",
+        lambda ids, settings: (
+            {"missing": ["pn_stale"], "available": ["pn_real"]} if "pn_stale" in ids else None
+        ),
     )
     with pytest.raises(RuntimeError, match="vapi_phone_number_not_found"):
         dial_call_list(csv_path, DialerConfig(dry_run=True, delay_between_calls_s=0))
@@ -510,11 +552,12 @@ def test_phone_number_preflight_passes_valid_id(tmp_path, monkeypatch):
     csv_path = tmp_path / "x.csv"
     _write_csv(csv_path, [_prospect_row()])
     import backend.voice.dialer as mod
-    monkeypatch.setattr(mod, "_validate_phone_numbers_exist",
-                        lambda ids, settings: None)
+
+    monkeypatch.setattr(mod, "_validate_phone_numbers_exist", lambda ids, settings: None)
     fixed_now = datetime(2026, 5, 15, 20, 0, tzinfo=timezone.utc)
     result = dial_call_list(
-        csv_path, DialerConfig(dry_run=True, delay_between_calls_s=0),
+        csv_path,
+        DialerConfig(dry_run=True, delay_between_calls_s=0),
         now=fixed_now,
     )
     assert result.initiated_count == 1
@@ -527,10 +570,13 @@ def test_phone_number_preflight_failopen_on_list_error(tmp_path, monkeypatch):
 
     class _S:
         vapi_api_key = "vapi_test"
+
     # Force httpx.get to raise inside the validator.
     import httpx
-    monkeypatch.setattr(httpx, "get",
-                        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("vapi down")))
+
+    monkeypatch.setattr(
+        httpx, "get", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("vapi down"))
+    )
     out = mod._validate_phone_numbers_exist(["pn_any"], _S())
     assert out is None  # fail-open
 
@@ -541,11 +587,15 @@ def test_phone_number_preflight_detects_missing_from_real_list(monkeypatch):
 
     class _Resp:
         status_code = 200
+
         def json(self):
             return [{"id": "pn_real", "number": "+15005550006"}]
+
     class _S:
         vapi_api_key = "vapi_test"
+
     import httpx
+
     monkeypatch.setattr(httpx, "get", lambda *a, **k: _Resp())
     out = mod._validate_phone_numbers_exist(["pn_stale"], _S())
     assert out == {"missing": ["pn_stale"], "available": ["pn_real"]}
@@ -563,11 +613,9 @@ def test_dial_call_list_warm_lookup_fault_is_failopen(tmp_path, monkeypatch):
 
     def _boom():
         raise RuntimeError("buying_signal store unreadable")
-    import backend.voice.dialer as mod
+
     # Patch the underlying lookup, not the filter, so the try/except path runs.
-    monkeypatch.setattr(
-        "backend.outreach.buying_signal_route.active_warm_prospect_ids", _boom
-    )
+    monkeypatch.setattr("backend.outreach.buying_signal_route.active_warm_prospect_ids", _boom)
     fixed_now = datetime(2026, 5, 15, 20, 0, tzinfo=timezone.utc)
     result = dial_call_list(
         csv_path,
@@ -584,16 +632,17 @@ def test_dial_call_list_live_calls_initiate_fn_with_variable_values(tmp_path, mo
     _write_csv(csv_path, [_prospect_row(callsheet_pitch="We can help with SEO")])
 
     captured: list[tuple[InitiateCallRequest, dict[str, str]]] = []
+
     def fake_initiate(req, vv):
         captured.append((req, vv))
-        return InitiateCallResult(call_id="vapi_call_42", status="queued",
-                                  vapi_error=None)
+        return InitiateCallResult(call_id="vapi_call_42", status="queued", vapi_error=None)
 
     fixed_now = datetime(2026, 5, 15, 20, 0, tzinfo=timezone.utc)
     result = dial_call_list(
         csv_path,
         DialerConfig(dry_run=False, delay_between_calls_s=0),
-        initiate_fn=fake_initiate, now=fixed_now,
+        initiate_fn=fake_initiate,
+        now=fixed_now,
     )
     assert result.initiated_count == 1
     assert result.attempts[0].outcome == "initiated"
@@ -615,14 +664,14 @@ def test_dial_call_list_records_vapi_error_outcome(tmp_path, monkeypatch):
     _write_csv(csv_path, [_prospect_row()])
 
     def boom(req, vv):
-        return InitiateCallResult(call_id="", status=None,
-                                  vapi_error="vapi_http_429: rate limited")
+        return InitiateCallResult(call_id="", status=None, vapi_error="vapi_http_429: rate limited")
 
     fixed_now = datetime(2026, 5, 15, 20, 0, tzinfo=timezone.utc)
     result = dial_call_list(
         csv_path,
         DialerConfig(dry_run=False, delay_between_calls_s=0),
-        initiate_fn=boom, now=fixed_now,
+        initiate_fn=boom,
+        now=fixed_now,
     )
     assert result.error_count == 1
     assert result.attempts[0].outcome == "vapi_error"
@@ -637,7 +686,8 @@ def test_dial_call_list_persists_run_record_to_artifact_root(tmp_path, monkeypat
 
     fixed_now = datetime(2026, 5, 15, 20, 0, tzinfo=timezone.utc)
     result = dial_call_list(
-        csv_path, DialerConfig(dry_run=True, delay_between_calls_s=0),
+        csv_path,
+        DialerConfig(dry_run=True, delay_between_calls_s=0),
         now=fixed_now,
     )
     # Run record under <artifact_root>/voice/dial_runs/<run_id>.json
@@ -656,7 +706,8 @@ def test_dial_call_list_appends_audit_rows(tmp_path, monkeypatch):
 
     fixed_now = datetime(2026, 5, 15, 20, 0, tzinfo=timezone.utc)
     dial_call_list(
-        csv_path, DialerConfig(dry_run=True, delay_between_calls_s=0),
+        csv_path,
+        DialerConfig(dry_run=True, delay_between_calls_s=0),
         now=fixed_now,
     )
     audit_path = tmp_path / "voice_audit.jsonl"
@@ -675,12 +726,15 @@ def test_dial_call_list_appends_rich_event_row(tmp_path, monkeypatch):
 
     fixed_now = datetime(2026, 5, 15, 20, 0, tzinfo=timezone.utc)
     dial_call_list(
-        csv_path, DialerConfig(dry_run=True, delay_between_calls_s=0),
+        csv_path,
+        DialerConfig(dry_run=True, delay_between_calls_s=0),
         now=fixed_now,
     )
     events_path = tmp_path / "voice_events.jsonl"
     assert events_path.exists()
-    rows = [json.loads(line) for line in events_path.read_text("utf-8").splitlines() if line.strip()]
+    rows = [
+        json.loads(line) for line in events_path.read_text("utf-8").splitlines() if line.strip()
+    ]
     assert len(rows) == 1
     r = rows[0]
     assert r["kind"] == "dial_attempt"
@@ -693,9 +747,11 @@ def test_dial_call_list_appends_rich_event_row(tmp_path, monkeypatch):
 # Default CSV path
 # ---------------------------------------------------------------------------
 
+
 def test_default_csv_path_for_today(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_ARTIFACT_ROOT", str(tmp_path))
     from datetime import date
+
     expected = tmp_path / "daily_calls" / f"call_list_{date.today().isoformat()}.csv"
     assert default_csv_path_for_today() == expected
 
@@ -704,23 +760,38 @@ def test_default_csv_path_for_today(tmp_path, monkeypatch):
 # Per-number dial cooldown (7-14 day floor)
 # ---------------------------------------------------------------------------
 
-def _seed_dial_run(tmp_path, days_ago: int, *, prospect_id: str = "p_001",
-                   phone: str = "+15305551234", outcome: str = "dry_run"):
+
+def _seed_dial_run(
+    tmp_path,
+    days_ago: int,
+    *,
+    prospect_id: str = "p_001",
+    phone: str = "+15305551234",
+    outcome: str = "dry_run",
+):
     """Write a dial_run_<YYYYMMDD>.json file dated ``days_ago`` days back."""
     from datetime import date, timedelta
+
     day = date.today() - timedelta(days=days_ago)
     runs_dir = tmp_path / "artifacts" / "voice" / "dial_runs"
     runs_dir.mkdir(parents=True, exist_ok=True)
     fpath = runs_dir / f"dial_run_{day.strftime('%Y%m%d')}_seed.json"
-    fpath.write_text(json.dumps({
-        "run_id": f"seed_{days_ago}",
-        "attempts": [{
-            "prospect_id": prospect_id,
-            "phone": phone,
-            "outcome": outcome,
-            "initiated_at": day.isoformat(),
-        }],
-    }), encoding="utf-8")
+    fpath.write_text(
+        json.dumps(
+            {
+                "run_id": f"seed_{days_ago}",
+                "attempts": [
+                    {
+                        "prospect_id": prospect_id,
+                        "phone": phone,
+                        "outcome": outcome,
+                        "initiated_at": day.isoformat(),
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
 
 
 def test_cooldown_blocks_recent_dial_by_prospect_id(tmp_path, monkeypatch):
@@ -730,9 +801,11 @@ def test_cooldown_blocks_recent_dial_by_prospect_id(tmp_path, monkeypatch):
     _seed_dial_run(tmp_path, days_ago=3, outcome="end_of_call")
     monkeypatch.setenv("SAMUS_DIALER_COOLDOWN_DAYS", "7")
     from backend.common import settings as _s
+
     _s.reload_settings() if hasattr(_s, "reload_settings") else None
     # Patch the in-module settings cache too.
     import backend.voice.dialer as mod
+
     base = mod.get_settings()
     base.samus_dialer_cooldown_days = 7  # type: ignore[attr-defined]
     monkeypatch.setattr(mod, "get_settings", lambda: base)
@@ -740,7 +813,8 @@ def test_cooldown_blocks_recent_dial_by_prospect_id(tmp_path, monkeypatch):
     csv_path = tmp_path / "x.csv"
     _write_csv(csv_path, [_prospect_row()])
     result = dial_call_list(
-        csv_path, DialerConfig(dry_run=True, delay_between_calls_s=0),
+        csv_path,
+        DialerConfig(dry_run=True, delay_between_calls_s=0),
         now=datetime(2026, 6, 30, 18, 0, tzinfo=timezone.utc),
     )
     assert result.initiated_count == 0
@@ -753,10 +827,11 @@ def test_cooldown_blocks_recent_dial_by_phone_even_if_pid_changed(tmp_path, monk
     _isolate_audit(monkeypatch, tmp_path)
     _override_vapi_settings(monkeypatch)
     # Same phone, DIFFERENT prospect_id 5 days ago.
-    _seed_dial_run(tmp_path, days_ago=5,
-                   prospect_id="p_OLD", phone="+15305551234",
-                   outcome="end_of_call")
+    _seed_dial_run(
+        tmp_path, days_ago=5, prospect_id="p_OLD", phone="+15305551234", outcome="end_of_call"
+    )
     import backend.voice.dialer as mod
+
     base = mod.get_settings()
     base.samus_dialer_cooldown_days = 7  # type: ignore[attr-defined]
     monkeypatch.setattr(mod, "get_settings", lambda: base)
@@ -764,7 +839,8 @@ def test_cooldown_blocks_recent_dial_by_phone_even_if_pid_changed(tmp_path, monk
     csv_path = tmp_path / "x.csv"
     _write_csv(csv_path, [_prospect_row(prospect_id="p_NEW")])
     result = dial_call_list(
-        csv_path, DialerConfig(dry_run=True, delay_between_calls_s=0),
+        csv_path,
+        DialerConfig(dry_run=True, delay_between_calls_s=0),
         now=datetime(2026, 6, 30, 18, 0, tzinfo=timezone.utc),
     )
     assert result.attempts[0].outcome == "skipped_cooldown"
@@ -777,6 +853,7 @@ def test_cooldown_ignores_skipped_rows(tmp_path, monkeypatch):
     _seed_dial_run(tmp_path, days_ago=2, outcome="skipped_hours")
     _seed_dial_run(tmp_path, days_ago=4, outcome="skipped_suppressed")
     import backend.voice.dialer as mod
+
     base = mod.get_settings()
     base.samus_dialer_cooldown_days = 7  # type: ignore[attr-defined]
     monkeypatch.setattr(mod, "get_settings", lambda: base)
@@ -784,7 +861,8 @@ def test_cooldown_ignores_skipped_rows(tmp_path, monkeypatch):
     csv_path = tmp_path / "x.csv"
     _write_csv(csv_path, [_prospect_row()])
     result = dial_call_list(
-        csv_path, DialerConfig(dry_run=True, delay_between_calls_s=0),
+        csv_path,
+        DialerConfig(dry_run=True, delay_between_calls_s=0),
         now=datetime(2026, 6, 30, 18, 0, tzinfo=timezone.utc),
     )
     # The cooldown should NOT have skipped it; only dry_run path runs.
@@ -798,6 +876,7 @@ def test_cooldown_releases_after_window(tmp_path, monkeypatch):
     _override_vapi_settings(monkeypatch)
     _seed_dial_run(tmp_path, days_ago=10, outcome="end_of_call")
     import backend.voice.dialer as mod
+
     base = mod.get_settings()
     base.samus_dialer_cooldown_days = 7  # type: ignore[attr-defined]
     monkeypatch.setattr(mod, "get_settings", lambda: base)
@@ -805,33 +884,45 @@ def test_cooldown_releases_after_window(tmp_path, monkeypatch):
     csv_path = tmp_path / "x.csv"
     _write_csv(csv_path, [_prospect_row()])
     result = dial_call_list(
-        csv_path, DialerConfig(dry_run=True, delay_between_calls_s=0),
+        csv_path,
+        DialerConfig(dry_run=True, delay_between_calls_s=0),
         now=datetime(2026, 6, 30, 18, 0, tzinfo=timezone.utc),
     )
     assert result.initiated_count == 1
     assert result.attempts[0].outcome == "dry_run"
 
 
-def _seed_retry_queue(tmp_path, *, prospect_id: str, prospect_phone: str,
-                      ended_reason: str, hours_ago: float = 1.0,
-                      monkeypatch=None):
+def _seed_retry_queue(
+    tmp_path,
+    *,
+    prospect_id: str,
+    prospect_phone: str,
+    ended_reason: str,
+    hours_ago: float = 1.0,
+    monkeypatch=None,
+):
     """Append a retry-queue entry. Returns the queue path."""
     from datetime import datetime, timedelta, timezone
-    ts = (datetime.now(timezone.utc) - timedelta(hours=hours_ago)).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
+
+    ts = (datetime.now(timezone.utc) - timedelta(hours=hours_ago)).strftime("%Y-%m-%dT%H:%M:%SZ")
     qpath = tmp_path / "retry_queue.jsonl"
     if monkeypatch is not None:
         monkeypatch.setenv("SAMUS_RETRY_QUEUE_PATH", str(qpath))
-    qpath.write_text(json.dumps({
-        "prospect_id": prospect_id,
-        "prospect_phone": prospect_phone,
-        "company_name": "Acme Co",
-        "priority": "hot",
-        "run_id": "seed",
-        "ended_reason": ended_reason,
-        "ts": ts,
-    }) + "\n", encoding="utf-8")
+    qpath.write_text(
+        json.dumps(
+            {
+                "prospect_id": prospect_id,
+                "prospect_phone": prospect_phone,
+                "company_name": "Acme Co",
+                "priority": "hot",
+                "run_id": "seed",
+                "ended_reason": ended_reason,
+                "ts": ts,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     return qpath
 
 
@@ -841,11 +932,16 @@ def test_cooldown_exempts_same_day_voicemail_retry(tmp_path, monkeypatch):
     _override_vapi_settings(monkeypatch)
     # Real dial yesterday (in cooldown window) AND a voicemail retry entry.
     _seed_dial_run(tmp_path, days_ago=1, outcome="end_of_call")
-    _seed_retry_queue(tmp_path, prospect_id="p_001",
-                      prospect_phone="+15305551234",
-                      ended_reason="voicemail", hours_ago=2.0,
-                      monkeypatch=monkeypatch)
+    _seed_retry_queue(
+        tmp_path,
+        prospect_id="p_001",
+        prospect_phone="+15305551234",
+        ended_reason="voicemail",
+        hours_ago=2.0,
+        monkeypatch=monkeypatch,
+    )
     import backend.voice.dialer as mod
+
     base = mod.get_settings()
     base.samus_dialer_cooldown_days = 7  # type: ignore[attr-defined]
     base.samus_dialer_voicemail_exempt_hours = 36  # type: ignore[attr-defined]
@@ -854,7 +950,8 @@ def test_cooldown_exempts_same_day_voicemail_retry(tmp_path, monkeypatch):
     csv_path = tmp_path / "x.csv"
     _write_csv(csv_path, [_prospect_row()])
     result = dial_call_list(
-        csv_path, DialerConfig(dry_run=True, delay_between_calls_s=0),
+        csv_path,
+        DialerConfig(dry_run=True, delay_between_calls_s=0),
         now=datetime(2026, 6, 30, 18, 0, tzinfo=timezone.utc),
     )
     # Cooldown should have been bypassed -> dial proceeds (dry_run).
@@ -867,11 +964,16 @@ def test_cooldown_not_exempted_when_voicemail_entry_stale(tmp_path, monkeypatch)
     _isolate_audit(monkeypatch, tmp_path)
     _override_vapi_settings(monkeypatch)
     _seed_dial_run(tmp_path, days_ago=2, outcome="end_of_call")
-    _seed_retry_queue(tmp_path, prospect_id="p_001",
-                      prospect_phone="+15305551234",
-                      ended_reason="voicemail", hours_ago=72.0,  # 3 days
-                      monkeypatch=monkeypatch)
+    _seed_retry_queue(
+        tmp_path,
+        prospect_id="p_001",
+        prospect_phone="+15305551234",
+        ended_reason="voicemail",
+        hours_ago=72.0,  # 3 days
+        monkeypatch=monkeypatch,
+    )
     import backend.voice.dialer as mod
+
     base = mod.get_settings()
     base.samus_dialer_cooldown_days = 7  # type: ignore[attr-defined]
     base.samus_dialer_voicemail_exempt_hours = 36  # type: ignore[attr-defined]
@@ -880,7 +982,8 @@ def test_cooldown_not_exempted_when_voicemail_entry_stale(tmp_path, monkeypatch)
     csv_path = tmp_path / "x.csv"
     _write_csv(csv_path, [_prospect_row()])
     result = dial_call_list(
-        csv_path, DialerConfig(dry_run=True, delay_between_calls_s=0),
+        csv_path,
+        DialerConfig(dry_run=True, delay_between_calls_s=0),
         now=datetime(2026, 6, 30, 18, 0, tzinfo=timezone.utc),
     )
     assert result.attempts[0].outcome == "skipped_cooldown"
@@ -891,11 +994,16 @@ def test_cooldown_not_exempted_for_non_voicemail_ended_reason(tmp_path, monkeypa
     _isolate_audit(monkeypatch, tmp_path)
     _override_vapi_settings(monkeypatch)
     _seed_dial_run(tmp_path, days_ago=1, outcome="end_of_call")
-    _seed_retry_queue(tmp_path, prospect_id="p_001",
-                      prospect_phone="+15305551234",
-                      ended_reason="no-answer", hours_ago=2.0,
-                      monkeypatch=monkeypatch)
+    _seed_retry_queue(
+        tmp_path,
+        prospect_id="p_001",
+        prospect_phone="+15305551234",
+        ended_reason="no-answer",
+        hours_ago=2.0,
+        monkeypatch=monkeypatch,
+    )
     import backend.voice.dialer as mod
+
     base = mod.get_settings()
     base.samus_dialer_cooldown_days = 7  # type: ignore[attr-defined]
     base.samus_dialer_voicemail_exempt_hours = 36  # type: ignore[attr-defined]
@@ -904,7 +1012,8 @@ def test_cooldown_not_exempted_for_non_voicemail_ended_reason(tmp_path, monkeypa
     csv_path = tmp_path / "x.csv"
     _write_csv(csv_path, [_prospect_row()])
     result = dial_call_list(
-        csv_path, DialerConfig(dry_run=True, delay_between_calls_s=0),
+        csv_path,
+        DialerConfig(dry_run=True, delay_between_calls_s=0),
         now=datetime(2026, 6, 30, 18, 0, tzinfo=timezone.utc),
     )
     assert result.attempts[0].outcome == "skipped_cooldown"
@@ -915,6 +1024,7 @@ def test_cooldown_disabled_when_set_to_zero(tmp_path, monkeypatch):
     _override_vapi_settings(monkeypatch)
     _seed_dial_run(tmp_path, days_ago=1, outcome="end_of_call")
     import backend.voice.dialer as mod
+
     base = mod.get_settings()
     base.samus_dialer_cooldown_days = 0  # type: ignore[attr-defined]
     monkeypatch.setattr(mod, "get_settings", lambda: base)
@@ -922,7 +1032,8 @@ def test_cooldown_disabled_when_set_to_zero(tmp_path, monkeypatch):
     csv_path = tmp_path / "x.csv"
     _write_csv(csv_path, [_prospect_row()])
     result = dial_call_list(
-        csv_path, DialerConfig(dry_run=True, delay_between_calls_s=0),
+        csv_path,
+        DialerConfig(dry_run=True, delay_between_calls_s=0),
         now=datetime(2026, 6, 30, 18, 0, tzinfo=timezone.utc),
     )
     # Falls through to _already_called_today which won't match the seeded
@@ -935,6 +1046,7 @@ def test_cooldown_disabled_when_set_to_zero(tmp_path, monkeypatch):
 # The dialer bypasses service.initiate_call and drives VapiClient directly via
 # _wrap_service_initiate; assert the opener rides as create_call(first_message=).
 # ---------------------------------------------------------------------------
+
 
 def _capture_adapter_call(monkeypatch, variable_values):
     """Run _wrap_service_initiate's real impl with a mocked VapiClient and
@@ -954,6 +1066,7 @@ def _capture_adapter_call(monkeypatch, variable_values):
             class _Call:
                 id = "call_1"
                 status = "queued"
+
             return _Call()
 
     class _S:
@@ -962,33 +1075,42 @@ def _capture_adapter_call(monkeypatch, variable_values):
         samus_voice_callback_number = "(530) 418-5105"
 
     import backend.voice.client as client_mod
+
     monkeypatch.setattr(client_mod, "VapiClient", _FakeClient)
     monkeypatch.setattr(mod, "get_settings", lambda: _S())
 
     impl = mod._wrap_service_initiate(real_initiate=None)
     req = InitiateCallRequest(
-        assistant_id="ast_x", phone_number_id="pn_y",
-        customer_number="+15305551234", customer_name="Acme",
+        assistant_id="ast_x",
+        phone_number_id="pn_y",
+        customer_number="+15305551234",
+        customer_name="Acme",
     )
     impl(req, variable_values)
     return cap
 
 
 def test_outbound_threads_opener_as_first_message(monkeypatch):
-    cap = _capture_adapter_call(monkeypatch, {
-        "company_name": "Acme",
-        "callsheet_opener": "Hey, is this Acme? Honestly, this is a cold call...",
-        "callsheet_voicemail": "VM here",
-    })
+    cap = _capture_adapter_call(
+        monkeypatch,
+        {
+            "company_name": "Acme",
+            "callsheet_opener": "Hey, is this Acme? Honestly, this is a cold call...",
+            "callsheet_voicemail": "VM here",
+        },
+    )
     assert cap["first_message"] == "Hey, is this Acme? Honestly, this is a cold call..."
     assert cap["voicemail_message"] == "VM here"
 
 
 def test_outbound_omits_first_message_when_opener_empty(monkeypatch):
-    cap = _capture_adapter_call(monkeypatch, {
-        "company_name": "Acme",
-        "callsheet_opener": "",
-    })
+    cap = _capture_adapter_call(
+        monkeypatch,
+        {
+            "company_name": "Acme",
+            "callsheet_opener": "",
+        },
+    )
     assert cap["first_message"] is None
 
 
@@ -1004,19 +1126,22 @@ def test_outbound_omits_first_message_when_opener_empty(monkeypatch):
 # advancing only when a call is actually placed (dry-run or real success).
 # ---------------------------------------------------------------------------
 
+
 def _same_rank_rows(n: int) -> list[dict]:
     """N prospects with identical priority/score so eligible_sorted preserves
     CSV order (sorted() is stable), and distinct prospect_id + phone so no two
     collide on the per-prospect / per-number gates."""
     rows = []
     for i in range(n):
-        rows.append(_prospect_row(
-            prospect_id=f"p{i:02d}",
-            phone=f"530555{1000 + i:04d}",
-            call_priority="hot",
-            lead_score="80",
-            seo_score="30",
-        ))
+        rows.append(
+            _prospect_row(
+                prospect_id=f"p{i:02d}",
+                phone=f"530555{1000 + i:04d}",
+                call_priority="hot",
+                lead_score="80",
+                seo_score="30",
+            )
+        )
     return rows
 
 
@@ -1030,7 +1155,9 @@ def test_dry_run_round_robins_caller_id_across_two_number_pool(tmp_path, monkeyp
     result = dial_call_list(
         csv_path,
         DialerConfig(
-            dry_run=True, delay_between_calls_s=0, max_calls=6,
+            dry_run=True,
+            delay_between_calls_s=0,
+            max_calls=6,
             phone_number_ids=["numA", "numB"],
         ),
         now=fixed_now,
@@ -1051,17 +1178,22 @@ def test_live_round_robins_caller_id_across_two_number_pool(tmp_path, monkeypatc
     def fake_initiate(req, vv):
         # Echo back which number the dialer told us to place on.
         return InitiateCallResult(
-            call_id="c_" + req.phone_number_id, status="queued", vapi_error=None,
+            call_id="c_" + req.phone_number_id,
+            status="queued",
+            vapi_error=None,
         )
 
     fixed_now = datetime(2026, 5, 15, 16, 0, tzinfo=timezone.utc)
     result = dial_call_list(
         csv_path,
         DialerConfig(
-            dry_run=False, delay_between_calls_s=0, max_calls=5,
+            dry_run=False,
+            delay_between_calls_s=0,
+            max_calls=5,
             phone_number_ids=["numA", "numB"],
         ),
-        initiate_fn=fake_initiate, now=fixed_now,
+        initiate_fn=fake_initiate,
+        now=fixed_now,
     )
     assert result.initiated_count == 5
     placed = [a for a in result.attempts if a.outcome == "initiated"]
@@ -1084,6 +1216,7 @@ def test_skips_do_not_consume_a_rotation_slot(tmp_path, monkeypatch):
     # the rest dial through. _override_vapi_settings set _is_suppressed to
     # always-False; override it here for the leading 5 phones.
     import backend.voice.dialer as mod
+
     suppressed = {_normalize_phone(rows[i]["phone"]) for i in range(5)}
     monkeypatch.setattr(mod, "_is_suppressed", lambda phone: phone in suppressed)
 
@@ -1091,7 +1224,9 @@ def test_skips_do_not_consume_a_rotation_slot(tmp_path, monkeypatch):
     result = dial_call_list(
         csv_path,
         DialerConfig(
-            dry_run=True, delay_between_calls_s=0, max_calls=9,
+            dry_run=True,
+            delay_between_calls_s=0,
+            max_calls=9,
             phone_number_ids=["numA", "numB"],
         ),
         now=fixed_now,
@@ -1118,7 +1253,9 @@ def test_single_number_pool_still_works(tmp_path, monkeypatch):
     result = dial_call_list(
         csv_path,
         DialerConfig(
-            dry_run=True, delay_between_calls_s=0, max_calls=3,
+            dry_run=True,
+            delay_between_calls_s=0,
+            max_calls=3,
             phone_number_ids=["soloNum"],
         ),
         now=fixed_now,

@@ -13,6 +13,7 @@ evaluated by :func:`evaluate_condition` against the live run context using a
 small, closed operator set — never ``eval``/arbitrary code, so a template
 author cannot smuggle execution into a config file.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -155,8 +156,7 @@ class CampaignGraph:
                 ready.append(nid)
                 continue
             if all(
-                (edge.from_node in completed)
-                and evaluate_condition(edge.condition, ctx)
+                (edge.from_node in completed) and evaluate_condition(edge.condition, ctx)
                 for edge in incoming
             ):
                 ready.append(nid)

@@ -1,4 +1,5 @@
 """Tests for backend.outreach.sequences — the nurture engine (pure, no network)."""
+
 from __future__ import annotations
 
 from backend.outreach.sequences import (
@@ -22,7 +23,10 @@ def _enroll(started="2026-06-01T00:00:00+00:00") -> Enrollment:
 
 def test_registry_has_expected_sequences():
     assert set(SEQUENCES) == {
-        "welcome", "onboarding", "reengagement", "buying_signal",
+        "welcome",
+        "onboarding",
+        "reengagement",
+        "buying_signal",
     }
     assert get_sequence("welcome") is WELCOME_SEQUENCE
     assert get_sequence("nope") is None

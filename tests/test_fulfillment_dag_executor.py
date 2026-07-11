@@ -14,6 +14,7 @@ Coverage targets
 
 Total: 18 tests (>= required 15).
 """
+
 from __future__ import annotations
 
 import pytest
@@ -21,7 +22,6 @@ import pytest
 from backend.fulfillment.dag import (
     PLAN_STATUS_COMPLETE,
     PLAN_STATUS_FAILED,
-    PLAN_STATUS_PLANNED,
     PLAN_STATUS_RUNNING,
     STEP_STATUS_DONE,
     STEP_STATUS_FAILED,
@@ -282,10 +282,12 @@ def test_finalize_plan_still_running_stays_running():
 def test_build_execution_graph_v2_produces_valid_plan():
     plan = build_execution_graph_v2(
         "task-xyz",
-        {"actions": [
-            {"type": "seo.audit_site", "url": "https://example.com"},
-            {"type": "scaffold.generate_assets"},
-        ]},
+        {
+            "actions": [
+                {"type": "seo.audit_site", "url": "https://example.com"},
+                {"type": "scaffold.generate_assets"},
+            ]
+        },
         {},
     )
     errors = validate_plan(plan)

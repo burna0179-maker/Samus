@@ -4,6 +4,7 @@ Focus is the pure reasoning function should_fire_now -- the "when" of Samus
 closing out its own day, isolated from run_end_of_day_review's I/O. Mirrors
 tests/test_morning_ritual_task.py.
 """
+
 import backend.gateway.eod_task as eod
 
 
@@ -58,11 +59,11 @@ def test_respects_custom_window(monkeypatch, isolated_root):
     _clear_env(monkeypatch)
     monkeypatch.setenv(eod.ENV_HOUR, "20")
     monkeypatch.setenv(eod.ENV_LATEST, "22")
-    fire, _ = eod.should_fire_now("2026-07-07", 20)   # newly inside
+    fire, _ = eod.should_fire_now("2026-07-07", 20)  # newly inside
     assert fire is True
-    fire, _ = eod.should_fire_now("2026-07-07", 19)   # still below
+    fire, _ = eod.should_fire_now("2026-07-07", 19)  # still below
     assert fire is False
-    fire, _ = eod.should_fire_now("2026-07-07", 22)   # at cap (excl)
+    fire, _ = eod.should_fire_now("2026-07-07", 22)  # at cap (excl)
     assert fire is False
 
 
@@ -76,7 +77,7 @@ def test_skips_when_master_disabled(monkeypatch, isolated_root):
 
 def test_skips_when_review_already_ran_today(monkeypatch, isolated_root):
     _clear_env(monkeypatch)
-    _write_review(isolated_root, "2026-07-07")   # today's review already exists
+    _write_review(isolated_root, "2026-07-07")  # today's review already exists
     fire, reason = eod.should_fire_now("2026-07-07", 19)
     assert fire is False
     assert "already ran" in reason

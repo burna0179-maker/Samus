@@ -1,4 +1,5 @@
 """Tests for the DocuSeal contract-signing integration (backend.contracts)."""
+
 from __future__ import annotations
 
 import httpx
@@ -31,6 +32,7 @@ def _reset_settings():
 
 # --- signature ------------------------------------------------------------
 
+
 def test_verify_webhook_ok():
     verify_docuseal_webhook("s3cr3t", "s3cr3t")  # no raise
 
@@ -51,6 +53,7 @@ def test_verify_webhook_secret_unset_fails_closed():
 
 
 # --- models ---------------------------------------------------------------
+
 
 def test_external_id_prefix_opportunity():
     req = ServiceAgreementRequest(
@@ -83,8 +86,10 @@ def test_template_values_drops_empty_and_merges_overrides():
 
 def test_webhook_from_wire_wrapped_completed():
     e = DocuSealWebhookEvent.from_wire(
-        {"event_type": "submission.completed",
-         "data": {"submission": {"id": 7, "status": "completed", "external_id": "opp:op_9"}}}
+        {
+            "event_type": "submission.completed",
+            "data": {"submission": {"id": 7, "status": "completed", "external_id": "opp:op_9"}},
+        }
     )
     assert e.is_completed()
     assert e.submission_id == 7
@@ -93,7 +98,10 @@ def test_webhook_from_wire_wrapped_completed():
 
 def test_webhook_from_wire_form_completed_flat():
     e = DocuSealWebhookEvent.from_wire(
-        {"event_type": "form.completed", "data": {"id": 3, "email": "a@b.co", "status": "completed"}}
+        {
+            "event_type": "form.completed",
+            "data": {"id": 3, "email": "a@b.co", "status": "completed"},
+        }
     )
     assert e.is_completed()
     assert e.submitter_id == 3
@@ -105,6 +113,7 @@ def test_webhook_non_terminal_not_completed():
 
 
 # --- client (httpx mocked) ------------------------------------------------
+
 
 class _FakeResp:
     def __init__(self, status=200, json_data=None, text=""):
@@ -151,7 +160,9 @@ def test_client_create_submission_builds_body_and_parses(monkeypatch):
     resp = _FakeResp(json_data=[{"id": 11, "submission_id": 7, "slug": "abc123", "status": "sent"}])
     _patch_httpx(monkeypatch, resp, capture)
 
-    c = DocuSealClient(api_base="http://ds:3000/api", api_token="tok", public_base="https://sign.example")
+    c = DocuSealClient(
+        api_base="http://ds:3000/api", api_token="tok", public_base="https://sign.example"
+    )
     out = c.create_submission(
         template_id=1000001,
         submitter=ContractParty(email="a@b.co", name="Ann"),
@@ -186,6 +197,7 @@ def test_client_http_error_wrapped(monkeypatch):
 
 # --- service --------------------------------------------------------------
 
+
 def _enable(monkeypatch, template_id="1000001"):
     monkeypatch.setenv("DOCUSEAL_ENABLED", "true")
     monkeypatch.setenv("DOCUSEAL_API_TOKEN", "tok")
@@ -210,18 +222,24 @@ def test_generate_happy_path_emits_contract_sent(monkeypatch, tmp_path):
 
     events: list = []
     monkeypatch.setattr(
-        service_mod, "emit_business_event",
+        service_mod,
+        "emit_business_event",
         lambda et, **kw: events.append((et, kw)) or {},
     )
     monkeypatch.setattr(
-        service_mod.DocuSealClient, "create_submission",
+        service_mod.DocuSealClient,
+        "create_submission",
         lambda self, **kw: [{"id": 11, "submission_id": 7, "slug": "abc", "status": "sent"}],
     )
 
     r = service_mod.generate_service_agreement(
         ServiceAgreementRequest(
-            prospect_id="pr_1", party=ContractParty(email="a@b.co", name="Ann"),
-            company="Acme", scope="Rescue", price_usd="500", opportunity_id="op_9",
+            prospect_id="pr_1",
+            party=ContractParty(email="a@b.co", name="Ann"),
+            company="Acme",
+            scope="Rescue",
+            price_usd="500",
+            opportunity_id="op_9",
         )
     )
     assert r.ok
@@ -250,12 +268,15 @@ def test_handle_webhook_completed_emits_signed(monkeypatch, tmp_path):
     monkeypatch.setenv("SAMUS_ARTIFACT_ROOT", str(tmp_path))
     events: list = []
     monkeypatch.setattr(
-        service_mod, "emit_business_event",
+        service_mod,
+        "emit_business_event",
         lambda et, **kw: events.append((et, kw)) or {},
     )
     e = DocuSealWebhookEvent.from_wire(
-        {"event_type": "submission.completed",
-         "data": {"submission": {"id": 7, "status": "completed", "external_id": "opp:op_9"}}}
+        {
+            "event_type": "submission.completed",
+            "data": {"submission": {"id": 7, "status": "completed", "external_id": "opp:op_9"}},
+        }
     )
     out = service_mod.handle_webhook_event(e)
     assert out["completed"] is True
@@ -268,7 +289,8 @@ def test_handle_webhook_non_terminal_no_signed_event(monkeypatch, tmp_path):
     monkeypatch.setenv("SAMUS_ARTIFACT_ROOT", str(tmp_path))
     events: list = []
     monkeypatch.setattr(
-        service_mod, "emit_business_event",
+        service_mod,
+        "emit_business_event",
         lambda et, **kw: events.append((et, kw)) or {},
     )
     e = DocuSealWebhookEvent.from_wire({"event_type": "form.viewed", "data": {"status": "opened"}})
@@ -279,17 +301,28 @@ def test_handle_webhook_non_terminal_no_signed_event(monkeypatch, tmp_path):
 
 # --- PDF path: client -----------------------------------------------------
 
+
 def test_client_create_from_pdf_builds_documents_and_fields(monkeypatch):
     capture: dict = {}
     resp = _FakeResp(json_data=[{"id": 11, "submission_id": 8, "slug": "pdf1", "status": "sent"}])
     _patch_httpx(monkeypatch, resp, capture)
-    c = DocuSealClient(api_base="http://ds:3000/api", api_token="tok", public_base="https://sign.example")
-    fields = [{"name": "Client Signature", "type": "signature", "role": "Client",
-               "areas": [{"x": 0.1, "y": 0.7, "w": 0.3, "h": 0.05, "page": 3}]}]
+    c = DocuSealClient(
+        api_base="http://ds:3000/api", api_token="tok", public_base="https://sign.example"
+    )
+    fields = [
+        {
+            "name": "Client Signature",
+            "type": "signature",
+            "role": "Client",
+            "areas": [{"x": 0.1, "y": 0.7, "w": 0.3, "h": 0.05, "page": 3}],
+        }
+    ]
     out = c.create_submission_from_pdf(
         document_name="Conqueror Proposal",
         submitter=ContractParty(email="school@x.edu", name="Head"),
-        fields=fields, pdf_base64="JVBERi0=", external_id="opp:op_7",
+        fields=fields,
+        pdf_base64="JVBERi0=",
+        external_id="opp:op_7",
     )
     assert capture["url"] == "http://ds:3000/api/submissions/pdf"
     body = capture["json"]
@@ -305,7 +338,9 @@ def test_client_create_from_pdf_no_fields_uses_tag_detection(monkeypatch):
     _patch_httpx(monkeypatch, _FakeResp(json_data=[{"id": 1, "slug": "s"}]), capture)
     c = DocuSealClient(api_base="http://ds:3000/api", api_token="tok")
     c.create_submission_from_pdf(
-        document_name="Doc", submitter=ContractParty(email="a@b.co"), pdf_url="https://x/doc.pdf",
+        document_name="Doc",
+        submitter=ContractParty(email="a@b.co"),
+        pdf_url="https://x/doc.pdf",
     )
     assert "fields" not in capture["json"]["documents"][0]  # omitted -> tag detection
     assert capture["json"]["documents"][0]["file"] == "https://x/doc.pdf"
@@ -319,12 +354,20 @@ def test_client_create_from_pdf_requires_pdf():
 
 # --- PDF path: models + service -------------------------------------------
 
+
 def test_proposal_field_wire_and_external_id():
     req = ProposalAgreementRequest(
-        prospect_id="pr_1", party=ContractParty(email="a@b.co"), pdf_base64="x",
+        prospect_id="pr_1",
+        party=ContractParty(email="a@b.co"),
+        pdf_base64="x",
         opportunity_id="op_7",
-        fields=[DocuSealField(name="Sig", type="signature",
-                              areas=[DocuSealFieldArea(x=0.1, y=0.7, w=0.3, h=0.05, page=2)])],
+        fields=[
+            DocuSealField(
+                name="Sig",
+                type="signature",
+                areas=[DocuSealFieldArea(x=0.1, y=0.7, w=0.3, h=0.05, page=2)],
+            )
+        ],
     )
     assert req.has_document()
     assert req.external_id() == "opp:op_7"
@@ -347,8 +390,9 @@ def test_generate_proposal_happy_path(monkeypatch, tmp_path):
     _enable(monkeypatch)
     monkeypatch.setenv("SAMUS_ARTIFACT_ROOT", str(tmp_path))
     events: list = []
-    monkeypatch.setattr(service_mod, "emit_business_event",
-                        lambda et, **kw: events.append((et, kw)) or {})
+    monkeypatch.setattr(
+        service_mod, "emit_business_event", lambda et, **kw: events.append((et, kw)) or {}
+    )
     captured: dict = {}
 
     def _fake(self, **kw):
@@ -358,8 +402,11 @@ def test_generate_proposal_happy_path(monkeypatch, tmp_path):
     monkeypatch.setattr(service_mod.DocuSealClient, "create_submission_from_pdf", _fake)
     r = service_mod.generate_proposal_agreement(
         ProposalAgreementRequest(
-            prospect_id="pr_1", party=ContractParty(email="school@x.edu", name="Head"),
-            company="Sample School", pdf_base64="JVBERi0=", opportunity_id="op_7",
+            prospect_id="pr_1",
+            party=ContractParty(email="school@x.edu", name="Head"),
+            company="Sample School",
+            pdf_base64="JVBERi0=",
+            opportunity_id="op_7",
         )
     )
     assert r.ok

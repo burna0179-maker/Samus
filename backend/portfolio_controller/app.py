@@ -11,6 +11,7 @@ Endpoints:
                                       metadata['action'] (cap: plan_execution)
   POST /portfolio_controller/rebalance — REST alias for the rebalance action
 """
+
 from __future__ import annotations
 
 import logging

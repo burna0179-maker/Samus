@@ -1,12 +1,14 @@
 """PromptAssembler (Samus STANDARD)."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 from .enrichment_models import (
-    ChatEnrichmentBag, EnrichmentContext, PromptPieceKind,
-    PromptPieceLibrary, ScenarioPreset, SpicePool,
+    PromptPieceKind,
+    PromptPieceLibrary,
+    SpicePool,
 )
 from .enrichment_resolver import EnrichmentResolver
 from .spice_rotator import SpiceRotator, SpiceState
@@ -49,9 +51,12 @@ class PromptAssembler:
         vars_ = variables or {}
         sections: list[tuple[str, str]] = []
         for kind in (
-            PromptPieceKind.CHARACTER, PromptPieceKind.LOCATION,
-            PromptPieceKind.RELATIONSHIP, PromptPieceKind.GOALS,
-            PromptPieceKind.FORMAT, PromptPieceKind.SCENARIO,
+            PromptPieceKind.CHARACTER,
+            PromptPieceKind.LOCATION,
+            PromptPieceKind.RELATIONSHIP,
+            PromptPieceKind.GOALS,
+            PromptPieceKind.FORMAT,
+            PromptPieceKind.SCENARIO,
         ):
             slug = getattr(preset, kind.value)
             label, text = self._piece(kind, slug, vars_)

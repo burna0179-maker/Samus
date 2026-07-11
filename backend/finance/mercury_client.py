@@ -15,6 +15,7 @@ Wire-not-arm: gated by ``SAMUS_MERCURY_ENABLED`` (default OFF). Off, or missing
 token, or any API error => the caller falls back (Found CSV → Stripe). The
 balance is cached (~15 min) so the 30-min tick never hammers the API.
 """
+
 from __future__ import annotations
 
 import logging

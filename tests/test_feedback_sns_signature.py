@@ -20,6 +20,7 @@ Replay protection: a second POST carrying a previously-seen MessageId is
 short-circuited at the route with ``notification_type="Replay"``; see
 ``test_route_rejects_replayed_message_id`` at the bottom of the file.
 """
+
 from __future__ import annotations
 
 import base64
@@ -86,7 +87,11 @@ def _stub_http_get(pem: bytes):
     return _get
 
 
-def _notification(message_text: str = "hi", *, topic_arn: str = "arn:aws:sns:us-west-1:000000000000:samus-ses-feedback") -> dict[str, Any]:
+def _notification(
+    message_text: str = "hi",
+    *,
+    topic_arn: str = "arn:aws:sns:us-west-1:000000000000:samus-ses-feedback",
+) -> dict[str, Any]:
     """Minimal SNS Notification skeleton with the fields AWS canonicalizes."""
     return {
         "Type": "Notification",
@@ -311,9 +316,11 @@ def _reset_idempotency(monkeypatch):
     fresh = IdempotencyStore()
     monkeypatch.setattr(idem_mod, "GLOBAL_IDEMPOTENCY_STORE", fresh)
     import backend.feedback.service as svc_mod
+
     monkeypatch.setattr(svc_mod, "GLOBAL_IDEMPOTENCY_STORE", fresh)
     # app.py imports the singleton at module load for the MessageId replay gate.
     import backend.feedback.app as app_mod
+
     monkeypatch.setattr(app_mod, "GLOBAL_IDEMPOTENCY_STORE", fresh)
     return fresh
 
@@ -516,5 +523,3 @@ def test_route_rejects_replayed_message_id(tmp_path, monkeypatch):
     # Critical: the suppression / events tables must NOT have grown.
     assert len(suppression.puts) == 1
     assert len(feedback_events.puts) == 1
-
-

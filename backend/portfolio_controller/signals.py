@@ -11,6 +11,7 @@ Everything here is pure / deterministic: no network, no LLM, no clock reads.
 The only I/O is the budget-store snapshot read, which is itself fail-soft
 (JSON fallback) and trivially monkeypatchable in tests.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

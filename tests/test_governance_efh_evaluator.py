@@ -1,7 +1,7 @@
 """EFH evaluator — heuristic floor + additive semantic layer + fail-open."""
+
 from __future__ import annotations
 
-import backend.governance.efh_evaluator as efh_mod
 from backend.governance.efh_evaluator import EthicalFailureHandler
 
 
@@ -16,8 +16,9 @@ def test_heuristic_flags_manipulation_and_is_load_bearing(monkeypatch):
     """
     h = _handler()
     monkeypatch.setattr(h, "_semantic_breaches", lambda text, valid: [])
-    veto = h.evaluate({"kind": "goal_commit",
-                       "body": {"plan": "use a dark-pattern to manipulate the prospect"}})
+    veto = h.evaluate(
+        {"kind": "goal_commit", "body": {"plan": "use a dark-pattern to manipulate the prospect"}}
+    )
     assert veto is not None
     assert "axiom.inviolable.no_unconsented_influence" in veto["inviolable_axioms_breached"]
     assert veto["evaluator_layers"] == ["heuristic"]
@@ -27,10 +28,12 @@ def test_heuristic_flags_manipulation_and_is_load_bearing(monkeypatch):
 def test_clean_action_returns_none_with_semantic_off(monkeypatch):
     monkeypatch.delenv("SAMUS_EFH_SEMANTIC", raising=False)
     from backend.common.settings import reload_settings
+
     reload_settings()
     h = _handler()
-    veto = h.evaluate({"kind": "goal_commit",
-                       "body": {"plan": "send a clear honest follow-up with opt-out"}})
+    veto = h.evaluate(
+        {"kind": "goal_commit", "body": {"plan": "send a clear honest follow-up with opt-out"}}
+    )
     assert veto is None
 
 
@@ -48,7 +51,9 @@ def test_semantic_layer_is_additive_only(monkeypatch):
     # Now stub the semantic classifier to flag an axiom; it must surface.
     target = "axiom.inviolable.no_unconsented_influence"
     monkeypatch.setattr(
-        h, "_semantic_breaches", lambda text, valid: [target],
+        h,
+        "_semantic_breaches",
+        lambda text, valid: [target],
     )
     veto = h.evaluate({"kind": "goal_commit", "body": dict(body)})
     assert veto is not None
@@ -60,8 +65,9 @@ def test_semantic_layer_cannot_clear_a_heuristic_breach(monkeypatch):
     """A semantic layer returning [] never removes a heuristic breach."""
     h = _handler()
     monkeypatch.setattr(h, "_semantic_breaches", lambda text, valid: [])
-    veto = h.evaluate({"kind": "goal_commit",
-                       "body": {"plan": "deceive the customer with a covert nudge"}})
+    veto = h.evaluate(
+        {"kind": "goal_commit", "body": {"plan": "deceive the customer with a covert nudge"}}
+    )
     assert veto is not None
     assert veto["inviolable_axioms_breached"]  # heuristic breach stands
 
@@ -70,6 +76,7 @@ def test_semantic_breaches_fail_open_when_classifier_raises(monkeypatch):
     """Any classifier error -> [] (heuristic floor stands)."""
     monkeypatch.setenv("SAMUS_EFH_SEMANTIC", "1")
     from backend.common.settings import reload_settings
+
     reload_settings()
     h = _handler()
 
@@ -77,6 +84,7 @@ def test_semantic_breaches_fail_open_when_classifier_raises(monkeypatch):
         raise RuntimeError("classifier exploded")
 
     import backend.governance.efh_semantic as sem
+
     monkeypatch.setattr(sem, "classify_breaches", _boom)
     out = h._semantic_breaches("anything", set(h._axiom_index))
     assert out == []
@@ -87,6 +95,7 @@ def test_semantic_breaches_disabled_returns_empty(monkeypatch):
     is not consulted regardless of whether a local LLM is available."""
     monkeypatch.setenv("SAMUS_EFH_SEMANTIC", "0")
     from backend.common.settings import reload_settings
+
     reload_settings()
     h = _handler()
     assert h._semantic_breaches("manipulate covertly", set(h._axiom_index)) == []
@@ -105,6 +114,7 @@ def test_classify_breaches_llm_error_fails_open(monkeypatch):
     # anthropic_messages` at call time -> patch the source module.
     monkeypatch.setattr(llm, "anthropic_messages", _boom, raising=False)
     from backend.governance.efh_semantic import classify_breaches
+
     h = _handler()
     out = classify_breaches("manipulate the buyer", axiom_index=h._axiom_index)
     assert out == []
@@ -113,6 +123,7 @@ def test_classify_breaches_llm_error_fails_open(monkeypatch):
 def test_classify_breaches_parses_model_json(monkeypatch):
     from backend.governance import efh_semantic
     import backend.common.llm_client as llm
+
     h = _handler()
     target = next(iter(h._axiom_index))
 
@@ -124,6 +135,8 @@ def test_classify_breaches_parses_model_json(monkeypatch):
     monkeypatch.setattr(llm, "anthropic_messages", _fake_messages, raising=False)
     # Provide a key directly so the call proceeds.
     out = efh_semantic.classify_breaches(
-        "some action text", axiom_index=h._axiom_index, api_key="sk-test",
+        "some action text",
+        axiom_index=h._axiom_index,
+        api_key="sk-test",
     )
     assert out == [target]  # invalid id dropped

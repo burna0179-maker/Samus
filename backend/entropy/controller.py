@@ -5,6 +5,7 @@ logic — no LLM, no I/O. Each threshold is a named constant with a one-line
 rationale; the decision function returns an *ordered* list of countermeasures
 (most-systemic first) so the orchestrator can apply them in priority order.
 """
+
 from __future__ import annotations
 
 from .metrics import EntropyInputs
@@ -68,17 +69,11 @@ def recommend_countermeasures(
         measures.append(REDUCE_QUOTA)
 
     # Rising token/success ratio → tighten prospect filtering to cut waste.
-    if (
-        token_success_ratio is not None
-        and token_success_ratio > TOKEN_SUCCESS_RATIO_THRESHOLD
-    ):
+    if token_success_ratio is not None and token_success_ratio > TOKEN_SUCCESS_RATIO_THRESHOLD:
         measures.append(TIGHTEN_PROSPECT_FILTERING)
 
     # A recently-successful template route → clone it as the safe fallback.
-    if (
-        template_success_rate is not None
-        and template_success_rate >= TEMPLATE_SUCCESS_THRESHOLD
-    ):
+    if template_success_rate is not None and template_success_rate >= TEMPLATE_SUCCESS_THRESHOLD:
         measures.append(CLONE_TEMPLATE_STRATEGY)
 
     return measures

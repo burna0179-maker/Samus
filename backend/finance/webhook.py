@@ -25,6 +25,7 @@ outcome. If either condition is missing the operator still runs
 ``Run-Fulfill.ps1`` manually after the morning briefing surfaces the
 pending payment.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -77,10 +78,12 @@ _FULFILL_PAYMENT_STATUSES = frozenset({"paid", "no_payment_required"})
 # the operator a "started -> completed" ratio per SKU, so a dead buy link
 # stops looking indistinguishable from "nobody tried to buy" — an abandon
 # proves a prospect clicked; missing abandons means the link isn't working.
-_FUNNEL_SIGNAL_EVENT_TYPES = frozenset({
-    "checkout.session.created",
-    "checkout.session.expired",
-})
+_FUNNEL_SIGNAL_EVENT_TYPES = frozenset(
+    {
+        "checkout.session.created",
+        "checkout.session.expired",
+    }
+)
 
 
 # Subscription-renewal revenue events. invoice.paid / invoice.payment_succeeded
@@ -88,15 +91,18 @@ _FUNNEL_SIGNAL_EVENT_TYPES = frozenset({
 # $300/mo retainer). They advance no new customer state, but the dollars are
 # real and must reach the ledger + decision spine instead of the "ignored"
 # catch-all. Subscription-CREATION lands via checkout.session.completed already.
-_INVOICE_REVENUE_EVENT_TYPES = frozenset({
-    "invoice.paid",
-    "invoice.payment_succeeded",
-})
+_INVOICE_REVENUE_EVENT_TYPES = frozenset(
+    {
+        "invoice.paid",
+        "invoice.payment_succeeded",
+    }
+)
 
 
 # ---------------------------------------------------------------------------
 # Custom exceptions
 # ---------------------------------------------------------------------------
+
 
 class WebhookSignatureError(ValueError):
     """Raised when the Stripe-Signature header fails verification."""
@@ -105,6 +111,7 @@ class WebhookSignatureError(ValueError):
 # ---------------------------------------------------------------------------
 # Signature verification (no Stripe SDK dependency)
 # ---------------------------------------------------------------------------
+
 
 def _parse_sig_header(header: str) -> tuple[int, list[str]]:
     """Parse ``Stripe-Signature: t=<ts>,v1=<hex>,v1=<hex>,...``.
@@ -158,7 +165,9 @@ def verify_stripe_signature(
     timestamp, sigs = _parse_sig_header(signature_header)
 
     # Replay-window check before any HMAC math.
-    tolerance = tolerance_seconds if tolerance_seconds is not None else _DEFAULT_REPLAY_TOLERANCE_SECONDS
+    tolerance = (
+        tolerance_seconds if tolerance_seconds is not None else _DEFAULT_REPLAY_TOLERANCE_SECONDS
+    )
     current = now if now is not None else time.time()
     # RT FIN-07: the old symmetric abs() check also accepted timestamps up to a
     # full window in the FUTURE. Reject too-old (past > tolerance) and too-future
@@ -191,6 +200,7 @@ def verify_stripe_signature(
 # Event log (JSONL on disk, append-only)
 # ---------------------------------------------------------------------------
 
+
 def event_log_path() -> Path:
     return Path(os.getenv("SAMUS_STRIPE_EVENT_LOG", _DEFAULT_EVENT_LOG_PATH))
 
@@ -205,7 +215,8 @@ def _event_ledger() -> persistence.Ledger:
     ``backend.common.persistence.open_ledger``.
     """
     return persistence.open_ledger(
-        jsonl_path=str(event_log_path()), collection="stripe_events",
+        jsonl_path=str(event_log_path()),
+        collection="stripe_events",
     )
 
 
@@ -228,6 +239,7 @@ def _load_seen_event_ids() -> set[str]:
     ``received_at`` are kept (unknown age = safe, mirrors rotate_by_age).
     """
     from datetime import datetime, timedelta, timezone
+
     cutoff = datetime.now(timezone.utc) - timedelta(hours=_SEEN_WINDOW_HOURS)
     seen: set[str] = set()
     for rec in _event_ledger().scan():
@@ -238,7 +250,8 @@ def _load_seen_event_ids() -> set[str]:
         if received_raw:
             try:
                 received = datetime.strptime(
-                    received_raw, "%Y-%m-%dT%H:%M:%SZ",
+                    received_raw,
+                    "%Y-%m-%dT%H:%M:%SZ",
                 ).replace(tzinfo=timezone.utc)
                 if received < cutoff:
                     continue
@@ -377,7 +390,8 @@ def claim_event_id(event_id: str) -> bool:
         _LOG.warning(
             "reclaimed orphaned stripe webhook reservation event=%s age=%.0fs "
             "(prior owner claimed then never completed; reprocessing)",
-            event_id, age,
+            event_id,
+            age,
         )
         return True
     # Lost the reclaim race to another reclaimer — they now own it.
@@ -389,6 +403,7 @@ def load_recent_events(window_days: int) -> list[WebhookEventRecord]:
     the last ``window_days``. Used by the morning briefing.
     """
     from datetime import datetime, timedelta, timezone
+
     cutoff = datetime.now(timezone.utc) - timedelta(days=window_days)
     out: list[WebhookEventRecord] = []
     for rec in _event_ledger().scan():
@@ -410,6 +425,7 @@ def load_recent_events(window_days: int) -> list[WebhookEventRecord]:
 # ---------------------------------------------------------------------------
 # Event payload extraction
 # ---------------------------------------------------------------------------
+
 
 def _extract_invoice_fields(event_data: dict) -> tuple[str, float | None, str, str, str]:
     """From an event.data.object (Stripe invoice) extract:
@@ -433,8 +449,8 @@ def _extract_invoice_fields(event_data: dict) -> tuple[str, float | None, str, s
 
 def _extract_session_fields(event_data: dict) -> tuple[str, float | None, str, str, str, str]:
     """From an event.data.object (Stripe checkout.session) extract:
-       (customer_email, amount_total_usd, currency, hf_offer_code,
-        payment_status, customer_website_url)
+    (customer_email, amount_total_usd, currency, hf_offer_code,
+     payment_status, customer_website_url)
     """
     session = event_data.get("object") or {}
     if session.get("object") != "checkout.session":
@@ -464,7 +480,7 @@ def _extract_session_fields(event_data: dict) -> tuple[str, float | None, str, s
     # owners can configure additional fields but only this one drives
     # auto-fulfill today.
     website_url = ""
-    for cf in (session.get("custom_fields") or []):
+    for cf in session.get("custom_fields") or []:
         if not isinstance(cf, dict):
             continue
         if cf.get("key") == "website_url" and cf.get("type") == "text":
@@ -514,7 +530,7 @@ def _extract_subscription_fields(event_data: dict) -> tuple[str, str, str, str]:
     price_id = ""
     line_items = session.get("line_items") or {}
     if isinstance(line_items, dict):
-        for item in (line_items.get("data") or []):
+        for item in line_items.get("data") or []:
             if not isinstance(item, dict):
                 continue
             price = item.get("price") or {}
@@ -535,8 +551,10 @@ def _extract_subscription_fields(event_data: dict) -> tuple[str, str, str, str]:
 # Auto-fulfill scheduling (Win #2)
 # ---------------------------------------------------------------------------
 
-def _run_auto_fulfill_sync(*, email: str, audit_url: str, event_id: str,
-                           fulfill_fn: Any = None) -> None:
+
+def _run_auto_fulfill_sync(
+    *, email: str, audit_url: str, event_id: str, fulfill_fn: Any = None
+) -> None:
     """Run fulfill_customer + append a follow-up JSONL record with the outcome.
 
     Best-effort: any exception is caught, logged, and surfaced via a
@@ -545,6 +563,7 @@ def _run_auto_fulfill_sync(*, email: str, audit_url: str, event_id: str,
     """
     if fulfill_fn is None:
         from backend.fulfill import fulfill_customer as _real_fulfill
+
         fulfill_fn = _real_fulfill
 
     ok = False
@@ -552,7 +571,9 @@ def _run_auto_fulfill_sync(*, email: str, audit_url: str, event_id: str,
     err = ""
     try:
         result = fulfill_fn(
-            email=email, audit_url=audit_url, send_email=True,
+            email=email,
+            audit_url=audit_url,
+            send_email=True,
         )
         ok = bool(getattr(result, "ok", False))
         message_id = getattr(result, "email_message_id", "") or ""
@@ -579,7 +600,8 @@ def _run_auto_fulfill_sync(*, email: str, audit_url: str, event_id: str,
         customer_website_url=audit_url,
         process_status="processed" if ok else "failed",
         process_note=(
-            f"auto_fulfill completed (message_id={message_id})" if ok
+            f"auto_fulfill completed (message_id={message_id})"
+            if ok
             else f"auto_fulfill failed: {err}"
         ),
         auto_fulfill_attempted=True,
@@ -619,8 +641,12 @@ def _schedule_auto_fulfill(*, email: str, audit_url: str, event_id: str) -> None
 # Both enqueue a best-effort CRM job via the gateway. Stripe retries non-2xx,
 # so a CRM hiccup MUST NOT bubble up here — every failure logs + drops.
 
+
 def _dispatch_crm_job(
-    action: str, payload: dict[str, Any], *, event_id: str,
+    action: str,
+    payload: dict[str, Any],
+    *,
+    event_id: str,
 ) -> None:
     """Best-effort enqueue of one CRM-worker job via the gateway's
     ``POST /dispatch/crm`` (gateway routes to the ``samus-crm-jobs`` SQS queue).
@@ -655,12 +681,17 @@ def _dispatch_crm_job(
     except Exception as exc:  # noqa: BLE001 — best-effort, never blocks webhook
         _LOG.warning(
             "finance crm dispatch failed (%s) for event=%s: %s",
-            action, event_id, exc,
+            action,
+            event_id,
+            exc,
         )
 
 
 def _dispatch_close_the_loop_to_crm(
-    *, email: str, amount_usd: float, event_id: str,
+    *,
+    email: str,
+    amount_usd: float,
+    event_id: str,
 ) -> None:
     """Email-attribution close-the-loop: enqueue a ``close_payment_to_opportunity``
     job — the CRM worker does the email->opportunity lookup AND the
@@ -680,7 +711,11 @@ def _dispatch_close_the_loop_to_crm(
 
 
 def _dispatch_close_opportunity_by_id(
-    *, opportunity_id: str, amount_usd: float, event_id: str, customer_email: str = "",
+    *,
+    opportunity_id: str,
+    amount_usd: float,
+    event_id: str,
+    customer_email: str = "",
 ) -> None:
     """Exact-attribution close-the-loop: the buy link carried the Opportunity
     id in ``client_reference_id``, so enqueue a ``close_opportunity_from_payment``
@@ -706,6 +741,7 @@ def _dispatch_close_opportunity_by_id(
 # ---------------------------------------------------------------------------
 # Main handler
 # ---------------------------------------------------------------------------
+
 
 def handle_stripe_webhook(
     payload_bytes: bytes,
@@ -740,14 +776,16 @@ def handle_stripe_webhook(
         body = json.loads(payload_bytes.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         return WebhookProcessResult(
-            received=True, process_status="bad_payload",
+            received=True,
+            process_status="bad_payload",
             note=f"json_decode_failed: {exc}",
         )
     try:
         event = StripeWebhookEvent.model_validate(body)
     except Exception as exc:  # noqa: BLE001
         return WebhookProcessResult(
-            received=True, process_status="bad_payload",
+            received=True,
+            process_status="bad_payload",
             note=f"event_validation_failed: {exc}",
         )
 
@@ -756,8 +794,10 @@ def handle_stripe_webhook(
     # (a retry that arrives after the first delivery already finished).
     if event.id and event.id in _load_seen_event_ids():
         return WebhookProcessResult(
-            received=True, process_status="duplicate",
-            event_id=event.id, event_type=event.type,
+            received=True,
+            process_status="duplicate",
+            event_id=event.id,
+            event_type=event.type,
             note="event_id already in log",
         )
 
@@ -772,8 +812,10 @@ def handle_stripe_webhook(
     # a claim-then-crash never permanently drops a paid event.
     if not claim_event_id(event.id):
         return WebhookProcessResult(
-            received=True, process_status="duplicate",
-            event_id=event.id, event_type=event.type,
+            received=True,
+            process_status="duplicate",
+            event_id=event.id,
+            event_type=event.type,
             note="event_id already claimed (concurrent delivery)",
         )
 
@@ -792,19 +834,24 @@ def handle_stripe_webhook(
         and not event.livemode
     ):
         record = WebhookEventRecord(
-            event_id=event.id, event_type=event.type,
-            received_at=iso_now(), livemode=event.livemode,
+            event_id=event.id,
+            event_type=event.type,
+            received_at=iso_now(),
+            livemode=event.livemode,
             process_status="ignored",
             process_note="test-mode event rejected in production env",
         )
         append_event_record(record)
         _LOG.warning(
             "stripe webhook rejected test-mode event in production: id=%s type=%s",
-            event.id, event.type,
+            event.id,
+            event.type,
         )
         return WebhookProcessResult(
-            received=True, process_status="ignored",
-            event_id=event.id, event_type=event.type,
+            received=True,
+            process_status="ignored",
+            event_id=event.id,
+            event_type=event.type,
             note="test-mode event rejected in production env",
         )
 
@@ -820,13 +867,18 @@ def handle_stripe_webhook(
             _extract_subscription_fields(event.data)
         )
         record = WebhookEventRecord(
-            event_id=event.id, event_type=event.type,
-            received_at=iso_now(), livemode=event.livemode,
+            event_id=event.id,
+            event_type=event.type,
+            received_at=iso_now(),
+            livemode=event.livemode,
             customer_email=email,
-            amount_total_usd=amount_usd, currency=currency,
-            hf_offer_code=hf_offer, payment_status=payment_status,
+            amount_total_usd=amount_usd,
+            currency=currency,
+            hf_offer_code=hf_offer,
+            payment_status=payment_status,
             customer_website_url=website_url,
-            session_mode=session_mode, subscription_id=subscription_id,
+            session_mode=session_mode,
+            subscription_id=subscription_id,
             subscription_price_id=subscription_price_id,
             client_reference_id=client_reference_id,
             process_status="funnel_signal",
@@ -834,11 +886,14 @@ def handle_stripe_webhook(
         )
         append_event_record(record)
         return WebhookProcessResult(
-            received=True, process_status="funnel_signal",
-            event_id=event.id, event_type=event.type,
+            received=True,
+            process_status="funnel_signal",
+            event_id=event.id,
+            event_type=event.type,
             customer_email=email,
             customer_website_url=website_url,
-            session_mode=session_mode, subscription_id=subscription_id,
+            session_mode=session_mode,
+            subscription_id=subscription_id,
             note=f"{event.type} recorded; no state advance",
         )
 
@@ -848,13 +903,22 @@ def handle_stripe_webhook(
     # dropping into the valueless "ignored" catch-all below.
     if event.type in _INVOICE_REVENUE_EVENT_TYPES:
         (
-            email, amount_usd, currency, subscription_id, billing_reason,
+            email,
+            amount_usd,
+            currency,
+            subscription_id,
+            billing_reason,
         ) = _extract_invoice_fields(event.data)
         record = WebhookEventRecord(
-            event_id=event.id, event_type=event.type,
-            received_at=iso_now(), livemode=event.livemode,
-            customer_email=email, amount_total_usd=amount_usd, currency=currency,
-            payment_status="paid", session_mode="subscription",
+            event_id=event.id,
+            event_type=event.type,
+            received_at=iso_now(),
+            livemode=event.livemode,
+            customer_email=email,
+            amount_total_usd=amount_usd,
+            currency=currency,
+            payment_status="paid",
+            session_mode="subscription",
             subscription_id=subscription_id,
             process_status="renewal",
             process_note=f"{event.type} recorded (billing_reason={billing_reason})",
@@ -862,10 +926,13 @@ def handle_stripe_webhook(
         append_event_record(record)
         if amount_usd:
             from backend.common.business_events import (
-                PAYMENT_RECEIVED, emit_business_event,
+                PAYMENT_RECEIVED,
+                emit_business_event,
             )
+
             emit_business_event(
-                PAYMENT_RECEIVED, workcell="finance",
+                PAYMENT_RECEIVED,
+                workcell="finance",
                 revenue_usd=float(amount_usd or 0.0),
                 metadata={
                     "stripe_event_id": event.id,
@@ -876,9 +943,12 @@ def handle_stripe_webhook(
                 },
             )
         return WebhookProcessResult(
-            received=True, process_status="renewal",
-            event_id=event.id, event_type=event.type,
-            customer_email=email, session_mode="subscription",
+            received=True,
+            process_status="renewal",
+            event_id=event.id,
+            event_type=event.type,
+            customer_email=email,
+            session_mode="subscription",
             subscription_id=subscription_id,
             note=f"{event.type} recorded (billing_reason={billing_reason})",
         )
@@ -886,47 +956,66 @@ def handle_stripe_webhook(
     # Only checkout.session.completed actually drives state today.
     if event.type != "checkout.session.completed":
         record = WebhookEventRecord(
-            event_id=event.id, event_type=event.type,
-            received_at=iso_now(), livemode=event.livemode,
+            event_id=event.id,
+            event_type=event.type,
+            received_at=iso_now(),
+            livemode=event.livemode,
             process_status="ignored",
             process_note="event type not handled",
         )
         append_event_record(record)
         return WebhookProcessResult(
-            received=True, process_status="ignored",
-            event_id=event.id, event_type=event.type,
+            received=True,
+            process_status="ignored",
+            event_id=event.id,
+            event_type=event.type,
             note="event type not handled",
         )
 
     # Extract customer + offer info from the session.
     (
-        email, amount_usd, currency, hf_offer, payment_status, website_url,
+        email,
+        amount_usd,
+        currency,
+        hf_offer,
+        payment_status,
+        website_url,
     ) = _extract_session_fields(event.data)
     # Cut 2: subscription-mode dispatch fields. Always extracted (cheap), used
     # to branch below. ``session_mode`` defaults to 'payment' when Stripe
     # doesn't include the mode key (older test fixtures).
     (
-        session_mode, subscription_id, subscription_price_id,
+        session_mode,
+        subscription_id,
+        subscription_price_id,
         client_reference_id,
     ) = _extract_subscription_fields(event.data)
 
     if not email:
         record = WebhookEventRecord(
-            event_id=event.id, event_type=event.type,
-            received_at=iso_now(), livemode=event.livemode,
-            amount_total_usd=amount_usd, currency=currency,
-            hf_offer_code=hf_offer, payment_status=payment_status,
+            event_id=event.id,
+            event_type=event.type,
+            received_at=iso_now(),
+            livemode=event.livemode,
+            amount_total_usd=amount_usd,
+            currency=currency,
+            hf_offer_code=hf_offer,
+            payment_status=payment_status,
             customer_website_url=website_url,
-            session_mode=session_mode, subscription_id=subscription_id,
+            session_mode=session_mode,
+            subscription_id=subscription_id,
             process_status="failed",
             process_note="no customer_email in checkout.session",
         )
         append_event_record(record)
         return WebhookProcessResult(
-            received=True, process_status="failed",
-            event_id=event.id, event_type=event.type,
+            received=True,
+            process_status="failed",
+            event_id=event.id,
+            event_type=event.type,
             customer_website_url=website_url,
-            session_mode=session_mode, subscription_id=subscription_id,
+            session_mode=session_mode,
+            subscription_id=subscription_id,
             note="no customer_email in checkout.session",
         )
 
@@ -934,16 +1023,15 @@ def handle_stripe_webhook(
     # into the module-load chain.
     if customer_store is None:
         from backend.memory.customers import CustomerStore
+
         customer_store = CustomerStore()
 
-    is_subscription = (session_mode == "subscription")
+    is_subscription = session_mode == "subscription"
     # Cut 2: MRR contribution. For monthly subscriptions the first invoice
     # equals the monthly price, so amount_total/100 is a faithful proxy.
     # Annual plans would over-report MRR — out of scope for Cut 2 (we ship
     # only monthly add-ons today). amount_usd is already in dollars.
-    subscription_mrr_usd: float | None = (
-        amount_usd if is_subscription and amount_usd else None
-    )
+    subscription_mrr_usd: float | None = amount_usd if is_subscription and amount_usd else None
 
     customer_id = ""
     advanced_to = ""
@@ -951,7 +1039,8 @@ def handle_stripe_webhook(
         existing = customer_store.get_by_email(email)
         if existing is None:
             customer = customer_store.create_customer(
-                email=email, source="stripe_webhook",
+                email=email,
+                source="stripe_webhook",
                 # NOTE: metadata={} on purpose — Neo4j rejects Map property values
                 # ("Property values can only be of primitive types or arrays"),
                 # so passing {"hf_offer_code": ...} crashes create_customer's
@@ -975,10 +1064,10 @@ def handle_stripe_webhook(
                 payment_status in _FULFILL_PAYMENT_STATUSES
             ):
                 event_state = customer_store.advance_state(
-                    customer_id=customer.id, to_state="renewed",
+                    customer_id=customer.id,
+                    to_state="renewed",
                     reason=(
-                        f"stripe subscription started sub={subscription_id} "
-                        f"(event={event.id})"
+                        f"stripe subscription started sub={subscription_id} (event={event.id})"
                     ),
                 )
                 advanced_to = event_state.to_state
@@ -987,16 +1076,19 @@ def handle_stripe_webhook(
                 # Withhold the renewed advance but still record the event below.
                 advanced_to = customer.current_state  # no-op transition
                 _LOG.warning(
-                    "subscription_renew_withheld_pending_payment event=%s "
-                    "payment_status=%s",
-                    event.id, payment_status,
+                    "subscription_renew_withheld_pending_payment event=%s payment_status=%s",
+                    event.id,
+                    payment_status,
                 )
             else:
                 advanced_to = customer.current_state  # no-op transition
                 _LOG.warning(
                     "subscription_for_non_delivered_customer email=%s "
                     "current_state=%s sub=%s event=%s",
-                    email, customer.current_state, subscription_id, event.id,
+                    email,
+                    customer.current_state,
+                    subscription_id,
+                    event.id,
                 )
         else:
             # Existing payment-mode behavior. Only advance if not already past
@@ -1007,7 +1099,8 @@ def handle_stripe_webhook(
                 payment_status in _FULFILL_PAYMENT_STATUSES
             ):
                 event_state = customer_store.advance_state(
-                    customer_id=customer.id, to_state="paid",
+                    customer_id=customer.id,
+                    to_state="paid",
                     reason=f"stripe checkout.session.completed (event={event.id})",
                 )
                 advanced_to = event_state.to_state
@@ -1017,32 +1110,40 @@ def handle_stripe_webhook(
                 # settle — but fall through to record the event for visibility.
                 advanced_to = customer.current_state  # no-op transition
                 _LOG.warning(
-                    "fulfillment_withheld_pending_payment event=%s "
-                    "payment_status=%s",
-                    event.id, payment_status,
+                    "fulfillment_withheld_pending_payment event=%s payment_status=%s",
+                    event.id,
+                    payment_status,
                 )
             else:
                 advanced_to = customer.current_state  # no-op transition
     except Exception as exc:  # noqa: BLE001
         record = WebhookEventRecord(
-            event_id=event.id, event_type=event.type,
-            received_at=iso_now(), livemode=event.livemode,
+            event_id=event.id,
+            event_type=event.type,
+            received_at=iso_now(),
+            livemode=event.livemode,
             customer_email=email,
-            amount_total_usd=amount_usd, currency=currency,
-            hf_offer_code=hf_offer, payment_status=payment_status,
+            amount_total_usd=amount_usd,
+            currency=currency,
+            hf_offer_code=hf_offer,
+            payment_status=payment_status,
             customer_website_url=website_url,
-            session_mode=session_mode, subscription_id=subscription_id,
+            session_mode=session_mode,
+            subscription_id=subscription_id,
             subscription_mrr_usd=subscription_mrr_usd,
             process_status="failed",
             process_note=f"customer_store_failure: {exc}",
         )
         append_event_record(record)
         return WebhookProcessResult(
-            received=True, process_status="failed",
-            event_id=event.id, event_type=event.type,
+            received=True,
+            process_status="failed",
+            event_id=event.id,
+            event_type=event.type,
             customer_email=email,
             customer_website_url=website_url,
-            session_mode=session_mode, subscription_id=subscription_id,
+            session_mode=session_mode,
+            subscription_id=subscription_id,
             subscription_mrr_usd=subscription_mrr_usd,
             note=f"customer_store_failure: {exc}",
         )
@@ -1084,13 +1185,16 @@ def handle_stripe_webhook(
     if website_url:
         try:
             from backend.common.safe_fetch import assert_public_http_url, SsrfBlockedError
+
             assert_public_http_url(website_url)
             _website_url_valid = True
         except (SsrfBlockedError, ValueError) as _ssrf_exc:
             _LOG.warning(
                 "stripe webhook auto_fulfill skipped: website_url failed SSRF "
                 "validation event=%s url_tail=%s reason=%s",
-                event.id, website_url[-40:], _ssrf_exc,
+                event.id,
+                website_url[-40:],
+                _ssrf_exc,
             )
     # PATCH-FIN-D7-02 — paid auto-fulfill must be backed by a real, settled,
     # USD payment at/above the floor. Exclude no_payment_required ($0 coupon /
@@ -1110,7 +1214,11 @@ def handle_stripe_webhook(
         _LOG.warning(
             "auto_fulfill withheld: payment does not qualify event=%s "
             "payment_status=%s currency=%s amount_usd=%s floor=%s",
-            event.id, payment_status, currency, amount_usd, _min_offer_floor_usd,
+            event.id,
+            payment_status,
+            currency,
+            amount_usd,
+            _min_offer_floor_usd,
         )
     auto_fulfill_scheduled = bool(
         not is_subscription
@@ -1122,7 +1230,9 @@ def handle_stripe_webhook(
     )
     if auto_fulfill_scheduled:
         _schedule_auto_fulfill(
-            email=email, audit_url=website_url, event_id=event.id,
+            email=email,
+            audit_url=website_url,
+            event_id=event.id,
         )
 
     if is_subscription:
@@ -1135,18 +1245,24 @@ def handle_stripe_webhook(
             note += "; auto_fulfill scheduled"
 
     record = WebhookEventRecord(
-        event_id=event.id, event_type=event.type,
-        received_at=received_at, livemode=event.livemode,
-        customer_email=email, customer_id=customer_id,
-        amount_total_usd=amount_usd, currency=currency,
-        hf_offer_code=hf_offer, payment_status=payment_status,
+        event_id=event.id,
+        event_type=event.type,
+        received_at=received_at,
+        livemode=event.livemode,
+        customer_email=email,
+        customer_id=customer_id,
+        amount_total_usd=amount_usd,
+        currency=currency,
+        hf_offer_code=hf_offer,
+        payment_status=payment_status,
         process_status="processed",
         process_note=note,
         receipt_sent=receipt["sent"],
         receipt_message_id=receipt["message_id"],
         receipt_error=receipt["error"],
         customer_website_url=website_url,
-        session_mode=session_mode, subscription_id=subscription_id,
+        session_mode=session_mode,
+        subscription_id=subscription_id,
         subscription_price_id=subscription_price_id,
         subscription_mrr_usd=subscription_mrr_usd,
         client_reference_id=client_reference_id,
@@ -1164,6 +1280,7 @@ def handle_stripe_webhook(
             PAYMENT_RECEIVED,
             emit_business_event,
         )
+
         _ref = client_reference_id or ""
         emit_business_event(
             PAYMENT_RECEIVED,
@@ -1205,28 +1322,30 @@ def handle_stripe_webhook(
     # carries client_reference_id=out_<prospect_id>. Credit the exact prospect
     # (and offer) so campaign ROI is measurable regardless of the paying email.
     # Best-effort + idempotent; never blocks the 200 to Stripe.
-    if client_reference_id.startswith("out_") and (
-        payment_status in _FULFILL_PAYMENT_STATUSES
-    ):
+    if client_reference_id.startswith("out_") and (payment_status in _FULFILL_PAYMENT_STATUSES):
         try:
             from backend.finance.outreach_attribution import record_conversion
 
             # Campaign attribution (HOTL Tranche 1): payment links tagged with
             # metadata.hf_campaign_id credit the exact campaign that fired the
             # flyer. Absent metadata -> None (un-attributed, as before).
-            _session_md = (
-                ((event.data or {}).get("object") or {}).get("metadata") or {}
-            )
+            _session_md = ((event.data or {}).get("object") or {}).get("metadata") or {}
             record_conversion(
-                ref=client_reference_id, email=email,
-                amount_usd=amount_usd or 0.0, currency=currency,
-                offer_code=hf_offer, event_id=event.id, received_at=received_at,
+                ref=client_reference_id,
+                email=email,
+                amount_usd=amount_usd or 0.0,
+                currency=currency,
+                offer_code=hf_offer,
+                event_id=event.id,
+                received_at=received_at,
                 campaign_id=(str(_session_md.get("hf_campaign_id") or "") or None),
             )
         except Exception as exc:  # noqa: BLE001 — never fail webhook on attribution
             _LOG.warning(
                 "outreach attribution failed (ref=%s event=%s): %s",
-                client_reference_id, event.id, exc,
+                client_reference_id,
+                event.id,
+                exc,
             )
 
     # Cut 3 — close the upsell attribution loop. When a subscription session
@@ -1241,6 +1360,7 @@ def handle_stripe_webhook(
                 _read_all_rows as _upsell_read,
                 mark_converted as _upsell_mark_converted,
             )
+
             queue_event_id = client_reference_id.removeprefix("upsell_")
             # Find the touch that issued this URL so we can credit the right
             # cadence position. Walk the queue and find the 'queued' row with
@@ -1259,7 +1379,8 @@ def handle_stripe_webhook(
             # client_reference_id=upsell_<id> on their own subscription and credit
             # (corrupt the attribution of) another customer's upsell touch.
             payer_matches = bool(
-                email and matched_customer_email
+                email
+                and matched_customer_email
                 and email.strip().lower() == matched_customer_email.strip().lower()
             )
             if matched_touch_num is not None and matched_customer_id and payer_matches:
@@ -1273,12 +1394,16 @@ def handle_stripe_webhook(
                 _LOG.info(
                     "upsell attribution: no queued row found for event_id=%s "
                     "(stripe client_reference_id=%s); subscription_id=%s",
-                    queue_event_id, client_reference_id, subscription_id,
+                    queue_event_id,
+                    client_reference_id,
+                    subscription_id,
                 )
         except Exception as exc:  # noqa: BLE001 — never fail webhook on attribution
             _LOG.warning(
                 "upsell attribution failed (sub=%s ref=%s): %s",
-                subscription_id, client_reference_id, exc,
+                subscription_id,
+                client_reference_id,
+                exc,
             )
 
     # Deal-closed stimulus -> CODB investment reasoner. A closed sale/new
@@ -1299,13 +1424,17 @@ def handle_stripe_webhook(
             _LOG.warning("codb reasoner stimulus failed (event=%s): %s", event.id, exc)
 
     return WebhookProcessResult(
-        received=True, process_status="processed",
-        event_id=event.id, event_type=event.type,
-        customer_email=email, customer_id=customer_id,
+        received=True,
+        process_status="processed",
+        event_id=event.id,
+        event_type=event.type,
+        customer_email=email,
+        customer_id=customer_id,
         customer_advanced_to=advanced_to,
         customer_website_url=website_url,
         auto_fulfill_scheduled=auto_fulfill_scheduled,
-        session_mode=session_mode, subscription_id=subscription_id,
+        session_mode=session_mode,
+        subscription_id=subscription_id,
         subscription_mrr_usd=subscription_mrr_usd,
         note=note,
     )

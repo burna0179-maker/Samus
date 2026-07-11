@@ -17,6 +17,7 @@ when an SES send is actually attempted. A missing ``from`` address raises
 ``ValueError`` (bad selection / unconfigured sender) rather than silently
 no-op'ing.
 """
+
 from __future__ import annotations
 
 import logging
@@ -91,9 +92,7 @@ def send_email_via_ses(
     source = from_addr if from_addr is not None else getattr(settings, "ses_from_email", "")
     source = (source or "").strip()
     if not source:
-        raise ValueError(
-            "send_email_via_ses requires from_addr (arg or settings.ses_from_email)"
-        )
+        raise ValueError("send_email_via_ses requires from_addr (arg or settings.ses_from_email)")
     if from_name and from_name.strip():
         # RFC 5322 display-name form: "Name <addr>".
         source = f"{from_name.strip()} <{source}>"

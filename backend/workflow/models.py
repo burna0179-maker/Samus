@@ -4,6 +4,7 @@
 ``POST /api/v1/workflows`` accept: a ``nodes`` list and a ``connections`` map
 keyed by the **source node name** (n8n wires by name, not id).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -16,8 +17,8 @@ NodeKind = ("trigger", "action", "notification", "error_trigger")
 
 @dataclass
 class N8nNode:
-    name: str                          # unique, human-readable; connections key off this
-    type: str                          # e.g. "n8n-nodes-base.webhook"
+    name: str  # unique, human-readable; connections key off this
+    type: str  # e.g. "n8n-nodes-base.webhook"
     id: str = ""
     type_version: float = 1.0
     position: tuple[int, int] = (0, 0)
@@ -25,7 +26,7 @@ class N8nNode:
     credentials: dict[str, Any] = field(default_factory=dict)
     # bookkeeping (not serialized into the node)
     kind: str = "action"
-    credential_hint: str = ""          # human label of the credential to configure
+    credential_hint: str = ""  # human label of the credential to configure
 
     def to_dict(self) -> dict[str, Any]:
         node: dict[str, Any] = {

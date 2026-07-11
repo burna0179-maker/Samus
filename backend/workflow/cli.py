@@ -18,6 +18,7 @@ Write the full deliverable (workflow.json + runbook.md) to a dir, and deploy if 
     python -m backend.workflow.cli compile --sku service_workflow_rescue \\
         --bottleneck "..." --out ./out --deploy
 """
+
 from __future__ import annotations
 
 import argparse
@@ -47,8 +48,11 @@ def _cmd_compile(args: argparse.Namespace) -> int:
         from backend.workflow.service import generate_workflow_deliverable
 
         report = generate_workflow_deliverable(
-            artifact, out_dir=args.out or "./workflow_out", settings=settings,
-            sku=get_sku(args.sku), deploy=args.deploy,
+            artifact,
+            out_dir=args.out or "./workflow_out",
+            settings=settings,
+            sku=get_sku(args.sku),
+            deploy=args.deploy,
         )
         print(json.dumps(report, indent=2, ensure_ascii=False))
         return 0 if report["valid"] else 1
@@ -57,15 +61,25 @@ def _cmd_compile(args: argparse.Namespace) -> int:
     from backend.workflow.compiler import compile_workflow
     from backend.workflow.validate import is_valid, validate_workflow
 
-    wf = compile_workflow(artifact.plan, name=f"Hustleforge — {args.sku}",
-                          intake_text=artifact.bottleneck_summary,
-                          use_llm=args.use_llm, settings=settings)
+    wf = compile_workflow(
+        artifact.plan,
+        name=f"Hustleforge — {args.sku}",
+        intake_text=artifact.bottleneck_summary,
+        use_llm=args.use_llm,
+        settings=settings,
+    )
     issues = validate_workflow(wf)
-    print(json.dumps({
-        "workflow": wf.to_dict(),
-        "valid": is_valid(issues),
-        "validation": [i.to_dict() for i in issues],
-    }, indent=2, ensure_ascii=False))
+    print(
+        json.dumps(
+            {
+                "workflow": wf.to_dict(),
+                "valid": is_valid(issues),
+                "validation": [i.to_dict() for i in issues],
+            },
+            indent=2,
+            ensure_ascii=False,
+        )
+    )
     return 0 if is_valid(issues) else 1
 
 
@@ -75,11 +89,20 @@ def _cmd_validate(args: argparse.Namespace) -> int:
     from backend.workflow.validate import is_valid, validate_workflow
 
     artifact = _artifact(args)
-    wf = compile_workflow(artifact.plan, name=f"Hustleforge — {args.sku}",
-                          intake_text=artifact.bottleneck_summary, settings=get_settings())
+    wf = compile_workflow(
+        artifact.plan,
+        name=f"Hustleforge — {args.sku}",
+        intake_text=artifact.bottleneck_summary,
+        settings=get_settings(),
+    )
     issues = validate_workflow(wf)
-    print(json.dumps({"valid": is_valid(issues), "validation": [i.to_dict() for i in issues]},
-                     indent=2, ensure_ascii=False))
+    print(
+        json.dumps(
+            {"valid": is_valid(issues), "validation": [i.to_dict() for i in issues]},
+            indent=2,
+            ensure_ascii=False,
+        )
+    )
     return 0 if is_valid(issues) else 1
 
 
@@ -90,12 +113,16 @@ def build_parser() -> argparse.ArgumentParser:
     for name, func in (("compile", _cmd_compile), ("validate", _cmd_validate)):
         p = sub.add_parser(name)
         p.add_argument("--sku", required=True, help="service SKU id (e.g. service_workflow_rescue)")
-        p.add_argument("--bottleneck", default="", help="free-text description of the manual process")
+        p.add_argument(
+            "--bottleneck", default="", help="free-text description of the manual process"
+        )
         p.add_argument("--needs", default="", help="semicolon-separated extra needs")
         p.add_argument("--use-llm", action="store_true", help="budget-gated LLM param enrichment")
         if name == "compile":
             p.add_argument("--out", default="", help="write workflow.json + runbook.md to this dir")
-            p.add_argument("--deploy", action="store_true", help="deploy to n8n (only if armed in settings)")
+            p.add_argument(
+                "--deploy", action="store_true", help="deploy to n8n (only if armed in settings)"
+            )
         p.set_defaults(func=func)
 
     return parser

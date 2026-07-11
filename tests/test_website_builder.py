@@ -5,6 +5,7 @@ State is isolated to tmp via SAMUS_STATE_ROOT (the cash_engine test pattern).
 The Codex registry is loaded session-wide by conftest, so the real stages walk
 through a clean Codex; benign test copy passes the G2 scan.
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -13,8 +14,6 @@ import httpx
 import pytest
 
 from backend.website import gate as gate_mod
-from backend.website import service as svc
-from backend.website import stages as stages_mod
 from backend.website.models import WebsiteBrief, WebsiteOrder, WebsitePage
 from backend.website.service import (
     WebsiteBuilderDisabled,
@@ -62,9 +61,15 @@ def _settings(**over):
 
 def _order(pages=True, **over):
     page_list = (
-        [WebsitePage(slug="home", title="Welcome",
-                     content={"intro": "Fresh home cooked catering for your events."})]
-        if pages else []
+        [
+            WebsitePage(
+                slug="home",
+                title="Welcome",
+                content={"intro": "Fresh home cooked catering for your events."},
+            )
+        ]
+        if pages
+        else []
     )
     brief = WebsiteBrief(
         business_name="Mackabee Catering",
@@ -79,12 +84,14 @@ def _order(pages=True, **over):
 
 def _json_body(request: httpx.Request) -> dict:
     import json as _j
+
     return _j.loads(request.content.decode() or "{}")
 
 
 # ---------------------------------------------------------------------------
 # WixClient transport
 # ---------------------------------------------------------------------------
+
 
 def test_wix_client_requires_api_key():
     with pytest.raises(ValueError):
@@ -101,7 +108,7 @@ def test_wix_client_auth_header_is_raw_no_bearer():
 
     client = WixClient("k-123", transport=httpx.MockTransport(handler))
     client.insert_data_item(site_id="s-1", collection_id="c-1", data={"title": "x"})
-    assert seen["auth"] == "k-123"          # raw, NOT "Bearer k-123"
+    assert seen["auth"] == "k-123"  # raw, NOT "Bearer k-123"
     assert seen["site"] == "s-1"
 
 
@@ -121,15 +128,16 @@ def test_wix_create_site_sends_account_id_and_returns_site_id():
 
 
 def test_wix_create_site_without_account_id_fails_closed():
-    client = WixClient("k", transport=httpx.MockTransport(
-        lambda r: httpx.Response(200, json={})))
+    client = WixClient("k", transport=httpx.MockTransport(lambda r: httpx.Response(200, json={})))
     with pytest.raises(WixError):
         client.create_site("X")
 
 
 def test_wix_error_maps_http_status():
-    client = WixClient("k", transport=httpx.MockTransport(
-        lambda r: httpx.Response(403, json={"message": "denied"})))
+    client = WixClient(
+        "k",
+        transport=httpx.MockTransport(lambda r: httpx.Response(403, json={"message": "denied"})),
+    )
     with pytest.raises(WixError) as ei:
         client.insert_data_item(site_id="s", collection_id="c", data={})
     assert ei.value.status_code == 403
@@ -146,7 +154,8 @@ def test_wix_business_profile_body_has_wrapper_and_field_mask():
     client = WixClient("k", account_id="a", transport=httpx.MockTransport(handler))
     client.update_business_profile(site_id="s", business_profile={"description": "X"})
     client.update_business_contact(
-        site_id="s", business_contact={"phone": "5", "address": {"city": "C", "zip": "9"}})
+        site_id="s", business_contact={"phone": "5", "address": {"city": "C", "zip": "9"}}
+    )
     client.publish_site(site_id="s")
 
     assert [p for p, _ in seen][:2] == [
@@ -170,8 +179,12 @@ def test_field_mask_top_level_keys():
 def test_parse_us_address():
     a = _parse_us_address("<street>, <city>, <state> 97624")
     assert a == {
-        "country": "US", "streetNumber": "3076", "street": "East Lake Blvd",
-        "city": "<city>", "state": "OR", "zip": "97624",
+        "country": "US",
+        "streetNumber": "3076",
+        "street": "East Lake Blvd",
+        "city": "<city>",
+        "state": "OR",
+        "zip": "97624",
     }
     # Fallback: unparseable -> street + country only.
     b = _parse_us_address("just a street")
@@ -197,6 +210,7 @@ def test_wix_429_retries_then_succeeds(monkeypatch):
 # ---------------------------------------------------------------------------
 # state + gates
 # ---------------------------------------------------------------------------
+
 
 def test_state_roundtrip():
     st = WebsiteBuildState(order_id="wb-1", customer_name="Harmony", order=_order())
@@ -247,6 +261,7 @@ def test_outward_gate():
 # ---------------------------------------------------------------------------
 # orchestrator: dormancy + supervised approval gate
 # ---------------------------------------------------------------------------
+
 
 def test_start_order_disabled_raises():
     with pytest.raises(WebsiteBuilderDisabled):
@@ -316,13 +331,18 @@ def test_autonomous_run_walks_until_park():
 
 def test_provision_adopts_existing_site_without_api():
     s = _settings(website_autonomous_enabled=True)
-    order = _order(brief=WebsiteBrief(
-        business_name="Mackabee Catering",
-        business_description="Catering.",
-        existing_site_id="adopted-site-1",
-        pages=[WebsitePage(slug="home", title="Welcome",
-                           content={"intro": "Local catering done right."})],
-    ))
+    order = _order(
+        brief=WebsiteBrief(
+            business_name="Mackabee Catering",
+            business_description="Catering.",
+            existing_site_id="adopted-site-1",
+            pages=[
+                WebsitePage(
+                    slug="home", title="Welcome", content={"intro": "Local catering done right."}
+                )
+            ],
+        )
+    )
     st = start_order(order, settings=s)
     out = run(st.order_id, settings=s)
     # brief + generate (pass-through) + provision (adopted, no API) complete;
@@ -338,17 +358,20 @@ def test_provision_adopts_existing_site_without_api():
 # outward + settle units
 # ---------------------------------------------------------------------------
 
+
 def test_publish_parks_when_live_disabled():
     st = WebsiteBuildState(order_id="wb-1", site_id="s-1", order=_order())
-    ctx = StageContext(state=st, order=st.order, settings=_settings(),
-                       live_publish_enabled=False)
+    ctx = StageContext(state=st, order=st.order, settings=_settings(), live_publish_enabled=False)
     res = _publish_stage(ctx)
     assert res.parked and res.park_reason == "live_publish_disabled"
 
 
 def test_settle_barter_emits_marker_and_operator_task():
-    order = _order(settlement_kind="barter", settlement_lender_id="sample-customer",
-                   settlement_amount_usd=740.0)
+    order = _order(
+        settlement_kind="barter",
+        settlement_lender_id="sample-customer",
+        settlement_amount_usd=740.0,
+    )
     st = WebsiteBuildState(order_id="wb-1", site_id="s-9", order=order)
 
     class FakeCRM:
@@ -415,10 +438,16 @@ def test_content_row_flattens_pages_to_template_fields():
             business_name="Sample Cleaning",
             business_description="Family-owned cleaning.",
             pages=[
-                WebsitePage(slug="home", title="Home",
-                            content={"headline": "Mighty clean", "intro": "We clean."}),
-                WebsitePage(slug="services", title="Services",
-                            content={"body": "Deep cleaning", "list": "A | B"}),
+                WebsitePage(
+                    slug="home",
+                    title="Home",
+                    content={"headline": "Mighty clean", "intro": "We clean."},
+                ),
+                WebsitePage(
+                    slug="services",
+                    title="Services",
+                    content={"body": "Deep cleaning", "list": "A | B"},
+                ),
             ],
         ),
     )
@@ -444,8 +473,11 @@ def test_create_data_collection_path_and_fields():
 
     client = WixClient("k", transport=httpx.MockTransport(handler))
     client.create_data_collection(
-        site_id="s", collection_id="SiteContent", display_name="Site Content",
-        field_keys=["ref", "homeHeadline"])
+        site_id="s",
+        collection_id="SiteContent",
+        display_name="Site Content",
+        field_keys=["ref", "homeHeadline"],
+    )
     assert seen["path"] == "/wix-data/v2/collections"
     col = seen["body"]["collection"]
     assert col["id"] == "SiteContent"
@@ -456,8 +488,12 @@ def test_create_data_collection_path_and_fields():
 def test_content_parks_without_collection_mapping():
     order = _order()
     st = WebsiteBuildState(order_id="wb-1", site_id="s-1", order=order)
-    wix = WixClient("k", transport=httpx.MockTransport(
-        lambda r: httpx.Response(200, json={"dataItem": {"id": "x"}})))
+    wix = WixClient(
+        "k",
+        transport=httpx.MockTransport(
+            lambda r: httpx.Response(200, json={"dataItem": {"id": "x"}})
+        ),
+    )
     ctx = StageContext(state=st, order=order, settings=_settings(), wix=wix)
     res = _content_stage(ctx)
     assert res.parked and res.park_reason == "cms_collection_unmapped"
@@ -476,8 +512,10 @@ def test_content_inserts_row_when_collection_empty():
 
     wix = WixClient("k", transport=httpx.MockTransport(handler))
     ctx = StageContext(
-        state=st, order=order,
-        settings=_settings(website_content_collection_id="col-1"), wix=wix,
+        state=st,
+        order=order,
+        settings=_settings(website_content_collection_id="col-1"),
+        wix=wix,
     )
     res = _content_stage(ctx)
     assert res.ok
@@ -499,8 +537,10 @@ def test_content_updates_existing_row_idempotent():
 
     wix = WixClient("k", transport=httpx.MockTransport(handler))
     ctx = StageContext(
-        state=st, order=order,
-        settings=_settings(website_content_collection_id="col-1"), wix=wix,
+        state=st,
+        order=order,
+        settings=_settings(website_content_collection_id="col-1"),
+        wix=wix,
     )
     res = _content_stage(ctx)
     assert res.ok
@@ -521,6 +561,7 @@ def test_settle_barter_parks_without_lender():
 # CLI driver (the walk-through surface)
 # ---------------------------------------------------------------------------
 
+
 def test_cli_start_approve_advance(tmp_path, capsys):
     import json as _json
 
@@ -535,8 +576,9 @@ def test_cli_start_approve_advance(tmp_path, capsys):
             "business_name": "Mackabee Catering",
             "business_description": "Home cooked catering for local events.",
             "existing_site_id": "site-xyz",
-            "pages": [{"slug": "home", "title": "Home",
-                       "content": {"intro": "Fresh local catering."}}],
+            "pages": [
+                {"slug": "home", "title": "Home", "content": {"intro": "Fresh local catering."}}
+            ],
         },
     }
     order_file = tmp_path / "harmony.json"

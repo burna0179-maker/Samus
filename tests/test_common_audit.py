@@ -1,4 +1,5 @@
 """structured audit logger — fire-and-forget; never raises into the caller."""
+
 from __future__ import annotations
 
 import json

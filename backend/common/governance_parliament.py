@@ -25,6 +25,7 @@ Canonical relationship:
   - Pairs with autonomy_tier_model.md (LEVEL 5 requires parliament approval).
   - Gates Stage 7 apply when risk >= 6.0 per canonical §8 routing matrix.
 """
+
 from __future__ import annotations
 
 import logging
@@ -310,12 +311,14 @@ class GovernanceParliament:
             else:  # ABSTAIN
                 abstain_w += weight
 
-            detail.append({
-                "agent": agent.name,
-                "vote": agent_vote.value,
-                "weight": weight,
-                "veto_power": agent.veto_power,
-            })
+            detail.append(
+                {
+                    "agent": agent.name,
+                    "vote": agent_vote.value,
+                    "weight": weight,
+                    "veto_power": agent.veto_power,
+                }
+            )
 
         # Determine outcome.
         if hard_veto:
@@ -371,9 +374,7 @@ class GovernanceParliament:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _publish_verdict(
-        action: str, risk_score: float, verdict: "ParliamentVerdict"
-    ) -> None:
+    def _publish_verdict(action: str, risk_score: float, verdict: "ParliamentVerdict") -> None:
         """Fan a verdict out to the cross-agent Quorum Hub. Best-effort.
 
         Only VETO / ABSTAIN outcomes actually fan out (the publisher filters);
@@ -434,37 +435,35 @@ class GovernanceParliament:
         timestamp: float,
         proposal: dict[str, Any],
     ) -> None:
-        self.vote_log.append({
-            "action": action,
-            "risk_score": risk_score,
-            "outcome": verdict.outcome,
-            "approval_ratio": verdict.approval_ratio,
-            "threshold": verdict.threshold,
-            "hard_veto": verdict.hard_veto,
-            "eligible_count": verdict.eligible_count,
-            "voted_count": verdict.voted_count,
-            "vote_detail": verdict.vote_detail,
-            "reason": verdict.reason,
-            "proposal_meta": {k: v for k, v in proposal.items()
-                              if k not in ("action", "risk_score")},
-            "timestamp": timestamp,
-        })
+        self.vote_log.append(
+            {
+                "action": action,
+                "risk_score": risk_score,
+                "outcome": verdict.outcome,
+                "approval_ratio": verdict.approval_ratio,
+                "threshold": verdict.threshold,
+                "hard_veto": verdict.hard_veto,
+                "eligible_count": verdict.eligible_count,
+                "voted_count": verdict.voted_count,
+                "vote_detail": verdict.vote_detail,
+                "reason": verdict.reason,
+                "proposal_meta": {
+                    k: v for k, v in proposal.items() if k not in ("action", "risk_score")
+                },
+                "timestamp": timestamp,
+            }
+        )
 
-    def _update_reputation(
-        self, detail: list[dict[str, Any]], final_outcome: str
-    ) -> None:
+    def _update_reputation(self, detail: list[dict[str, Any]], final_outcome: str) -> None:
         """Adjust trust scores post-vote based on alignment with the final verdict."""
         for entry in detail:
             if entry["vote"] == Vote.ABSTAIN.value:
                 continue
-            agent_obj = next(
-                (a for a in self._agents if a.name == entry["agent"]), None
-            )
+            agent_obj = next((a for a in self._agents if a.name == entry["agent"]), None)
             if agent_obj is None:
                 continue
-            aligned = (
-                (entry["vote"] == Vote.APPROVE.value and final_outcome == "approve")
-                or (entry["vote"] == Vote.VETO.value and final_outcome == "veto")
+            aligned = (entry["vote"] == Vote.APPROVE.value and final_outcome == "approve") or (
+                entry["vote"] == Vote.VETO.value and final_outcome == "veto"
             )
             if aligned:
                 agent_obj.trust_score = min(2.0, agent_obj.trust_score + self.reputation_gain)

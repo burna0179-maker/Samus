@@ -3,6 +3,7 @@
 No I/O; exercises StrategyContext, StrategyEngine, and pattern-learning
 helpers directly.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -66,7 +67,7 @@ def test_evaluate_low_seo_returns_replan_fulfillment():
     ctx = StrategyContext(
         prospect_id="p4",
         lead_score=10.0,
-        seo_score=30.0,   # below 50
+        seo_score=30.0,  # below 50
         stage="active",
         engagement="medium",
     )
@@ -149,7 +150,7 @@ def test_score_opportunity_clamped_to_100():
 
 def test_boost_pattern_increments():
     boost_pattern("key_a")
-    assert PATTERNS["key_a"] == 2   # starts at 1 (default) + 1
+    assert PATTERNS["key_a"] == 2  # starts at 1 (default) + 1
 
 
 def test_penalize_pattern_decrements_floored_at_1():

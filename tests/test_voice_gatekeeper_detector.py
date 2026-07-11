@@ -1,5 +1,6 @@
 """Gatekeeper reclassifier (Gap-19) — detect a live human who answered after a
 machine/hold greeting so the call is reclassified from voicemail -> gatekeeper."""
+
 from __future__ import annotations
 
 import backend.voice.gatekeeper_detector as gk
@@ -26,15 +27,13 @@ _PURE_VOICEMAIL = (
     "rankings. Give us a call back at five three zero. Thanks.\n"
 )
 
-_AMBIGUOUS_SHORT = (
-    "User: Hello?\n"
-    "AI: Hi, is this the front desk?\n"
-)
+_AMBIGUOUS_SHORT = "User: Hello?\nAI: Hi, is this the front desk?\n"
 
 
 def test_machine_greeting_then_live_human_is_gatekeeper():
     is_human, reason = gk.detect_human_engagement(
-        _PLUMBING_DOCTOR, ended_reason="voicemail",
+        _PLUMBING_DOCTOR,
+        ended_reason="voicemail",
     )
     assert is_human is True
     assert "Lily" in reason or "live human" in reason.lower()
@@ -42,14 +41,16 @@ def test_machine_greeting_then_live_human_is_gatekeeper():
 
 def test_pure_voicemail_greeting_only_is_not_gatekeeper():
     is_human, reason = gk.detect_human_engagement(
-        _PURE_VOICEMAIL, ended_reason="voicemail",
+        _PURE_VOICEMAIL,
+        ended_reason="voicemail",
     )
     assert is_human is False
 
 
 def test_ambiguous_short_is_conservative_false():
     is_human, _ = gk.detect_human_engagement(
-        _AMBIGUOUS_SHORT, ended_reason="no-answer",
+        _AMBIGUOUS_SHORT,
+        ended_reason="no-answer",
     )
     assert is_human is False
 
@@ -58,7 +59,8 @@ def test_non_machine_ended_reason_is_not_eligible():
     # Even a clear live-human transcript is not reclassified when the call was
     # already a real conversation (assistant-ended-call).
     is_human, reason = gk.detect_human_engagement(
-        _PLUMBING_DOCTOR, ended_reason="assistant-ended-call",
+        _PLUMBING_DOCTOR,
+        ended_reason="assistant-ended-call",
     )
     assert is_human is False
     assert reason == "not a machine-classified call"

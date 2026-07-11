@@ -1,4 +1,5 @@
 """STANDARD persona registry for Samus (operator presentation overlay)."""
+
 from __future__ import annotations
 
 __tier__ = "STANDARD"

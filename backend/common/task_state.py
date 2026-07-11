@@ -9,6 +9,7 @@ Task-state lineage is observability, never on the request critical path.
 ``backend/common/dynamodb.py`` is broken legacy (it references a non-existent
 ``Settings.ddb_tables`` attribute) — this module is the working path.
 """
+
 from __future__ import annotations
 
 import logging

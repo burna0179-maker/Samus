@@ -28,6 +28,7 @@ The module is pure-Python and synchronous; the HTTP endpoint
 (``POST /voice/dial_call_list``) wraps it. Tests inject an in-process
 ``initiate_fn`` to avoid touching Vapi.
 """
+
 from __future__ import annotations
 
 import csv
@@ -74,6 +75,7 @@ _VAPI_ABORT_THRESHOLD = 3
 # DNC / suppression check
 # ---------------------------------------------------------------------------
 
+
 def _is_suppressed(phone: str) -> bool:
     """Return True if ``phone`` is on the samus_suppression DynamoDB table.
 
@@ -89,7 +91,8 @@ def _is_suppressed(phone: str) -> bool:
         return False
     try:
         import boto3  # lazy import — keeps module importable without AWS creds
-        region = (get_settings().aws_region or "us-west-1")
+
+        region = get_settings().aws_region or "us-west-1"
         table = boto3.resource("dynamodb", region_name=region).Table("samus_suppression")
         resp = table.get_item(Key={"phone": phone})
         return "Item" in resp
@@ -101,6 +104,7 @@ def _is_suppressed(phone: str) -> bool:
 # ---------------------------------------------------------------------------
 # Warm-prospect exclusion (mirrors prospecting/text_export cold-list filter)
 # ---------------------------------------------------------------------------
+
 
 def _active_warm_prospect_ids() -> set[str]:
     """Prospect IDs in an active buying_signal enrollment.
@@ -114,6 +118,7 @@ def _active_warm_prospect_ids() -> set[str]:
     """
     try:
         from backend.outreach.buying_signal_route import active_warm_prospect_ids
+
         return active_warm_prospect_ids()
     except Exception as exc:  # noqa: BLE001
         _LOG.warning("warm-prospect lookup failed (non-fatal): %s", exc)
@@ -121,7 +126,9 @@ def _active_warm_prospect_ids() -> set[str]:
 
 
 def _filter_warm_prospects(
-    prospects: Sequence[ProspectRecord], run_id: str, started: str,
+    prospects: Sequence[ProspectRecord],
+    run_id: str,
+    started: str,
 ) -> list[ProspectRecord]:
     """Return the prospects that should be EXCLUDED from this dial run because
     they are in an active warm sequence (replied email / booked follow-up).
@@ -143,7 +150,7 @@ def _filter_warm_prospects(
             output_payload={
                 "reason": "active_buying_signal_enrollment",
                 "detail": "prospect is mid-conversation on a warmer track; "
-                          "cold-dialing would cross wires",
+                "cold-dialing would cross wires",
             },
             status="skipped",
         )
@@ -151,7 +158,8 @@ def _filter_warm_prospects(
     if excluded:
         _LOG.info(
             "dial_run %s: excluded %d warm-enrolled prospect(s) from dial pool: %s",
-            run_id, len(excluded),
+            run_id,
+            len(excluded),
             ", ".join((p.company_name or p.prospect_id or "?") for p in excluded),
         )
     return excluded
@@ -161,8 +169,10 @@ def _filter_warm_prospects(
 # Vapi phone-number existence preflight (Gap-5)
 # ---------------------------------------------------------------------------
 
+
 def _validate_phone_numbers_exist(
-    configured_ids: Sequence[str], settings: Any,
+    configured_ids: Sequence[str],
+    settings: Any,
 ) -> dict[str, Any] | None:
     """Confirm every configured phone-number id exists in the Vapi account.
 
@@ -183,6 +193,7 @@ def _validate_phone_numbers_exist(
         return None  # the non-empty preflight already gates on creds elsewhere
     try:
         import httpx  # lazy — keeps the module importable without httpx present
+
         resp = httpx.get(
             "https://api.vapi.ai/phone-number",
             headers={"Authorization": f"Bearer {api_key}"},
@@ -190,8 +201,8 @@ def _validate_phone_numbers_exist(
         )
         if resp.status_code != 200:
             _LOG.warning(
-                "phone-number preflight: Vapi list HTTP %s — skipping check "
-                "(fail-open)", resp.status_code,
+                "phone-number preflight: Vapi list HTTP %s — skipping check (fail-open)",
+                resp.status_code,
             )
             return None
         data = resp.json()
@@ -200,7 +211,8 @@ def _validate_phone_numbers_exist(
         return None
 
     available = {
-        str(n.get("id")) for n in (data if isinstance(data, list) else [])
+        str(n.get("id"))
+        for n in (data if isinstance(data, list) else [])
         if isinstance(n, dict) and n.get("id")
     }
     missing = [i for i in ids if i not in available]
@@ -212,6 +224,7 @@ def _validate_phone_numbers_exist(
 # ---------------------------------------------------------------------------
 # Per-day call-cap check
 # ---------------------------------------------------------------------------
+
 
 def _already_called_today(prospect_id: str, run_id: str) -> bool:  # noqa: ARG001
     """Return True if ``prospect_id`` already has an 'initiated' attempt today.
@@ -245,6 +258,7 @@ def _already_called_today(prospect_id: str, run_id: str) -> bool:  # noqa: ARG00
 # ---------------------------------------------------------------------------
 # Per-number cooldown (7-14 days, operator-tunable)
 # ---------------------------------------------------------------------------
+
 
 def _in_dial_cooldown(
     prospect_id: str,
@@ -297,6 +311,7 @@ def _in_dial_cooldown(
 # CSV loading + normalization
 # ---------------------------------------------------------------------------
 
+
 def default_csv_path_for_today(today: date | None = None) -> Path:
     """Return the canonical call_list path for ``today`` (or date.today())."""
     today = today or date.today()
@@ -322,10 +337,7 @@ def load_prospects_from_csv(path: Path) -> list[ProspectRecord]:
             # CSV with no llm_cost_usd column) is dropped so the model's typed
             # default applies. Forcing "" would break the non-string columns
             # (lead_score / seo_score / llm_cost_usd).
-            payload = {
-                col: row[col] for col in CSV_COLUMNS
-                if (row.get(col) or "") != ""
-            }
+            payload = {col: row[col] for col in CSV_COLUMNS if (row.get(col) or "") != ""}
             try:
                 out.append(ProspectRecord.model_validate(payload))
             except Exception as exc:  # noqa: BLE001
@@ -394,6 +406,7 @@ def _safe_int(value: Any, *, default: int) -> int:
 
 def _sort_prospects(prospects: Sequence[ProspectRecord]) -> list[ProspectRecord]:
     """Mirror prospecting/text_export.py sort: priority -> lead_score desc -> seo_score asc."""
+
     def key(p: ProspectRecord) -> tuple[int, int, int]:
         priority = (p.call_priority or "low").lower()
         return (
@@ -401,6 +414,7 @@ def _sort_prospects(prospects: Sequence[ProspectRecord]) -> list[ProspectRecord]
             -_safe_int(p.lead_score, default=0),
             _safe_int(p.seo_score, default=100),
         )
+
     return sorted(prospects, key=key)
 
 
@@ -408,8 +422,10 @@ def _sort_prospects(prospects: Sequence[ProspectRecord]) -> list[ProspectRecord]
 # Audit + run-record persistence
 # ---------------------------------------------------------------------------
 
+
 def _audit_ledger() -> persistence.JsonlLedger:
     import os
+
     return persistence.JsonlLedger(
         os.getenv("SAMUS_VOICE_AUDIT_PATH", _AUDIT_PATH_DEFAULT),
     )
@@ -417,6 +433,7 @@ def _audit_ledger() -> persistence.JsonlLedger:
 
 def _events_ledger() -> persistence.JsonlLedger:
     import os
+
     return persistence.JsonlLedger(
         os.getenv("SAMUS_VOICE_EVENTS_PATH", _EVENTS_PATH_DEFAULT),
     )
@@ -459,6 +476,7 @@ def _persist_run_record(result: DialRunResult) -> Path | None:
 # Per-prospect variableValues for Morgan's template
 # ---------------------------------------------------------------------------
 
+
 def _fill_callsheet_placeholders(text: str, *, rep_name: str, callback: str) -> str:
     """Substitute the human-callsheet placeholders before the text reaches Vapi.
 
@@ -471,6 +489,7 @@ def _fill_callsheet_placeholders(text: str, *, rep_name: str, callback: str) -> 
     if not text:
         return text
     import re as _re
+
     out = _re.sub(r"\[\s*name\s*\]", rep_name, text, flags=_re.IGNORECASE)
     out = _re.sub(r"\[\s*phone\s*\]", callback, out, flags=_re.IGNORECASE)
     return out
@@ -489,40 +508,39 @@ def _build_variable_values(p: ProspectRecord) -> dict[str, str]:
     """
     settings = get_settings()
     rep = (getattr(settings, "samus_voice_rep_name", "") or "Morgan").strip()
-    callback = (getattr(settings, "samus_voice_callback_number", "")
-                or "(530) 418-5105").strip()
+    callback = (getattr(settings, "samus_voice_callback_number", "") or "(530) 418-5105").strip()
 
     def _fill(text: str | None) -> str:
         return _fill_callsheet_placeholders(text or "", rep_name=rep, callback=callback)
 
     values = {
-        "company_name":          p.company_name or "",
-        "industry":              p.industry or "",
-        "city":                  p.city or "",
-        "state":                 p.state or "",
-        "website_url":           p.website_url or "",
-        "owner_name":            p.owner_name or "",
-        "lead_score":            str(p.lead_score or ""),
-        "seo_score":             str(p.seo_score or ""),
-        "callsheet_opener":      _fill(p.callsheet_opener),
-        "callsheet_pitch":       _fill(p.callsheet_pitch),
-        "callsheet_voicemail":   _fill(p.callsheet_voicemail),
-        "callsheet_offer":       p.callsheet_offer or "",
-        "callsheet_issues":      p.callsheet_issues or "",
-        "callsheet_objections":  p.callsheet_objections or "",
+        "company_name": p.company_name or "",
+        "industry": p.industry or "",
+        "city": p.city or "",
+        "state": p.state or "",
+        "website_url": p.website_url or "",
+        "owner_name": p.owner_name or "",
+        "lead_score": str(p.lead_score or ""),
+        "seo_score": str(p.seo_score or ""),
+        "callsheet_opener": _fill(p.callsheet_opener),
+        "callsheet_pitch": _fill(p.callsheet_pitch),
+        "callsheet_voicemail": _fill(p.callsheet_voicemail),
+        "callsheet_offer": p.callsheet_offer or "",
+        "callsheet_issues": p.callsheet_issues or "",
+        "callsheet_objections": p.callsheet_objections or "",
         # The specific audit finding the gatekeeper-aware opener WITHHELDS —
         # Morgan speaks it only once the owner is confirmed (prompt Step 2).
-        "callsheet_finding":     p.callsheet_finding or "",
+        "callsheet_finding": p.callsheet_finding or "",
         # Expose the raw values too so an assistant prompt can reference
         # {{rep_name}} / {{callback_number}} directly if it prefers.
-        "rep_name":              rep,
-        "callback_number":       callback,
+        "rep_name": rep,
+        "callback_number": callback,
         # Recycle-pass context (2026-07-03): "true" + a compact CRM history
         # digest when this prospect has been through the pipeline before —
         # Morgan's prompt can open as a follow-up and reference the prior
         # exchange instead of introducing us cold. Empty for first-touch.
-        "recycled":              str(getattr(p, "recycled", "") or ""),
-        "prior_touch_summary":   str(getattr(p, "prior_touch_summary", "") or ""),
+        "recycled": str(getattr(p, "recycled", "") or ""),
+        "prior_touch_summary": str(getattr(p, "prior_touch_summary", "") or ""),
     }
 
     # Prior-call context (flag-gated, best-effort): give Morgan the operator's
@@ -532,6 +550,7 @@ def _build_variable_values(p: ProspectRecord) -> dict[str, str]:
     if getattr(settings, "samus_voice_profile_context_enabled", False):
         try:
             from backend.voice.prospect_profile import build_prospect_context
+
             values.update(build_prospect_context(p.prospect_id))
         except Exception:  # noqa: BLE001 — never let context lookup block a dial.
             pass
@@ -542,6 +561,7 @@ def _build_variable_values(p: ProspectRecord) -> dict[str, str]:
 # ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
+
 
 def dial_call_list(
     csv_path: Path,
@@ -567,6 +587,7 @@ def dial_call_list(
         # Use the typed service entrypoint so we get audit logging + degraded-
         # mode handling for free (vapi_api_key_unset etc).
         from .service import initiate_call as _real_initiate
+
         initiate_fn = _wrap_service_initiate(_real_initiate)
 
     settings = get_settings()
@@ -607,7 +628,8 @@ def dial_call_list(
     # the secret in one step. Fail-OPEN on a transport/list error — a Vapi
     # /phone-number outage must not block a run whose number is actually valid.
     missing = _validate_phone_numbers_exist(
-        [p for p in phone_number_pool if p], settings,
+        [p for p in phone_number_pool if p],
+        settings,
     )
     if missing:
         ev = events.build_audit_event(
@@ -657,21 +679,30 @@ def dial_call_list(
     deferred_count = 0
     try:
         from .callback_queue import pending_future_ids
+
         future = pending_future_ids()
         if future:
             deferred = [p for p in prospects if (p.prospect_id or "") in future]
             for p in deferred:
                 ev = events.build_audit_event(
-                    service="voice", task_id=run_id, action="dial_skip_scheduled",
+                    service="voice",
+                    task_id=run_id,
+                    action="dial_skip_scheduled",
                     input_payload={"prospect_id": p.prospect_id, "company": p.company_name},
-                    output_payload={"reason": "callback_scheduled",
-                                    "callback_date": future.get(p.prospect_id or "")},
+                    output_payload={
+                        "reason": "callback_scheduled",
+                        "callback_date": future.get(p.prospect_id or ""),
+                    },
                     status="skipped",
                 )
                 _append_audit(ev)
             if deferred:
                 deferred_count = len(deferred)
-                _LOG.info("dial_run %s: deferring %d prospect(s) with future callbacks", run_id, deferred_count)
+                _LOG.info(
+                    "dial_run %s: deferring %d prospect(s) with future callbacks",
+                    run_id,
+                    deferred_count,
+                )
                 prospects = [p for p in prospects if (p.prospect_id or "") not in future]
     except Exception as exc:  # noqa: BLE001
         _LOG.warning("dial_run %s: scheduled-defer gate skipped: %s", run_id, exc)
@@ -685,6 +716,7 @@ def dial_call_list(
     # fresh prospects, before hitting max_calls.
     try:
         from .retry import get_retry_entries
+
         retry_entries = get_retry_entries(max_age_hours=36)
         if retry_entries:
             _LOG.info("dial_run %s: prepending %d retry candidates", run_id, len(retry_entries))
@@ -719,6 +751,7 @@ def dial_call_list(
     _callback_ids: set[str] = set()
     try:
         from .callback_queue import get_due_callbacks
+
         due = get_due_callbacks()
     except Exception as exc:  # noqa: BLE001
         due = []
@@ -765,19 +798,21 @@ def dial_call_list(
 
     # T-5: Emit an audit row when the TCPA call-hours gate is disabled so the
     # operator has a paper trail for every run that bypassed it.
-    _tcpa_disabled = (config.call_hours_start == 0 and config.call_hours_end == 0)
+    _tcpa_disabled = config.call_hours_start == 0 and config.call_hours_end == 0
     if _tcpa_disabled:
         _LOG.warning(
             "dial_run %s: TCPA call-hours gate is DISABLED. "
             "Operator owns compliance for all calls in this run.",
             run_id,
         )
-        _append_event({
-            "ts": started,
-            "kind": "dial_run_tcpa_disabled",
-            "run_id": run_id,
-            "csv_path": str(csv_path),
-        })
+        _append_event(
+            {
+                "ts": started,
+                "kind": "dial_run_tcpa_disabled",
+                "run_id": run_id,
+                "csv_path": str(csv_path),
+            }
+        )
 
     attempts: list[DialAttempt] = []
     initiated = 0
@@ -799,31 +834,35 @@ def dial_call_list(
         priority = (p.call_priority or "").lower()
         phone = _normalize_phone(p.phone)
         if phone is None:
-            attempts.append(DialAttempt(
-                prospect_id=p.prospect_id or "",
-                company=p.company_name or "",
-                phone=p.phone or "",
-                state=p.state or "",
-                priority=priority,
-                outcome="skipped_phone",
-                detail=f"unusable phone: {p.phone!r}",
-                initiated_at=iso_now(),
-            ))
+            attempts.append(
+                DialAttempt(
+                    prospect_id=p.prospect_id or "",
+                    company=p.company_name or "",
+                    phone=p.phone or "",
+                    state=p.state or "",
+                    priority=priority,
+                    outcome="skipped_phone",
+                    detail=f"unusable phone: {p.phone!r}",
+                    initiated_at=iso_now(),
+                )
+            )
             skipped += 1
             continue
 
         # DNC / suppression check (P0 — before TCPA logging)
         if _is_suppressed(phone):
-            attempts.append(DialAttempt(
-                prospect_id=p.prospect_id or "",
-                company=p.company_name or "",
-                phone=phone,
-                state=p.state or "",
-                priority=priority,
-                outcome="skipped_suppressed",
-                detail="phone on DNC suppression list",
-                initiated_at=iso_now(),
-            ))
+            attempts.append(
+                DialAttempt(
+                    prospect_id=p.prospect_id or "",
+                    company=p.company_name or "",
+                    phone=phone,
+                    state=p.state or "",
+                    priority=priority,
+                    outcome="skipped_suppressed",
+                    detail="phone on DNC suppression list",
+                    initiated_at=iso_now(),
+                )
+            )
             skipped += 1
             continue
 
@@ -836,96 +875,112 @@ def dial_call_list(
         cd_days = int(getattr(get_settings(), "samus_dialer_cooldown_days", 7) or 0)
         if cd_days > 0:
             in_cd, last_dial_date = _in_dial_cooldown(
-                p.prospect_id or "", phone, cd_days,
+                p.prospect_id or "",
+                phone,
+                cd_days,
             )
             if in_cd:
-                vm_hours = int(getattr(
-                    get_settings(), "samus_dialer_voicemail_exempt_hours", 36,
-                ) or 0)
+                vm_hours = int(
+                    getattr(
+                        get_settings(),
+                        "samus_dialer_voicemail_exempt_hours",
+                        36,
+                    )
+                    or 0
+                )
                 vm_exempt = False
                 if vm_hours > 0:
                     from .retry import has_active_voicemail_entry  # noqa: PLC0415
+
                     vm_exempt = has_active_voicemail_entry(
                         prospect_id=p.prospect_id or "",
                         prospect_phone=phone,
                         max_age_hours=vm_hours,
                     )
                 if not vm_exempt:
-                    attempts.append(DialAttempt(
-                        prospect_id=p.prospect_id or "",
-                        company=p.company_name or "",
-                        phone=phone,
-                        state=p.state or "",
-                        priority=priority,
-                        outcome="skipped_cooldown",
-                        detail=(
-                            f"dialled {last_dial_date}; "
-                            f"{cd_days}d per-number cooldown active"
-                        ),
-                        initiated_at=iso_now(),
-                    ))
+                    attempts.append(
+                        DialAttempt(
+                            prospect_id=p.prospect_id or "",
+                            company=p.company_name or "",
+                            phone=phone,
+                            state=p.state or "",
+                            priority=priority,
+                            outcome="skipped_cooldown",
+                            detail=(
+                                f"dialled {last_dial_date}; {cd_days}d per-number cooldown active"
+                            ),
+                            initiated_at=iso_now(),
+                        )
+                    )
                     skipped += 1
                     continue
 
         # Per-day call cap: skip if this prospect was already initiated today.
         if _already_called_today(p.prospect_id or "", run_id):
-            attempts.append(DialAttempt(
-                prospect_id=p.prospect_id or "",
-                company=p.company_name or "",
-                phone=phone,
-                state=p.state or "",
-                priority=priority,
-                outcome="skipped_already_called",
-                detail="already initiated today",
-                initiated_at=iso_now(),
-            ))
+            attempts.append(
+                DialAttempt(
+                    prospect_id=p.prospect_id or "",
+                    company=p.company_name or "",
+                    phone=phone,
+                    state=p.state or "",
+                    priority=priority,
+                    outcome="skipped_already_called",
+                    detail="already initiated today",
+                    initiated_at=iso_now(),
+                )
+            )
             skipped += 1
             continue
 
         # TCPA gate (skip if either bound is non-default 0)
         gate_active = not (config.call_hours_start == 0 and config.call_hours_end == 0)
         if gate_active and not is_within_call_hours(
-            state=p.state, now=now,
+            state=p.state,
+            now=now,
             hours=(config.call_hours_start, config.call_hours_end),
         ):
             tz_name = state_to_timezone(p.state).key
-            attempts.append(DialAttempt(
-                prospect_id=p.prospect_id or "",
-                company=p.company_name or "",
-                phone=phone,
-                state=p.state or "",
-                priority=priority,
-                outcome="skipped_hours",
-                detail=(
-                    f"outside {config.call_hours_start:02d}:00-{config.call_hours_end:02d}:00"
-                    f" {tz_name} (state={p.state!r})"
-                ),
-                initiated_at=iso_now(),
-            ))
+            attempts.append(
+                DialAttempt(
+                    prospect_id=p.prospect_id or "",
+                    company=p.company_name or "",
+                    phone=phone,
+                    state=p.state or "",
+                    priority=priority,
+                    outcome="skipped_hours",
+                    detail=(
+                        f"outside {config.call_hours_start:02d}:00-{config.call_hours_end:02d}:00"
+                        f" {tz_name} (state={p.state!r})"
+                    ),
+                    initiated_at=iso_now(),
+                )
+            )
             skipped += 1
             continue
 
         # Business-hours gate (flag-gated; fail-OPEN on None). Mirrors the
         # TCPA gate: prospect-local now via state_to_timezone(p.state).
         if getattr(get_settings(), "samus_dialer_business_hours_gate", False):
-            bh_now = (now if now is not None else datetime.now(timezone.utc))
+            bh_now = now if now is not None else datetime.now(timezone.utc)
             if bh_now.tzinfo is None:
                 bh_now = bh_now.replace(tzinfo=timezone.utc)
             bh_local = bh_now.astimezone(state_to_timezone(p.state))
             if is_open_now(p.business_hours, now_local=bh_local) is False:
-                attempts.append(DialAttempt(
-                    prospect_id=p.prospect_id or "",
-                    company=p.company_name or "",
-                    phone=phone,
-                    state=p.state or "",
-                    priority=priority,
-                    outcome="skipped_closed",
-                    detail=(
-                        f"business closed at {bh_local:%a %H:%M} "
-                        f"{state_to_timezone(p.state).key} (state={p.state!r})"
-                    ),
-                    initiated_at=iso_now(),
-                ))
+                attempts.append(
+                    DialAttempt(
+                        prospect_id=p.prospect_id or "",
+                        company=p.company_name or "",
+                        phone=phone,
+                        state=p.state or "",
+                        priority=priority,
+                        outcome="skipped_closed",
+                        detail=(
+                            f"business closed at {bh_local:%a %H:%M} "
+                            f"{state_to_timezone(p.state).key} (state={p.state!r})"
+                        ),
+                        initiated_at=iso_now(),
+                    )
+                )
                 skipped += 1
                 continue
 
@@ -999,7 +1054,8 @@ def dial_call_list(
                 _LOG.error(
                     "dial_run %s: aborting after %d consecutive Vapi errors — "
                     "possible Vapi outage or misconfigured assistant",
-                    run_id, consecutive_vapi_errors,
+                    run_id,
+                    consecutive_vapi_errors,
                 )
                 break
         else:
@@ -1024,7 +1080,8 @@ def dial_call_list(
                     _LOG.error(
                         "dial_run %s: aborting after %d consecutive Vapi errors — "
                         "possible Vapi outage or misconfigured assistant",
-                        run_id, consecutive_vapi_errors,
+                        run_id,
+                        consecutive_vapi_errors,
                     )
                     break
             else:
@@ -1048,6 +1105,7 @@ def dial_call_list(
                 if (p.prospect_id or "") in _retry_ids:
                     try:
                         from .retry import clear_entry as _ce
+
                         _ce(p.prospect_id)
                     except Exception:  # noqa: BLE001
                         pass
@@ -1055,6 +1113,7 @@ def dial_call_list(
                 if (p.prospect_id or "") in _callback_ids:
                     try:
                         from .callback_queue import mark_done as _md
+
                         _md(p.prospect_id)
                     except Exception:  # noqa: BLE001
                         pass
@@ -1078,6 +1137,7 @@ def dial_call_list(
     if config.auto_tune and result.initiated_count >= 5:
         try:
             from .tuner import tune_assistant
+
             settings = get_settings()
             tune_assistant(
                 assistant_id=(settings.vapi_assistant_id or "").strip(),
@@ -1096,11 +1156,13 @@ def _wrap_service_initiate(real_initiate):
     thin shim that uses the VapiClient directly when variable injection is
     requested, so the operator's per-call interpolation lands.
     """
+
     def _impl(request: InitiateCallRequest, variable_values: dict[str, str]) -> InitiateCallResult:
         # The path used today (service.initiate_call) audit-logs + handles
         # degraded mode but does NOT forward variable_values. For dialer
         # we bypass it and use the client directly, then audit-log here.
         from .client import VapiClient, VapiError
+
         settings = get_settings()
         key = (settings.vapi_api_key or "").strip()
         if not key:
@@ -1118,7 +1180,9 @@ def _wrap_service_initiate(real_initiate):
             )
             _append_audit(ev)
             return InitiateCallResult(
-                call_id="", status=None, vapi_error="vapi_api_key_unset",
+                call_id="",
+                status=None,
+                vapi_error="vapi_api_key_unset",
             )
         client = VapiClient(api_key=key)
         # Per-prospect voicemail: the callsheet pipeline pre-generates a
@@ -1142,6 +1206,7 @@ def _wrap_service_initiate(real_initiate):
         # that placed it. Fail-soft — stamping never blocks a dial.
         try:
             from .arm_stamp import current_arm_id
+
             variant_arm_id = current_arm_id(request.assistant_id)
         except Exception as exc:  # noqa: BLE001
             _LOG.warning("arm stamp derivation failed: %s", exc)
@@ -1176,11 +1241,14 @@ def _wrap_service_initiate(real_initiate):
             )
             _append_audit(ev)
             return InitiateCallResult(
-                call_id="", status=None, vapi_error=str(exc),
+                call_id="",
+                status=None,
+                vapi_error=str(exc),
             )
         if variant_arm_id:
             try:
                 from .arm_stamp import record_dispatch
+
                 record_dispatch(
                     call_id=call.id,
                     prospect_id=(request.metadata or {}).get("prospect_id"),
@@ -1207,8 +1275,11 @@ def _wrap_service_initiate(real_initiate):
         )
         _append_audit(ev)
         return InitiateCallResult(
-            call_id=call.id, status=call.status, vapi_error=None,
+            call_id=call.id,
+            status=call.status,
+            vapi_error=None,
         )
+
     return _impl
 
 
@@ -1220,28 +1291,44 @@ def main(argv: list[str] | None = None) -> int:
     1 on dial-time errors (some calls succeeded, some hit Vapi 5xx, etc.).
     """
     import argparse
+
     parser = argparse.ArgumentParser(
         description="Walk today's prospect CSV and place Vapi calls in priority order",
     )
-    parser.add_argument("--csv", type=str, default=None,
-                        help="path to call_list_YYYY-MM-DD.csv (default: today's)")
-    parser.add_argument("--live", action="store_true",
-                        help="actually place calls (default: dry-run, no calls placed)")
-    parser.add_argument("--max", type=int, default=5,
-                        help="max calls per run (default 5, hard ceiling 50)")
-    parser.add_argument("--delay", type=float, default=30.0,
-                        help="seconds between calls (default 30)")
-    parser.add_argument("--priority", action="append", choices=("hot", "warm", "low"),
-                        default=None,
-                        help="priority bucket to include (repeatable; default: hot+warm)")
-    parser.add_argument("--start-hour", type=int, default=8,
-                        help="TCPA start hour (default 8)")
-    parser.add_argument("--end-hour", type=int, default=21,
-                        help="TCPA end hour exclusive (default 21)")
-    parser.add_argument("--disable-tcpa", action="store_true",
-                        help="disable TCPA hours gate (operator owns risk)")
-    parser.add_argument("--phone-number-ids", type=str, default=None,
-                        help="comma-separated Vapi phone_number_ids to rotate (default: VAPI_PHONE_NUMBER_ID)")
+    parser.add_argument(
+        "--csv", type=str, default=None, help="path to call_list_YYYY-MM-DD.csv (default: today's)"
+    )
+    parser.add_argument(
+        "--live",
+        action="store_true",
+        help="actually place calls (default: dry-run, no calls placed)",
+    )
+    parser.add_argument(
+        "--max", type=int, default=5, help="max calls per run (default 5, hard ceiling 50)"
+    )
+    parser.add_argument(
+        "--delay", type=float, default=30.0, help="seconds between calls (default 30)"
+    )
+    parser.add_argument(
+        "--priority",
+        action="append",
+        choices=("hot", "warm", "low"),
+        default=None,
+        help="priority bucket to include (repeatable; default: hot+warm)",
+    )
+    parser.add_argument("--start-hour", type=int, default=8, help="TCPA start hour (default 8)")
+    parser.add_argument(
+        "--end-hour", type=int, default=21, help="TCPA end hour exclusive (default 21)"
+    )
+    parser.add_argument(
+        "--disable-tcpa", action="store_true", help="disable TCPA hours gate (operator owns risk)"
+    )
+    parser.add_argument(
+        "--phone-number-ids",
+        type=str,
+        default=None,
+        help="comma-separated Vapi phone_number_ids to rotate (default: VAPI_PHONE_NUMBER_ID)",
+    )
     args = parser.parse_args(argv)
 
     csv_path = Path(args.csv) if args.csv else default_csv_path_for_today()
@@ -1251,7 +1338,8 @@ def main(argv: list[str] | None = None) -> int:
 
     phone_number_ids = (
         [p.strip() for p in args.phone_number_ids.split(",") if p.strip()]
-        if args.phone_number_ids else []
+        if args.phone_number_ids
+        else []
     )
     config = DialerConfig(
         max_calls=args.max,
@@ -1263,9 +1351,11 @@ def main(argv: list[str] | None = None) -> int:
         phone_number_ids=phone_number_ids,
     )
     pool_display = f"{len(phone_number_ids)} numbers" if phone_number_ids else "single (env)"
-    print(f"==> Dialer run: csv={csv_path.name} dry_run={config.dry_run} "
-          f"max={config.max_calls} priorities={config.only_priorities} pool={pool_display}",
-          flush=True)
+    print(
+        f"==> Dialer run: csv={csv_path.name} dry_run={config.dry_run} "
+        f"max={config.max_calls} priorities={config.only_priorities} pool={pool_display}",
+        flush=True,
+    )
 
     try:
         result = dial_call_list(csv_path, config)
@@ -1276,11 +1366,13 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: {exc}", flush=True)
         return 2
 
-    print(f"==> Eligible: {result.eligible_count}  "
-          f"Initiated: {result.initiated_count}  "
-          f"Skipped: {result.skipped_count}  "
-          f"Errors: {result.error_count}",
-          flush=True)
+    print(
+        f"==> Eligible: {result.eligible_count}  "
+        f"Initiated: {result.initiated_count}  "
+        f"Skipped: {result.skipped_count}  "
+        f"Errors: {result.error_count}",
+        flush=True,
+    )
     for a in result.attempts:
         tag = a.outcome.upper()
         ext = ""
@@ -1290,8 +1382,7 @@ def main(argv: list[str] | None = None) -> int:
             ext = f" err={a.vapi_error}"
         elif a.detail:
             ext = f" ({a.detail})"
-        print(f"   [{tag:14s}] {a.company[:32]:32s} {a.phone}{ext}",
-              flush=True)
+        print(f"   [{tag:14s}] {a.company[:32]:32s} {a.phone}{ext}", flush=True)
     return 0 if result.error_count == 0 else 1
 
 
@@ -1324,23 +1415,26 @@ def _record_attempt(run_id: str, attempt: DialAttempt) -> None:
     """Persist a single attempt to BOTH the audit ledger (hashed) and the
     rich-payload events ledger (for the briefing rollup)."""
     _append_audit(_dial_attempt_audit_event(run_id, attempt))
-    _append_event({
-        "ts": attempt.initiated_at,
-        "kind": "dial_attempt",
-        "run_id": run_id,
-        "prospect_id": attempt.prospect_id,
-        "company": attempt.company,
-        "phone_tail": attempt.phone[-4:] if attempt.phone else "",
-        "state": attempt.state,
-        "priority": attempt.priority,
-        "outcome": attempt.outcome,
-        "call_id": attempt.call_id,
-        "vapi_error": attempt.vapi_error,
-        "detail": attempt.detail,
-        "outbound_number_id": attempt.outbound_number_id,
-    })
+    _append_event(
+        {
+            "ts": attempt.initiated_at,
+            "kind": "dial_attempt",
+            "run_id": run_id,
+            "prospect_id": attempt.prospect_id,
+            "company": attempt.company,
+            "phone_tail": attempt.phone[-4:] if attempt.phone else "",
+            "state": attempt.state,
+            "priority": attempt.priority,
+            "outcome": attempt.outcome,
+            "call_id": attempt.call_id,
+            "vapi_error": attempt.vapi_error,
+            "detail": attempt.detail,
+            "outbound_number_id": attempt.outbound_number_id,
+        }
+    )
 
 
 if __name__ == "__main__":
     import sys
+
     sys.exit(main())

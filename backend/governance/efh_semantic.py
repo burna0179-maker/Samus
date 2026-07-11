@@ -20,6 +20,7 @@ Design constraints (doctrine):
     return a strict shape, but a malformed reply degrades to ``[]`` rather than
     raising into the gate.
 """
+
 from __future__ import annotations
 
 import json
@@ -51,7 +52,7 @@ def _build_system(axiom_index: dict[str, dict[str, Any]]) -> str:
         "- Judge intent and effect, not just keywords (e.g. paraphrased "
         "manipulation, indirect data extraction, disguised concealment).",
         "- Return STRICT JSON only, no prose: "
-        '{\"breached\": [\"<axiom_id>\", ...]}. Use the exact axiom ids below. '
+        '{"breached": ["<axiom_id>", ...]}. Use the exact axiom ids below. '
         "An empty list means no breach.",
         "",
         "INVIOLABLE AXIOMS:",
@@ -60,10 +61,7 @@ def _build_system(axiom_index: dict[str, dict[str, Any]]) -> str:
         desc = ""
         if isinstance(axiom, dict):
             desc = str(
-                axiom.get("description")
-                or axiom.get("statement")
-                or axiom.get("summary")
-                or ""
+                axiom.get("description") or axiom.get("statement") or axiom.get("summary") or ""
             ).strip()
         lines.append(f"- {axiom_id}: {desc}" if desc else f"- {axiom_id}")
     return "\n".join(lines)
@@ -119,7 +117,7 @@ def classify_breaches(
     prompt = (
         "PROPOSED ACTION (verbatim text to evaluate):\n"
         "<<<\n" + snippet + "\n>>>\n\n"
-        "Return strict JSON: {\"breached\": [...]}."
+        'Return strict JSON: {"breached": [...]}.'
     )
 
     try:

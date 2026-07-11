@@ -40,6 +40,7 @@ Absorption, not cloning: adapted from Optimus
 ``backend/common/`` layout (state via ``state_paths``, gate via the Samus
 flag runtime, master fingerprint over Samus's resolved master).
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -77,9 +78,7 @@ def _atomic_write_text(path: Path, text: str) -> None:
         raise
 
 
-def _emit_to_ledger(
-    ledger: Any, event_type: str, payload: dict[str, Any]
-) -> str | None:
+def _emit_to_ledger(ledger: Any, event_type: str, payload: dict[str, Any]) -> str | None:
     """Emit ``payload`` through a duck-typed ledger; return the receipt hash.
 
     Accepts ``append`` (returns an object with an ``entry_hash`` attr) and

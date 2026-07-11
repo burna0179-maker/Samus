@@ -33,6 +33,7 @@ Fail-safe: every DDB / codex / karma fault degrades the sweep to a partial
 result rather than raising. The control tick treats a partial as success and
 tries again next tick.
 """
+
 from __future__ import annotations
 
 import logging
@@ -169,12 +170,15 @@ def run_stalled_revival_sweep() -> dict[str, Any]:
     # lockstep with fresh auto-stake).
     try:
         from backend.heat import service as _heat
+
         mult = _heat.send_multiplier_now()
         if mult < 1.0:
             scaled = int(max_per_sweep * mult)
             _LOG.info(
                 "stalled_revival heat throttle: mult=%.2f max_per_sweep %d->%d",
-                mult, max_per_sweep, scaled,
+                mult,
+                max_per_sweep,
+                scaled,
             )
             max_per_sweep = scaled
     except Exception as exc:  # noqa: BLE001
@@ -184,7 +188,9 @@ def run_stalled_revival_sweep() -> dict[str, Any]:
     scanned = len(opps)
     _LOG.info(
         "stalled_revival sweep: scanned=%d min_age_hours=%d max_per_sweep=%d",
-        scanned, min_age_hours, max_per_sweep,
+        scanned,
+        min_age_hours,
+        max_per_sweep,
     )
 
     revived = 0
@@ -214,7 +220,9 @@ def run_stalled_revival_sweep() -> dict[str, Any]:
     }
     _LOG.info(
         "stalled_revival sweep complete: scanned=%d revived=%d skipped=%d",
-        scanned, revived, skipped,
+        scanned,
+        revived,
+        skipped,
     )
     return tally
 

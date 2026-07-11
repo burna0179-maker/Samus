@@ -11,6 +11,7 @@ Fully offline: a fake Vapi client injects the call; the LM Studio analyzer is
 stubbed to a canned outcome; every artifact/state/attribution write is isolated
 to ``tmp_path``.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -31,19 +32,21 @@ from backend.prospecting.csv_export import CSV_COLUMNS
 
 _ARM_ID = "voice::ast_test::cfg-deadbeef"
 _PROSPECT_ID = "p_bandit"
-_CALL_NUMBER = "+15551230001"          # dialed number (E.164)
-_CSV_PHONE = "5551230001"              # same number as it appears on the CSV
-_CANNED_LLM = json.dumps({
-    "outcome": "converted",
-    "reward": 1.0,
-    "objections_hit": [],
-    "talking_points_landed": ["free audit hook"],
-    "talking_points_flopped": [],
-    "conversion_signals": ["send me the contract"],
-    "what_to_listen_for": [],
-    "prospect_tier_correction": None,
-    "script_feedback": {},
-})
+_CALL_NUMBER = "+15551230001"  # dialed number (E.164)
+_CSV_PHONE = "5551230001"  # same number as it appears on the CSV
+_CANNED_LLM = json.dumps(
+    {
+        "outcome": "converted",
+        "reward": 1.0,
+        "objections_hit": [],
+        "talking_points_landed": ["free audit hook"],
+        "talking_points_flopped": [],
+        "conversion_signals": ["send me the contract"],
+        "what_to_listen_for": [],
+        "prospect_tier_correction": None,
+        "script_feedback": {},
+    }
+)
 
 
 class _FakeVapiClient:
@@ -56,17 +59,19 @@ class _FakeVapiClient:
 
 def _completed_call(call_id: str = "call_bandit_1") -> VapiCall:
     started = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
-    return VapiCall.model_validate({
-        "id": call_id,
-        "status": "ended",
-        "endedReason": "customer-ended-call",
-        "transcript": (
-            "AI: Hi, this is Morgan with HustleForge — quick question about your "
-            "website.\nUser: Sure. Actually that sounds great, send me the contract."
-        ),
-        "customer": {"number": _CALL_NUMBER, "name": "Rocklin Dental"},
-        "startedAt": started,
-    })
+    return VapiCall.model_validate(
+        {
+            "id": call_id,
+            "status": "ended",
+            "endedReason": "customer-ended-call",
+            "transcript": (
+                "AI: Hi, this is Morgan with HustleForge — quick question about your "
+                "website.\nUser: Sure. Actually that sounds great, send me the contract."
+            ),
+            "customer": {"number": _CALL_NUMBER, "name": "Rocklin Dental"},
+            "startedAt": started,
+        }
+    )
 
 
 def _seed_call_list_csv(root) -> None:
@@ -74,16 +79,18 @@ def _seed_call_list_csv(root) -> None:
     d = root / "daily_calls"
     d.mkdir(parents=True, exist_ok=True)
     row = {c: "" for c in CSV_COLUMNS}
-    row.update({
-        "prospect_id": _PROSPECT_ID,
-        "company_name": "Rocklin Dental",
-        "phone": _CSV_PHONE,
-        "state": "CA",
-        "call_priority": "hot",
-        "lead_score": "80",
-        "seo_score": "30",
-        "industry": "dentist",
-    })
+    row.update(
+        {
+            "prospect_id": _PROSPECT_ID,
+            "company_name": "Rocklin Dental",
+            "phone": _CSV_PHONE,
+            "state": "CA",
+            "call_priority": "hot",
+            "lead_score": "80",
+            "seo_score": "30",
+            "industry": "dentist",
+        }
+    )
     path = d / f"call_list_{date.today().isoformat()}.csv"
     with path.open("w", encoding="utf-8", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=list(CSV_COLUMNS))
@@ -103,6 +110,7 @@ def _loop_env(tmp_path, monkeypatch):
     # Don't let the prospect index reach real host CSVs — keep it hermetic + fast.
     monkeypatch.setattr("backend.voice.prospect_lookup._FALLBACK_ROOTS", ())
     from backend.attribution import store as attr_store
+
     attr_store.reset_store()
     yield tmp_path
     attr_store.reset_store()
@@ -110,8 +118,10 @@ def _loop_env(tmp_path, monkeypatch):
 
 def _stub_llm(monkeypatch):
     """Stub the LM Studio analyzer (and the strategy reasoner that shares it)."""
+
     def _fake(*_a, **_k):
         return _CANNED_LLM
+
     monkeypatch.setattr("backend.voice.transcript_analyzer.llm_chat", _fake)
     monkeypatch.setattr("backend.voice.call_strategy_reasoner.llm_chat", _fake)
 
@@ -120,6 +130,7 @@ def _spy_record_outcome(monkeypatch):
     """Wrap attribution.record_outcome: capture args AND call through to the
     real (tmp-isolated) store so the bandit trial/reward really move."""
     import backend.attribution.engine as engine
+
     captured: list[dict] = []
     real = engine.record_outcome
 
@@ -134,6 +145,7 @@ def _spy_record_outcome(monkeypatch):
 # ---------------------------------------------------------------------------
 # Gating
 # ---------------------------------------------------------------------------
+
 
 def test_run_once_disabled_is_a_no_op(monkeypatch):
     monkeypatch.setenv("SAMUS_VOICE_INGEST_LOOP_ENABLED", "0")
@@ -164,6 +176,7 @@ def test_no_new_data_skips_the_pipeline(_loop_env, monkeypatch):
 # End-to-end: completed call -> analysis persisted + reward on the arm
 # ---------------------------------------------------------------------------
 
+
 def test_completed_call_flows_reward_to_stamped_arm(_loop_env, monkeypatch):
     root = _loop_env / "artifacts"
     _seed_call_list_csv(root)
@@ -172,9 +185,12 @@ def test_completed_call_flows_reward_to_stamped_arm(_loop_env, monkeypatch):
 
     # FRONT of the loop: stamp the dispatch->arm mapping the dialer would write.
     from backend.voice import arm_stamp
+
     arm_stamp.record_dispatch(
-        call_id="call_bandit_1", prospect_id=_PROSPECT_ID,
-        phone=_CALL_NUMBER, arm_id=_ARM_ID,
+        call_id="call_bandit_1",
+        prospect_id=_PROSPECT_ID,
+        phone=_CALL_NUMBER,
+        arm_id=_ARM_ID,
     )
     # Sanity: the arm ledger round-trips under the isolated state root, else the
     # reward join below would silently no-op.
@@ -192,6 +208,7 @@ def test_completed_call_flows_reward_to_stamped_arm(_loop_env, monkeypatch):
 
     # (ii-b) the bandit's durable stats for that arm actually moved
     import backend.attribution.engine as engine
+
     snap = engine.snapshot(_ARM_ID)
     assert snap["trials"] == 1
     assert snap["wins"] == 1
@@ -207,8 +224,7 @@ def test_completed_call_flows_reward_to_stamped_arm(_loop_env, monkeypatch):
     # (iv) the transcript manifest is freshened
     manifest = root / "voice" / "transcript_manifest.json"
     assert manifest.exists()
-    assert json.loads(manifest.read_text(encoding="utf-8"))["source"] == \
-        "vapi_in_container_ingest"
+    assert json.loads(manifest.read_text(encoding="utf-8"))["source"] == "vapi_in_container_ingest"
 
 
 def test_reward_flows_exactly_once_across_cadences(_loop_env, monkeypatch):
@@ -218,9 +234,12 @@ def test_reward_flows_exactly_once_across_cadences(_loop_env, monkeypatch):
     captured = _spy_record_outcome(monkeypatch)
 
     from backend.voice import arm_stamp
+
     arm_stamp.record_dispatch(
-        call_id="call_bandit_1", prospect_id=_PROSPECT_ID,
-        phone=_CALL_NUMBER, arm_id=_ARM_ID,
+        call_id="call_bandit_1",
+        prospect_id=_PROSPECT_ID,
+        phone=_CALL_NUMBER,
+        arm_id=_ARM_ID,
     )
 
     client = _FakeVapiClient([_completed_call()])
@@ -228,17 +247,19 @@ def test_reward_flows_exactly_once_across_cadences(_loop_env, monkeypatch):
     second = vit.run_once(client=client)  # same call re-listed next cadence
 
     assert first["analyzed"] == 1
-    assert second["staged"] == 0        # dedup'd by call_id -> not re-staged
+    assert second["staged"] == 0  # dedup'd by call_id -> not re-staged
     assert second["analyzed"] == 0
     # The bandit was credited exactly once for the call.
     assert len(captured) == 1
     import backend.attribution.engine as engine
+
     assert engine.snapshot(_ARM_ID)["trials"] == 1
 
 
 # ---------------------------------------------------------------------------
 # Lifespan hooks
 # ---------------------------------------------------------------------------
+
 
 def test_start_and_stop_loop_lifecycle(monkeypatch):
     monkeypatch.setenv("SAMUS_VOICE_INGEST_LOOP_ENABLED", "1")

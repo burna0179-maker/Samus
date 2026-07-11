@@ -17,6 +17,7 @@ All API calls are best-effort: a vendor being unreachable degrades the
 snapshot (``reachable=False``, ``error`` populated) but never crashes the
 service or blocks the finance workcell.
 """
+
 from __future__ import annotations
 
 import logging
@@ -46,9 +47,11 @@ _cached_at: float = 0.0
 # Data shapes
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class ServiceStatus:
     """Per-vendor cost/balance status."""
+
     vendor: str = ""
     reachable: bool = False
     balance_usd: float | None = None
@@ -64,6 +67,7 @@ class ServiceStatus:
 @dataclass
 class ServiceCostSnapshot:
     """Composite snapshot of all monitored vendor balances."""
+
     ts: str = ""
     openai: ServiceStatus = field(default_factory=lambda: ServiceStatus(vendor="openai"))
     anthropic: ServiceStatus = field(default_factory=lambda: ServiceStatus(vendor="anthropic"))
@@ -76,6 +80,7 @@ class ServiceCostSnapshot:
 # ---------------------------------------------------------------------------
 # OpenAI billing
 # ---------------------------------------------------------------------------
+
 
 def _check_openai(api_key: str) -> ServiceStatus:
     """Poll OpenAI for credit balance and recent usage."""
@@ -143,6 +148,7 @@ def _check_openai(api_key: str) -> ServiceStatus:
 # Anthropic billing (Admin API key required)
 # ---------------------------------------------------------------------------
 
+
 def _check_anthropic(admin_key: str) -> ServiceStatus:
     """Poll Anthropic for organization cost report."""
     st = ServiceStatus(vendor="anthropic")
@@ -195,6 +201,7 @@ def _check_anthropic(admin_key: str) -> ServiceStatus:
 # ---------------------------------------------------------------------------
 # Twilio balance
 # ---------------------------------------------------------------------------
+
 
 def _check_twilio(account_sid: str, auth_token: str) -> ServiceStatus:
     """Poll Twilio for account balance and recent usage."""
@@ -262,6 +269,7 @@ def _check_twilio(account_sid: str, auth_token: str) -> ServiceStatus:
 # Vapi (no billing API — stub with per-call cost note)
 # ---------------------------------------------------------------------------
 
+
 def _check_vapi() -> ServiceStatus:
     """Vapi has no billing API. Return a stub pointing to the voice tracker."""
     return ServiceStatus(
@@ -274,6 +282,7 @@ def _check_vapi() -> ServiceStatus:
 # ---------------------------------------------------------------------------
 # Composite snapshot
 # ---------------------------------------------------------------------------
+
 
 def service_cost_snapshot(*, force: bool = False) -> ServiceCostSnapshot:
     """Build a combined vendor balance/spend snapshot.
@@ -288,6 +297,7 @@ def service_cost_snapshot(*, force: bool = False) -> ServiceCostSnapshot:
 
     try:
         from backend.common.config import get_settings
+
         settings = get_settings()
     except Exception:
         settings = None

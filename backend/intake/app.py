@@ -19,6 +19,7 @@ fetch from ``https://hustleforge.tech`` -> ``https://api.hustleforge.tech``
 gets the preflight OPTIONS handshake it needs. Allowed origins come from
 settings (overridable per environment).
 """
+
 from __future__ import annotations
 
 import logging
@@ -194,8 +195,7 @@ def create_app():
                     "limit": decision.limit,
                     "retry_after_seconds": decision.retry_after_seconds,
                     "message": (
-                        "Too many onboarding submissions. Please wait a "
-                        "moment and try again."
+                        "Too many onboarding submissions. Please wait a moment and try again."
                     ),
                 },
                 headers={"Retry-After": str(decision.retry_after_seconds)},

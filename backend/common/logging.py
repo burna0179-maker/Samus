@@ -3,6 +3,7 @@
 ``configure_logging`` is idempotent and installs a single stdout handler with
 a JSON formatter that includes trace_id from the correlation ContextVar.
 """
+
 from __future__ import annotations
 
 import json
@@ -43,11 +44,29 @@ class JsonFormatter(logging.Formatter):
             payload["exc_info"] = self.formatException(record.exc_info)
         # Include any extra fields the caller passed via logger.X(extra={...}).
         for key, value in record.__dict__.items():
-            if key in ("msg", "args", "exc_info", "exc_text", "stack_info",
-                      "lineno", "funcName", "created", "msecs", "relativeCreated",
-                      "thread", "threadName", "processName", "process", "name",
-                      "levelname", "levelno", "pathname", "filename", "module",
-                      "asctime"):
+            if key in (
+                "msg",
+                "args",
+                "exc_info",
+                "exc_text",
+                "stack_info",
+                "lineno",
+                "funcName",
+                "created",
+                "msecs",
+                "relativeCreated",
+                "thread",
+                "threadName",
+                "processName",
+                "process",
+                "name",
+                "levelname",
+                "levelno",
+                "pathname",
+                "filename",
+                "module",
+                "asctime",
+            ):
                 continue
             try:
                 json.dumps(value)

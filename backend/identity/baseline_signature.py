@@ -30,6 +30,7 @@ default-green, I-14). There is intentionally NO forgeable-HMAC fallback (the
 Samus build is greenfield on this gate, so we ship straight to the production
 anchor — the other agents kept HMAC only for migration back-compat).
 """
+
 from __future__ import annotations
 
 import hashlib

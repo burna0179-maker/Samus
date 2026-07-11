@@ -19,10 +19,11 @@ Design (the "one LLC now, split later" posture Alex chose):
 Reuses :class:`backend.finance.stripe_client.StripeClient` (which already takes the
 key per-construction), so partitioning costs nothing structurally.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 # The canonical stream ids. ``services`` is the default/legacy stream and always
 # resolves to ``stripe_api_key`` unless explicitly given its own key.
@@ -35,18 +36,29 @@ TIKTOK_SHOP = "tiktok_shop"
 class RevenueStream:
     stream_id: str
     display_name: str
-    key_field: str          # Settings attr holding this stream's Stripe key ("" => pooled)
-    webhook_field: str      # Settings attr holding this stream's webhook secret
-    entity_field: str       # Settings attr holding this stream's entity override
+    key_field: str  # Settings attr holding this stream's Stripe key ("" => pooled)
+    webhook_field: str  # Settings attr holding this stream's webhook secret
+    entity_field: str  # Settings attr holding this stream's entity override
 
 
 STREAMS: dict[str, RevenueStream] = {
-    SERVICES: RevenueStream(SERVICES, "Client Services", "stripe_api_key",
-                            "stripe_webhook_secret", ""),
-    PRODUCTS: RevenueStream(PRODUCTS, "Product Sales (Store)", "stripe_api_key_products",
-                            "stripe_webhook_secret_products", "revenue_entity_products"),
-    TIKTOK_SHOP: RevenueStream(TIKTOK_SHOP, "TikTok Shop", "stripe_api_key_tiktok",
-                               "stripe_webhook_secret_tiktok", "revenue_entity_tiktok"),
+    SERVICES: RevenueStream(
+        SERVICES, "Client Services", "stripe_api_key", "stripe_webhook_secret", ""
+    ),
+    PRODUCTS: RevenueStream(
+        PRODUCTS,
+        "Product Sales (Store)",
+        "stripe_api_key_products",
+        "stripe_webhook_secret_products",
+        "revenue_entity_products",
+    ),
+    TIKTOK_SHOP: RevenueStream(
+        TIKTOK_SHOP,
+        "TikTok Shop",
+        "stripe_api_key_tiktok",
+        "stripe_webhook_secret_tiktok",
+        "revenue_entity_tiktok",
+    ),
 }
 
 
@@ -117,7 +129,9 @@ def stripe_client_for(stream_id: str, settings: Any):
     return StripeClient(api_key=key)
 
 
-def attribute(record: dict[str, Any], stream_id: str, settings: Any | None = None) -> dict[str, Any]:
+def attribute(
+    record: dict[str, Any], stream_id: str, settings: Any | None = None
+) -> dict[str, Any]:
     """Stamp ``revenue_stream`` + ``entity`` onto an income/receipt/ledger record.
 
     Returns the same dict (mutated) for convenient chaining. ``entity`` is only
@@ -133,18 +147,31 @@ def stream_summary(settings: Any) -> list[dict[str, Any]]:
     """Operator-facing view: which streams are partitioned vs. pooled."""
     out: list[dict[str, Any]] = []
     for stream in list_streams():
-        out.append({
-            "stream_id": stream.stream_id,
-            "display_name": stream.display_name,
-            "entity": entity_for(stream.stream_id, settings),
-            "own_account": has_own_account(stream.stream_id, settings),
-            "transacts": bool(resolve_stripe_key(stream.stream_id, settings)),
-        })
+        out.append(
+            {
+                "stream_id": stream.stream_id,
+                "display_name": stream.display_name,
+                "entity": entity_for(stream.stream_id, settings),
+                "own_account": has_own_account(stream.stream_id, settings),
+                "transacts": bool(resolve_stripe_key(stream.stream_id, settings)),
+            }
+        )
     return out
 
 
 __all__ = [
-    "SERVICES", "PRODUCTS", "TIKTOK_SHOP", "RevenueStream", "STREAMS",
-    "get_stream", "list_streams", "resolve_stripe_key", "resolve_webhook_secret",
-    "entity_for", "has_own_account", "stripe_client_for", "attribute", "stream_summary",
+    "SERVICES",
+    "PRODUCTS",
+    "TIKTOK_SHOP",
+    "RevenueStream",
+    "STREAMS",
+    "get_stream",
+    "list_streams",
+    "resolve_stripe_key",
+    "resolve_webhook_secret",
+    "entity_for",
+    "has_own_account",
+    "stripe_client_for",
+    "attribute",
+    "stream_summary",
 ]

@@ -13,6 +13,7 @@ Staleness matters: a real bank balance from a week-old export is still better th
 a $0 Stripe artifact, but the caller should down-weight a stale reading — so the
 export's file age is reported.
 """
+
 from __future__ import annotations
 
 import csv
@@ -24,6 +25,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 _LOG = logging.getLogger("samus.finance.found_cash")
+
 
 def _candidate_dirs() -> list[str]:
     """Where to look for the Found export, resolved at CALL time. Found cash is
@@ -39,9 +41,9 @@ def _candidate_dirs() -> list[str]:
 class FoundCash:
     balance_usd: float
     txn_count: int
-    latest_txn_date: str      # ISO date of the newest transaction in the export
+    latest_txn_date: str  # ISO date of the newest transaction in the export
     source_file: str
-    export_age_days: float    # age of the CSV file (how stale the reading is)
+    export_age_days: float  # age of the CSV file (how stale the reading is)
 
 
 def _parse_mmddyyyy(s: str) -> Optional[datetime]:
@@ -60,8 +62,9 @@ def read_found_cash(activity_dir: Optional[str] = None) -> Optional[FoundCash]:
     path = ""
     for d in dirs:
         try:
-            found = sorted(glob.glob(os.path.join(d, "*activity_report*.csv")),
-                           key=os.path.getmtime)
+            found = sorted(
+                glob.glob(os.path.join(d, "*activity_report*.csv")), key=os.path.getmtime
+            )
         except Exception:  # noqa: BLE001
             continue
         if found:
@@ -72,16 +75,18 @@ def read_found_cash(activity_dir: Optional[str] = None) -> Optional[FoundCash]:
     try:
         with open(path, encoding="utf-8-sig") as fh:
             rows = list(csv.DictReader(fh))
-        amounts = [float(r["Amount"]) for r in rows
-                   if r.get("Amount") not in (None, "")]
+        amounts = [float(r["Amount"]) for r in rows if r.get("Amount") not in (None, "")]
         balance = round(sum(amounts), 2)
         dates = [d for d in (_parse_mmddyyyy(r.get("Date", "")) for r in rows) if d]
         latest = max(dates).date().isoformat() if dates else ""
         mtime = datetime.fromtimestamp(os.path.getmtime(path), timezone.utc)
         age_days = round((datetime.now(timezone.utc) - mtime).total_seconds() / 86400.0, 1)
         return FoundCash(
-            balance_usd=balance, txn_count=len(amounts), latest_txn_date=latest,
-            source_file=os.path.basename(path), export_age_days=age_days,
+            balance_usd=balance,
+            txn_count=len(amounts),
+            latest_txn_date=latest,
+            source_file=os.path.basename(path),
+            export_age_days=age_days,
         )
     except Exception as exc:  # noqa: BLE001
         _LOG.warning("found cash parse failed for %s: %s", path, exc)
@@ -97,6 +102,7 @@ def best_available_cash_usd(stripe_available_usd: float) -> tuple[float, str]:
     Returns ``(usd, source)``. Each tier fails soft to the next."""
     try:
         from .mercury_client import total_available_cash_usd
+
         m = total_available_cash_usd()
         if m is not None:
             return m, "mercury"

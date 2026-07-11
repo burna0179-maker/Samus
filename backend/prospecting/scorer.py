@@ -9,6 +9,7 @@ population across the full range so the strongest leads sort to the top.
 
 A learning-based scorer would replace this in a later phase.
 """
+
 from __future__ import annotations
 
 import math
@@ -68,9 +69,15 @@ _SEO_UNKNOWN_FRACTION = 0.5
 # for a 0 (access_blocked, unreachable_timeout, unreachable, server_error,
 # http_error, empty, or a live site whose audit never produced a score) is
 # treated as unknown — see _seo_points_for.
-_GENUINE_NO_WEBSITE: frozenset[str] = frozenset({
-    "no_website", "parked", "social_only", "domain_unresolved", "gone",
-})
+_GENUINE_NO_WEBSITE: frozenset[str] = frozenset(
+    {
+        "no_website",
+        "parked",
+        "social_only",
+        "domain_unresolved",
+        "gone",
+    }
+)
 
 
 def _rating_points(raw: str) -> float:

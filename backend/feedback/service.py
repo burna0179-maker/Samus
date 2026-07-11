@@ -6,6 +6,7 @@ Idempotency-cached, audit-stamped pipeline:
                   -> route to record_bounce/record_complaint/record_delivery
                   -> build_audit_event + ledger append -> FeedbackResult.
 """
+
 from __future__ import annotations
 
 import logging

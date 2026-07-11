@@ -30,6 +30,7 @@ tamper-posture baseline in production ABORTS boot). The default ``off`` means
 the running Docker/AWS stack is byte-for-byte unaffected until the operator
 arms it — exactly the dormant-build rule the ecosystem follows.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -86,8 +87,7 @@ class VerifyResult:
             "checked": self.checked,
             "baseline_recorded": self.baseline_recorded,
             "drift": [
-                {"path": rel, "expected": exp, "actual": act}
-                for rel, exp, act in self.drift
+                {"path": rel, "expected": exp, "actual": act} for rel, exp, act in self.drift
             ],
         }
 
@@ -126,17 +126,13 @@ def load_manifest(manifest_path: Path | None = None) -> list[str]:
     out: list[str] = []
     for idx, item in enumerate(subsystems):
         if not isinstance(item, str):
-            raise ImmutableManifestError(
-                f"manifest 'subsystems'[{idx}] must be a string"
-            )
+            raise ImmutableManifestError(f"manifest 'subsystems'[{idx}] must be a string")
         _validate_relative_path(item, f"'subsystems'[{idx}]")
         out.append(item)
     return out
 
 
-def compute_hashes(
-    rel_paths: list[str], *, root: Path | None = None
-) -> dict[str, str]:
+def compute_hashes(rel_paths: list[str], *, root: Path | None = None) -> dict[str, str]:
     """sha256 each rel path under ``root``; missing files get the marker."""
     base = Path(root) if root is not None else _CODE_ROOT
     hashes: dict[str, str] = {}
@@ -152,7 +148,8 @@ def compute_hashes(
 
 
 def record_baseline(
-    *, manifest_path: Path | None = None,
+    *,
+    manifest_path: Path | None = None,
     baseline_path: Path | None = None,
     root: Path | None = None,
 ) -> dict[str, str]:
@@ -182,7 +179,8 @@ def load_baseline(baseline_path: Path | None = None) -> dict[str, str] | None:
 
 
 def verify_manifest(
-    *, manifest_path: Path | None = None,
+    *,
+    manifest_path: Path | None = None,
     baseline_path: Path | None = None,
     root: Path | None = None,
 ) -> VerifyResult:
@@ -197,9 +195,7 @@ def verify_manifest(
     current = compute_hashes(rels, root=root)
     baseline = load_baseline(baseline_path)
     if baseline is None:
-        return VerifyResult(
-            ok=True, drift=[], checked=len(current), baseline_recorded=False
-        )
+        return VerifyResult(ok=True, drift=[], checked=len(current), baseline_recorded=False)
 
     drift: list[tuple[str, str, str]] = []
     for rel in rels:
@@ -211,13 +207,12 @@ def verify_manifest(
             drift.append((rel, MISSING_HASH_MARKER, actual))
         elif expected != actual:
             drift.append((rel, expected, actual))
-    return VerifyResult(
-        ok=not drift, drift=drift, checked=len(current), baseline_recorded=True
-    )
+    return VerifyResult(ok=not drift, drift=drift, checked=len(current), baseline_recorded=True)
 
 
 def check_baseline_trust(
-    *, baseline_path: Path | None = None,
+    *,
+    baseline_path: Path | None = None,
     operator_pubkey_path_override: Path | None = None,
 ):
     """Establish whether the baseline is operator-Ed25519 signed (production).

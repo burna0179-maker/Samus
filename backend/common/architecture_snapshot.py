@@ -42,6 +42,7 @@ Hash inputs are canonicalized via
 digested, so any two equivalent snapshots produce identical hashes regardless
 of dict insertion order.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -78,9 +79,7 @@ class BehavioralSnapshot:
 
     fs_read: list[str] = field(default_factory=list)
     fs_write: list[str] = field(default_factory=list)
-    network: dict[str, Any] = field(
-        default_factory=lambda: {"enabled": False, "allowed_hosts": []}
-    )
+    network: dict[str, Any] = field(default_factory=lambda: {"enabled": False, "allowed_hosts": []})
     execution: dict[str, bool] = field(
         default_factory=lambda: {
             "shell": False,
@@ -136,9 +135,7 @@ class ArchitectureSnapshot:
         """
         self.structure_hash = _sha256_canonical(_structure_payload(self.structure))
         self.behavior_hash = _sha256_canonical(_behavior_payload(self.behavior))
-        self.capability_hash = _sha256_canonical(
-            _capability_payload(self.capabilities)
-        )
+        self.capability_hash = _sha256_canonical(_capability_payload(self.capabilities))
 
     # -- serialization ---------------------------------------------------
 
@@ -168,9 +165,7 @@ class ArchitectureSnapshot:
         structure = StructuralSnapshot(
             subsystems={k: list(v) for k, v in (struct_raw.get("subsystems") or {}).items()},
             modules={k: dict(v) for k, v in (struct_raw.get("modules") or {}).items()},
-            dependency_edges=[
-                (a, b) for a, b in (struct_raw.get("dependency_edges") or [])
-            ],
+            dependency_edges=[(a, b) for a, b in (struct_raw.get("dependency_edges") or [])],
         )
         behavior = BehavioralSnapshot(
             fs_read=list(behav_raw.get("fs_read") or []),
@@ -270,9 +265,7 @@ def diff_snapshots(
     # Duplicate-capability signal: capability exists in baseline but points
     # to a different module in candidate -> covert re-pointing. Sorted, no dupes.
     repointed = sorted(
-        name
-        for name, mod in cand_caps.items()
-        if name in base_caps and base_caps[name] != mod
+        name for name, mod in cand_caps.items() if name in base_caps and base_caps[name] != mod
     )
 
     return SnapshotDiff(
@@ -314,26 +307,19 @@ def detect_adversarial_patterns(diff: SnapshotDiff) -> list[str]:
     if "shell" in diff.new_execution_flags:
         findings.append("shell_execution_enabled: execution.shell flipped to True")
     if "dynamic_code" in diff.new_execution_flags:
-        findings.append(
-            "dynamic_code_evaluation_enabled: execution.dynamic_code flipped to True"
-        )
+        findings.append("dynamic_code_evaluation_enabled: execution.dynamic_code flipped to True")
     if "self_modify" in diff.new_execution_flags:
         findings.append("self_modification_enabled: execution.self_modify flipped to True")
 
     if diff.new_network_hosts:
         findings.append(
-            "hidden_network_access: new allowed_hosts = "
-            + ",".join(diff.new_network_hosts)
+            "hidden_network_access: new allowed_hosts = " + ",".join(diff.new_network_hosts)
         )
 
     if diff.new_fs_read_paths:
-        findings.append(
-            "new_filesystem_read_paths: " + ",".join(diff.new_fs_read_paths)
-        )
+        findings.append("new_filesystem_read_paths: " + ",".join(diff.new_fs_read_paths))
     if diff.new_fs_write_paths:
-        findings.append(
-            "new_filesystem_write_paths: " + ",".join(diff.new_fs_write_paths)
-        )
+        findings.append("new_filesystem_write_paths: " + ",".join(diff.new_fs_write_paths))
 
     if diff.new_dependencies:
         findings.append(
@@ -343,8 +329,7 @@ def detect_adversarial_patterns(diff: SnapshotDiff) -> list[str]:
 
     if diff.duplicate_capabilities:
         findings.append(
-            "duplicate_or_repointed_capabilities: "
-            + ",".join(diff.duplicate_capabilities)
+            "duplicate_or_repointed_capabilities: " + ",".join(diff.duplicate_capabilities)
         )
 
     return findings

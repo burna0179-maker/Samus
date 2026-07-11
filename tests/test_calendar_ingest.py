@@ -1,4 +1,5 @@
 """Tests for backend.intake.calendar_ingest."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock
@@ -32,6 +33,7 @@ def _mk_parsed(**over) -> ParsedInboundEmail:
 
 
 # --- _parse_ical_dt --------------------------------------------------------
+
 
 def test_parse_utc_z_format():
     assert _parse_ical_dt("20260715T193000Z") == "2026-07-15T19:30:00Z"
@@ -146,12 +148,13 @@ END:VCALENDAR
 
 # --- find_ics_content (raw RFC822) -----------------------------------------
 
+
 def _mk_rfc822_with_ics(ics_body: str = _ICS_WITH_MEET) -> bytes:
     return (
         "From: noreply@calendly.com\r\n"
         "To: samushustleforge@gmail.com\r\n"
         "Subject: New booking\r\n"
-        "Content-Type: multipart/mixed; boundary=\"BOUNDARY\"\r\n"
+        'Content-Type: multipart/mixed; boundary="BOUNDARY"\r\n'
         "MIME-Version: 1.0\r\n"
         "\r\n"
         "--BOUNDARY\r\n"
@@ -159,7 +162,7 @@ def _mk_rfc822_with_ics(ics_body: str = _ICS_WITH_MEET) -> bytes:
         "\r\n"
         "You have a new booking.\r\n"
         "--BOUNDARY\r\n"
-        "Content-Type: text/calendar; charset=utf-8; name=\"invite.ics\"\r\n"
+        'Content-Type: text/calendar; charset=utf-8; name="invite.ics"\r\n'
         "Content-Transfer-Encoding: 7bit\r\n"
         "\r\n"
         f"{ics_body}\r\n"
@@ -175,13 +178,9 @@ def test_find_ics_from_multipart_body():
 
 
 def test_find_ics_returns_none_when_absent():
-    plain = (
-        "From: a@b\r\n"
-        "To: c@d\r\n"
-        "Subject: not calendar\r\n"
-        "\r\n"
-        "No ics here.\r\n"
-    ).encode("utf-8")
+    plain = ("From: a@b\r\nTo: c@d\r\nSubject: not calendar\r\n\r\nNo ics here.\r\n").encode(
+        "utf-8"
+    )
     assert find_ics_content(plain) is None
 
 
@@ -190,6 +189,7 @@ def test_find_ics_returns_none_on_empty_input():
 
 
 # --- extract_event (top-level) --------------------------------------------
+
 
 def test_extract_event_prefers_ics_over_llm():
     raw = _mk_rfc822_with_ics()
@@ -233,6 +233,7 @@ def test_extract_event_returns_none_when_llm_reports_no_event():
 
 # --- to_google_event shape ------------------------------------------------
 
+
 def test_to_google_event_carries_source_message_id():
     ev = ExtractedEvent(
         summary="Test",
@@ -250,6 +251,7 @@ def test_to_google_event_carries_source_message_id():
 
 
 # --- already_projected + project_event orchestration ---------------------
+
 
 def test_already_projected_finds_existing_event():
     client = MagicMock()

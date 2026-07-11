@@ -27,6 +27,7 @@ Three-layer stack (canonical analogue §6 model_extended + agents plane):
 LLM calls route through ``backend.common.llm_client.anthropic_messages`` with
 ``workcell="strategy"`` so every token spend is metered by the budget gate.
 """
+
 from __future__ import annotations
 
 import json
@@ -47,7 +48,7 @@ __all__ = [
     "record_outcome",
     "get_bandit_stats",
     "reset_bandit",
-    "POLICY_FAMILIES",
+    "POLICY_FAMILIES",  # noqa: F822
     "update_policy_bandit",
     "select_best_policy",
     "get_policy_bandit_stats",
@@ -65,6 +66,7 @@ _LOG = logging.getLogger("samus.strategy.portfolio_manager")
 # ---------------------------------------------------------------------------
 # Pydantic-free data structures (dataclasses at I/O boundary; pure internal)
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class PortfolioState:
@@ -164,7 +166,8 @@ def _build_prompt(state: PortfolioState, market_signals: dict[str, Any]) -> str:
     # summaries). Empty dict degrades gracefully to an explicit "none".
     signals_json = json.dumps(market_signals or {}, default=str, indent=2)
     return _PORTFOLIO_MANAGER_TEMPLATE.format(
-        state_json=state_json, signals_json=signals_json,
+        state_json=state_json,
+        signals_json=signals_json,
     )
 
 
@@ -270,6 +273,7 @@ def _bandit_store() -> Any:
     module at import time.
     """
     from .bandit_store import get_default_store
+
     return get_default_store()
 
 
@@ -302,7 +306,10 @@ def _load_bandit_state() -> tuple[dict[str, dict[str, float]], int]:
 
 
 def _ucb1_score(
-    wins: float, trials: int, total: int, bias: float = _UCB1_DEFAULT_BIAS,
+    wins: float,
+    trials: int,
+    total: int,
+    bias: float = _UCB1_DEFAULT_BIAS,
 ) -> float:
     """UCB1: mean + sqrt(bias * ln(total) / trials).
 
@@ -344,6 +351,7 @@ def update_bandit(
         # Local import — keeps portfolio_manager loadable even if a future
         # reward_density refactor introduces a heavy dependency.
         from .reward_density import compute_reward_density
+
         reward = float(compute_reward_density(reward_signal))
     # Persist first (store is the source of truth); one trial == +1.
     # The store swallows backend faults; this guard additionally covers a
@@ -373,6 +381,7 @@ def update_bandit(
     # this write path (mirrors the store's allow-on-failure contract).
     try:
         from backend.common import learning_telemetry as _learning_telemetry
+
         _learning_telemetry.record_learning_update(
             kind=_learning_telemetry.KIND_BANDIT,
             arm_id=arm_id,
@@ -446,6 +455,7 @@ def _policy_families() -> dict[str, tuple[str, ...]]:
     avoids any import cycle at module load.
     """
     from .policy_compiler import POLICY_FAMILIES as _PF
+
     return _PF
 
 
@@ -481,6 +491,7 @@ def select_best_policy(industry: str) -> str:
     families = _policy_families().get(industry)
     if not families:
         from .policy_compiler import GENERIC_VERTICAL_POLICY
+
         families = GENERIC_VERTICAL_POLICY.policy_families
 
     # Read the authoritative state from the durable store before scoring —
@@ -593,7 +604,7 @@ def get_channel_bandit_stats() -> dict[str, dict[str, float]]:
     prefix = f"{CHANNEL_ARM_NAMESPACE}{HIERARCHICAL_ARM_SEP}"
     all_stats, _total = _load_bandit_state()
     return {
-        arm_id[len(prefix):]: dict(arm_stats)
+        arm_id[len(prefix) :]: dict(arm_stats)
         for arm_id, arm_stats in all_stats.items()
         if arm_id.startswith(prefix)
     }
@@ -621,7 +632,10 @@ _ADR004_BANDIT_FLAG = "SAMUS_REWARD_ADR004_BANDIT_ENABLED"
 
 def _adr004_bandit_enabled() -> bool:
     return os.getenv(_ADR004_BANDIT_FLAG, "").strip().lower() in (
-        "1", "true", "yes", "on",
+        "1",
+        "true",
+        "yes",
+        "on",
     )
 
 
@@ -635,15 +649,18 @@ def _adr004_reward_for_prospect(prospect_id: str) -> float | None:
     """
     try:
         from backend.crm import service as crm_service
+
         opp = crm_service.get_opportunity_for_prospect(prospect_id)
         if opp is None:
             return None
         from .reward_density import compute_reward
+
         return float(compute_reward(opp.opportunity_id).reward)
     except Exception as exc:  # noqa: BLE001 — fail-open by design
         _LOG.warning(
             "ADR-004 bandit reward unavailable for prospect=%s: %s",
-            prospect_id, exc,
+            prospect_id,
+            exc,
         )
         return None
 

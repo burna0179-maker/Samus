@@ -1,11 +1,14 @@
 """Correlation / trace ID propagation via contextvars."""
+
 from __future__ import annotations
 
 import contextvars
 import uuid
 from typing import Any
 
-_TRACE_ID: contextvars.ContextVar[str | None] = contextvars.ContextVar("samus_trace_id", default=None)
+_TRACE_ID: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "samus_trace_id", default=None
+)
 
 
 def new_trace_id() -> str:

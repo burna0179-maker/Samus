@@ -16,12 +16,13 @@ Called autonomously from the reconcile sweep, so a real close is turned into a
 ready-to-send checkout email within minutes of hanging up — no operator having
 to notice the close, look up the link, and compose from scratch.
 """
+
 from __future__ import annotations
 
 import json
 import logging
 import re
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
@@ -41,8 +42,8 @@ class ClosePending:
     prospect_id: str
     product_name: str
     product_price: str
-    email: str                 # "" when it couldn't be extracted — operator fills it
-    email_confidence: str      # "structured" | "transcript" | "missing"
+    email: str  # "" when it couldn't be extracted — operator fills it
+    email_confidence: str  # "structured" | "transcript" | "missing"
     checkout_url: str
     subject: str
     body: str
@@ -73,7 +74,7 @@ def _extract_email(call: Any, ls: dict[str, Any]) -> tuple[str, str]:
             return v.strip().lower(), "structured"
     tx = str(_g(call, "transcript", "") or "")
     for m in _EMAIL_RE.findall(tx):
-        if "hustleforge" not in m.lower():   # skip Morgan's own address
+        if "hustleforge" not in m.lower():  # skip Morgan's own address
             return m.strip().lower(), "transcript"
     return "", "missing"
 
@@ -97,14 +98,13 @@ def detect_close(call: Any) -> ClosePending | None:
     """Build a ClosePending iff the call analysis shows a purchase agreement."""
     ls = _lead_summary(call)
     product = (ls.get("validated_product_name") or "").strip()
-    if not product:                       # null/empty => no agreement => not a close
+    if not product:  # null/empty => no agreement => not a close
         return None
     from backend.outreach import flyer
 
     offer = _offer_for(ls)
     if offer is None:
-        _LOG.warning("close on %s but no purchasable offer/link resolved",
-                     _g(call, "id", ""))
+        _LOG.warning("close on %s but no purchasable offer/link resolved", _g(call, "id", ""))
         return None
 
     call_id = str(_g(call, "id", "") or "")
@@ -178,8 +178,12 @@ def queue_close_handoffs(calls: list[Any]) -> list[ClosePending]:
             queued.append(pending)
             _LOG.warning(
                 "CLOSE queued for operator send: %s (%s $%s) email=%s [%s] -> %s",
-                pending.company, pending.product_name, pending.product_price,
-                pending.email or "MISSING", pending.email_confidence, path.name,
+                pending.company,
+                pending.product_name,
+                pending.product_price,
+                pending.email or "MISSING",
+                pending.email_confidence,
+                path.name,
             )
         except Exception as exc:  # noqa: BLE001 — never disturb the sweep
             _LOG.warning("close_handoff failed for a call: %s", exc)
@@ -193,6 +197,7 @@ def scan_recent(*, client: Any = None, limit: int = 100) -> list[ClosePending]:
     try:
         if client is None:
             from backend.voice.call_batch_analyzer import _build_client
+
             client = _build_client()
         calls = client.list_calls(limit=min(limit, 100))
     except Exception as exc:  # noqa: BLE001 — read-only; a failure just yields nothing

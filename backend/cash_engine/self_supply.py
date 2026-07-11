@@ -27,6 +27,7 @@ Wire-not-arm: gated by ``SAMUS_SELF_SUPPLY_ENABLED`` (default OFF). Disarmed,
 it still DIAGNOSES and reports starvation on the tick record (awareness is
 free); only the replenish actuation is held.
 """
+
 from __future__ import annotations
 
 import json
@@ -69,8 +70,9 @@ def _call_list_exists() -> bool:
         from backend.common import storage
         from backend.common.us_timezones import business_today
 
-        return (storage.root() / "daily_calls" /
-                f"call_list_{business_today().isoformat()}.csv").is_file()
+        return (
+            storage.root() / "daily_calls" / f"call_list_{business_today().isoformat()}.csv"
+        ).is_file()
     except Exception:  # noqa: BLE001
         return False
 
@@ -107,9 +109,8 @@ def diagnose_starvation(
     causes: list[str] = []
     if not exists:
         causes.append("call_list_missing")
-    note = (
-        f"portfolio initiated 0; ineligible={ineligible}"
-        + ("" if causes else "; call list present — starvation cause outside self-supply scope")
+    note = f"portfolio initiated 0; ineligible={ineligible}" + (
+        "" if causes else "; call list present — starvation cause outside self-supply scope"
     )
     return StarvationDiagnosis(True, causes=causes, note=note)
 
@@ -184,8 +185,11 @@ def _attempts_today(cause: str) -> int:
                 row = json.loads(line)
             except Exception:  # noqa: BLE001
                 continue
-            if row.get("day") == day and row.get("cause") == cause \
-                    and row.get("kind") == "replenish_attempt":
+            if (
+                row.get("day") == day
+                and row.get("cause") == cause
+                and row.get("kind") == "replenish_attempt"
+            ):
                 count += 1
     except Exception:  # noqa: BLE001
         return 0
@@ -217,7 +221,8 @@ def _write_escalation(cause: str, attempts: int, message: str | None = None) -> 
             "kind": "self_supply_exhausted",
             "cause": cause,
             "attempts_today": attempts,
-            "message": message or (
+            "message": message
+            or (
                 f"Self-supply exhausted {attempts} replenish attempts for "
                 f"'{cause}' today and the input still has not appeared. "
                 "Production is starved — check the prospecting workcell "
@@ -225,10 +230,14 @@ def _write_escalation(cause: str, attempts: int, message: str | None = None) -> 
             ),
         }
         (d / f"alert_{_business_day()}_{cause}.json").write_text(
-            json.dumps(payload, indent=2), encoding="utf-8",
+            json.dumps(payload, indent=2),
+            encoding="utf-8",
         )
-        _LOG.error("SELF-SUPPLY EXHAUSTED for %s (%d attempts today) — operator alert written",
-                   cause, attempts)
+        _LOG.error(
+            "SELF-SUPPLY EXHAUSTED for %s (%d attempts today) — operator alert written",
+            cause,
+            attempts,
+        )
     except Exception as exc:  # noqa: BLE001
         _LOG.warning("self-supply escalation write failed: %s", exc)
 
@@ -240,9 +249,9 @@ def _default_dispatch(service: str, action: str) -> dict[str, Any]:
     import os as _os
     import uuid
 
-    url = _os.environ.get(f"{service.upper()}_URL") or (
-        get_settings().gateway_urls or {}
-    ).get(service)
+    url = _os.environ.get(f"{service.upper()}_URL") or (get_settings().gateway_urls or {}).get(
+        service
+    )
     if not url:
         raise RuntimeError(f"{service}_url_unset")
     envelope = {
@@ -282,21 +291,33 @@ def replenish(
             continue
         try:
             ack = do_dispatch(spec["service"], spec["action"])
-            _append_ledger({
-                "kind": "replenish_attempt", "cause": cause,
-                "service": spec["service"], "action": spec["action"],
-                "ack": ack,
-            })
-            out[cause] = {"outcome": "dispatched", "ack": ack,
-                          "attempt": attempts + 1}
-            _LOG.info("self-supply dispatched %s.%s for %s (attempt %d)",
-                      spec["service"], spec["action"], cause, attempts + 1)
+            _append_ledger(
+                {
+                    "kind": "replenish_attempt",
+                    "cause": cause,
+                    "service": spec["service"],
+                    "action": spec["action"],
+                    "ack": ack,
+                }
+            )
+            out[cause] = {"outcome": "dispatched", "ack": ack, "attempt": attempts + 1}
+            _LOG.info(
+                "self-supply dispatched %s.%s for %s (attempt %d)",
+                spec["service"],
+                spec["action"],
+                cause,
+                attempts + 1,
+            )
         except Exception as exc:  # noqa: BLE001
-            _append_ledger({
-                "kind": "replenish_attempt", "cause": cause,
-                "service": spec["service"], "action": spec["action"],
-                "error": str(exc),
-            })
+            _append_ledger(
+                {
+                    "kind": "replenish_attempt",
+                    "cause": cause,
+                    "service": spec["service"],
+                    "action": spec["action"],
+                    "error": str(exc),
+                }
+            )
             out[cause] = {"outcome": "error", "error": str(exc)}
             _LOG.warning("self-supply dispatch failed for %s: %s", cause, exc)
     return out
@@ -313,8 +334,12 @@ def _enabled() -> bool:
         fallback = bool(getattr(get_settings(), "self_supply_enabled", False))
         return is_enabled("self_supply_enabled", fallback)
     except Exception:  # noqa: BLE001
-        return (os.environ.get("SAMUS_SELF_SUPPLY_ENABLED", "") or "").strip().lower() \
-            in ("1", "true", "yes", "on")
+        return (os.environ.get("SAMUS_SELF_SUPPLY_ENABLED", "") or "").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+            "on",
+        )
 
 
 def run_self_supply(
@@ -358,8 +383,7 @@ def run_self_supply(
                 pass
             if not marker_logged:
                 _append_ledger({"kind": "pool_exhaustion", **exhaustion})
-                _write_escalation("hot_pool_exhausted", 0,
-                                  message=exhaustion.get("message"))
+                _write_escalation("hot_pool_exhausted", 0, message=exhaustion.get("message"))
     except Exception as exc:  # noqa: BLE001
         summary["pool_exhaustion_error"] = str(exc)
 

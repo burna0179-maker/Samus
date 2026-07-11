@@ -1,4 +1,5 @@
 """Outreach service orchestrator — FSM advance + outcome logging."""
+
 from __future__ import annotations
 
 import datetime as _dt
@@ -11,7 +12,7 @@ from backend.common.dates import iso_now
 from backend.common.http_client import signed_post_json_sync
 from backend.common.idempotency import GLOBAL_IDEMPOTENCY_STORE
 
-from . import fsm, metrics, ses_adapter
+from . import fsm, metrics
 from .models import (
     OutreachAdvanceRequest,
     OutreachLogRequest,
@@ -41,8 +42,7 @@ def advance_call(req: OutreachAdvanceRequest) -> OutreachStep:
     cache_key = f"outreach.advance:{req.prospect_id}:{req.current_state}"
     cached = GLOBAL_IDEMPOTENCY_STORE.get(cache_key)
     if cached is not None and isinstance(cached, dict):
-        _LOG.info("advance_call cache hit prospect=%s state=%s",
-                  req.prospect_id, req.current_state)
+        _LOG.info("advance_call cache hit prospect=%s state=%s", req.prospect_id, req.current_state)
         return OutreachStep.model_validate(cached)
 
     context = {
@@ -139,8 +139,7 @@ def _dispatch_outreach_to_crm(req: OutreachMessageRequest, sent_ts: str) -> None
     sent_date = (sent_ts or "")[:10]
     try:
         follow_up_on = (
-            _dt.date.fromisoformat(sent_date)
-            + _dt.timedelta(days=_FOLLOW_UP_DELAY_DAYS)
+            _dt.date.fromisoformat(sent_date) + _dt.timedelta(days=_FOLLOW_UP_DELAY_DAYS)
         ).isoformat()
     except ValueError:
         _LOG.warning("outreach crm dispatch skipped: unparseable sent_ts %r", sent_ts)
@@ -181,11 +180,9 @@ def _dispatch_outreach_to_crm(req: OutreachMessageRequest, sent_ts: str) -> None
         ):
             resp = signed_post_json_sync(crm_url, path, payload, retries=2)
             if resp.status_code >= 400:
-                _LOG.warning("outreach crm dispatch %s -> HTTP %s",
-                             path, resp.status_code)
+                _LOG.warning("outreach crm dispatch %s -> HTTP %s", path, resp.status_code)
     except Exception as exc:  # noqa: BLE001 — best-effort bookkeeping
-        _LOG.warning("outreach crm dispatch failed prospect=%s: %s",
-                     req.prospect_id, exc)
+        _LOG.warning("outreach crm dispatch failed prospect=%s: %s", req.prospect_id, exc)
 
 
 class HarmSuppressedSend(RuntimeError):
@@ -262,6 +259,7 @@ def _block_capped_send(req: OutreachMessageRequest, *, sent_today: int, cap: int
     )
     # 1. decision.made on the unified stream (fail-soft by contract).
     from backend.common.business_events import DECISION_MADE, emit_business_event
+
     emit_business_event(
         DECISION_MADE,
         workcell="outreach",
@@ -279,13 +277,15 @@ def _block_capped_send(req: OutreachMessageRequest, *, sent_today: int, cap: int
         from backend.crm import service as crm
         from backend.crm.models import CreateOperatorTaskRequest
 
-        crm.create_operator_task(CreateOperatorTaskRequest(
-            kind="review",
-            title=f"Daily send cap reached ({sent_today}/{cap})",
-            description=why,
-            source="outreach_send_cap",
-            source_ref=req.prospect_id,
-        ))
+        crm.create_operator_task(
+            CreateOperatorTaskRequest(
+                kind="review",
+                title=f"Daily send cap reached ({sent_today}/{cap})",
+                description=why,
+                source="outreach_send_cap",
+                source_ref=req.prospect_id,
+            )
+        )
     except Exception as exc:  # noqa: BLE001 — the block itself is the deliverable
         _LOG.warning("send-cap operator-task creation failed: %s", exc)
     _LOG.warning("%s", why)
@@ -333,6 +333,7 @@ def _block_harmful_send(req: OutreachMessageRequest, signals: dict) -> None:
     )
     # 1. decision.made on the unified stream (fail-soft by contract).
     from backend.common.business_events import DECISION_MADE, emit_business_event
+
     emit_business_event(
         DECISION_MADE,
         workcell="outreach",
@@ -346,15 +347,17 @@ def _block_harmful_send(req: OutreachMessageRequest, signals: dict) -> None:
         from backend.crm import service as crm
         from backend.crm.models import CreateOperatorTaskRequest
 
-        crm.create_operator_task(CreateOperatorTaskRequest(
-            kind="review",
-            title=f"Harm-suppressed outreach to prospect {req.prospect_id}",
-            description=why,
-            related_entity_kind="opportunity",
-            related_entity_id=str(signals.get("opportunity_id") or ""),
-            source="outreach_harm_suppression",
-            source_ref=req.prospect_id,
-        ))
+        crm.create_operator_task(
+            CreateOperatorTaskRequest(
+                kind="review",
+                title=f"Harm-suppressed outreach to prospect {req.prospect_id}",
+                description=why,
+                related_entity_kind="opportunity",
+                related_entity_id=str(signals.get("opportunity_id") or ""),
+                source="outreach_harm_suppression",
+                source_ref=req.prospect_id,
+            )
+        )
     except Exception as exc:  # noqa: BLE001 — the block itself is the deliverable
         _LOG.warning("harm suppression operator-task creation failed: %s", exc)
     # 3. Audit row on the outreach ledger (best-effort).
@@ -397,6 +400,7 @@ def send_message(req: OutreachMessageRequest) -> dict:
 
     if req.channel == "email":
         from backend.common.email_backend import EmailBackendError, send_email
+
         # custom_args are echoed back on every SendGrid event so the Heat Field
         # / attribution can correlate a delivery/bounce/complaint to this
         # prospect + template (sg_message_id -> deal).
@@ -406,7 +410,10 @@ def send_message(req: OutreachMessageRequest) -> dict:
         }
         try:
             result = send_email(
-                req.to, req.subject, req.body, custom_args=_custom_args,
+                req.to,
+                req.subject,
+                req.body,
+                custom_args=_custom_args,
                 # Forward the rich HTML flyer as the text/html multipart part
                 # when the caller supplied one (cash_engine + morning_batch both
                 # now attach the vibrant flyer). Empty -> text-only, unchanged.
@@ -446,6 +453,7 @@ def send_message(req: OutreachMessageRequest) -> dict:
         # ground truth nothing tracked before. Best-effort, never fails a send.
         try:
             from backend.heat import service as heat_service
+
             heat_service.record_send(1)
         except Exception as exc:  # noqa: BLE001
             _LOG.warning("heat record_send failed: %s", exc)
@@ -454,6 +462,7 @@ def send_message(req: OutreachMessageRequest) -> dict:
         # succeeded, it does NOT gate/throttle. Best-effort, never fails a send.
         try:
             from backend.common import send_ramp
+
             send_ramp.record_send(to=req.to or "")
         except Exception as exc:  # noqa: BLE001
             _LOG.warning("send_ramp record_send failed: %s", exc)
@@ -461,6 +470,7 @@ def send_message(req: OutreachMessageRequest) -> dict:
         # (HOTL T5). Best-effort — a counter fault never fails a completed send.
         try:
             from backend.common import daily_counter
+
             daily_counter.increment(_SEND_CAP_COUNTER_KEY)
         except Exception as exc:  # noqa: BLE001
             _LOG.warning("send-cap counter increment failed: %s", exc)
@@ -468,6 +478,7 @@ def send_message(req: OutreachMessageRequest) -> dict:
         # per successful send, with campaign attribution when the request
         # carries it. Fail-soft by contract: emit_business_event never raises.
         from backend.common.business_events import EMAIL_SENT, emit_business_event
+
         emit_business_event(
             EMAIL_SENT,
             workcell="outreach",
@@ -484,6 +495,7 @@ def send_message(req: OutreachMessageRequest) -> dict:
         # record; accrues even while the karma gate is dormant). Best-effort.
         try:
             from backend.governance.karma import engine as karma
+
             karma.apply_outcome("send_success", ref=req.prospect_id)
         except Exception as exc:  # noqa: BLE001
             _LOG.warning("karma send_success failed: %s", exc)
@@ -492,9 +504,7 @@ def send_message(req: OutreachMessageRequest) -> dict:
     if req.channel in ("call", "voicemail"):
         return _send_voice_message(req)
 
-    raise NotImplementedError(
-        f"outreach.send_message channel='{req.channel}' not yet wired."
-    )
+    raise NotImplementedError(f"outreach.send_message channel='{req.channel}' not yet wired.")
 
 
 def _send_voice_message(req: OutreachMessageRequest) -> dict:
@@ -533,8 +543,7 @@ def _send_voice_message(req: OutreachMessageRequest) -> dict:
             _audit_ledger().append(ev)
         except OSError as oerr:
             _LOG.warning("outreach audit append failed: %s", oerr)
-        _LOG.info("outreach voice send skipped prospect=%s reason=%s",
-                  req.prospect_id, reason)
+        _LOG.info("outreach voice send skipped prospect=%s reason=%s", req.prospect_id, reason)
         return {
             "message_id": "",
             "channel": req.channel,
@@ -555,18 +564,20 @@ def _send_voice_message(req: OutreachMessageRequest) -> dict:
     from backend.voice import service as voice_service
     from backend.voice.models import InitiateCallRequest
 
-    result = voice_service.initiate_call(InitiateCallRequest(
-        assistant_id=assistant_id,
-        phone_number_id=phone_number_id,
-        customer_number=to_number,
-        customer_name=(req.company or None),
-        metadata={
-            "source": "outreach.send_message",
-            "prospect_id": req.prospect_id,
-            "template_id": req.template_id,
-            "channel": req.channel,
-        },
-    ))
+    result = voice_service.initiate_call(
+        InitiateCallRequest(
+            assistant_id=assistant_id,
+            phone_number_id=phone_number_id,
+            customer_number=to_number,
+            customer_name=(req.company or None),
+            metadata={
+                "source": "outreach.send_message",
+                "prospect_id": req.prospect_id,
+                "template_id": req.template_id,
+                "channel": req.channel,
+            },
+        )
+    )
 
     if result.vapi_error:
         ev = events.build_audit_event(

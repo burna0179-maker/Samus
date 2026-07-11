@@ -1,4 +1,5 @@
 """G11 daily reset — when UTC date rolls, today's bucket zeros out."""
+
 from __future__ import annotations
 
 import calendar

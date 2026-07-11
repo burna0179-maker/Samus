@@ -25,6 +25,7 @@ publishes into Samus's registry. A future subscriber that mirrors
 remote listings into a local marketplace would attach to the same
 event names emitted here.
 """
+
 from __future__ import annotations
 
 import logging

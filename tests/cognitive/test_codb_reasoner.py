@@ -4,6 +4,7 @@ recommend-only (no spend), guidance emission, and EOD integration.
 All offline: financials are injected; the ledger is redirected to tmp via
 SAMUS_STATE_ROOT so no network/Stripe/Firestore is touched.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -20,21 +21,33 @@ def _options():
     """A small deterministic catalog mirroring the real registry seed."""
     return [
         CodbInvestmentOption(
-            id="apollo_basic", name="Apollo Basic", monthly_cost_usd=65,
-            bottleneck="cold-email-reach", capability_gain=25.0,
+            id="apollo_basic",
+            name="Apollo Basic",
+            monthly_cost_usd=65,
+            bottleneck="cold-email-reach",
+            capability_gain=25.0,
             current_state="Apollo free = 403; ~10 emailable/day.",
         ),
         CodbInvestmentOption(
-            id="apollo_professional", name="Apollo Professional", monthly_cost_usd=99,
-            bottleneck="cold-email-reach", capability_gain=40.0,
+            id="apollo_professional",
+            name="Apollo Professional",
+            monthly_cost_usd=99,
+            bottleneck="cold-email-reach",
+            capability_gain=40.0,
         ),
         CodbInvestmentOption(
-            id="vapi_topup", name="Vapi top-up", one_time_cost_usd=25,
-            bottleneck="call-volume", capability_gain=2.0,
+            id="vapi_topup",
+            name="Vapi top-up",
+            one_time_cost_usd=25,
+            bottleneck="call-volume",
+            capability_gain=2.0,
         ),
         CodbInvestmentOption(
-            id="openai_cap_raise", name="OpenAI cap raise", monthly_cost_usd=20,
-            bottleneck="llm-depth", capability_gain=3.0,
+            id="openai_cap_raise",
+            name="OpenAI cap raise",
+            monthly_cost_usd=20,
+            bottleneck="llm-depth",
+            capability_gain=3.0,
         ),
     ]
 
@@ -52,8 +65,7 @@ def ledger(tmp_path, monkeypatch):
 def test_affordability_excludes_unaffordable():
     # headroom $30 -> only vapi_topup ($25) and openai_cap_raise ($20) fit;
     # apollo_basic ($65) and apollo_professional ($99) are excluded.
-    fin = cr.Financials(available_cash_usd=40.0, mrr_usd=0.0, headroom_usd=30.0,
-                        source="test")
+    fin = cr.Financials(available_cash_usd=40.0, mrr_usd=0.0, headroom_usd=30.0, source="test")
     recs = cr.recommend_codb_investments(fin, options=_options())
     ids = {r.option_id for r in recs}
     assert "apollo_basic" not in ids
@@ -62,17 +74,18 @@ def test_affordability_excludes_unaffordable():
 
 
 def test_affordability_all_fit_with_large_headroom():
-    fin = cr.Financials(available_cash_usd=1000.0, mrr_usd=0.0, headroom_usd=500.0,
-                        source="test")
+    fin = cr.Financials(available_cash_usd=1000.0, mrr_usd=0.0, headroom_usd=500.0, source="test")
     recs = cr.recommend_codb_investments(fin, options=_options())
     assert {r.option_id for r in recs} == {
-        "apollo_basic", "apollo_professional", "vapi_topup", "openai_cap_raise",
+        "apollo_basic",
+        "apollo_professional",
+        "vapi_topup",
+        "openai_cap_raise",
     }
 
 
 def test_zero_headroom_recommends_nothing():
-    fin = cr.Financials(available_cash_usd=0.0, mrr_usd=0.0, headroom_usd=0.0,
-                        source="test")
+    fin = cr.Financials(available_cash_usd=0.0, mrr_usd=0.0, headroom_usd=0.0, source="test")
     assert cr.recommend_codb_investments(fin, options=_options()) == []
 
 
@@ -85,8 +98,7 @@ def test_roi_ranking_order_without_hint():
     #   apollo_basic:     25/65  = 0.385
     #   apollo_professional: 40/99 = 0.404
     #   vapi_topup:       2/25   = 0.08
-    fin = cr.Financials(available_cash_usd=1000.0, mrr_usd=0.0, headroom_usd=500.0,
-                        source="test")
+    fin = cr.Financials(available_cash_usd=1000.0, mrr_usd=0.0, headroom_usd=500.0, source="test")
     recs = cr.recommend_codb_investments(fin, options=_options())
     order = [r.option_id for r in recs]
     assert order[0] == "apollo_professional"
@@ -104,8 +116,7 @@ def test_bottleneck_awareness_ranks_apollo_top():
     # With cold-email-reach as the binding constraint AND affordable, an Apollo
     # option must rank first (bottleneck-match bonus), ahead of a higher raw-ROI
     # non-matching option if any.
-    fin = cr.Financials(available_cash_usd=1000.0, mrr_usd=0.0, headroom_usd=500.0,
-                        source="test")
+    fin = cr.Financials(available_cash_usd=1000.0, mrr_usd=0.0, headroom_usd=500.0, source="test")
     recs = cr.recommend_codb_investments(
         fin, bottleneck_hint="cold-email-reach", options=_options()
     )
@@ -115,15 +126,14 @@ def test_bottleneck_awareness_ranks_apollo_top():
     # non-matching options come after the matching ones
     matching = [r for r in recs if r.bottleneck_match]
     non_matching = [r for r in recs if not r.bottleneck_match]
-    assert recs[:len(matching)] == matching
+    assert recs[: len(matching)] == matching
     assert all(not r.bottleneck_match for r in non_matching)
 
 
 def test_bottleneck_hint_when_match_unaffordable_falls_back():
     # Cold-email options don't fit ($65/$99 > $30 headroom) -> reasoner still
     # returns the affordable non-matching options ranked by ROI.
-    fin = cr.Financials(available_cash_usd=40.0, mrr_usd=0.0, headroom_usd=30.0,
-                        source="test")
+    fin = cr.Financials(available_cash_usd=40.0, mrr_usd=0.0, headroom_usd=30.0, source="test")
     recs = cr.recommend_codb_investments(
         fin, bottleneck_hint="cold-email-reach", options=_options()
     )
@@ -132,8 +142,7 @@ def test_bottleneck_hint_when_match_unaffordable_falls_back():
 
 
 def test_top_recommendation_rationale_mentions_numbers():
-    fin = cr.Financials(available_cash_usd=1000.0, mrr_usd=300.0, headroom_usd=750.0,
-                        source="test")
+    fin = cr.Financials(available_cash_usd=1000.0, mrr_usd=300.0, headroom_usd=750.0, source="test")
     recs = cr.recommend_codb_investments(
         fin, bottleneck_hint="cold-email-reach", options=_options()
     )
@@ -161,8 +170,7 @@ def test_recommend_only_no_spend_calls(monkeypatch):
     monkeypatch.setattr(ab, "record_spend", _boom, raising=True)
     monkeypatch.setattr(ab.ApolloBudgetStore, "record_spend", _boom, raising=True)
 
-    fin = cr.Financials(available_cash_usd=1000.0, mrr_usd=500.0, headroom_usd=750.0,
-                        source="test")
+    fin = cr.Financials(available_cash_usd=1000.0, mrr_usd=500.0, headroom_usd=750.0, source="test")
     recs = cr.recommend_codb_investments(
         fin, bottleneck_hint="cold-email-reach", options=_options()
     )
@@ -180,8 +188,7 @@ def test_recommend_only_no_network(monkeypatch):
     if hasattr(hc, "signed_post_json_sync"):
         monkeypatch.setattr(hc, "signed_post_json_sync", _boom, raising=True)
 
-    fin = cr.Financials(available_cash_usd=500.0, mrr_usd=0.0, headroom_usd=375.0,
-                        source="test")
+    fin = cr.Financials(available_cash_usd=500.0, mrr_usd=0.0, headroom_usd=375.0, source="test")
     recs = cr.recommend_codb_investments(fin, options=_options())
     assert recs
 
@@ -190,8 +197,7 @@ def test_recommend_only_no_network(monkeypatch):
 # Guidance-ledger emission
 # ---------------------------------------------------------------------------
 def test_emit_writes_guidance_records(ledger):
-    fin = cr.Financials(available_cash_usd=1000.0, mrr_usd=500.0, headroom_usd=750.0,
-                        source="test")
+    fin = cr.Financials(available_cash_usd=1000.0, mrr_usd=500.0, headroom_usd=750.0, source="test")
     recs = cr.recommend_codb_investments(
         fin, bottleneck_hint="cold-email-reach", options=_options()
     )
@@ -200,7 +206,7 @@ def test_emit_writes_guidance_records(ledger):
     rows = ledger.all_latest()
     assert len(rows) == 2
     for row in rows:
-        assert row.status == "proposed"           # never auto-accepted
+        assert row.status == "proposed"  # never auto-accepted
         assert row.owner == "finance"
         assert "Scale CODB" in row.recommendation
         assert row.category == "resource_efficiency"
@@ -219,8 +225,7 @@ def test_eod_includes_section_when_flag_on(ledger, monkeypatch):
     from backend.common import config as cfg
 
     # Force the flag ON and inject known financials + catalog via the reasoner.
-    monkeypatch.setattr(cr, "read_financials",
-                        lambda: cr.Financials(1000.0, 500.0, 750.0, "test"))
+    monkeypatch.setattr(cr, "read_financials", lambda: cr.Financials(1000.0, 500.0, 750.0, "test"))
     monkeypatch.setattr(cr, "_load_options", _options)
 
     settings = cfg.get_settings()
@@ -271,8 +276,7 @@ def test_on_deal_closed_noop_when_disarmed(ledger, monkeypatch):
 def test_on_deal_closed_emits_when_armed(ledger, monkeypatch):
     from backend.common import config as cfg
 
-    monkeypatch.setattr(cr, "read_financials",
-                        lambda: cr.Financials(1000.0, 500.0, 750.0, "test"))
+    monkeypatch.setattr(cr, "read_financials", lambda: cr.Financials(1000.0, 500.0, 750.0, "test"))
     monkeypatch.setattr(cr, "_load_options", _options)
 
     settings = cfg.get_settings()

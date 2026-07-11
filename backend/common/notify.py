@@ -44,6 +44,7 @@ importable when ``PYTHONPATH=/opt/samus`` (the in-container project root), so
 ``scripts/*.py`` invoked as e.g. ``PYTHONPATH=/opt/samus python
 scripts/checkin_send_helper.py``.
 """
+
 from __future__ import annotations
 
 import logging
@@ -199,7 +200,8 @@ def notify_operator(
             response = client.post(webhook_url, json={"content": content})
         if response.status_code >= 400:
             _LOG.warning(
-                "notify_operator: discord returned http_%s", response.status_code,
+                "notify_operator: discord returned http_%s",
+                response.status_code,
             )
             return False
         return True

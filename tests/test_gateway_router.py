@@ -1,4 +1,5 @@
 """Unit tests for backend.gateway.router.resolve_target."""
+
 from __future__ import annotations
 
 import pytest

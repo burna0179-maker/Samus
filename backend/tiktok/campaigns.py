@@ -7,6 +7,7 @@ dormant without ``tiktok_content_posting_enabled`` + ``tiktok_content_access_tok
 (which require an operator-approved TikTok app). Mirrors the fail-closed/dry-run
 contract of :mod:`backend.social.adapters`.
 """
+
 from __future__ import annotations
 
 import logging
@@ -31,7 +32,9 @@ def build_caption(product: TrendingProduct) -> str:
     return f"{base}\n\n{' '.join(tags)}"
 
 
-def build_product_reel(product: TrendingProduct, *, settings: Any, use_llm: bool = False) -> CampaignResult:
+def build_product_reel(
+    product: TrendingProduct, *, settings: Any, use_llm: bool = False
+) -> CampaignResult:
     """Generate a 9:16 reel for ``product`` via the reel engine.
 
     Returns a :class:`CampaignResult` (not yet posted). Surfaces the reel engine's
@@ -43,8 +46,8 @@ def build_product_reel(product: TrendingProduct, *, settings: Any, use_llm: bool
     blog = BlogInput(
         title=product.title,
         summary=f"{product.title} is trending"
-                + (f" in {product.category}" if product.category else "")
-                + (f" — {product.sales}+ sold." if product.sales else "."),
+        + (f" in {product.category}" if product.category else "")
+        + (f" — {product.sales}+ sold." if product.sales else "."),
         key_points=[
             f"Why {product.title} is blowing up right now",
             "What makes it actually worth it",
@@ -54,10 +57,19 @@ def build_product_reel(product: TrendingProduct, *, settings: Any, use_llm: bool
     )
     reel = produce_reel(blog, settings=settings, use_llm=use_llm)
     if not reel.ok:
-        return CampaignResult(ok=False, product_title=product.title,
-                              status=reel.status or "reel_failed", error=reel.error)
-    return CampaignResult(ok=True, product_title=product.title, reel_path=reel.mp4_path,
-                          caption=build_caption(product), status="reel_ready")
+        return CampaignResult(
+            ok=False,
+            product_title=product.title,
+            status=reel.status or "reel_failed",
+            error=reel.error,
+        )
+    return CampaignResult(
+        ok=True,
+        product_title=product.title,
+        reel_path=reel.mp4_path,
+        caption=build_caption(product),
+        status="reel_ready",
+    )
 
 
 def _http_post(url: str, *, json: dict[str, Any], headers: dict[str, str]) -> httpx.Response:
@@ -94,8 +106,10 @@ def post_to_tiktok(result: CampaignResult, *, settings: Any) -> CampaignResult:
     try:
         resp = _http_post(
             _INIT_URL,
-            json={"post_info": {"title": result.caption, "privacy_level": "PUBLIC_TO_EVERYONE"},
-                  "source_info": {"source": "FILE_UPLOAD"}},
+            json={
+                "post_info": {"title": result.caption, "privacy_level": "PUBLIC_TO_EVERYONE"},
+                "source_info": {"source": "FILE_UPLOAD"},
+            },
             headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         )
         if resp.status_code != 200:
@@ -114,7 +128,9 @@ def post_to_tiktok(result: CampaignResult, *, settings: Any) -> CampaignResult:
         return result
 
 
-def run_campaign(product: TrendingProduct, *, settings: Any, use_llm: bool = False) -> CampaignResult:
+def run_campaign(
+    product: TrendingProduct, *, settings: Any, use_llm: bool = False
+) -> CampaignResult:
     """Build the reel and (dry-run by default) post it. One-call convenience."""
     result = build_product_reel(product, settings=settings, use_llm=use_llm)
     if not result.ok:

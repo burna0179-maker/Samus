@@ -31,6 +31,7 @@ Usage::
 The Vapi api key + assistant id come from settings (DPAPI-backed
 ``VapiApiKey`` / ``VapiAssistantId``), never hard-coded.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -62,8 +63,7 @@ def extract_system_prompt(snapshot: dict[str, Any]) -> str:
             if isinstance(content, str) and content.strip():
                 return content
     raise ValueError(
-        f"no non-empty system message found in snapshot model.messages "
-        f"({_SNAPSHOT_PATH.name})",
+        f"no non-empty system message found in snapshot model.messages ({_SNAPSHOT_PATH.name})",
     )
 
 
@@ -141,12 +141,10 @@ def sync(*, apply: bool, include_voicemail: bool) -> int:
     api_key = (getattr(settings, "vapi_api_key", "") or "").strip()
     assistant_id = (getattr(settings, "vapi_assistant_id", "") or "").strip()
     if not api_key:
-        print("error: VAPI_API_KEY is not set — cannot reach the Vapi REST API.",
-              file=sys.stderr)
+        print("error: VAPI_API_KEY is not set — cannot reach the Vapi REST API.", file=sys.stderr)
         return 2
     if not assistant_id:
-        print("error: VAPI_ASSISTANT_ID is not set — nothing to sync to.",
-              file=sys.stderr)
+        print("error: VAPI_ASSISTANT_ID is not set — nothing to sync to.", file=sys.stderr)
         return 2
 
     try:
@@ -169,8 +167,7 @@ def sync(*, apply: bool, include_voicemail: bool) -> int:
     try:
         live = client.get_assistant(assistant_id)
     except VapiError as exc:
-        print(f"error: could not fetch live assistant {assistant_id}: {exc}",
-              file=sys.stderr)
+        print(f"error: could not fetch live assistant {assistant_id}: {exc}", file=sys.stderr)
         return 1
 
     live_prompt = _live_system_prompt(live)
@@ -190,13 +187,14 @@ def sync(*, apply: bool, include_voicemail: bool) -> int:
         if "voicemailMessage" in body:
             print(f"voicemailMessage -> {body['voicemailMessage']!r}")
         if "voicemailDetection" in body:
-            print("voicemailDetection -> "
-                  + json.dumps(body["voicemailDetection"], ensure_ascii=False))
+            print(
+                "voicemailDetection -> "
+                + json.dumps(body["voicemailDetection"], ensure_ascii=False)
+            )
         print()
 
     if not apply:
-        print("DRY-RUN: no changes sent. Re-run with --apply to PATCH the live "
-              "assistant.")
+        print("DRY-RUN: no changes sent. Re-run with --apply to PATCH the live assistant.")
         return 0
 
     try:
@@ -219,17 +217,19 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m backend.voice.sync_assistant",
         description="Sync the reviewed Morgan snapshot (system prompt + voicemail) "
-                    "to the LIVE Vapi assistant. DRY-RUN unless --apply.",
+        "to the LIVE Vapi assistant. DRY-RUN unless --apply.",
     )
     parser.add_argument(
-        "--apply", action="store_true",
+        "--apply",
+        action="store_true",
         help="actually PATCH the live assistant (default is a dry-run that only "
-             "prints the diff and sends nothing)",
+        "prints the diff and sends nothing)",
     )
     parser.add_argument(
-        "--voicemail", action="store_true",
+        "--voicemail",
+        action="store_true",
         help="also sync voicemailMessage + voicemailDetection from the snapshot "
-             "(default: system prompt only)",
+        "(default: system prompt only)",
     )
     args = parser.parse_args(argv)
     return sync(apply=args.apply, include_voicemail=args.voicemail)

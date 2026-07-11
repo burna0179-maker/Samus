@@ -23,6 +23,7 @@ The dialer prepends DUE callbacks (callback_date <= today, not done) ahead of
 fresh prospects, mirroring how it prepends retry candidates. Best-effort +
 fail-open throughout: a queue fault never blocks a dial run.
 """
+
 from __future__ import annotations
 
 import json
@@ -113,15 +114,17 @@ def schedule_callback(
             _LOG.info("callback rescheduled prospect=%s -> %s", prospect_id, callback_date)
             return {"scheduled": True, "updated": True, "callback_date": callback_date}
 
-    records.append({
-        "prospect_id": prospect_id,
-        "company": company,
-        "phone": phone,
-        "callback_date": callback_date,
-        "reason": reason,
-        "scheduled_at": now_iso,
-        "done": False,
-    })
+    records.append(
+        {
+            "prospect_id": prospect_id,
+            "company": company,
+            "phone": phone,
+            "callback_date": callback_date,
+            "reason": reason,
+            "scheduled_at": now_iso,
+            "done": False,
+        }
+    )
     if not _write_all(records):
         return {"scheduled": False, "reason": "persist_failed"}
     _LOG.info("callback scheduled prospect=%s for %s (%s)", prospect_id, callback_date, reason)

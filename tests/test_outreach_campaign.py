@@ -1,4 +1,5 @@
 """Offline tests for the email-campaign builder."""
+
 from __future__ import annotations
 
 import pytest
@@ -12,7 +13,9 @@ from backend.outreach.campaign import (
 )
 
 
-_STAKE = "I'm reaching out because Acme's new Marysville location is exactly when this matters most."
+_STAKE = (
+    "I'm reaching out because Acme's new Marysville location is exactly when this matters most."
+)
 
 
 def _cfg(**over) -> CampaignConfig:
@@ -26,12 +29,19 @@ def _cfg(**over) -> CampaignConfig:
 
 
 def _contact(email="a@x.com", status="verified", pid="p1", **over) -> ApolloContact:
-    base = dict(person_id=pid, first_name="Dana", name="Dana Reyes",
-                title="Owner", company="Acme", email=email, email_status=status,
-                # G8 (ADR-012, 2026-05-30): every contact entering the outreach
-                # pipeline must carry a warmth signal. Tests synthesize one as
-                # public_registry so VR-G8 doesn't refuse the compose.
-                legitimacy_signal="public_registry")
+    base = dict(
+        person_id=pid,
+        first_name="Dana",
+        name="Dana Reyes",
+        title="Owner",
+        company="Acme",
+        email=email,
+        email_status=status,
+        # G8 (ADR-012, 2026-05-30): every contact entering the outreach
+        # pipeline must carry a warmth signal. Tests synthesize one as
+        # public_registry so VR-G8 doesn't refuse the compose.
+        legitimacy_signal="public_registry",
+    )
     base.update(over)
     return ApolloContact(**base)
 
@@ -84,8 +94,7 @@ def test_do_not_contact_via_locked_or_blank_email():
 
 
 def test_in_batch_dedup():
-    contacts = [_contact(email="same@x.com", pid="p1"),
-                _contact(email="SAME@x.com", pid="p2")]
+    contacts = [_contact(email="same@x.com", pid="p1"), _contact(email="SAME@x.com", pid="p2")]
     res = build_messages(contacts, _cfg(), stake_sentences=_stakes("same@x.com"))
     assert res.built == 1
     assert res.duplicate == 1
@@ -119,8 +128,8 @@ def test_compose_body_llm_greeting_guard_falls_back(monkeypatch):
 
     monkeypatch.setattr(llm_client, "anthropic_messages", _bad)
     body = compose_body(_contact(), _cfg(use_llm=True), stake_sentence=_STAKE)
-    assert "Hi Dana," in body            # template greeting preserved
-    assert "Hi Alex" not in body         # the mis-greeting never ships
+    assert "Hi Dana," in body  # template greeting preserved
+    assert "Hi Alex" not in body  # the mis-greeting never ships
 
 
 def test_compose_body_llm_keeps_correct_greeting(monkeypatch):
@@ -132,16 +141,14 @@ def test_compose_body_llm_keeps_correct_greeting(monkeypatch):
 
     monkeypatch.setattr(llm_client, "anthropic_messages", _good)
     body = compose_body(_contact(), _cfg(use_llm=True), stake_sentence=_STAKE)
-    assert "A sharper, warmer rewrite here." in body   # the rewrite was used
+    assert "A sharper, warmer rewrite here." in body  # the rewrite was used
     assert "Hi Dana," in body
 
 
 def test_load_suppression_handles_bare_and_json_lines(tmp_path):
     f = tmp_path / "emailed.txt"
     f.write_text(
-        "bare@x.com\n"
-        '{"email": "json@x.com", "status": "sent"}\n'
-        "\n",
+        'bare@x.com\n{"email": "json@x.com", "status": "sent"}\n\n',
         encoding="utf-8",
     )
     got = load_suppression(str(f))

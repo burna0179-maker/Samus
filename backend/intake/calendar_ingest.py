@@ -30,15 +30,15 @@ message_id`` matching the inbound email's Message-ID. The extractor
 skips creation when Calendar's ``q=`` search finds an existing event
 with the same source_message_id. Safe under duplicate drains.
 """
+
 from __future__ import annotations
 
-import base64
 import email
 import email.policy
 import json
 import logging
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -54,11 +54,11 @@ class ExtractedEvent:
     """One event ready to be POSTed to Google Calendar."""
 
     summary: str
-    start_iso: str            # ISO-8601 with timezone
+    start_iso: str  # ISO-8601 with timezone
     end_iso: str
     description: str = ""
     location: str = ""
-    source: str = "ics"       # "ics" | "llm" | "empty"
+    source: str = "ics"  # "ics" | "llm" | "empty"
     error: str = ""
 
     def is_valid(self) -> bool:
@@ -188,7 +188,7 @@ def _extract_first_vevent(ics_text: str) -> ExtractedEvent | None:
             continue
         name_part, _, value = line.partition(":")
         name = name_part.split(";", 1)[0].upper()
-        params = name_part[len(name):]
+        params = name_part[len(name) :]
         if name == "SUMMARY":
             summary = _ical_unescape(value)
         elif name == "LOCATION":
@@ -227,10 +227,10 @@ def _extract_first_vevent(ics_text: str) -> ExtractedEvent | None:
 def _ical_unescape(value: str) -> str:
     return (
         value.replace("\\n", "\n")
-             .replace("\\N", "\n")
-             .replace("\\,", ",")
-             .replace("\\;", ";")
-             .replace("\\\\", "\\")
+        .replace("\\N", "\n")
+        .replace("\\,", ",")
+        .replace("\\;", ";")
+        .replace("\\\\", "\\")
     )
 
 
@@ -294,41 +294,48 @@ _JSON_OBJECT_RE = re.compile(r"\{.*\}", re.DOTALL)
 def _extract_llm(body_text: str, llm_chat=None) -> ExtractedEvent:
     """LLM fallback when .ics isn't present. Returns empty on failure."""
     if not body_text or not body_text.strip():
-        return ExtractedEvent(summary="", start_iso="", end_iso="",
-                              source="empty", error="empty_body")
+        return ExtractedEvent(
+            summary="", start_iso="", end_iso="", source="empty", error="empty_body"
+        )
     if llm_chat is None:
         try:
             from backend.common.local_llm import chat as llm_chat  # type: ignore
         except Exception as exc:  # noqa: BLE001
-            return ExtractedEvent(summary="", start_iso="", end_iso="",
-                                  source="llm", error=f"llm_import: {exc}")
+            return ExtractedEvent(
+                summary="", start_iso="", end_iso="", source="llm", error=f"llm_import: {exc}"
+            )
     try:
         raw = llm_chat(
-            _LLM_SYSTEM, body_text[:4000],
-            max_tokens=400, temperature=0.0,
+            _LLM_SYSTEM,
+            body_text[:4000],
+            max_tokens=400,
+            temperature=0.0,
         )
     except Exception as exc:  # noqa: BLE001
-        return ExtractedEvent(summary="", start_iso="", end_iso="",
-                              source="llm", error=f"llm_raised: {exc}")
+        return ExtractedEvent(
+            summary="", start_iso="", end_iso="", source="llm", error=f"llm_raised: {exc}"
+        )
     if not raw or not raw.strip():
-        return ExtractedEvent(summary="", start_iso="", end_iso="",
-                              source="llm", error="llm_empty")
+        return ExtractedEvent(summary="", start_iso="", end_iso="", source="llm", error="llm_empty")
     m = _JSON_OBJECT_RE.search(raw)
     if not m:
-        return ExtractedEvent(summary="", start_iso="", end_iso="",
-                              source="llm", error="llm_no_json")
+        return ExtractedEvent(
+            summary="", start_iso="", end_iso="", source="llm", error="llm_no_json"
+        )
     try:
         obj = json.loads(m.group(0))
     except json.JSONDecodeError:
-        return ExtractedEvent(summary="", start_iso="", end_iso="",
-                              source="llm", error="llm_bad_json")
+        return ExtractedEvent(
+            summary="", start_iso="", end_iso="", source="llm", error="llm_bad_json"
+        )
 
     summary = str(obj.get("summary") or "").strip()
     start = str(obj.get("start") or "").strip()
     end = str(obj.get("end") or "").strip()
     if not (summary and start and end):
-        return ExtractedEvent(summary="", start_iso="", end_iso="",
-                              source="llm", error="llm_incomplete")
+        return ExtractedEvent(
+            summary="", start_iso="", end_iso="", source="llm", error="llm_incomplete"
+        )
     return ExtractedEvent(
         summary=summary,
         start_iso=start,
@@ -419,7 +426,10 @@ def project_event(
     returns ``created=False`` so the drain keeps going.
     """
     outcome: dict[str, Any] = {
-        "created": False, "event_id": "", "source": "", "error": "",
+        "created": False,
+        "event_id": "",
+        "source": "",
+        "error": "",
     }
     try:
         ev = extract_event(parsed, raw_rfc822=raw_rfc822, llm_chat=llm_chat)

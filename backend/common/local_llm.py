@@ -13,6 +13,7 @@ qwen3 thinking suppression: /no_think is prepended to every user message
 when using LM Studio so the model skips its <think> preamble. Suppressed
 on OpenAI (not applicable).
 """
+
 from __future__ import annotations
 
 import logging
@@ -51,7 +52,7 @@ _PRIMARY = (os.getenv("SAMUS_LLM_PRIMARY", "local") or "local").strip().lower()
 
 # Back-compat: some callers/tests read these module attrs. _USING_OPENAI now
 # means "OpenAI is the PRIMARY backend"; _BASE_URL mirrors the primary.
-_USING_OPENAI: bool = (_PRIMARY == "openai")
+_USING_OPENAI: bool = _PRIMARY == "openai"
 _BASE_URL = _OPENAI_BASE if _USING_OPENAI else _LOCAL_BASE
 
 _NO_THINK_PREFIX = "/no_think\n\n"
@@ -78,8 +79,13 @@ def _resolve_chat_endpoint(base_url: str) -> str:
 
 
 def _call_backend(
-    *, kind: str, system: str, user: str,
-    max_tokens: int, temperature: float, timeout: float | None,
+    *,
+    kind: str,
+    system: str,
+    user: str,
+    max_tokens: int,
+    temperature: float,
+    timeout: float | None,
 ) -> str:
     """One HTTP completion against a single backend (``kind`` = local|openai).
 
@@ -92,8 +98,7 @@ def _call_backend(
         endpoint = _resolve_chat_endpoint(_OPENAI_BASE)
         model, tmo = _OPENAI_MODEL, (timeout or _OPENAI_TIMEOUT)
         user_content = user  # OpenAI ignores the qwen /no_think directive
-        headers = {"Content-Type": "application/json",
-                   "Authorization": f"Bearer {_OPENAI_API_KEY}"}
+        headers = {"Content-Type": "application/json", "Authorization": f"Bearer {_OPENAI_API_KEY}"}
     else:  # local LM Studio
         endpoint = _resolve_chat_endpoint(_LOCAL_BASE)
         model, tmo = _LOCAL_MODEL, (timeout or _LOCAL_TIMEOUT)
@@ -124,8 +129,9 @@ def _call_backend(
         _LOG.warning("local_llm[%s]: timed out after %.0fs", kind, tmo)
         return ""
     except httpx.HTTPStatusError as exc:
-        _LOG.warning("local_llm[%s]: HTTP %s — %s", kind,
-                     exc.response.status_code, exc.response.text[:200])
+        _LOG.warning(
+            "local_llm[%s]: HTTP %s — %s", kind, exc.response.status_code, exc.response.text[:200]
+        )
         return ""
     except Exception as exc:  # noqa: BLE001
         _LOG.warning("local_llm[%s]: unexpected error: %s", kind, exc)
@@ -157,8 +163,12 @@ def chat(
     backends = _backend_order()
     for i, kind in enumerate(backends):
         out = _call_backend(
-            kind=kind, system=system, user=user,
-            max_tokens=max_tokens, temperature=temperature, timeout=timeout,
+            kind=kind,
+            system=system,
+            user=user,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            timeout=timeout,
         )
         if out.strip():
             if i > 0:

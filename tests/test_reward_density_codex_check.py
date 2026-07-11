@@ -1,5 +1,6 @@
 """G7 — every compute_reward call passes through the Codex Validation Layer
 with ``subtracts_harm=True``, silencing VW-G7."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -51,7 +52,8 @@ class _Store:
 @pytest.fixture(autouse=True)
 def _isolate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv(
-        "SAMUS_REWARD_PERSIST_PATH", str(tmp_path / "reward.jsonl"),
+        "SAMUS_REWARD_PERSIST_PATH",
+        str(tmp_path / "reward.jsonl"),
     )
 
 
@@ -70,7 +72,8 @@ def _loaded_registry(monkeypatch: pytest.MonkeyPatch) -> codex_registry.CodexReg
 
 
 def test_compute_reward_emits_codex_action_with_subtracts_harm(
-    _loaded_registry, monkeypatch: pytest.MonkeyPatch,
+    _loaded_registry,
+    monkeypatch: pytest.MonkeyPatch,
 ):
     captured: dict[str, Any] = {}
 
@@ -82,7 +85,9 @@ def test_compute_reward_emits_codex_action_with_subtracts_harm(
 
     # Patch at the symbol the reward module imports at call time.
     monkeypatch.setattr(
-        "backend.common.codex.check_action", _capture, raising=True,
+        "backend.common.codex.check_action",
+        _capture,
+        raising=True,
     )
 
     comp = rd.compute_reward("op_x", store=_Store())

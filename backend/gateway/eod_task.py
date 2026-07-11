@@ -36,6 +36,7 @@ Window knobs (Pacific 24h):
   * ``SAMUS_EOD_INTERVAL_SEC``     - poll cadence, default 300s
   * ``SAMUS_EOD_CONSULT_OPENAI``   - include OpenAI leg B, default ON
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -81,10 +82,12 @@ def _now_pt() -> tuple[str, int]:
     try:
         from datetime import datetime, timezone
         from backend.common.us_timezones import state_to_timezone
+
         now = datetime.now(timezone.utc).astimezone(state_to_timezone("CA"))
         return now.date().isoformat(), now.hour
     except Exception:  # noqa: BLE001
         from datetime import date, datetime
+
         now = datetime.utcnow()
         return date.today().isoformat(), now.hour
 
@@ -94,6 +97,7 @@ def _review_path(business_date: str):
     (``storage.root()/cognition/eod_review_<date>.md``). Its existence is our
     once-per-day gate."""
     from backend.common import storage
+
     return storage.root() / "cognition" / f"eod_review_{business_date}.md"
 
 
@@ -136,6 +140,7 @@ def _fire() -> dict[str, Any]:
     retries next tick (and the review is itself fail-safe by design)."""
     try:
         from backend.cognitive.intelligence_cycle import run_end_of_day_review
+
         result = run_end_of_day_review(consult_openai=_flag_on(ENV_CONSULT))
         return {
             "ran": True,
@@ -166,21 +171,25 @@ async def _eod_loop(interval: float) -> None:
             business_date, hour = _now_pt()
             fire, reason = should_fire_now(business_date, hour)
             if fire:
-                _LOG.info("eod firing: %s (business_date=%s hour_pt=%d)",
-                          reason, business_date, hour)
+                _LOG.info(
+                    "eod firing: %s (business_date=%s hour_pt=%d)", reason, business_date, hour
+                )
                 result = _fire()
                 _LOG.info(
                     "eod done: ran=%s leg_c=%s method=%s ingested=%s error=%s",
-                    result.get("ran"), result.get("leg_c_source"),
-                    result.get("method"), result.get("ingested"),
+                    result.get("ran"),
+                    result.get("leg_c_source"),
+                    result.get("method"),
+                    result.get("ingested"),
                     result.get("error"),
                 )
             else:
                 # INFO once per hour boundary so the timeline shows the loop is
                 # alive without spamming every 5 min.
                 if hour != getattr(_eod_loop, "_last_hour", None):
-                    _LOG.info("eod skip: %s (business_date=%s hour_pt=%d)",
-                              reason, business_date, hour)
+                    _LOG.info(
+                        "eod skip: %s (business_date=%s hour_pt=%d)", reason, business_date, hour
+                    )
                     _eod_loop._last_hour = hour  # type: ignore[attr-defined]
         except Exception:  # noqa: BLE001
             _LOG.exception("eod_loop tick faulted; continuing")

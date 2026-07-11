@@ -13,6 +13,7 @@ Design rules (mirror control_tick_ledger.py):
   * Path resolved lazily from SAMUS_DATA_ROOT env var so container and
     host paths work without code changes.
 """
+
 from __future__ import annotations
 
 import logging
@@ -51,6 +52,7 @@ class ExperimentRegistry:
 
     def _ledger(self):
         from backend.common.persistence import JsonlLedger  # deferred: no gateway coupling
+
         return JsonlLedger(self._ledger_path)
 
     def log(

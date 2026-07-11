@@ -4,6 +4,7 @@ Covers tier boundaries at 0.85 / 0.65, every vertical's base policy, the
 unknown-vertical generic fallback, derived-field logic, and determinism
 (same input -> byte-identical profile). Pure-logic — no LLM, no monkeypatch.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -22,6 +23,7 @@ from backend.strategy.policy_compiler import (
 # ---------------------------------------------------------------------------
 # Tier boundaries — reward_density at 0.85 / 0.65 (strict ``>``)
 # ---------------------------------------------------------------------------
+
 
 def test_tier_high_above_085():
     """reward_density strictly above 0.85 -> high / 6h / full_audit."""
@@ -69,6 +71,7 @@ def test_tier_low_below_065():
 # Per-vertical base policies
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize("vertical", ["hvac", "dentist", "plumber", "real_estate"])
 def test_each_vertical_uses_its_base_policy(vertical):
     """Each known vertical pulls channel_priority + template_family from VERTICAL_POLICIES."""
@@ -97,6 +100,7 @@ def test_dentist_is_email_first():
 # Unknown-vertical generic fallback — never raises
 # ---------------------------------------------------------------------------
 
+
 def test_unknown_vertical_uses_generic_fallback():
     """An unknown vertical falls back to GENERIC_VERTICAL_POLICY, never raises."""
     p = build_execution_profile(0.6, 0.9, 0.2, 0.5, "spaceship_repair")
@@ -114,6 +118,7 @@ def test_empty_vertical_does_not_raise():
 # ---------------------------------------------------------------------------
 # Derived fields — confidence / escalation / retry / allocation / token budget
 # ---------------------------------------------------------------------------
+
 
 def test_confidence_blends_forecast_and_enrichment():
     """confidence_score = 0.6*forecast + 0.4*enrichment, clamped to [0,1]."""
@@ -165,6 +170,7 @@ def test_token_budget_is_small_and_bounded():
 # Determinism — same input -> identical profile
 # ---------------------------------------------------------------------------
 
+
 def test_determinism_same_input_identical_profile():
     """Same inputs always yield a byte-identical CloserExecutionProfile."""
     args = (0.73, 0.88, 0.34, 0.61, "plumber")
@@ -185,6 +191,7 @@ def test_determinism_across_all_verticals():
 # ---------------------------------------------------------------------------
 # POLICY_FAMILIES — derived from VERTICAL_POLICIES (single source of truth)
 # ---------------------------------------------------------------------------
+
 
 def test_policy_families_match_vertical_policies():
     """POLICY_FAMILIES is derived from VERTICAL_POLICIES — no duplication."""

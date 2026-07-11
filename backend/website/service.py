@@ -19,13 +19,13 @@ Nothing outward fires without ``website_live_publish_enabled``; no Wix call
 fires without ``wix_api_key`` + ``wix_account_id``; the whole capability is off
 unless ``website_builder_enabled``.
 """
+
 from __future__ import annotations
 
 import logging
 import uuid
 from typing import Any, Callable
 
-from backend.common.dates import iso_now
 from backend.common.settings import get_settings
 
 from .gate import approval_ok, outward_ok
@@ -80,7 +80,9 @@ def _apply_detail(state: WebsiteBuildState, result: StageResult) -> None:
 
 
 def start_order(
-    order: WebsiteOrder, *, settings: Any = None,
+    order: WebsiteOrder,
+    *,
+    settings: Any = None,
 ) -> WebsiteBuildState:
     """Open (or reload) the build for ``order``. Idempotent on order_id."""
     settings = settings or get_settings()
@@ -101,8 +103,12 @@ def start_order(
         stage=STAGE_SEQUENCE[0],
         status="running",
     )
-    state.log("order_opened", customer=order.customer_name,
-              settlement=order.settlement_kind, source=order.source)
+    state.log(
+        "order_opened",
+        customer=order.customer_name,
+        settlement=order.settlement_kind,
+        source=order.source,
+    )
     save_state(state)
     return state
 
@@ -183,8 +189,12 @@ def _run_stage(
         state.park = {"stage": stage, "reason": result.park_reason}
         state.log("parked", stage=stage, reason=result.park_reason)
         save_state(state)
-        _LOG.info("website order parked id=%s stage=%s reason=%s",
-                  state.order_id, stage, result.park_reason)
+        _LOG.info(
+            "website order parked id=%s stage=%s reason=%s",
+            state.order_id,
+            stage,
+            result.park_reason,
+        )
         return state
 
     _apply_detail(state, result)
@@ -245,8 +255,9 @@ def advance(
         return state
 
     # Outward gate (defence-in-depth; the stage handler also parks on this).
-    if not outward_ok(stage, live_publish_enabled=bool(
-            getattr(settings, "website_live_publish_enabled", False))):
+    if not outward_ok(
+        stage, live_publish_enabled=bool(getattr(settings, "website_live_publish_enabled", False))
+    ):
         state.status = "parked"
         state.stage = stage
         state.park = {"stage": stage, "reason": "live_publish_disabled"}
@@ -285,7 +296,11 @@ def run(
 
 
 def from_cash_engine_deal(
-    *, opportunity_id: str, brief: Any, settings: Any = None, crm: Any = None,
+    *,
+    opportunity_id: str,
+    brief: Any,
+    settings: Any = None,
+    crm: Any = None,
 ) -> WebsiteBuildState:
     """Bridge: open a website order from a won Cash Engine deal.
 

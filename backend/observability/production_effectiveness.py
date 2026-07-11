@@ -31,6 +31,7 @@ Design:
 Thresholds are module constants, each overridable by an env var so the
 operator can tune sensitivity without a redeploy.
 """
+
 from __future__ import annotations
 
 import datetime as _dt
@@ -55,6 +56,7 @@ class EffStatus(str, Enum):
 
 
 # --- tunable thresholds (env-overridable) ----------------------------------
+
 
 def _env_float(name: str, default: float) -> float:
     try:
@@ -103,15 +105,17 @@ class EffReport:
     @property
     def alerting(self) -> bool:
         """True if any check is FAIL/CRITICAL (the alert-worthy set)."""
-        return any(
-            c.status in (EffStatus.FAIL, EffStatus.CRITICAL) for c in self.checks
-        )
+        return any(c.status in (EffStatus.FAIL, EffStatus.CRITICAL) for c in self.checks)
 
     @property
     def worst(self) -> EffStatus:
         order = [
-            EffStatus.CRITICAL, EffStatus.FAIL, EffStatus.WARN,
-            EffStatus.UNKNOWN, EffStatus.INFO, EffStatus.OK,
+            EffStatus.CRITICAL,
+            EffStatus.FAIL,
+            EffStatus.WARN,
+            EffStatus.UNKNOWN,
+            EffStatus.INFO,
+            EffStatus.OK,
         ]
         for s in order:
             if any(c.status is s for c in self.checks):
@@ -151,6 +155,7 @@ class EffectivenessProvider(Protocol):
 
 
 # --- individual checks (pure) ----------------------------------------------
+
 
 def _check_scoring(provider: EffectivenessProvider) -> EffCheck:
     name = "scoring_coverage"
@@ -195,8 +200,10 @@ def _check_staking(provider: EffectivenessProvider) -> EffCheck:
     detail = f"last sweep scanned={scanned} staked={staked}"
     if scanned > 0 and staked == 0:
         return EffCheck(
-            name, EffStatus.FAIL,
-            detail + " — candidates found but none qualified to stake", 0.0,
+            name,
+            EffStatus.FAIL,
+            detail + " — candidates found but none qualified to stake",
+            0.0,
         )
     return EffCheck(name, EffStatus.OK, detail, float(staked))
 
@@ -253,8 +260,10 @@ def _check_funnel_leakage(provider: EffectivenessProvider) -> EffCheck:
     detail = f"{opps} opportunities, {proposals} reached proposal"
     if proposals == 0:
         return EffCheck(
-            name, EffStatus.WARN,
-            detail + " — opportunities not advancing to proposal", 0.0,
+            name,
+            EffStatus.WARN,
+            detail + " — opportunities not advancing to proposal",
+            0.0,
         )
     return EffCheck(name, EffStatus.OK, detail, float(proposals))
 
@@ -281,9 +290,7 @@ def check_production_effectiveness(
     """
     if provider is None:
         provider = DynamoEffectivenessProvider()
-    stamp = (now or _dt.datetime.now(_dt.timezone.utc)).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
+    stamp = (now or _dt.datetime.now(_dt.timezone.utc)).strftime("%Y-%m-%dT%H:%M:%SZ")
     checks = [fn(provider) for fn in _CHECKS]
     return EffReport(checks=checks, generated_at=stamp)
 
@@ -298,6 +305,7 @@ def _safe(fn: Any) -> Any:
 
 
 # --- default live provider -------------------------------------------------
+
 
 class DynamoEffectivenessProvider:
     """Live provider: DynamoDB scans + control-tick ledger + CRM stats.
@@ -319,9 +327,7 @@ class DynamoEffectivenessProvider:
         try:
             t = self._table("samus_prospects")
             total = scored = with_email = 0
-            kwargs: dict[str, Any] = {
-                "ProjectionExpression": "lead_score, owner_email"
-            }
+            kwargs: dict[str, Any] = {"ProjectionExpression": "lead_score, owner_email"}
             while True:
                 resp = t.scan(**kwargs)
                 for it in resp.get("Items", []):

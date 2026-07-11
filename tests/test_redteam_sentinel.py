@@ -1,4 +1,5 @@
 """Tests for Samus-Red -- the adversarial resilience sentinel."""
+
 from __future__ import annotations
 
 from backend.redteam.models import (
@@ -181,7 +182,7 @@ def test_resilience_score_zero_when_nothing_scorable():
 def test_build_report_measures_hardening_and_regression():
     results = [
         ProbeResult("p1", ProbeOutcome.CONTAINED.value, 1, "p1"),  # was broken -> hardened
-        ProbeResult("p2", ProbeOutcome.BREACHED.value, 2, "p2"),   # newly broken -> regressed
+        ProbeResult("p2", ProbeOutcome.BREACHED.value, 2, "p2"),  # newly broken -> regressed
     ]
     report = build_report("2026-07-06", "2026-07-06T00:00:00Z", results, prior_breaches=["p1"])
     assert report.hardened == ["p1"]
@@ -220,8 +221,10 @@ def test_sentinel_files_breach_into_guidance():
     rt, gfake = FakeLedger(), FakeLedger()
     gl = _guidance_ledger(gfake)
     out = run_redteam_pass(
-        "2026-07-06", posture=_breached_posture(),
-        redteam_ledger=rt, guidance_ledger=gl,
+        "2026-07-06",
+        posture=_breached_posture(),
+        redteam_ledger=rt,
+        guidance_ledger=gl,
     )
     assert out["breaches"] == ["immutable_integrity"]
     assert out["guidance_opened"] == ["redteam-immutable_integrity"]
@@ -237,8 +240,12 @@ def test_sentinel_files_breach_into_guidance():
 def test_sentinel_does_not_refile_persisting_breach():
     rt, gfake = FakeLedger(), FakeLedger()
     gl = _guidance_ledger(gfake)
-    run_redteam_pass("2026-07-06", posture=_breached_posture(), redteam_ledger=rt, guidance_ledger=gl)
-    second = run_redteam_pass("2026-07-07", posture=_breached_posture(), redteam_ledger=rt, guidance_ledger=gl)
+    run_redteam_pass(
+        "2026-07-06", posture=_breached_posture(), redteam_ledger=rt, guidance_ledger=gl
+    )
+    second = run_redteam_pass(
+        "2026-07-07", posture=_breached_posture(), redteam_ledger=rt, guidance_ledger=gl
+    )
     assert second["guidance_opened"] == []  # already on Blue's queue
     # still exactly one open guidance item for this probe
     open_ids = [r.recommendation_id for r in gl.open_items()]
@@ -248,8 +255,12 @@ def test_sentinel_does_not_refile_persisting_breach():
 def test_sentinel_closes_breach_and_scores_hardening():
     rt, gfake = FakeLedger(), FakeLedger()
     gl = _guidance_ledger(gfake)
-    run_redteam_pass("2026-07-06", posture=_breached_posture(), redteam_ledger=rt, guidance_ledger=gl)
-    healed = run_redteam_pass("2026-07-07", posture=_clean_posture(), redteam_ledger=rt, guidance_ledger=gl)
+    run_redteam_pass(
+        "2026-07-06", posture=_breached_posture(), redteam_ledger=rt, guidance_ledger=gl
+    )
+    healed = run_redteam_pass(
+        "2026-07-07", posture=_clean_posture(), redteam_ledger=rt, guidance_ledger=gl
+    )
     assert healed["breaches"] == []
     assert healed["guidance_resolved"] == ["redteam-immutable_integrity"]
     assert "immutable_integrity" in healed["hardened"]

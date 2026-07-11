@@ -1,4 +1,5 @@
 """VapiClient.update_assistant — PATCH /assistant/{id} body shape."""
+
 from __future__ import annotations
 
 import httpx
@@ -13,8 +14,7 @@ class _FakeHttpx:
         return getattr(httpx, name)
 
 
-def _build_client(monkeypatch, *, capture: dict, body: dict | None = None,
-                  status: int = 200):
+def _build_client(monkeypatch, *, capture: dict, body: dict | None = None, status: int = 200):
     class _Resp:
         def __init__(self):
             self.status_code = status
@@ -26,9 +26,15 @@ def _build_client(monkeypatch, *, capture: dict, body: dict | None = None,
             return self._body
 
     class _Client:
-        def __init__(self, *a, **kw): pass
-        def __enter__(self): return self
-        def __exit__(self, *a): return False
+        def __init__(self, *a, **kw):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
         def request(self, method, url, headers=None, params=None, json=None):
             capture["method"] = method
             capture["url"] = url
@@ -36,6 +42,7 @@ def _build_client(monkeypatch, *, capture: dict, body: dict | None = None,
             return _Resp()
 
     import backend.voice.client as mod
+
     monkeypatch.setattr(mod, "httpx", _FakeHttpx(_Client))
     return mod.VapiClient(api_key="k")
 
@@ -101,13 +108,17 @@ def test_update_assistant_rejects_no_fields(monkeypatch):
 def test_update_assistant_raises_on_vapi_http_error(monkeypatch):
     """Vapi 5xx must propagate as VapiError so the caller can degrade."""
     import backend.voice.client as mod
+
     cap: dict = {}
     client = _build_client(
-        monkeypatch, capture=cap, status=500,
+        monkeypatch,
+        capture=cap,
+        status=500,
         body={"message": "internal error"},
     )
     with pytest.raises(mod.VapiError) as ei:
         client.update_assistant(
-            assistant_id="ast_x", server_url="https://x.ngrok-free.app",
+            assistant_id="ast_x",
+            server_url="https://x.ngrok-free.app",
         )
     assert "500" in str(ei.value)

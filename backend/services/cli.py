@@ -1,4 +1,5 @@
 """Services workcell CLI. Exposes ``samus services sla-check`` for overdue sweep + fulfill-driver."""
+
 from __future__ import annotations
 
 import argparse
@@ -13,27 +14,28 @@ from backend.services.registry import list_skus
 
 def _cmd_sla_check(_args: argparse.Namespace) -> int:
     from backend.memory.customers import CustomerStore
+
     store = CustomerStore()
     fired = sla_timer.sweep_overdue(store)
     open_alerts = sla_timer.read_open_alerts(limit=25)
-    sys.stdout.write(
-        f"sla_check: fired={len(fired)} open_alerts_total={len(open_alerts)}\n"
-    )
+    sys.stdout.write(f"sla_check: fired={len(fired)} open_alerts_total={len(open_alerts)}\n")
     for a in fired:
-        sys.stdout.write(f"  FIRED  {a['sku_id']:<30}  {a['customer_id']}  deadline={a['sla_deadline']}\n")
+        sys.stdout.write(
+            f"  FIRED  {a['sku_id']:<30}  {a['customer_id']}  deadline={a['sla_deadline']}\n"
+        )
     if open_alerts:
         sys.stdout.write("\nrecent alerts (newest last):\n")
         for a in open_alerts:
             sys.stdout.write(
-                f"  {a.get('fired_at','?'):<22}  {a.get('sku_id','?'):<30}  "
-                f"{a.get('customer_id','?')}\n"
+                f"  {a.get('fired_at', '?'):<22}  {a.get('sku_id', '?'):<30}  "
+                f"{a.get('customer_id', '?')}\n"
             )
     return 0
 
 
 def _cmd_list_skus(_args: argparse.Namespace) -> int:
     for sku in list_skus():
-        price = "TBD" if sku.price_usd_cents is None else f"${sku.price_usd_cents/100:.2f}"
+        price = "TBD" if sku.price_usd_cents is None else f"${sku.price_usd_cents / 100:.2f}"
         sys.stdout.write(
             f"{sku.sku_id:<32}  {sku.display_name:<32}  {price:<10}  sla={sku.sla_hours}h\n"
         )
@@ -66,8 +68,10 @@ def _cmd_fulfill(args: argparse.Namespace) -> int:
 def _render(result) -> str:
     sep = "=" * 75
     out: list[str] = [sep]
-    out.append(f"SAMUS SERVICES FULFILL  [{'OK' if result.ok else 'FAILED'}]  "
-               f"{result.sku_id}  ->  {result.email}")
+    out.append(
+        f"SAMUS SERVICES FULFILL  [{'OK' if result.ok else 'FAILED'}]  "
+        f"{result.sku_id}  ->  {result.email}"
+    )
     out.append(sep)
     if result.customer_id:
         out.append(f"  customer:        {result.customer_id}")
@@ -98,12 +102,16 @@ def build_parser() -> argparse.ArgumentParser:
     p_sla = sub.add_parser("sla-check", help="Sweep overdue SLAs + print open alerts")
     p_sla.set_defaults(func=_cmd_sla_check)
 
-    p_ful = sub.add_parser("fulfill", help="Run the scope-confirmation chain for one customer + SKU")
+    p_ful = sub.add_parser(
+        "fulfill", help="Run the scope-confirmation chain for one customer + SKU"
+    )
     p_ful.add_argument("--sku", required=True, help="SKU id (e.g. service_workflow_rescue)")
     p_ful.add_argument("--email", required=True, help="Customer email")
     p_ful.add_argument("--name", default="")
     p_ful.add_argument("--company", default="")
-    p_ful.add_argument("--bottleneck", default="", help="Customer's bottleneck text (overrides intake file)")
+    p_ful.add_argument(
+        "--bottleneck", default="", help="Customer's bottleneck text (overrides intake file)"
+    )
     p_ful.add_argument("--intake-json", default="", help="Intake payload as inline JSON")
     p_ful.add_argument("--intake-file", default="", help="Intake payload JSON file path")
     p_ful.add_argument("--no-send", action="store_true", help="Skip the scope-confirmation email")

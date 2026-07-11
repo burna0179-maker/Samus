@@ -25,6 +25,7 @@ TOS NOTE: LinkedIn forbids unapproved automation and bans accounts for it.
 Obtaining + using a LinkedIn token for automated posting is an explicit
 operator decision; see ``social_adapter`` module docstring.
 """
+
 from __future__ import annotations
 
 import logging
@@ -140,9 +141,7 @@ def exchange_code(
     if platform not in ("linkedin", "facebook", "instagram"):
         raise ValueError(f"unsupported platform: {platform!r}")
     if not (code and client_id and client_secret and redirect_uri):
-        raise ValueError(
-            "code, client_id, client_secret and redirect_uri are all required"
-        )
+        raise ValueError("code, client_id, client_secret and redirect_uri are all required")
 
     if platform == "linkedin":
         token_url = _LINKEDIN_TOKEN_URL
@@ -188,18 +187,14 @@ def refresh_linkedin_token(
     refresh_token; that helper is intentionally omitted until needed.
     """
     if not (refresh_token and client_id and client_secret):
-        raise ValueError(
-            "refresh_token, client_id and client_secret are all required"
-        )
+        raise ValueError("refresh_token, client_id and client_secret are all required")
     data = {
         "grant_type": "refresh_token",
         "refresh_token": refresh_token,
         "client_id": client_id,
         "client_secret": client_secret,
     }
-    return _post_token(
-        _LINKEDIN_TOKEN_URL, data, timeout=timeout, op="refresh_linkedin_token"
-    )
+    return _post_token(_LINKEDIN_TOKEN_URL, data, timeout=timeout, op="refresh_linkedin_token")
 
 
 # ---------------------------------------------------------------------------
@@ -285,9 +280,7 @@ def discover_instagram_account_id(
                 params={"access_token": page_access_token},
             )
     except httpx.HTTPError as exc:
-        raise SocialOauthError(
-            f"discover_ig_pages_transport_error:{type(exc).__name__}"
-        ) from exc
+        raise SocialOauthError(f"discover_ig_pages_transport_error:{type(exc).__name__}") from exc
 
     if pages_resp.status_code >= 400:
         _raise_graph_error(pages_resp, "discover_ig_pages")
@@ -334,9 +327,7 @@ def discover_instagram_account_id(
                         "instagram_business_account_id": ig_id,
                     }
     except httpx.HTTPError as exc:
-        raise SocialOauthError(
-            f"discover_ig_detail_transport_error:{type(exc).__name__}"
-        ) from exc
+        raise SocialOauthError(f"discover_ig_detail_transport_error:{type(exc).__name__}") from exc
 
     raise SocialOauthError("discover_ig_no_business_account_linked")
 
@@ -361,9 +352,7 @@ def exchange_for_long_lived_token(
     Raises :class:`SocialOauthError` on failure.
     """
     if not (short_lived_token and client_id and client_secret):
-        raise ValueError(
-            "short_lived_token, client_id and client_secret are all required"
-        )
+        raise ValueError("short_lived_token, client_id and client_secret are all required")
 
     url = f"https://graph.facebook.com/{_FACEBOOK_GRAPH_VERSION}/oauth/access_token"
     params = {
@@ -377,9 +366,7 @@ def exchange_for_long_lived_token(
         with httpx.Client(timeout=timeout or _DEFAULT_TIMEOUT) as client:
             resp = client.get(url, params=params)
     except httpx.HTTPError as exc:
-        raise SocialOauthError(
-            f"exchange_long_lived_transport_error:{type(exc).__name__}"
-        ) from exc
+        raise SocialOauthError(f"exchange_long_lived_transport_error:{type(exc).__name__}") from exc
 
     if resp.status_code >= 400:
         _raise_graph_error(resp, "exchange_long_lived")

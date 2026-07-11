@@ -21,6 +21,7 @@ logged warning + a zeroed/empty result. ``record_stage`` returns a bool and
 never raises; ``funnel_snapshot`` returns an all-zero snapshot on any failure.
 A telemetry hiccup must never break the CRM lifecycle it instruments.
 """
+
 from __future__ import annotations
 
 import logging
@@ -144,19 +145,19 @@ def funnel_snapshot() -> dict[str, Any]:
         from_count = counts[upstream]
         to_count = counts[downstream]
         rate = round(to_count / from_count, 4) if from_count > 0 else 0.0
-        transitions.append({
-            "from": upstream,
-            "to": downstream,
-            "from_count": from_count,
-            "to_count": to_count,
-            "conversion_rate": rate,
-            "leaked": max(0, from_count - to_count),
-        })
+        transitions.append(
+            {
+                "from": upstream,
+                "to": downstream,
+                "from_count": from_count,
+                "to_count": to_count,
+                "conversion_rate": rate,
+                "leaked": max(0, from_count - to_count),
+            }
+        )
 
     leads = counts["lead"]
-    overall = (
-        round(counts["closed_won"] / leads, 4) if leads > 0 else 0.0
-    )
+    overall = round(counts["closed_won"] / leads, 4) if leads > 0 else 0.0
     return {
         "stages": counts,
         "stage_order": list(FUNNEL_STAGES),

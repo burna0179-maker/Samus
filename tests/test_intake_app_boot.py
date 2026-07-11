@@ -12,6 +12,7 @@ These guard the whole "intake app module won't import / construct" class of
 regression: a duplicate kwarg (or any other import-time break) fails these two
 tests immediately, with a name that points straight at the cause.
 """
+
 from __future__ import annotations
 
 

@@ -1,13 +1,16 @@
 """Finance service — orchestration tests with Stripe mocked at module level."""
+
 from __future__ import annotations
 
 
 def _reset_idempotency(monkeypatch):
     from backend.common.idempotency import IdempotencyStore
     import backend.common.idempotency as idem_mod
+
     fresh = IdempotencyStore()
     monkeypatch.setattr(idem_mod, "GLOBAL_IDEMPOTENCY_STORE", fresh)
     import backend.finance.service as svc_mod
+
     monkeypatch.setattr(svc_mod, "GLOBAL_IDEMPOTENCY_STORE", fresh)
 
 
@@ -18,12 +21,19 @@ def _override_settings(monkeypatch, *, stripe_api_key: str = "rk_test"):
     settings = _S()
     settings.stripe_api_key = stripe_api_key
     import backend.finance.service as svc_mod
+
     monkeypatch.setattr(svc_mod, "get_settings", lambda: settings)
 
 
-def _stub_stripe_client(monkeypatch, *, balance=None, charges=None,
-                        payouts=None, subscriptions=None,
-                        raise_exc: Exception | None = None):
+def _stub_stripe_client(
+    monkeypatch,
+    *,
+    balance=None,
+    charges=None,
+    payouts=None,
+    subscriptions=None,
+    raise_exc: Exception | None = None,
+):
     """Replace StripeClient in service module with a fake."""
     from backend.finance.models import StripeBalance, StripeBalanceLine
 
@@ -52,13 +62,13 @@ def _stub_stripe_client(monkeypatch, *, balance=None, charges=None,
                 raise raise_exc
             return payouts or []
 
-        def fetch_subscriptions(self, *, status="active", limit=100,
-                                customer=None):
+        def fetch_subscriptions(self, *, status="active", limit=100, customer=None):
             if raise_exc:
                 raise raise_exc
             return subscriptions or []
 
     import backend.finance.service as svc_mod
+
     monkeypatch.setattr(svc_mod, "StripeClient", _FakeClient)
 
 
@@ -85,6 +95,7 @@ def _seed_codb(monkeypatch, tmp_path, *, monthly_total: float = 150.0):
 # get_snapshot
 # ---------------------------------------------------------------------------
 
+
 def test_snapshot_happy_path(tmp_path, monkeypatch):
     _reset_idempotency(monkeypatch)
     _override_settings(monkeypatch, stripe_api_key="rk_test")
@@ -92,8 +103,12 @@ def test_snapshot_happy_path(tmp_path, monkeypatch):
     _seed_codb(monkeypatch, tmp_path, monthly_total=150.0)
 
     from backend.finance.models import (
-        SnapshotRequest, StripeBalance, StripeBalanceLine, StripeCharge,
+        SnapshotRequest,
+        StripeBalance,
+        StripeBalanceLine,
+        StripeCharge,
     )
+
     _stub_stripe_client(
         monkeypatch,
         balance=StripeBalance(
@@ -102,14 +117,29 @@ def test_snapshot_happy_path(tmp_path, monkeypatch):
             livemode=True,
         ),
         charges=[
-            StripeCharge(id="ch_1", amount=50000, currency="usd",
-                         status="succeeded", paid=True, created=1, description="x"),
-            StripeCharge(id="ch_2", amount=25000, currency="usd",
-                         status="succeeded", paid=True, created=2, description=None),
+            StripeCharge(
+                id="ch_1",
+                amount=50000,
+                currency="usd",
+                status="succeeded",
+                paid=True,
+                created=1,
+                description="x",
+            ),
+            StripeCharge(
+                id="ch_2",
+                amount=25000,
+                currency="usd",
+                status="succeeded",
+                paid=True,
+                created=2,
+                description=None,
+            ),
         ],
     )
 
     from backend.finance.service import get_snapshot
+
     snap = get_snapshot(SnapshotRequest())
     assert snap.stripe_reachable is True
     assert snap.stripe_error is None
@@ -132,23 +162,34 @@ def test_snapshot_surfaces_live_mrr_from_active_subscriptions(tmp_path, monkeypa
     _seed_codb(monkeypatch, tmp_path, monthly_total=150.0)
 
     from backend.finance.models import (
-        SnapshotRequest, StripeSubscription, StripeSubscriptionItem,
-        StripeSubscriptionItemPrice, StripeRecurring,
+        SnapshotRequest,
+        StripeSubscription,
+        StripeSubscriptionItem,
+        StripeSubscriptionItemPrice,
+        StripeRecurring,
     )
+
     # A single $300/mo active subscription, no charges/payouts in the window.
     sub = StripeSubscription(
-        id="sub_live_1", status="active",
-        items=[StripeSubscriptionItem(
-            id="si_1", quantity=1,
-            price=StripeSubscriptionItemPrice(
-                id="price_1", unit_amount=30000, currency="usd",
-                recurring=StripeRecurring(interval="month", interval_count=1),
-            ),
-        )],
+        id="sub_live_1",
+        status="active",
+        items=[
+            StripeSubscriptionItem(
+                id="si_1",
+                quantity=1,
+                price=StripeSubscriptionItemPrice(
+                    id="price_1",
+                    unit_amount=30000,
+                    currency="usd",
+                    recurring=StripeRecurring(interval="month", interval_count=1),
+                ),
+            )
+        ],
     )
     _stub_stripe_client(monkeypatch, charges=[], payouts=[], subscriptions=[sub])
 
     from backend.finance.service import get_snapshot
+
     snap = get_snapshot(SnapshotRequest())
     assert snap.stripe_reachable is True
     assert snap.active_subscriptions_count == 1
@@ -165,6 +206,7 @@ def test_snapshot_missing_stripe_key_degrades_gracefully(tmp_path, monkeypatch):
 
     from backend.finance.models import SnapshotRequest
     from backend.finance.service import get_snapshot
+
     snap = get_snapshot(SnapshotRequest())
     assert snap.stripe_reachable is False
     assert snap.stripe_error == "stripe_api_key_unset"
@@ -182,10 +224,12 @@ def test_snapshot_stripe_error_is_opaque_and_does_not_leak(tmp_path, monkeypatch
     _seed_codb(monkeypatch, tmp_path, monthly_total=60.0)
 
     from backend.finance.stripe_client import StripeError
+
     _stub_stripe_client(monkeypatch, raise_exc=StripeError("stripe_http_401: bad key"))
 
     from backend.finance.models import SnapshotRequest
     from backend.finance.service import get_snapshot
+
     snap = get_snapshot(SnapshotRequest())
     assert snap.stripe_reachable is False
     # LEAK-FIN-MRR: the raw StripeError text can carry account/request internals
@@ -208,25 +252,32 @@ def test_snapshot_idempotent_cache_hit(tmp_path, monkeypatch):
     class _FakeClient:
         def __init__(self, api_key):
             pass
+
         def fetch_balance(self):
             call_count["n"] += 1
             from backend.finance.models import StripeBalance, StripeBalanceLine
+
             return StripeBalance(
                 available=[StripeBalanceLine(amount=10000, currency="usd")],
                 pending=[],
                 livemode=False,
             )
+
         def fetch_charges(self, limit=10):
             return []
+
         def fetch_payouts(self, limit=10):
             return []
+
         def fetch_subscriptions(self, *, status="active", limit=100, customer=None):
             return []
 
     import backend.finance.service as svc_mod
+
     monkeypatch.setattr(svc_mod, "StripeClient", _FakeClient)
 
     from backend.finance.models import SnapshotRequest
+
     a = svc_mod.get_snapshot(SnapshotRequest())
     b = svc_mod.get_snapshot(SnapshotRequest())
     # Cache hit means Stripe was only hit once.
@@ -238,6 +289,7 @@ def test_snapshot_idempotent_cache_hit(tmp_path, monkeypatch):
 # get_runway
 # ---------------------------------------------------------------------------
 
+
 def test_runway_with_override_skips_stripe(tmp_path, monkeypatch):
     _reset_idempotency(monkeypatch)
     _override_settings(monkeypatch, stripe_api_key="rk_test")
@@ -248,9 +300,11 @@ def test_runway_with_override_skips_stripe(tmp_path, monkeypatch):
             raise AssertionError("StripeClient must not be built when override given")
 
     import backend.finance.service as svc_mod
+
     monkeypatch.setattr(svc_mod, "StripeClient", _FailClient)
 
     from backend.finance.service import get_runway
+
     r = get_runway(override_balance_usd=120.0)
     # daily burn = 2, runway = 60
     assert r.daily_burn_usd == 2.0
@@ -262,9 +316,11 @@ def test_runway_falls_back_to_zero_when_stripe_fails(tmp_path, monkeypatch):
     _override_settings(monkeypatch, stripe_api_key="rk_test")
     _seed_codb(monkeypatch, tmp_path, monthly_total=30.0)
     from backend.finance.stripe_client import StripeError
+
     _stub_stripe_client(monkeypatch, raise_exc=StripeError("transport"))
 
     from backend.finance.service import get_runway
+
     r = get_runway()
     assert r.available_balance_usd == 0.0
     assert r.alert_triggered is True
@@ -274,10 +330,12 @@ def test_runway_falls_back_to_zero_when_stripe_fails(tmp_path, monkeypatch):
 # get_codb_summary
 # ---------------------------------------------------------------------------
 
+
 def test_codb_summary_uses_default_registry(monkeypatch):
     # Make sure no test before this left an override.
     monkeypatch.delenv("SAMUS_CODB_REGISTRY_PATH", raising=False)
     from backend.finance.service import get_codb_summary
+
     s = get_codb_summary()
     assert s.total_monthly_burn_usd > 0
     assert len(s.by_category) >= 3  # multiple categories in seed

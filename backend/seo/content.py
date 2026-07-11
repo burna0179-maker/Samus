@@ -6,6 +6,7 @@ parse error, or when the caller passes ``anthropic_api_key=None`` as a
 business-gate signal that this page is not worth an LLM invocation (used by
 :mod:`backend.seo.service`'s ``needs_llm`` check to skip low-value pages).
 """
+
 from __future__ import annotations
 
 import json
@@ -39,8 +40,9 @@ def _word_count(drafts: dict[str, str]) -> int:
     return total
 
 
-def _build_templated_drafts(url: str, optimization: OptimizeResult,
-                            target_keywords: list[str], tone: str) -> dict[str, str]:
+def _build_templated_drafts(
+    url: str, optimization: OptimizeResult, target_keywords: list[str], tone: str
+) -> dict[str, str]:
     primary_kw = target_keywords[0] if target_keywords else "local services"
     secondary = ", ".join(target_keywords[1:4]) if len(target_keywords) > 1 else ""
     on_page = optimization.on_page_changes or {}
@@ -105,8 +107,9 @@ _SEO_INSTRUCTIONS = (
 )
 
 
-def _build_llm_prompt(url: str, optimization: OptimizeResult,
-                      target_keywords: list[str], tone: str) -> str:
+def _build_llm_prompt(
+    url: str, optimization: OptimizeResult, target_keywords: list[str], tone: str
+) -> str:
     """Build only the per-URL JSON payload. Instructions ride in ``system``
     via ``_SEO_INSTRUCTIONS`` so prompt caching (Control D) can warm-cache them.
     """
@@ -199,6 +202,7 @@ def _price_content_usage(usage: dict[str, int] | None) -> float:
     """
     try:
         from backend.common.llm_pricing import cost_from_usage
+
         return cost_from_usage(_LLM_MODEL, usage)
     except Exception as exc:  # noqa: BLE001 — cost telemetry must never break work
         _LOG.debug("seo content llm cost pricing skipped: %s", exc)
@@ -253,7 +257,8 @@ def generate_content_drafts(
     except BudgetExceeded as exc:
         _LOG.info(
             "llm budget denied workcell=%s reason=%s; falling back to templated",
-            _BUDGET_WORKCELL, exc.decision.reason,
+            _BUDGET_WORKCELL,
+            exc.decision.reason,
         )
         drafts = _build_templated_drafts(url, optimization, target_keywords, tone)
         return drafts, _word_count(drafts), False, 0.0
@@ -273,7 +278,8 @@ def generate_content_drafts(
         # 200 OK but content unparseable: tokens burned, no value -> failure.
         record_outcome(_BUDGET_WORKCELL, outcome="failure")
         _LOG.warning(
-            "anthropic content unparseable, falling back to template: %s", exc,
+            "anthropic content unparseable, falling back to template: %s",
+            exc,
         )
         drafts = _build_templated_drafts(url, optimization, target_keywords, tone)
         # used_llm stays False (no usable LLM content) but the dollars were

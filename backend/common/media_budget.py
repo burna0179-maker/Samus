@@ -9,6 +9,7 @@ if the store cannot be read or the cap is non-positive, spending is denied — a
 paid call never goes out on a "maybe". Mirrors the conservative posture of
 ``llm_global_budget`` / ``apollo_budget`` without their DDB coupling.
 """
+
 from __future__ import annotations
 
 import datetime as _dt
@@ -42,7 +43,9 @@ class MediaSpendDecision:
 class MediaBudgetStore:
     """Process-wide daily $-cap for paid media generation."""
 
-    def __init__(self, cap_usd: float, *, path: Path | None = None, today: str | None = None) -> None:
+    def __init__(
+        self, cap_usd: float, *, path: Path | None = None, today: str | None = None
+    ) -> None:
         self.cap_usd = float(cap_usd)
         self._path = path or state_path("media", "budget.json")
         self._today_override = today  # tests inject a fixed UTC date
@@ -64,7 +67,10 @@ class MediaBudgetStore:
             data = json.loads(self._path.read_text(encoding="utf-8"))
             if not isinstance(data, dict):
                 return None
-            return {"date": str(data.get("date", "")), "spent_usd": float(data.get("spent_usd", 0.0))}
+            return {
+                "date": str(data.get("date", "")),
+                "spent_usd": float(data.get("spent_usd", 0.0)),
+            }
         except (OSError, ValueError, TypeError) as exc:
             _LOG.error("media budget load failed (%s): %s", self._path, exc)
             return None
@@ -82,8 +88,10 @@ class MediaBudgetStore:
         spent = self._spent_today(data)
         if spent + max(0.0, float(estimated_usd)) > self.cap_usd:
             return MediaSpendDecision(
-                False, f"daily_media_cap_exceeded ({spent:.2f}+{estimated_usd:.2f}>{self.cap_usd:.2f})",
-                spent, self.cap_usd,
+                False,
+                f"daily_media_cap_exceeded ({spent:.2f}+{estimated_usd:.2f}>{self.cap_usd:.2f})",
+                spent,
+                self.cap_usd,
             )
         return MediaSpendDecision(True, "ok", spent, self.cap_usd)
 

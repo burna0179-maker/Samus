@@ -24,6 +24,7 @@ DORMANCY: this is a THIRD, distinct autonomy construct — separate from
 ``backend/identity/autonomy_layer.py`` (``_shared.autonomy`` wiring). It has
 NO live importer; the live Samus runtime never imports this package.
 """
+
 from __future__ import annotations
 
 from .architecture_persistence import ArchitecturePersistence

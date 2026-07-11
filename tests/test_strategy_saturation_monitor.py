@@ -2,6 +2,7 @@
 
 Exact-formula tests + boundary cases (no trials, fair-share floor, full share).
 """
+
 from __future__ import annotations
 
 import pytest

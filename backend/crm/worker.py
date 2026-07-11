@@ -22,6 +22,7 @@ collapsed action (:func:`close_payment_to_opportunity`) that combines
 finance's two-step flow into a single message so the producer enqueues
 once instead of twice.
 """
+
 from __future__ import annotations
 
 import logging
@@ -80,16 +81,18 @@ def _handle_action(action: str, payload: dict[str, Any]) -> dict[str, Any]:
         if not conv.conversation_id:
             raise ValueError("conversation_id required")
         ok = upsert_conversation(conv)
-        return {"persisted": ok, "id": conv.conversation_id,
-                "error": None if ok else "ddb_put_failed"}
+        return {
+            "persisted": ok,
+            "id": conv.conversation_id,
+            "error": None if ok else "ddb_put_failed",
+        }
 
     if action == "upsert_call_state":
         state = CallState.model_validate(payload)
         if not state.prospect_id:
             raise ValueError("prospect_id required")
         ok = upsert_call_state(state)
-        return {"persisted": ok, "id": state.prospect_id,
-                "error": None if ok else "ddb_put_failed"}
+        return {"persisted": ok, "id": state.prospect_id, "error": None if ok else "ddb_put_failed"}
 
     if action == "create_task":
         return create_operator_task(
@@ -119,7 +122,10 @@ def _handle_action(action: str, payload: dict[str, Any]) -> dict[str, Any]:
         if not opp_id:
             raise ValueError("opportunity_id required")
         return close_opportunity_from_payment(
-            opp_id, amount, payment_ref, customer_email=customer_email,
+            opp_id,
+            amount,
+            payment_ref,
+            customer_email=customer_email,
         ).model_dump()
 
     if action == "close_payment_to_opportunity":
@@ -131,18 +137,28 @@ def _handle_action(action: str, payload: dict[str, Any]) -> dict[str, Any]:
         amount = float(payload.get("amount_usd") or payload.get("won_amount_usd") or 0.0)
         payment_ref = str(payload.get("payment_ref") or payload.get("event_id") or "")
         if not email:
-            return {"status": "skipped", "reason": "email_required",
-                    "email_tail": "", "opportunity_id": None}
+            return {
+                "status": "skipped",
+                "reason": "email_required",
+                "email_tail": "",
+                "opportunity_id": None,
+            }
         opp_id = find_opportunity_for_email(email)
         if not opp_id:
-            return {"status": "no_open_opportunity",
-                    "email_tail": email[-12:], "opportunity_id": None}
+            return {
+                "status": "no_open_opportunity",
+                "email_tail": email[-12:],
+                "opportunity_id": None,
+            }
         # RT FIN-02: forward the paying customer's email so the ownership
         # re-check inside close_opportunity_from_payment runs (it no-ops when
         # customer_email is empty). opp_id was just looked up BY this email, so
         # the check passes — but it must not be silently skipped.
         advance = close_opportunity_from_payment(
-            opp_id, amount, payment_ref, customer_email=email,
+            opp_id,
+            amount,
+            payment_ref,
+            customer_email=email,
         )
         return {
             "status": "advanced" if advance.status == "advanced" else advance.status,

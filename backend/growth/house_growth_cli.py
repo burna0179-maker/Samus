@@ -10,6 +10,7 @@ Schedule the ``run`` command (host scheduled task / cron, weekly) to make the
 loop recurring; it is idempotent and safe on any cadence. Disable with
 ``SAMUS_HOUSE_GROWTH_ENABLED=0``.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -33,16 +34,22 @@ def _cmd_scorecard(args: argparse.Namespace) -> int:
 
 def _cmd_profile(_args: argparse.Namespace) -> int:
     p = house_account.load_brand_profile()
-    print(json.dumps({
-        "account_id": p.account_id,
-        "client_key": house_account.house_client_key(),
-        "domain": p.domain,
-        "revenue_goal_monthly_usd": p.revenue_goal_monthly_usd,
-        "offer_ladder": p.offer_ladder_lines(),
-        "content_pillars": list(p.content_pillars),
-        "target_keywords": list(p.target_keywords),
-        "channels": list(p.channels),
-    }, indent=2, default=str))
+    print(
+        json.dumps(
+            {
+                "account_id": p.account_id,
+                "client_key": house_account.house_client_key(),
+                "domain": p.domain,
+                "revenue_goal_monthly_usd": p.revenue_goal_monthly_usd,
+                "offer_ladder": p.offer_ladder_lines(),
+                "content_pillars": list(p.content_pillars),
+                "target_keywords": list(p.target_keywords),
+                "channels": list(p.channels),
+            },
+            indent=2,
+            default=str,
+        )
+    )
     return 0
 
 

@@ -1,4 +1,5 @@
 """Standalone smoke for Samus's operator_console pack."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -28,12 +29,16 @@ def seeded_app(tmp_path: Path):
     prompts_root = tmp_path / "identity" / "prompts"
     prompts_root.mkdir(parents=True)
 
-    library = PromptPieceLibrary(pieces={
-        PromptPieceKind.CHARACTER: {"core": "You are {ai_name}, Samus's operator console."},
-        PromptPieceKind.LOCATION: {"console": "Local console session."},
-    })
+    library = PromptPieceLibrary(
+        pieces={
+            PromptPieceKind.CHARACTER: {"core": "You are {ai_name}, Samus's operator console."},
+            PromptPieceKind.LOCATION: {"console": "Local console session."},
+        }
+    )
     preset = ScenarioPreset(
-        preset_id="samus_console", character="core", location="console",
+        preset_id="samus_console",
+        character="core",
+        location="console",
         spice_category="default",
     )
     pool = SpicePool(categories={"default": ["Stay aligned."]})
@@ -44,12 +49,14 @@ def seeded_app(tmp_path: Path):
 
     personas_path = tmp_path / "identity" / "personas" / "personas.json"
     persona_mgr = PersonaManager(personas_path)
-    persona_mgr.upsert(Persona(
-        persona_id="samus_console",
-        display_name="Samus Console",
-        tagline="Operator console for the commerce agent.",
-        default_bag={"preset_id": "samus_console", "spice_enabled": True},
-    ))
+    persona_mgr.upsert(
+        Persona(
+            persona_id="samus_console",
+            display_name="Samus Console",
+            tagline="Operator console for the commerce agent.",
+            default_bag={"preset_id": "samus_console", "spice_enabled": True},
+        )
+    )
 
     history = ConsoleHistory(tmp_path / "history.db")
 
@@ -115,9 +122,7 @@ def test_console_shell_renders_html(seeded_app):
 
 def test_unknown_persona_returns_400_on_create(seeded_app):
     client = TestClient(seeded_app)
-    r = client.post(
-        "/api/console/chats", json={"name": "x", "persona_id": "ghost"}
-    )
+    r = client.post("/api/console/chats", json={"name": "x", "persona_id": "ghost"})
     assert r.status_code == 400
 
 
@@ -142,16 +147,18 @@ def test_lm_studio_backend_auto_selected_from_env(tmp_path: Path, monkeypatch):
     monkeypatch.delenv("SS_LMSTUDIO_URL", raising=False)
     monkeypatch.delenv("SS_LMSTUDIO_MODEL", raising=False)
     app1 = FastAPI()
-    register(app1, personas=pm, history=history,
-             enrichment_root=tmp_path / "identity", api_token="")
+    register(
+        app1, personas=pm, history=history, enrichment_root=tmp_path / "identity", api_token=""
+    )
     assert type(app1.state.operator_console.model_backend).__name__ == "_LocalEchoBackend"
 
     # Case 2: SN_LM_STUDIO_BASE_URL + SN_LM_STUDIO_MODEL -> LMStudioBackend
     monkeypatch.setenv("SN_LM_STUDIO_BASE_URL", "http://127.0.0.1:1234/v1")
     monkeypatch.setenv("SN_LM_STUDIO_MODEL", "google/gemma-4-e4b")
     app2 = FastAPI()
-    register(app2, personas=pm, history=history,
-             enrichment_root=tmp_path / "identity", api_token="")
+    register(
+        app2, personas=pm, history=history, enrichment_root=tmp_path / "identity", api_token=""
+    )
     assert type(app2.state.operator_console.model_backend).__name__ == "LMStudioBackend"
 
     # Case 3: SS_LMSTUDIO_URL + SS_LMSTUDIO_MODEL (Major-flavoured convention)
@@ -160,8 +167,9 @@ def test_lm_studio_backend_auto_selected_from_env(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("SS_LMSTUDIO_URL", "http://127.0.0.1:1234/v1/chat/completions")
     monkeypatch.setenv("SS_LMSTUDIO_MODEL", "google/gemma-4-e4b")
     app3 = FastAPI()
-    register(app3, personas=pm, history=history,
-             enrichment_root=tmp_path / "identity", api_token="")
+    register(
+        app3, personas=pm, history=history, enrichment_root=tmp_path / "identity", api_token=""
+    )
     assert type(app3.state.operator_console.model_backend).__name__ == "LMStudioBackend"
 
 
@@ -176,7 +184,9 @@ def test_bearer_required_when_token_set(tmp_path: Path):
     history = ConsoleHistory(tmp_path / "history.db")
     app = FastAPI()
     register(
-        app, personas=pm, history=history,
+        app,
+        personas=pm,
+        history=history,
         enrichment_root=tmp_path / "identity",
         api_token="secret-token",
     )
@@ -184,6 +194,14 @@ def test_bearer_required_when_token_set(tmp_path: Path):
     # No bearer -- 401
     assert client.get("/api/console/state").status_code == 401
     # Wrong bearer -- 403
-    assert client.get("/api/console/state", headers={"Authorization": "Bearer wrong"}).status_code == 403
+    assert (
+        client.get("/api/console/state", headers={"Authorization": "Bearer wrong"}).status_code
+        == 403
+    )
     # Correct bearer -- 200
-    assert client.get("/api/console/state", headers={"Authorization": "Bearer secret-token"}).status_code == 200
+    assert (
+        client.get(
+            "/api/console/state", headers={"Authorization": "Bearer secret-token"}
+        ).status_code
+        == 200
+    )

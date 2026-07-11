@@ -12,6 +12,7 @@ The orchestrator NEVER hard-codes a client or a vertical: it drives whatever
 graph the template describes. The Sample School run is therefore a
 config instance, not custom code.
 """
+
 from __future__ import annotations
 
 import logging
@@ -70,11 +71,7 @@ class CampaignOrchestrator:
             "client_id": instance.client_id,
             "campaign_id": instance.campaign_id,
         }
-        missing = [
-            r
-            for r in template.required_inputs
-            if effective_inputs.get(r) in (None, "")
-        ]
+        missing = [r for r in template.required_inputs if effective_inputs.get(r) in (None, "")]
         if missing:
             raise CampaignError(f"missing required inputs: {missing}")
 
@@ -82,7 +79,7 @@ class CampaignOrchestrator:
         CampaignGraph(template)
 
         channels = [c.model_dump() for c in (instance.channels or template.channels)]
-        audience = (instance.audience or template.audience)
+        audience = instance.audience or template.audience
         vertical_rules = template.vertical_rules
 
         run = CampaignRun(
@@ -101,8 +98,10 @@ class CampaignOrchestrator:
         )
         self._store.save(run)
         self._ledger.emit_lifecycle_event(
-            campaign_id=run.campaign_id, client_id=run.client_id,
-            from_state=CampaignState.DRAFT.value, to_state=CampaignState.READY.value,
+            campaign_id=run.campaign_id,
+            client_id=run.client_id,
+            from_state=CampaignState.DRAFT.value,
+            to_state=CampaignState.READY.value,
             reason="created",
         )
         record_run(run.client_id, run.template_id, run.state.value)
@@ -276,8 +275,11 @@ class CampaignOrchestrator:
         run.state = to_state
         run.touch()
         self._ledger.emit_lifecycle_event(
-            campaign_id=run.campaign_id, client_id=run.client_id,
-            from_state=from_state, to_state=to_state.value, reason=reason,
+            campaign_id=run.campaign_id,
+            client_id=run.client_id,
+            from_state=from_state,
+            to_state=to_state.value,
+            reason=reason,
         )
 
     def _settle_state(self, run: CampaignRun, total: int) -> None:

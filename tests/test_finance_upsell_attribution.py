@@ -1,5 +1,6 @@
 """Cut 3 integration: subscription webhook reads client_reference_id and
 calls upsell_queue.mark_converted() to credit the right touch."""
+
 from __future__ import annotations
 
 import hashlib
@@ -14,6 +15,7 @@ import pytest
 # ---------------------------------------------------------------------------
 # Reused helpers (mirror tests/test_finance_subscription_webhook.py shape)
 # ---------------------------------------------------------------------------
+
 
 def _sign(payload_bytes: bytes, secret: str, *, timestamp: int | None = None) -> str:
     ts = timestamp if timestamp is not None else int(time.time())
@@ -52,14 +54,20 @@ def _subscription_event(
     }
 
 
-def _override_settings(monkeypatch, *, stripe_webhook_secret: str = "whsec_test",
-                       auto_fulfill_offer_codes: list[str] | None = None):
+def _override_settings(
+    monkeypatch,
+    *,
+    stripe_webhook_secret: str = "whsec_test",
+    auto_fulfill_offer_codes: list[str] | None = None,
+):
     class _S:
         pass
+
     s = _S()
     s.stripe_webhook_secret = stripe_webhook_secret
     s.auto_fulfill_offer_codes = list(auto_fulfill_offer_codes or [])
     import backend.finance.webhook as web
+
     monkeypatch.setattr(web, "get_settings", lambda: s)
 
 
@@ -96,8 +104,7 @@ class _FakeStore:
         self.calls.append(("get_by_email", email))
         return self.customers.get(email.lower())
 
-    def create_customer(self, *, email, name="", company="", source="manual",
-                        metadata=None):
+    def create_customer(self, *, email, name="", company="", source="manual", metadata=None):
         self.calls.append(("create_customer", email, source))
         c = _FakeCustomer(id_=f"cust_{email.replace('@', '_')}", email=email)
         self.customers[email.lower()] = c
@@ -129,6 +136,7 @@ def _isolate_logs(tmp_path, monkeypatch):
 # Attribution: subscription with valid client_reference_id -> mark_converted
 # ---------------------------------------------------------------------------
 
+
 def test_subscription_with_upsell_ref_marks_converted(tmp_path, monkeypatch):
     """End-to-end: enqueue upsell + mark sent → subscription webhook for
     same customer fires with client_reference_id=upsell_<event_id> →
@@ -137,7 +145,9 @@ def test_subscription_with_upsell_ref_marks_converted(tmp_path, monkeypatch):
     store = _FakeStore()
     # Pre-existing customer in delivered (audit was fulfilled)
     store.customers["c@x.com"] = _FakeCustomer(
-        id_="cust_c", email="c@x.com", current_state="delivered",
+        id_="cust_c",
+        email="c@x.com",
+        current_state="delivered",
     )
 
     # Set up the upsell queue: enqueue + mark_sent (simulating runner ran)
@@ -146,14 +156,15 @@ def test_subscription_with_upsell_ref_marks_converted(tmp_path, monkeypatch):
         enqueue_upsell,
         mark_sent,
     )
+
     enqueue_upsell(
-        customer_id="cust_c", customer_email="c@x.com",
+        customer_id="cust_c",
+        customer_email="c@x.com",
         source_offer_code="seo_audit",
         delivered_at=datetime.now(timezone.utc) - timedelta(days=40),
     )
     # Get the touch-1 queued row and "send" it
-    queued_rows = [r for r in _read_all_rows()
-                   if r.kind == "queued" and r.touch_num == 1]
+    queued_rows = [r for r in _read_all_rows() if r.kind == "queued" and r.touch_num == 1]
     assert len(queued_rows) == 1
     touch_1 = queued_rows[0]
     mark_sent(queued_row=touch_1, message_id="msg_t1")
@@ -170,6 +181,7 @@ def test_subscription_with_upsell_ref_marks_converted(tmp_path, monkeypatch):
     body = json.dumps(event).encode("utf-8")
     header = _sign(body, "whsec_test")
     from backend.finance.webhook import handle_stripe_webhook
+
     result = handle_stripe_webhook(body, header, customer_store=store)
     assert result.process_status == "processed"
     assert result.subscription_id == "sub_first_seo_opt"
@@ -190,7 +202,9 @@ def test_subscription_without_client_reference_id_no_attribution(monkeypatch):
     _override_settings(monkeypatch)
     store = _FakeStore()
     store.customers["x@x.com"] = _FakeCustomer(
-        id_="cust_x", email="x@x.com", current_state="delivered",
+        id_="cust_x",
+        email="x@x.com",
+        current_state="delivered",
     )
     # No prior upsell rows in the queue.
 
@@ -203,9 +217,11 @@ def test_subscription_without_client_reference_id_no_attribution(monkeypatch):
     body = json.dumps(event).encode("utf-8")
     header = _sign(body, "whsec_test")
     from backend.finance.webhook import handle_stripe_webhook
+
     handle_stripe_webhook(body, header, customer_store=store)
 
     from backend.finance.upsell_queue import _read_all_rows
+
     assert not any(r.kind == "converted" for r in _read_all_rows())
 
 
@@ -215,7 +231,9 @@ def test_subscription_with_malformed_ref_no_attribution_no_crash(monkeypatch):
     _override_settings(monkeypatch)
     store = _FakeStore()
     store.customers["c@x.com"] = _FakeCustomer(
-        id_="cust_c", email="c@x.com", current_state="delivered",
+        id_="cust_c",
+        email="c@x.com",
+        current_state="delivered",
     )
 
     event = _subscription_event(
@@ -227,11 +245,13 @@ def test_subscription_with_malformed_ref_no_attribution_no_crash(monkeypatch):
     body = json.dumps(event).encode("utf-8")
     header = _sign(body, "whsec_test")
     from backend.finance.webhook import handle_stripe_webhook
+
     result = handle_stripe_webhook(body, header, customer_store=store)
     # Webhook still processed (state advance happened)
     assert result.process_status == "processed"
     # No converted row was written
     from backend.finance.upsell_queue import _read_all_rows
+
     assert not any(r.kind == "converted" for r in _read_all_rows())
 
 
@@ -261,8 +281,10 @@ def test_payment_mode_session_does_not_attempt_attribution(monkeypatch):
     body = json.dumps(event).encode("utf-8")
     header = _sign(body, "whsec_test")
     from backend.finance.webhook import handle_stripe_webhook
+
     handle_stripe_webhook(body, header, customer_store=store)
     from backend.finance.upsell_queue import _read_all_rows
+
     assert not any(r.kind == "converted" for r in _read_all_rows())
 
 
@@ -272,7 +294,9 @@ def test_subscription_attribution_for_touch_2(monkeypatch):
     _override_settings(monkeypatch)
     store = _FakeStore()
     store.customers["c@x.com"] = _FakeCustomer(
-        id_="cust_c", email="c@x.com", current_state="delivered",
+        id_="cust_c",
+        email="c@x.com",
+        current_state="delivered",
     )
 
     from backend.finance.upsell_queue import (
@@ -280,22 +304,25 @@ def test_subscription_attribution_for_touch_2(monkeypatch):
         enqueue_upsell,
         mark_sent,
     )
+
     enqueue_upsell(
-        customer_id="cust_c", customer_email="c@x.com",
+        customer_id="cust_c",
+        customer_email="c@x.com",
         source_offer_code="seo_audit",
         delivered_at=datetime.now(timezone.utc) - timedelta(days=40),
     )
-    touch_2 = [r for r in _read_all_rows()
-               if r.kind == "queued" and r.touch_num == 2][0]
+    touch_2 = [r for r in _read_all_rows() if r.kind == "queued" and r.touch_num == 2][0]
     mark_sent(queued_row=touch_2, message_id="msg_t2")
 
     event = _subscription_event(
-        event_id="evt_t2_conv", email="c@x.com",
+        event_id="evt_t2_conv",
+        email="c@x.com",
         client_reference_id=f"upsell_{touch_2.event_id}",
     )
     body = json.dumps(event).encode("utf-8")
     header = _sign(body, "whsec_test")
     from backend.finance.webhook import handle_stripe_webhook
+
     handle_stripe_webhook(body, header, customer_store=store)
 
     converted = [r for r in _read_all_rows() if r.kind == "converted"]

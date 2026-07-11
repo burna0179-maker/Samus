@@ -20,6 +20,7 @@ Each live send:
     audit + dedupe (re-running the campaign skips anyone already in the
     ledger so we never double-send).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -32,7 +33,6 @@ import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 _LOG = logging.getLogger("samus.outreach.seo_audit_blast")
 
@@ -43,9 +43,7 @@ SUBJECT_TEMPLATE = "{company} — quick SEO audit ({price})"
 DEFAULT_FROM_NAME = "Alex Hartman"
 DEFAULT_REPLY_TO = "ahartman@hustleforge.tech"
 POSTAL_FOOTER = "HustleForge LLC · 2290 Cheim Boulevard, Marysville, CA 95901-3560"
-UNSUB_LINE = (
-    'Not interested? Just reply "unsubscribe" and you won\'t hear from me again.'
-)
+UNSUB_LINE = 'Not interested? Just reply "unsubscribe" and you won\'t hear from me again.'
 
 # Liberal but real email regex (RFC 5321 is overkill; this catches typos).
 _EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$")
@@ -64,12 +62,13 @@ class Recipient:
     security_grade: str
     owner_first_name: str
     callsheet_issues: str  # "; "-joined string from the CSV
-    callsheet_pitch: str   # personalized pitch line if present
+    callsheet_pitch: str  # personalized pitch line if present
 
 
 # ---------------------------------------------------------------------------
 # CSV → Recipient list
 # ---------------------------------------------------------------------------
+
 
 def _first_name(owner_name: str) -> str:
     if not owner_name:
@@ -99,16 +98,36 @@ _SKIP_EMAILS = frozenset({"ahartman@hustleforge.tech"})
 #     loose email regex
 # Quota every blast is paying for; better one false-skip than a wasted send.
 _JUNK_EMAIL_DOMAIN_SUFFIXES: tuple[str, ...] = (
-    "example.com", "domain.com", "test.com", "email.com", "yoursite.com",
-    "sentry.wixpress.com", "sentry.io",
+    "example.com",
+    "domain.com",
+    "test.com",
+    "email.com",
+    "yoursite.com",
+    "sentry.wixpress.com",
+    "sentry.io",
     "webador.com",
     ".cpanel.site",
-    ".jpg", ".jpeg", ".png", ".gif", ".webp",
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".gif",
+    ".webp",
 )
-_JUNK_LOCAL_PARTS: frozenset[str] = frozenset({
-    "user", "test", "email", "name", "your_email", "youremail",
-    "info@info", "noreply", "no-reply", "donotreply", "mailer-daemon",
-})
+_JUNK_LOCAL_PARTS: frozenset[str] = frozenset(
+    {
+        "user",
+        "test",
+        "email",
+        "name",
+        "your_email",
+        "youremail",
+        "info@info",
+        "noreply",
+        "no-reply",
+        "donotreply",
+        "mailer-daemon",
+    }
+)
 
 
 def _is_junk_email(addr: str) -> bool:
@@ -136,13 +155,15 @@ def _warm_enrolled_ids() -> set[str]:
     exclusion in prospecting/text_export."""
     try:
         from backend.outreach.buying_signal_route import active_warm_prospect_ids
+
         return active_warm_prospect_ids()
     except Exception:  # noqa: BLE001
         return set()
 
 
 def _load_recipients(
-    csv_path: Path, skip_already_sent: set[str],
+    csv_path: Path,
+    skip_already_sent: set[str],
     extra_skip_emails: set[str] | None = None,
 ) -> list[Recipient]:
     """Read the call list, return one Recipient per row with a deliverable
@@ -174,20 +195,22 @@ def _load_recipients(
                 seo = int(float(row.get("seo_score") or 0))
             except (TypeError, ValueError):
                 seo = 0
-            out.append(Recipient(
-                prospect_id=(row.get("prospect_id") or "").strip(),
-                company=(row.get("company_name") or "your business").strip(),
-                email=email,
-                industry=(row.get("industry") or "local business").strip(),
-                city=(row.get("city") or "").strip(),
-                state=(row.get("state") or "").strip(),
-                website_url=(row.get("website_url") or "").strip(),
-                seo_score=seo,
-                security_grade=(row.get("security_grade") or "").strip(),
-                owner_first_name=_first_name(row.get("owner_name") or ""),
-                callsheet_issues=(row.get("callsheet_issues") or "").strip(),
-                callsheet_pitch=(row.get("callsheet_pitch") or "").strip(),
-            ))
+            out.append(
+                Recipient(
+                    prospect_id=(row.get("prospect_id") or "").strip(),
+                    company=(row.get("company_name") or "your business").strip(),
+                    email=email,
+                    industry=(row.get("industry") or "local business").strip(),
+                    city=(row.get("city") or "").strip(),
+                    state=(row.get("state") or "").strip(),
+                    website_url=(row.get("website_url") or "").strip(),
+                    seo_score=seo,
+                    security_grade=(row.get("security_grade") or "").strip(),
+                    owner_first_name=_first_name(row.get("owner_name") or ""),
+                    callsheet_issues=(row.get("callsheet_issues") or "").strip(),
+                    callsheet_pitch=(row.get("callsheet_pitch") or "").strip(),
+                )
+            )
     return out
 
 
@@ -218,6 +241,7 @@ def _load_already_sent(ledger_path: Path) -> set[str]:
 # ---------------------------------------------------------------------------
 # Per-prospect message composer
 # ---------------------------------------------------------------------------
+
 
 def _first_two_issues(issues_joined: str) -> list[str]:
     """Pull up to two cleaned issue strings out of the "; "-joined cell."""
@@ -295,7 +319,7 @@ def _compose(rec: Recipient, buy_url: str) -> tuple[str, str, str]:
 
     html_body = (
         '<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;'
-        'font-size:15px;line-height:1.55;color:#1a1a1a;max-width:620px;margin:0 auto;'
+        "font-size:15px;line-height:1.55;color:#1a1a1a;max-width:620px;margin:0 auto;"
         'padding:20px 16px;background:#ffffff">'
         f"<p>{salutation}</p>"
         f"{opener_html}"
@@ -306,11 +330,11 @@ def _compose(rec: Recipient, buy_url: str) -> tuple[str, str, str]:
         '<table cellpadding="0" cellspacing="0" border="0" style="margin:18px auto"><tr>'
         '<td align="center" bgcolor="#2a6df4" style="border-radius:6px">'
         f'<a href="{buy_url}" style="display:inline-block;padding:14px 32px;'
-        'font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;font-size:16px;'
-        'font-weight:700;color:#ffffff;background:#2a6df4;border-radius:6px;'
+        "font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;font-size:16px;"
+        "font-weight:700;color:#ffffff;background:#2a6df4;border-radius:6px;"
         'text-decoration:none">'
-        f'Get the SEO Audit &mdash; {PRICE_LABEL} &rarr;</a>'
-        '</td></tr></table>'
+        f"Get the SEO Audit &mdash; {PRICE_LABEL} &rarr;</a>"
+        "</td></tr></table>"
         "<p>Best,<br>&mdash; Alex<br>HustleForge</p>"
         '<div style="margin:24px 0 0;padding-top:12px;border-top:1px solid #e2e2e2;'
         'font-size:12px;line-height:1.5;color:#8a8a8a;text-align:center">'
@@ -323,6 +347,7 @@ def _compose(rec: Recipient, buy_url: str) -> tuple[str, str, str]:
 # ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
+
 
 def run(
     *,
@@ -342,7 +367,8 @@ def run(
 
     already = _load_already_sent(ledger_path)
     recipients = _load_recipients(
-        csv_path, skip_already_sent=already,
+        csv_path,
+        skip_already_sent=already,
         extra_skip_emails=extra_skip_emails,
     )
     queue = recipients[:max_send]
@@ -365,14 +391,15 @@ def run(
 
     # Lazy-import the send path so dry-run never needs SendGrid env.
     if live:
-        from backend.outreach.send_lint import send_promotional, SendLintBlocked
+        from backend.outreach.send_lint import send_promotional
+
         try:
             from backend.outreach.open_no_click_watch import register as watch_register
         except Exception:  # noqa: BLE001
             watch_register = None  # type: ignore
     else:
         send_promotional = None  # type: ignore
-        watch_register = None    # type: ignore
+        watch_register = None  # type: ignore
 
     ledger_path.parent.mkdir(parents=True, exist_ok=True)
     for rec in queue:
@@ -382,14 +409,16 @@ def run(
         subject, html_body, text_body = _compose(rec, buy_url)
 
         if not live:
-            out["results"].append({
-                "to": rec.email,
-                "company": rec.company,
-                "prospect_id": rec.prospect_id,
-                "subject": subject,
-                "buy_url": buy_url,
-                "would_send": True,
-            })
+            out["results"].append(
+                {
+                    "to": rec.email,
+                    "company": rec.company,
+                    "prospect_id": rec.prospect_id,
+                    "subject": subject,
+                    "buy_url": buy_url,
+                    "would_send": True,
+                }
+            )
             continue
 
         try:
@@ -409,11 +438,15 @@ def run(
             )
         except Exception as exc:  # noqa: BLE001
             _LOG.warning("send failed to=%s: %s", rec.email, exc)
-            out["results"].append({
-                "to": rec.email, "company": rec.company,
-                "prospect_id": rec.prospect_id,
-                "sent": False, "reason": str(exc),
-            })
+            out["results"].append(
+                {
+                    "to": rec.email,
+                    "company": rec.company,
+                    "prospect_id": rec.prospect_id,
+                    "sent": False,
+                    "reason": str(exc),
+                }
+            )
             continue
 
         msg_id = str((resp or {}).get("message_id") or "")
@@ -449,11 +482,17 @@ def run(
         with ledger_path.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(ledger_record) + "\n")
 
-        out["results"].append({
-            "to": rec.email, "company": rec.company,
-            "prospect_id": rec.prospect_id, "subject": subject,
-            "sent": True, "message_id": msg_id, "watch": watch_res,
-        })
+        out["results"].append(
+            {
+                "to": rec.email,
+                "company": rec.company,
+                "prospect_id": rec.prospect_id,
+                "subject": subject,
+                "sent": True,
+                "message_id": msg_id,
+                "watch": watch_res,
+            }
+        )
     return out
 
 
@@ -470,21 +509,32 @@ def _default_ledger_path() -> Path:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="$149 SEO Audit blast — dry-run by default."
+    parser = argparse.ArgumentParser(description="$149 SEO Audit blast — dry-run by default.")
+    parser.add_argument(
+        "--csv", default=None, help="Path to call_list CSV (default: today's host artifact)"
     )
-    parser.add_argument("--csv", default=None,
-                        help="Path to call_list CSV (default: today's host artifact)")
-    parser.add_argument("--ledger", default=None,
-                        help="Path to campaign ledger jsonl (default: today's)")
-    parser.add_argument("--max-send", type=int, default=80,
-                        help="Cap on sends this run (default: 80; SendGrid trial = 100).")
-    parser.add_argument("--live", action="store_true",
-                        help="Actually send. Without this flag, dry-run only.")
-    parser.add_argument("--preview", action="store_true",
-                        help="In dry-run, also print the subject+body of the first 3 recipients.")
-    parser.add_argument("--skip-emails", default="",
-                        help="Comma-separated explicit-skip emails (operator override).")
+    parser.add_argument(
+        "--ledger", default=None, help="Path to campaign ledger jsonl (default: today's)"
+    )
+    parser.add_argument(
+        "--max-send",
+        type=int,
+        default=80,
+        help="Cap on sends this run (default: 80; SendGrid trial = 100).",
+    )
+    parser.add_argument(
+        "--live", action="store_true", help="Actually send. Without this flag, dry-run only."
+    )
+    parser.add_argument(
+        "--preview",
+        action="store_true",
+        help="In dry-run, also print the subject+body of the first 3 recipients.",
+    )
+    parser.add_argument(
+        "--skip-emails",
+        default="",
+        help="Comma-separated explicit-skip emails (operator override).",
+    )
     args = parser.parse_args(argv)
     extra_skip = {e.strip().lower() for e in (args.skip_emails or "").split(",") if e.strip()}
 
@@ -497,18 +547,23 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     summary = run(
-        csv_path=csv_path, ledger_path=ledger_path,
-        max_send=args.max_send, live=args.live, now_iso=now_iso,
+        csv_path=csv_path,
+        ledger_path=ledger_path,
+        max_send=args.max_send,
+        live=args.live,
+        now_iso=now_iso,
         extra_skip_emails=extra_skip,
     )
 
     if args.preview and not args.live:
         # Recompose the first 3 with full bodies so the operator can read them.
         from backend.catalog.registry import sku as catalog_sku
+
         buy_base = catalog_sku(SKU_ID).payment_link_url or ""
         already = _load_already_sent(ledger_path)
-        for r in _load_recipients(csv_path, skip_already_sent=already,
-                                  extra_skip_emails=extra_skip)[:3]:
+        for r in _load_recipients(
+            csv_path, skip_already_sent=already, extra_skip_emails=extra_skip
+        )[:3]:
             buy_url = f"{buy_base}?client_reference_id=op_{CAMPAIGN_ID}_{r.prospect_id or 'anon'}"
             subj, _html, text = _compose(r, buy_url)
             sys.stderr.write("\n" + "=" * 60 + "\n")

@@ -13,6 +13,7 @@ audit_envelope_precedes_commercial_commit):
 
 Required metadata is validated per market_interface.spec.yaml v0.5.0.
 """
+
 from __future__ import annotations
 
 import datetime as _dt
@@ -36,37 +37,51 @@ _SAMUS_ROOT = Path(__file__).resolve().parents[3]
 _VER_DIR = state_path("value_exchanges")
 _RBL_CACHE = state_path("rbl", "current_band.json")
 
-COMMERCIAL_ACTION_CLASSES: frozenset[str] = frozenset({
-    "paid_deliverable_committed",
-    "subscription_contract_signed",
-    "prospect_outreach_with_paid_cta",
-    "llm_call_above_threshold",
-    "stripe_payment_processed",
-    "refund_or_cancellation",
-})
+COMMERCIAL_ACTION_CLASSES: frozenset[str] = frozenset(
+    {
+        "paid_deliverable_committed",
+        "subscription_contract_signed",
+        "prospect_outreach_with_paid_cta",
+        "llm_call_above_threshold",
+        "stripe_payment_processed",
+        "refund_or_cancellation",
+    }
+)
 
 # Subset of required metadata fields per market_interface.spec.yaml. Each
 # entry is the MINIMUM set the wrapper enforces — workcells may carry more.
 REQUIRED_METADATA: dict[str, tuple[str, ...]] = {
     "paid_deliverable_committed": (
-        "value_received", "cost_to_acquire", "roi_timeframe_days",
-        "confidence", "contribution_margin_estimate_pct",
+        "value_received",
+        "cost_to_acquire",
+        "roi_timeframe_days",
+        "confidence",
+        "contribution_margin_estimate_pct",
     ),
     "subscription_contract_signed": (
-        "value_received", "cost_to_acquire", "value_compounding_rate",
+        "value_received",
+        "cost_to_acquire",
+        "value_compounding_rate",
         "confidence",
     ),
     "prospect_outreach_with_paid_cta": (
-        "target_value_band", "cost_to_send",
+        "target_value_band",
+        "cost_to_send",
     ),
     "llm_call_above_threshold": (
-        "estimated_cost_usd", "purpose",
+        "estimated_cost_usd",
+        "purpose",
     ),
     "stripe_payment_processed": (
-        "stripe_event_id", "amount_usd", "customer_id", "livemode",
+        "stripe_event_id",
+        "amount_usd",
+        "customer_id",
+        "livemode",
     ),
     "refund_or_cancellation": (
-        "stripe_refund_id", "amount_usd_negative", "linked_original_transaction",
+        "stripe_refund_id",
+        "amount_usd_negative",
+        "linked_original_transaction",
         "reason",
     ),
 }
@@ -76,17 +91,21 @@ REQUIRED_METADATA: dict[str, tuple[str, ...]] = {
 _RBL_BAND_BLOCKS: dict[str, frozenset[str]] = {
     "healthy": frozenset(),
     "warning": frozenset(),
-    "critical": frozenset({
-        "prospect_outreach_with_paid_cta",
-        "llm_call_above_threshold",
-    }),
-    "freeze": frozenset({
-        "paid_deliverable_committed",
-        "subscription_contract_signed",
-        "prospect_outreach_with_paid_cta",
-        "llm_call_above_threshold",
-        "refund_or_cancellation",  # explicitly: refunds blocked in freeze
-    }),
+    "critical": frozenset(
+        {
+            "prospect_outreach_with_paid_cta",
+            "llm_call_above_threshold",
+        }
+    ),
+    "freeze": frozenset(
+        {
+            "paid_deliverable_committed",
+            "subscription_contract_signed",
+            "prospect_outreach_with_paid_cta",
+            "llm_call_above_threshold",
+            "refund_or_cancellation",  # explicitly: refunds blocked in freeze
+        }
+    ),
 }
 
 
@@ -278,8 +297,10 @@ def commit_commercial_action(
         # Dormant unless SAMUS_PDC_OBSERVE_ENABLED is truthy. Fail-open.
         try:
             from backend.common.config import get_settings as _get_settings
+
             if getattr(_get_settings(), "samus_pdc_observe_enabled", False):
                 from backend.governance.pdc_composite import run_pdc as _run_pdc
+
                 _run_pdc(proposed, plan=action_payload.get("plan") or {})
         except Exception:  # noqa: BLE001
             pass
@@ -328,6 +349,9 @@ def commit_commercial_action(
     target.write_text(yaml.safe_dump(record, sort_keys=False), encoding="utf-8")
     _LOG.info(
         "samus.commercial_wrap.committed: class=%s id=%s rbl=%s efh=%s",
-        action_class, ver_id, rbl_band, efh_attribution,
+        action_class,
+        ver_id,
+        rbl_band,
+        efh_attribution,
     )
     return record

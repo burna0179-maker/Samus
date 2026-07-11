@@ -13,6 +13,7 @@ Add-on micro-products live in their own table (``ADDONS``) — they share the
 fulfillment chain but have a slimmer config because the deliverable is a
 single short markdown report instead of a multi-file bundle.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -32,6 +33,7 @@ class ProductConfig:
     unused for add-ons). The fulfillment chain copies / renders this into the
     customer's artifact directory.
     """
+
     sku_id: str
     display_name: str
     price_usd_cents: int
@@ -46,6 +48,7 @@ class ProductConfig:
 @dataclass(frozen=True)
 class AddOnConfig:
     """One add-on micro-product. Deliverable is a short markdown brief."""
+
     sku_id: str
     display_name: str
     price_usd_cents: int
@@ -946,10 +949,7 @@ def get_product(sku_id: str) -> ProductConfig:
     """Look up a playbook/pack SKU; raise UnknownSKUError if not registered."""
     cfg = _BY_ID.get(sku_id)
     if cfg is None:
-        raise UnknownSKUError(
-            f"unknown product sku_id: {sku_id!r} "
-            f"(registered: {sorted(_BY_ID)})"
-        )
+        raise UnknownSKUError(f"unknown product sku_id: {sku_id!r} (registered: {sorted(_BY_ID)})")
     return cfg
 
 
@@ -958,8 +958,7 @@ def get_addon(sku_id: str) -> AddOnConfig:
     cfg = _ADDONS_BY_ID.get(sku_id)
     if cfg is None:
         raise UnknownSKUError(
-            f"unknown addon sku_id: {sku_id!r} "
-            f"(registered: {sorted(_ADDONS_BY_ID)})"
+            f"unknown addon sku_id: {sku_id!r} (registered: {sorted(_ADDONS_BY_ID)})"
         )
     return cfg
 
@@ -971,8 +970,7 @@ def get_any(sku_id: str) -> ProductConfig | AddOnConfig:
     if sku_id in _ADDONS_BY_ID:
         return _ADDONS_BY_ID[sku_id]
     raise UnknownSKUError(
-        f"unknown sku_id: {sku_id!r} "
-        f"(products: {sorted(_BY_ID)}, addons: {sorted(_ADDONS_BY_ID)})"
+        f"unknown sku_id: {sku_id!r} (products: {sorted(_BY_ID)}, addons: {sorted(_ADDONS_BY_ID)})"
     )
 
 

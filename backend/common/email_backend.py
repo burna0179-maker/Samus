@@ -11,6 +11,7 @@ so the selector routes either without a workcell import. The outreach send path
 may still call ``backend.outreach.ses_adapter`` directly; ``email_backends.ses``
 is the canonical common-layer SES implementation.
 """
+
 from __future__ import annotations
 
 import logging
@@ -21,11 +22,9 @@ from backend.common.config import get_settings
 
 from .email_backends import EmailBackendError
 from .email_backends.sendgrid import (
-    SendGridAdapterError,
     send_email_via_sendgrid,
 )
 from .email_backends.ses import (
-    SesAdapterError,
     send_email_via_ses,
 )
 
@@ -98,12 +97,17 @@ def _run_compliance_guard(
         if mode == "enforce":
             _LOG.info(
                 "compliance BLOCK to=%s kind=%s reasons=%s",
-                to, verdict.kind, list(verdict.reasons),
+                to,
+                verdict.kind,
+                list(verdict.reasons),
             )
             raise EmailBackendError("compliance_block: " + ", ".join(verdict.reasons))
         _LOG.warning(
             "compliance would-block (audit) to=%s kind=%s reasons=%s warnings=%s",
-            to, verdict.kind, list(verdict.reasons), list(verdict.warnings),
+            to,
+            verdict.kind,
+            list(verdict.reasons),
+            list(verdict.warnings),
         )
     elif verdict.warnings:
         _LOG.info("compliance warnings to=%s: %s", to, list(verdict.warnings))

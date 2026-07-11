@@ -20,6 +20,7 @@ Two entry points — one async, one sync.
 Both functions sign every request with shared HMAC secret + nonce +
 timestamp and propagate the current trace id.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -75,7 +76,13 @@ def _build_signed_request(
     ts = security.generate_timestamp()
     nonce = security.generate_nonce()
     sig = security.sign_request(
-        secret, "POST", path, ts, nonce, body_bytes, caller=caller,
+        secret,
+        "POST",
+        path,
+        ts,
+        nonce,
+        body_bytes,
+        caller=caller,
     )
     trace_id = correlation.get_trace_id() or correlation.new_trace_id()
     headers = {
@@ -100,7 +107,10 @@ async def signed_post_json(
 ) -> httpx.Response:
     """Async POST with HMAC signature, retry, and circuit breaker."""
     url, body_bytes, headers = _build_signed_request(
-        base_url, path, payload, secret=secret,
+        base_url,
+        path,
+        payload,
+        secret=secret,
     )
 
     async def _call() -> httpx.Response:
@@ -112,7 +122,9 @@ async def signed_post_json(
             # here; the post-hoc guard raises on an over-cap body without
             # touching the response the caller goes on to use.
             check_httpx_size(
-                resp, max_bytes=INTER_WORKCELL_MAX_BYTES, source="inter_workcell",
+                resp,
+                max_bytes=INTER_WORKCELL_MAX_BYTES,
+                source="inter_workcell",
             )
             return resp
 
@@ -144,8 +156,12 @@ def signed_post_json_sync(
     every call site.
     """
     import time
+
     url, body_bytes, headers = _build_signed_request(
-        base_url, path, payload, secret=secret,
+        base_url,
+        path,
+        payload,
+        secret=secret,
     )
     last_exc: Exception | None = None
     max_attempts = max(1, int(retries) + 1)
@@ -155,7 +171,8 @@ def signed_post_json_sync(
                 resp = client.post(url, content=body_bytes, headers=headers)
                 # S3: bound the peer response body (see signed_post_json).
                 check_httpx_size(
-                    resp, max_bytes=INTER_WORKCELL_MAX_BYTES,
+                    resp,
+                    max_bytes=INTER_WORKCELL_MAX_BYTES,
                     source="inter_workcell",
                 )
                 return resp
@@ -167,7 +184,7 @@ def signed_post_json_sync(
             # of retry.retry_request but without its full circuit-breaker
             # state machine — sync producers are best-effort callers and
             # the gateway absorbs persistent failure as DLQ in any case).
-            time.sleep(0.1 * (4 ** attempt))
+            time.sleep(0.1 * (4**attempt))
     assert last_exc is not None  # mypy
     raise last_exc
 
@@ -225,6 +242,7 @@ def signed_get_json_sync(
     POST, but the lookup is best-effort so we still keep the count small).
     """
     import time
+
     url, headers = _build_signed_get_request(base_url, path, secret=secret)
     last_exc: Exception | None = None
     max_attempts = max(1, int(retries) + 1)
@@ -233,7 +251,8 @@ def signed_get_json_sync(
             with httpx.Client(timeout=timeout or _DEFAULT_TIMEOUT) as client:
                 resp = client.get(url, headers=headers)
                 check_httpx_size(
-                    resp, max_bytes=INTER_WORKCELL_MAX_BYTES,
+                    resp,
+                    max_bytes=INTER_WORKCELL_MAX_BYTES,
                     source="inter_workcell",
                 )
                 return resp
@@ -241,6 +260,6 @@ def signed_get_json_sync(
             last_exc = exc
             if attempt + 1 >= max_attempts:
                 break
-            time.sleep(0.1 * (4 ** attempt))
+            time.sleep(0.1 * (4**attempt))
     assert last_exc is not None  # mypy
     raise last_exc

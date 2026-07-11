@@ -10,10 +10,10 @@ generators behave identically.
 A reel script is the **content** layer only — turning it into a video (voiceover
 + footage + composition) is the job of the rest of the package.
 """
+
 from __future__ import annotations
 
 import logging
-import os
 
 from backend.social.models import BlogInput
 from backend.social.repurpose import _first_points, _tolerant_json
@@ -47,7 +47,9 @@ def build_reel_script(
     :class:`ReelScript` with >= 1 segment.
     """
     max_segments = max(1, int(max_segments))
-    parsed = _generate_via_llm(blog, max_segments=max_segments, workcell=workcell) if use_llm else None
+    parsed = (
+        _generate_via_llm(blog, max_segments=max_segments, workcell=workcell) if use_llm else None
+    )
 
     hook = ""
     raw_segments: list[tuple[str, str]] = []
@@ -185,7 +187,9 @@ def _template_segments(blog: BlogInput, max_segments: int) -> list[tuple[str, st
         narration = p.strip().rstrip(".") + "."
         segs.append((narration, _visual_from_narration(blog, narration)))
     if not segs:
-        narration = (blog.summary or blog.title or "Here's the one change that moves the needle.").strip()
+        narration = (
+            blog.summary or blog.title or "Here's the one change that moves the needle."
+        ).strip()
         segs.append((narration, _visual_from_narration(blog, narration)))
     return segs[:max_segments]
 
@@ -212,7 +216,7 @@ def _visual_from_narration(blog: BlogInput, narration: str) -> str:
 import re  # noqa: E402 — kept local to the one helper that needs it
 
 _TIMECODE_RE = re.compile(r"^\s*\[[^\]]*\]\s*")
-_ONSCREEN_RE = re.compile(r'^\s*(?:on-screen|on screen|cta|hook|text)\s*:\s*', re.IGNORECASE)
+_ONSCREEN_RE = re.compile(r"^\s*(?:on-screen|on screen|cta|hook|text)\s*:\s*", re.IGNORECASE)
 
 
 def _strip_timecode(line: str) -> str:

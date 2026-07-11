@@ -1,4 +1,5 @@
 """Tests for backend.scaffold.logic."""
+
 from __future__ import annotations
 
 
@@ -9,6 +10,7 @@ def _reset_idempotency(monkeypatch):
     fresh = IdempotencyStore()
     monkeypatch.setattr(idem_mod, "GLOBAL_IDEMPOTENCY_STORE", fresh)
     import backend.scaffold.logic as logic_mod
+
     monkeypatch.setattr(logic_mod, "GLOBAL_IDEMPOTENCY_STORE", fresh)
     return fresh
 
@@ -85,8 +87,13 @@ def test_taste_audit_dormant_by_default(tmp_path, monkeypatch):
     from backend.scaffold.models import ScaffoldRequest
 
     req = ScaffoldRequest(
-        asset_type="proposal_pack", title="Ops Pilot", client="Acme",
-        brand_voice="direct", offer="Pilot", goals=[], inputs={},
+        asset_type="proposal_pack",
+        title="Ops Pilot",
+        client="Acme",
+        brand_voice="direct",
+        offer="Pilot",
+        goals=[],
+        inputs={},
     )
     out = generate_scaffold(req)
     assert "taste_audit" not in out  # dormant: nothing attached
@@ -100,8 +107,13 @@ def test_taste_audit_attaches_when_enabled(tmp_path, monkeypatch):
     from backend.scaffold.models import ScaffoldRequest
 
     req = ScaffoldRequest(
-        asset_type="proposal_pack", title="Ops Pilot", client="Acme",
-        brand_voice="direct", offer="Pilot", goals=[], inputs={},
+        asset_type="proposal_pack",
+        title="Ops Pilot",
+        client="Acme",
+        brand_voice="direct",
+        offer="Pilot",
+        goals=[],
+        inputs={},
     )
     out = generate_scaffold(req)
     assert "taste_audit" in out
@@ -118,8 +130,13 @@ def test_taste_audit_block_on_fail_flags_shipping(tmp_path, monkeypatch):
 
     # An em-dash in the title flows into the rendered document -> hard taste fail.
     req = ScaffoldRequest(
-        asset_type="proposal_pack", title="Ops — Pilot", client="Acme",
-        brand_voice="direct", offer="Pilot", goals=[], inputs={},
+        asset_type="proposal_pack",
+        title="Ops — Pilot",
+        client="Acme",
+        brand_voice="direct",
+        offer="Pilot",
+        goals=[],
+        inputs={},
     )
     out = generate_scaffold(req)
     assert out["taste_audit"]["passed"] is False

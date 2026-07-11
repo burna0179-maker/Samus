@@ -3,6 +3,7 @@
 Reads Prospect records from the CRM service via signed_post_json and
 maps them to StrategyContext instances for the engine.
 """
+
 from __future__ import annotations
 
 import logging

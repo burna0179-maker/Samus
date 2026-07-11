@@ -1,4 +1,5 @@
 """Outreach workcell SQS worker."""
+
 from __future__ import annotations
 
 import logging
@@ -49,9 +50,7 @@ except Exception as exc:  # pragma: no cover
 
 def main() -> None:
     if _IMPORT_ERROR is not None or serve_worker is None:
-        raise NotImplementedError(
-            f"worker_base unavailable; import failed: {_IMPORT_ERROR!r}"
-        )
+        raise NotImplementedError(f"worker_base unavailable; import failed: {_IMPORT_ERROR!r}")
     settings = AwsWorkerSettings.from_env("outreach", "SQS_OUTREACH_QUEUE_URL")  # type: ignore[union-attr]
     serve_worker(OutreachWorker(AwsRuntime(settings)))  # type: ignore[misc]
 

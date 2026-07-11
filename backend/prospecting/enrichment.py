@@ -21,6 +21,7 @@ Directory-style "websites" (zillow.com/profile/X, allstate.com/agent/Y) won't
 yield much because the prospect's contact isn't on a third-party site. That's
 expected; the operator falls back to the phone number for those.
 """
+
 from __future__ import annotations
 
 import logging
@@ -37,49 +38,99 @@ _LOG = logging.getLogger("samus.prospecting.enrichment")
 
 _MAILTO_RE = re.compile(r'mailto:([^"\'?\s>]+)', re.IGNORECASE)
 _EMAIL_RE = re.compile(
-    r'(?<![A-Za-z0-9._%+-])'
-    r'([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})'
-    r'(?![A-Za-z0-9])',
+    r"(?<![A-Za-z0-9._%+-])"
+    r"([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})"
+    r"(?![A-Za-z0-9])",
 )
 
 # Local parts we treat as junk / not-real-owner. These are also useful as the
 # "demote me" set when picking owner_email — a personal-looking address beats
 # an info@ even when both are present.
-_GENERIC_LOCAL_PARTS = frozenset({
-    "info", "hello", "contact", "support", "help", "office", "admin",
-    "sales", "service", "team", "general", "inquiries", "frontdesk",
-    "reception", "billing", "accounts",
-})
+_GENERIC_LOCAL_PARTS = frozenset(
+    {
+        "info",
+        "hello",
+        "contact",
+        "support",
+        "help",
+        "office",
+        "admin",
+        "sales",
+        "service",
+        "team",
+        "general",
+        "inquiries",
+        "frontdesk",
+        "reception",
+        "billing",
+        "accounts",
+    }
+)
 _BLOCKED_LOCAL_PREFIXES = (
-    "noreply", "no-reply", "donotreply", "do-not-reply",
-    "postmaster", "abuse", "mailer-daemon", "bounce",
-    "privacy", "webmaster", "security",
-    "example", "test", "sample", "demo",
+    "noreply",
+    "no-reply",
+    "donotreply",
+    "do-not-reply",
+    "postmaster",
+    "abuse",
+    "mailer-daemon",
+    "bounce",
+    "privacy",
+    "webmaster",
+    "security",
+    "example",
+    "test",
+    "sample",
+    "demo",
     # Third-party-platform telltales: a footer-scraped address whose local
     # part is one of these is the host platform's own engineering/ops alias,
     # never a sales contact for the prospect. Cold-mailing them burns the
     # SendGrid domain. (Real example 2026-06-22: bugreport@moatable.com on
     # the Erik Tejeda call card.)
-    "bugreport", "bug-report", "bugs", "bug",
-    "ticket", "tickets",
-    "issue", "issues",
-    "error", "errors",
-    "crash", "crashes",
-    "alert", "alerts", "monitoring",
-    "devops", "sre", "ops",
+    "bugreport",
+    "bug-report",
+    "bugs",
+    "bug",
+    "ticket",
+    "tickets",
+    "issue",
+    "issues",
+    "error",
+    "errors",
+    "crash",
+    "crashes",
+    "alert",
+    "alerts",
+    "monitoring",
+    "devops",
+    "sre",
+    "ops",
 )
-_BLOCKED_DOMAINS = frozenset({
-    "example.com", "example.org", "example.net",
-    "sentry.io", "sentry-next.wixpress.com",
-    "wix.com", "wixpress.com", "wixsite.com",
-    "godaddy.com", "domains.google",
-    "u.com", "sentry.com",
-    # Third-party platform/CMS vendors whose contact addresses turn up in
-    # site footers and are never the prospect's own mailbox.
-    "moatable.com",
-    "bugsnag.com", "rollbar.com", "pagerduty.com", "datadoghq.com",
-    "intercom.io", "intercom.com",
-})
+_BLOCKED_DOMAINS = frozenset(
+    {
+        "example.com",
+        "example.org",
+        "example.net",
+        "sentry.io",
+        "sentry-next.wixpress.com",
+        "wix.com",
+        "wixpress.com",
+        "wixsite.com",
+        "godaddy.com",
+        "domains.google",
+        "u.com",
+        "sentry.com",
+        # Third-party platform/CMS vendors whose contact addresses turn up in
+        # site footers and are never the prospect's own mailbox.
+        "moatable.com",
+        "bugsnag.com",
+        "rollbar.com",
+        "pagerduty.com",
+        "datadoghq.com",
+        "intercom.io",
+        "intercom.com",
+    }
+)
 
 # --- social patterns --------------------------------------------------------
 # Avoid sharer / intent / tag URLs by requiring a path component that looks
@@ -127,6 +178,7 @@ _SCHEMA_PERSON_NAME_RE = re.compile(
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+
 def _is_blocked_email(email: str) -> bool:
     local, _, domain = email.lower().partition("@")
     if not local or not domain:
@@ -158,14 +210,22 @@ def _extract_emails(html: str) -> list[str]:
     out: list[str] = []
     for m in _MAILTO_RE.finditer(html):
         email = unescape(m.group(1).strip().split("?", 1)[0]).lower()
-        if (email and email not in seen and not _is_blocked_email(email)
-                and is_valid_email_syntax(email)):
+        if (
+            email
+            and email not in seen
+            and not _is_blocked_email(email)
+            and is_valid_email_syntax(email)
+        ):
             seen.add(email)
             out.append(email)
     for m in _EMAIL_RE.finditer(html):
         email = m.group(1).strip().lower()
-        if (email and email not in seen and not _is_blocked_email(email)
-                and is_valid_email_syntax(email)):
+        if (
+            email
+            and email not in seen
+            and not _is_blocked_email(email)
+            and is_valid_email_syntax(email)
+        ):
             seen.add(email)
             out.append(email)
     return out
@@ -185,8 +245,21 @@ def _looks_like_business_name(name: str) -> bool:
     tokens = name.split()
     if len(tokens) > 5:
         return True
-    suffixes = {"llc", "inc", "inc.", "corp", "co", "co.", "ltd", "group",
-                "services", "realty", "agency", "company", "associates"}
+    suffixes = {
+        "llc",
+        "inc",
+        "inc.",
+        "corp",
+        "co",
+        "co.",
+        "ltd",
+        "group",
+        "services",
+        "realty",
+        "agency",
+        "company",
+        "associates",
+    }
     for t in tokens:
         if t.lower().strip(",.") in suffixes:
             return True
@@ -281,8 +354,17 @@ def _is_valid_fb_profile_url(url: str) -> bool:
     """Reject FB URLs that survived the regex but contain endpoint-path
     markers anywhere in the URL (the negative lookahead only checks the
     first path segment)."""
-    blacklist = ("/dialog/", "/sharer/", "/share/", "/login/", "/help/",
-                 "/business/", "/photo/", "/photos/", "/plugins/")
+    blacklist = (
+        "/dialog/",
+        "/sharer/",
+        "/share/",
+        "/login/",
+        "/help/",
+        "/business/",
+        "/photo/",
+        "/photos/",
+        "/plugins/",
+    )
     lower = url.lower()
     return not any(b in lower for b in blacklist)
 
@@ -356,7 +438,8 @@ def extract_owner_signals(html: str | None, base_url: str = "") -> dict[str, str
 
 
 def merge_signals(
-    primary: dict[str, str], fallback: dict[str, str],
+    primary: dict[str, str],
+    fallback: dict[str, str],
 ) -> dict[str, str]:
     """Fill empty fields in ``primary`` from ``fallback``.
 
@@ -449,8 +532,7 @@ def _is_facebook_login_wall(html: str) -> bool:
     multiple login-form markers."""
     if not html:
         return True
-    markers = ("login_form", "Forgotten password", "Create new account",
-               '"login"', "loginbutton")
+    markers = ("login_form", "Forgotten password", "Create new account", '"login"', "loginbutton")
     hits = sum(1 for m in markers if m in html)
     return hits >= 2
 
@@ -519,7 +601,9 @@ def fetch_facebook_about(fb_url: str) -> str:
         # loopback / RFC-1918. Mirrors the security-audit NET-01 guard.
         safe_fetch.assert_public_http_url(about)
         client = get_shared_client(
-            timeout=8.0, follow_redirects=False, headers=headers,
+            timeout=8.0,
+            follow_redirects=False,
+            headers=headers,
         )
         response = client.get(about)
     except safe_fetch.SsrfBlockedError as exc:

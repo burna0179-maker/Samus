@@ -1,4 +1,5 @@
 """upsell_queue — JSONL ledger + fold-the-log state derivation + idempotency."""
+
 from __future__ import annotations
 
 import json
@@ -25,6 +26,7 @@ from backend.finance.upsell_queue import (
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(autouse=True)
 def _isolate_queue(tmp_path, monkeypatch):
     monkeypatch.setenv(
@@ -41,6 +43,7 @@ def _now() -> datetime:
 # ---------------------------------------------------------------------------
 # enqueue_upsell
 # ---------------------------------------------------------------------------
+
 
 def test_enqueue_writes_three_queued_rows_with_correct_due_dates():
     delivered_at = _now()
@@ -82,13 +85,17 @@ def test_enqueue_idempotent_second_call_writes_skipped_dup_rows():
     """Running fulfill.py twice for the same customer must not double-queue."""
     delivered_at = _now()
     enqueue_upsell(
-        customer_id="cust_a", customer_email="a@example.com",
-        source_offer_code="seo_audit", delivered_at=delivered_at,
+        customer_id="cust_a",
+        customer_email="a@example.com",
+        source_offer_code="seo_audit",
+        delivered_at=delivered_at,
     )
     # Second enqueue
     enqueue_upsell(
-        customer_id="cust_a", customer_email="a@example.com",
-        source_offer_code="seo_audit", delivered_at=delivered_at,
+        customer_id="cust_a",
+        customer_email="a@example.com",
+        source_offer_code="seo_audit",
+        delivered_at=delivered_at,
     )
     rows = _read_all_rows()
     # 3 queued + 3 skipped_dup = 6 rows total
@@ -101,12 +108,16 @@ def test_enqueue_idempotent_second_call_writes_skipped_dup_rows():
 
 def test_enqueue_different_customers_share_no_idempotency_collision():
     enqueue_upsell(
-        customer_id="cust_a", customer_email="a@example.com",
-        source_offer_code="seo_audit", delivered_at=_now(),
+        customer_id="cust_a",
+        customer_email="a@example.com",
+        source_offer_code="seo_audit",
+        delivered_at=_now(),
     )
     enqueue_upsell(
-        customer_id="cust_b", customer_email="b@example.com",
-        source_offer_code="seo_audit", delivered_at=_now(),
+        customer_id="cust_b",
+        customer_email="b@example.com",
+        source_offer_code="seo_audit",
+        delivered_at=_now(),
     )
     rows = _read_all_rows()
     assert len(rows) == 6  # 3 + 3 fresh queues
@@ -115,8 +126,10 @@ def test_enqueue_different_customers_share_no_idempotency_collision():
 
 def test_enqueue_accepts_custom_cadence():
     written = enqueue_upsell(
-        customer_id="c", customer_email="c@x.com",
-        source_offer_code="seo_audit", delivered_at=_now(),
+        customer_id="c",
+        customer_email="c@x.com",
+        source_offer_code="seo_audit",
+        delivered_at=_now(),
         touch_delays_days=(1, 2),  # custom: just two touches
     )
     assert len(written) == 2
@@ -128,11 +141,14 @@ def test_enqueue_accepts_custom_cadence():
 # due_upsells — fold the log
 # ---------------------------------------------------------------------------
 
+
 def test_due_upsells_returns_only_rows_past_due_at():
     delivered_at = _now()
     enqueue_upsell(
-        customer_id="c", customer_email="c@x.com",
-        source_offer_code="seo_audit", delivered_at=delivered_at,
+        customer_id="c",
+        customer_email="c@x.com",
+        source_offer_code="seo_audit",
+        delivered_at=delivered_at,
     )
     # Today = delivered_at + 6 days -> touch 1 (D+5) is due, touch 2 (D+12) is not
     cutoff = delivered_at + timedelta(days=6)
@@ -144,8 +160,10 @@ def test_due_upsells_returns_only_rows_past_due_at():
 def test_due_upsells_returns_multiple_past_due_in_order():
     delivered_at = _now()
     enqueue_upsell(
-        customer_id="c", customer_email="c@x.com",
-        source_offer_code="seo_audit", delivered_at=delivered_at,
+        customer_id="c",
+        customer_email="c@x.com",
+        source_offer_code="seo_audit",
+        delivered_at=delivered_at,
     )
     # Today = delivered + 40 days -> all 3 are due
     cutoff = delivered_at + timedelta(days=40)
@@ -158,8 +176,10 @@ def test_due_upsells_returns_multiple_past_due_in_order():
 def test_due_upsells_excludes_already_sent_rows():
     delivered_at = _now()
     enqueue_upsell(
-        customer_id="c", customer_email="c@x.com",
-        source_offer_code="seo_audit", delivered_at=delivered_at,
+        customer_id="c",
+        customer_email="c@x.com",
+        source_offer_code="seo_audit",
+        delivered_at=delivered_at,
     )
     rows = _read_all_rows()
     queued_touch_1 = next(r for r in rows if r.touch_num == 1)
@@ -173,8 +193,10 @@ def test_due_upsells_excludes_already_sent_rows():
 def test_due_upsells_excludes_failed_rows_so_loop_doesnt_retry():
     delivered_at = _now()
     enqueue_upsell(
-        customer_id="c", customer_email="c@x.com",
-        source_offer_code="seo_audit", delivered_at=delivered_at,
+        customer_id="c",
+        customer_email="c@x.com",
+        source_offer_code="seo_audit",
+        delivered_at=delivered_at,
     )
     rows = _read_all_rows()
     queued_touch_1 = next(r for r in rows if r.touch_num == 1)
@@ -188,10 +210,13 @@ def test_due_upsells_excludes_failed_rows_so_loop_doesnt_retry():
 # mark_sent / mark_failed / mark_converted
 # ---------------------------------------------------------------------------
 
+
 def test_mark_sent_appends_transition_row():
     enqueue_upsell(
-        customer_id="c", customer_email="c@x.com",
-        source_offer_code="seo_audit", delivered_at=_now(),
+        customer_id="c",
+        customer_email="c@x.com",
+        source_offer_code="seo_audit",
+        delivered_at=_now(),
     )
     rows = _read_all_rows()
     queued_touch_2 = next(r for r in rows if r.touch_num == 2)
@@ -208,8 +233,10 @@ def test_mark_sent_appends_transition_row():
 
 def test_mark_failed_truncates_error_to_200_chars():
     enqueue_upsell(
-        customer_id="c", customer_email="c@x.com",
-        source_offer_code="seo_audit", delivered_at=_now(),
+        customer_id="c",
+        customer_email="c@x.com",
+        source_offer_code="seo_audit",
+        delivered_at=_now(),
     )
     rows = _read_all_rows()
     queued = next(r for r in rows if r.touch_num == 1)
@@ -223,13 +250,17 @@ def test_mark_failed_truncates_error_to_200_chars():
 def test_mark_converted_requires_prior_sent_row_for_match():
     """mark_converted is a no-op if no matching 'sent' row exists yet."""
     enqueue_upsell(
-        customer_id="c", customer_email="c@x.com",
-        source_offer_code="seo_audit", delivered_at=_now(),
+        customer_id="c",
+        customer_email="c@x.com",
+        source_offer_code="seo_audit",
+        delivered_at=_now(),
     )
     # Convert without sending first → no row written
     mark_converted(
-        customer_id="c", source_offer_code="seo_audit",
-        touch_num=1, subscription_id="sub_x",
+        customer_id="c",
+        source_offer_code="seo_audit",
+        touch_num=1,
+        subscription_id="sub_x",
     )
     # The 3 queued rows are still the only rows
     rows = _read_all_rows()
@@ -239,15 +270,19 @@ def test_mark_converted_requires_prior_sent_row_for_match():
 
 def test_mark_converted_after_sent_writes_conversion_row():
     enqueue_upsell(
-        customer_id="c", customer_email="c@x.com",
-        source_offer_code="seo_audit", delivered_at=_now(),
+        customer_id="c",
+        customer_email="c@x.com",
+        source_offer_code="seo_audit",
+        delivered_at=_now(),
     )
     rows = _read_all_rows()
     queued_touch_1 = next(r for r in rows if r.touch_num == 1)
     mark_sent(queued_row=queued_touch_1, message_id="msg_x")
     mark_converted(
-        customer_id="c", source_offer_code="seo_audit",
-        touch_num=1, subscription_id="sub_42",
+        customer_id="c",
+        source_offer_code="seo_audit",
+        touch_num=1,
+        subscription_id="sub_42",
     )
     rows = _read_all_rows()
     conv = [r for r in rows if r.kind == "converted"]
@@ -262,19 +297,32 @@ def test_mark_converted_after_sent_writes_conversion_row():
 # Fold-the-log helper
 # ---------------------------------------------------------------------------
 
+
 def test_current_state_by_key_uses_latest_row():
     rows = [
         UpsellQueueRow(
-            event_id="e1", ts="2026-05-10T00:00:00Z", kind="queued",
-            touch_num=1, customer_id="c", customer_email="c@x.com",
-            source_offer_code="seo_audit", target_offer_code="seo_optimization",
-            target_price_id="price_x", due_at="2026-05-15T00:00:00Z",
+            event_id="e1",
+            ts="2026-05-10T00:00:00Z",
+            kind="queued",
+            touch_num=1,
+            customer_id="c",
+            customer_email="c@x.com",
+            source_offer_code="seo_audit",
+            target_offer_code="seo_optimization",
+            target_price_id="price_x",
+            due_at="2026-05-15T00:00:00Z",
         ),
         UpsellQueueRow(
-            event_id="e2", ts="2026-05-15T01:00:00Z", kind="sent",
-            touch_num=1, customer_id="c", customer_email="c@x.com",
-            source_offer_code="seo_audit", target_offer_code="seo_optimization",
-            target_price_id="price_x", sent_message_id="msg_x",
+            event_id="e2",
+            ts="2026-05-15T01:00:00Z",
+            kind="sent",
+            touch_num=1,
+            customer_id="c",
+            customer_email="c@x.com",
+            source_offer_code="seo_audit",
+            target_offer_code="seo_optimization",
+            target_price_id="price_x",
+            sent_message_id="msg_x",
         ),
     ]
     latest = _current_state_by_key(rows)
@@ -286,6 +334,7 @@ def test_current_state_by_key_uses_latest_row():
 # load_recent_rows window
 # ---------------------------------------------------------------------------
 
+
 def test_load_recent_rows_filters_by_window(monkeypatch, tmp_path):
     # Write stale + fresh rows directly to the ledger
     path = tmp_path / "upsell_queue.jsonl"
@@ -296,14 +345,30 @@ def test_load_recent_rows_filters_by_window(monkeypatch, tmp_path):
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as fh:
         for row in [
-            {"event_id": "f", "ts": fresh, "kind": "sent", "touch_num": 1,
-             "customer_id": "c", "customer_email": "c@x.com",
-             "source_offer_code": "seo_audit", "target_offer_code": "seo_optimization",
-             "target_price_id": "price_x", "sent_message_id": "msg_x"},
-            {"event_id": "s", "ts": stale, "kind": "sent", "touch_num": 1,
-             "customer_id": "c2", "customer_email": "c2@x.com",
-             "source_offer_code": "seo_audit", "target_offer_code": "seo_optimization",
-             "target_price_id": "price_x", "sent_message_id": "msg_old"},
+            {
+                "event_id": "f",
+                "ts": fresh,
+                "kind": "sent",
+                "touch_num": 1,
+                "customer_id": "c",
+                "customer_email": "c@x.com",
+                "source_offer_code": "seo_audit",
+                "target_offer_code": "seo_optimization",
+                "target_price_id": "price_x",
+                "sent_message_id": "msg_x",
+            },
+            {
+                "event_id": "s",
+                "ts": stale,
+                "kind": "sent",
+                "touch_num": 1,
+                "customer_id": "c2",
+                "customer_email": "c2@x.com",
+                "source_offer_code": "seo_audit",
+                "target_offer_code": "seo_optimization",
+                "target_price_id": "price_x",
+                "sent_message_id": "msg_old",
+            },
         ]:
             fh.write(json.dumps(row) + "\n")
     rolled = load_recent_rows(window_days=14)
@@ -335,21 +400,24 @@ from backend.finance.upsell_queue import (
 
 def _fake_coupon_fn(calls: list):
     """Build a fake create_coupon_fn that records each invocation."""
-    def _fn(*, customer_id, customer_email, source_offer_code,
-            target_offer_code, credit_cents):
-        calls.append({
-            "customer_id": customer_id,
-            "customer_email": customer_email,
-            "source": source_offer_code,
-            "target": target_offer_code,
-            "credit_cents": credit_cents,
-        })
+
+    def _fn(*, customer_id, customer_email, source_offer_code, target_offer_code, credit_cents):
+        calls.append(
+            {
+                "customer_id": customer_id,
+                "customer_email": customer_email,
+                "source": source_offer_code,
+                "target": target_offer_code,
+                "credit_cents": credit_cents,
+            }
+        )
         return _CouponBundle(
             coupon_id=f"coupon_{len(calls):03d}",
             promotion_code_id=f"promo_{len(calls):03d}",
             promotion_code=f"AUDIT-CREDIT-FAKE{len(calls):03d}",
             credit_usd_cents=credit_cents,
         )
+
     return _fn
 
 
@@ -370,7 +438,7 @@ def test_enqueue_creates_one_coupon_shared_across_three_touches():
     assert len(rows) == 3
     coupon_ids = {r.coupon_id for r in rows}
     promo_codes = {r.promotion_code for r in rows}
-    assert coupon_ids == {"coupon_001"}            # shared across touches
+    assert coupon_ids == {"coupon_001"}  # shared across touches
     assert promo_codes == {"AUDIT-CREDIT-FAKE001"}
     for r in rows:
         assert r.credit_usd_cents == 14900
@@ -395,7 +463,7 @@ def test_enqueue_reuses_prior_coupon_on_skipped_dup():
         delivered_at=_now(),
         create_coupon_fn=fn,
     )
-    assert len(calls) == 1   # second call did NOT hit Stripe again
+    assert len(calls) == 1  # second call did NOT hit Stripe again
 
     rows = _read_all_rows()
     # 3 queued from first enqueue + 3 skipped_dup from second
@@ -410,18 +478,22 @@ def test_enqueue_different_source_gets_different_coupon():
     calls: list = []
     fn = _fake_coupon_fn(calls)
     enqueue_upsell(
-        customer_id="cust_carol", customer_email="carol@example.com",
-        source_offer_code="seo_audit", delivered_at=_now(),
+        customer_id="cust_carol",
+        customer_email="carol@example.com",
+        source_offer_code="seo_audit",
+        delivered_at=_now(),
         create_coupon_fn=fn,
     )
     enqueue_upsell(
-        customer_id="cust_carol", customer_email="carol@example.com",
-        source_offer_code="seo_implementation", delivered_at=_now(),
+        customer_id="cust_carol",
+        customer_email="carol@example.com",
+        source_offer_code="seo_implementation",
+        delivered_at=_now(),
         create_coupon_fn=fn,
     )
     assert len(calls) == 2
-    assert calls[0]["credit_cents"] == 14900   # audit credit
-    assert calls[1]["credit_cents"] == 20000   # implementation credit
+    assert calls[0]["credit_cents"] == 14900  # audit credit
+    assert calls[1]["credit_cents"] == 20000  # implementation credit
     rows = _read_all_rows()
     by_source = {}
     for r in rows:
@@ -432,12 +504,15 @@ def test_enqueue_different_source_gets_different_coupon():
 
 def test_enqueue_persists_empty_coupon_bundle_when_stripe_fails():
     """A failing coupon fn returns an empty _CouponBundle; rows still get written."""
+
     def _failing_coupon_fn(**_kw):
         return _CouponBundle(credit_usd_cents=14900)
 
     written = enqueue_upsell(
-        customer_id="cust_dave", customer_email="dave@example.com",
-        source_offer_code="seo_audit", delivered_at=_now(),
+        customer_id="cust_dave",
+        customer_email="dave@example.com",
+        source_offer_code="seo_audit",
+        delivered_at=_now(),
         create_coupon_fn=_failing_coupon_fn,
     )
     assert len(written) == 3
@@ -452,8 +527,9 @@ def test_enqueue_persists_empty_coupon_bundle_when_stripe_fails():
 def test_upsell_credit_map_covers_all_targeted_sources():
     """Every source in UPSELL_TARGET_MAP must have a credit amount mapped."""
     for source in UPSELL_TARGET_MAP:
-        assert source in UPSELL_CREDIT_CENTS_BY_SOURCE, \
+        assert source in UPSELL_CREDIT_CENTS_BY_SOURCE, (
             f"{source!r} has an upsell target but no credit amount"
+        )
         assert UPSELL_CREDIT_CENTS_BY_SOURCE[source] > 0
 
 
@@ -462,6 +538,7 @@ def test_upsell_credit_map_covers_all_targeted_sources():
 # Coupon creation must be SKIPPED — operator generates a custom Stripe
 # invoice per-customer with the credit applied as a line-item discount.
 # ---------------------------------------------------------------------------
+
 
 def test_enqueue_skips_coupon_for_quote_based_target():
     """workflow_rescue → buildout is quote-based; no coupon should be created."""
@@ -491,7 +568,7 @@ def test_enqueue_skips_coupon_for_quote_based_target():
         assert r.coupon_id == ""
         assert r.promotion_code == ""
         # But the credit amount IS recorded so the composer can describe it
-        assert r.credit_usd_cents == 50000     # $500 rescue credit
+        assert r.credit_usd_cents == 50000  # $500 rescue credit
 
 
 def test_enqueue_skips_coupon_for_buildout_to_aiops_quote_based():
@@ -515,7 +592,7 @@ def test_enqueue_skips_coupon_for_buildout_to_aiops_quote_based():
     assert len(rows) == 3
     for r in rows:
         assert r.coupon_id == ""
-        assert r.credit_usd_cents == 250000     # $2,500 buildout credit
+        assert r.credit_usd_cents == 250000  # $2,500 buildout credit
         assert r.target_offer_code == "service_ai_ops_partner_build"
 
 

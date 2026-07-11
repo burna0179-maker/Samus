@@ -1,4 +1,5 @@
 """Tests for the outreach SES email channel — adapter + send_message routing."""
+
 from __future__ import annotations
 
 import json
@@ -10,6 +11,7 @@ import pytest
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
+
 
 class _StubSesClient:
     """Captures send_email kwargs and returns a canned MessageId."""
@@ -26,6 +28,7 @@ class _StubSesClient:
 def _patch_boto3_client(monkeypatch, stub: Any) -> list[tuple[str, dict[str, Any]]]:
     """Replace boto3.client globally so any ('ses', ...) call returns stub."""
     from backend.outreach import ses_adapter
+
     calls: list[tuple[str, dict[str, Any]]] = []
 
     def _fake_client(service: str, **kwargs: Any) -> Any:
@@ -39,6 +42,7 @@ def _patch_boto3_client(monkeypatch, stub: Any) -> list[tuple[str, dict[str, Any
 def _set_from_email(monkeypatch, value: str) -> None:
     monkeypatch.setenv("SES_FROM_EMAIL", value)
     from backend.common.settings import reload_settings
+
     reload_settings()
 
 
@@ -46,12 +50,14 @@ def _set_from_email(monkeypatch, value: str) -> None:
 # adapter unit tests
 # ---------------------------------------------------------------------------
 
+
 def test_send_email_via_ses_happy_path(monkeypatch):
     _set_from_email(monkeypatch, "samus@example.com")
     stub = _StubSesClient(message_id="ses_test_123")
     client_calls = _patch_boto3_client(monkeypatch, stub)
 
     from backend.outreach.ses_adapter import send_email_via_ses
+
     out = send_email_via_ses("lead@example.com", "Subject A", "hello body")
 
     assert out["message_id"] == "ses_test_123"
@@ -74,6 +80,7 @@ def test_send_email_via_ses_uses_settings_from_email_when_unset(monkeypatch):
     _patch_boto3_client(monkeypatch, stub)
 
     from backend.outreach.ses_adapter import send_email_via_ses
+
     send_email_via_ses("lead@example.com", "s", "b")  # no from_addr arg
     assert stub.calls[0]["Source"] == "fallback@example.com"
 
@@ -84,6 +91,7 @@ def test_send_email_via_ses_explicit_from_addr_overrides_settings(monkeypatch):
     _patch_boto3_client(monkeypatch, stub)
 
     from backend.outreach.ses_adapter import send_email_via_ses
+
     send_email_via_ses("lead@example.com", "s", "b", from_addr="explicit@example.com")
     assert stub.calls[0]["Source"] == "explicit@example.com"
 
@@ -94,6 +102,7 @@ def test_send_email_via_ses_raises_when_no_from_addr(monkeypatch):
     _patch_boto3_client(monkeypatch, stub)
 
     from backend.outreach.ses_adapter import send_email_via_ses
+
     with pytest.raises(ValueError):
         send_email_via_ses("lead@example.com", "s", "b", from_addr=None)
 
@@ -112,6 +121,7 @@ def test_send_email_via_ses_wraps_client_error(monkeypatch):
     _patch_boto3_client(monkeypatch, _BadClient())
 
     from backend.outreach.ses_adapter import SesAdapterError, send_email_via_ses
+
     with pytest.raises(SesAdapterError) as excinfo:
         send_email_via_ses("lead@example.com", "s", "b")
     assert "MessageRejected" in str(excinfo.value) or "not verified" in str(excinfo.value)
@@ -121,34 +131,49 @@ def test_send_email_via_ses_wraps_client_error(monkeypatch):
 # OutreachMessageRequest validator
 # ---------------------------------------------------------------------------
 
+
 def test_outreach_message_request_email_requires_to_and_subject():
     from pydantic import ValidationError
     from backend.outreach.models import OutreachMessageRequest
 
     with pytest.raises(ValidationError):
         OutreachMessageRequest(
-            prospect_id="p1", channel="email", template_id="t", body="b",
+            prospect_id="p1",
+            channel="email",
+            template_id="t",
+            body="b",
         )  # to + subject missing
 
     with pytest.raises(ValidationError):
         OutreachMessageRequest(
-            prospect_id="p1", channel="email", template_id="t",
-            body="b", to="x@example.com",
+            prospect_id="p1",
+            channel="email",
+            template_id="t",
+            body="b",
+            to="x@example.com",
         )  # subject missing
 
     # whitespace-only also rejected
     with pytest.raises(ValidationError):
         OutreachMessageRequest(
-            prospect_id="p1", channel="email", template_id="t",
-            body="b", to="   ", subject="s",
+            prospect_id="p1",
+            channel="email",
+            template_id="t",
+            body="b",
+            to="   ",
+            subject="s",
         )
 
 
 def test_outreach_message_request_non_email_skips_email_validator():
     from backend.outreach.models import OutreachMessageRequest
+
     # sms doesn't require to/subject
     req = OutreachMessageRequest(
-        prospect_id="p1", channel="sms", template_id="t", body="b",
+        prospect_id="p1",
+        channel="sms",
+        template_id="t",
+        body="b",
     )
     assert req.to is None and req.subject is None
 
@@ -157,15 +182,22 @@ def test_outreach_message_request_non_email_skips_email_validator():
 # send_message routing
 # ---------------------------------------------------------------------------
 
+
 def test_send_message_routes_email_to_ses(monkeypatch, tmp_path):
     monkeypatch.setenv("SAMUS_OUTREACH_AUDIT_PATH", str(tmp_path / "audit.jsonl"))
     captured: dict[str, Any] = {}
 
     def _fake_send(to: str, subject: str, body: str, **kw: Any) -> dict[str, str]:
         captured.update({"to": to, "subject": subject, "body": body, "kw": kw})
-        return {"message_id": "msg_routed", "channel": "email", "to": to, "ts": "2026-05-15T00:00:00Z"}
+        return {
+            "message_id": "msg_routed",
+            "channel": "email",
+            "to": to,
+            "ts": "2026-05-15T00:00:00Z",
+        }
 
     from backend.outreach import service as svc
+
     # The legacy outreach.ses_adapter import in service.py is retained for the
     # SesAdapterError exception type; the actual send routes through
     # backend.common.email_backend.send_email which dispatches by
@@ -173,9 +205,14 @@ def test_send_message_routes_email_to_ses(monkeypatch, tmp_path):
     monkeypatch.setattr("backend.common.email_backend.send_email", _fake_send)
 
     from backend.outreach.models import OutreachMessageRequest
+
     req = OutreachMessageRequest(
-        prospect_id="p_route", channel="email", template_id="tmpl",
-        body="hello", to="lead@example.com", subject="Hi",
+        prospect_id="p_route",
+        channel="email",
+        template_id="tmpl",
+        body="hello",
+        to="lead@example.com",
+        subject="Hi",
     )
     out = svc.send_message(req)
     assert out["message_id"] == "msg_routed"
@@ -187,8 +224,12 @@ def test_send_message_routes_email_to_ses(monkeypatch, tmp_path):
 def test_send_message_sms_still_raises():
     from backend.outreach.models import OutreachMessageRequest
     from backend.outreach.service import send_message
+
     req = OutreachMessageRequest(
-        prospect_id="p_sms", channel="sms", template_id="t", body="b",
+        prospect_id="p_sms",
+        channel="sms",
+        template_id="t",
+        body="b",
     )
     with pytest.raises(NotImplementedError):
         send_message(req)
@@ -199,11 +240,16 @@ def test_send_message_call_degraded_by_default(monkeypatch):
     structured degraded receipt (never NotImplementedError)."""
     monkeypatch.delenv("SAMUS_OUTREACH_VOICE_SEND", raising=False)
     from backend.common.settings import reload_settings
+
     reload_settings()
     from backend.outreach.models import OutreachMessageRequest
     from backend.outreach.service import send_message
+
     req = OutreachMessageRequest(
-        prospect_id="p_call", channel="call", template_id="t", body="b",
+        prospect_id="p_call",
+        channel="call",
+        template_id="t",
+        body="b",
         phone="+15551234567",
     )
     out = send_message(req)
@@ -214,11 +260,16 @@ def test_send_message_call_degraded_by_default(monkeypatch):
 def test_send_message_voicemail_degraded_by_default(monkeypatch):
     monkeypatch.delenv("SAMUS_OUTREACH_VOICE_SEND", raising=False)
     from backend.common.settings import reload_settings
+
     reload_settings()
     from backend.outreach.models import OutreachMessageRequest
     from backend.outreach.service import send_message
+
     req = OutreachMessageRequest(
-        prospect_id="p_vm", channel="voicemail", template_id="t", body="b",
+        prospect_id="p_vm",
+        channel="voicemail",
+        template_id="t",
+        body="b",
         phone="+15551234567",
     )
     out = send_message(req)
@@ -231,15 +282,26 @@ def test_send_message_appends_audit_on_success(monkeypatch, tmp_path):
     monkeypatch.setenv("SAMUS_OUTREACH_AUDIT_PATH", str(audit_path))
 
     def _fake_send(to: str, subject: str, body: str, **kw: Any) -> dict[str, str]:
-        return {"message_id": "msg_audit", "channel": "email", "to": to, "ts": "2026-05-15T00:00:00Z"}
+        return {
+            "message_id": "msg_audit",
+            "channel": "email",
+            "to": to,
+            "ts": "2026-05-15T00:00:00Z",
+        }
 
     from backend.outreach import service as svc
+
     monkeypatch.setattr("backend.common.email_backend.send_email", _fake_send)
 
     from backend.outreach.models import OutreachMessageRequest
+
     req = OutreachMessageRequest(
-        prospect_id="p_audit", channel="email", template_id="tmpl",
-        body="big body content", to="lead@example.com", subject="Hi",
+        prospect_id="p_audit",
+        channel="email",
+        template_id="tmpl",
+        body="big body content",
+        to="lead@example.com",
+        subject="Hi",
     )
     svc.send_message(req)
 
@@ -266,9 +328,14 @@ def test_send_message_appends_failed_audit_and_reraises(monkeypatch, tmp_path):
     monkeypatch.setattr("backend.common.email_backend.send_email", _boom)
 
     from backend.outreach.models import OutreachMessageRequest
+
     req = OutreachMessageRequest(
-        prospect_id="p_fail", channel="email", template_id="tmpl",
-        body="b", to="lead@example.com", subject="Hi",
+        prospect_id="p_fail",
+        channel="email",
+        template_id="tmpl",
+        body="b",
+        to="lead@example.com",
+        subject="Hi",
     )
     with pytest.raises(EmailBackendError):
         svc.send_message(req)

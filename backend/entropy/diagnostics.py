@@ -35,6 +35,7 @@ REMEDIATION (safe only)
 Everything a detector finds AND every remediation is emitted as a
 ``decision.made`` diagnostic event. Never raises to the caller.
 """
+
 from __future__ import annotations
 
 import json
@@ -52,6 +53,7 @@ from backend.common.dates import iso_now
 _LOG = logging.getLogger("samus.entropy.diagnostics")
 
 # --- thresholds (env-overridable so ops can tune without a redeploy) --------
+
 
 def _int_env(key: str, default: int) -> int:
     try:
@@ -77,14 +79,26 @@ DEAD_WORKER_STALE_SECONDS = _float_env("SAMUS_DIAG_DEAD_WORKER_STALE_SECONDS", 6
 ORPHAN_TASK_TTL_SECONDS = _float_env("SAMUS_DIAG_ORPHAN_TTL_SECONDS", 3600.0)
 # Resource thresholds.
 DISK_FREE_MIN_RATIO = _float_env("SAMUS_DIAG_DISK_FREE_MIN_RATIO", 0.10)  # 10%
-LEDGER_DIR_MAX_MB = _float_env("SAMUS_DIAG_LEDGER_DIR_MAX_MB", 2048.0)    # 2 GB
+LEDGER_DIR_MAX_MB = _float_env("SAMUS_DIAG_LEDGER_DIR_MAX_MB", 2048.0)  # 2 GB
 PROCESS_RSS_MAX_MB = _float_env("SAMUS_DIAG_PROCESS_RSS_MAX_MB", 4096.0)  # 4 GB
 
 # The services whose DLQ ledgers stuck-loop / orphan-task scan.
 _DLQ_SERVICES: tuple[str, ...] = (
-    "gateway", "leadgen", "prospecting", "scaffold", "fulfillment", "memory",
-    "feedback", "outreach", "proposal", "seo", "finance", "voice", "intake",
-    "crm", "strategy",
+    "gateway",
+    "leadgen",
+    "prospecting",
+    "scaffold",
+    "fulfillment",
+    "memory",
+    "feedback",
+    "outreach",
+    "proposal",
+    "seo",
+    "finance",
+    "voice",
+    "intake",
+    "crm",
+    "strategy",
 )
 
 
@@ -93,9 +107,9 @@ class DiagnosticFinding:
     """One detector's verdict."""
 
     detector: str
-    severity: str          # "ok" | "warn" | "critical"
+    severity: str  # "ok" | "warn" | "critical"
     detail: str = ""
-    subject: str = ""      # task_id / worker id / resource name
+    subject: str = ""  # task_id / worker id / resource name
     extras: dict[str, Any] = field(default_factory=dict)
     remediation: str = ""  # what (if anything) was auto-applied
 
@@ -123,6 +137,7 @@ def _emit(finding: DiagnosticFinding) -> None:
 # ---------------------------------------------------------------------------
 # stuck-loop
 # ---------------------------------------------------------------------------
+
 
 def detect_stuck_loops() -> list[DiagnosticFinding]:
     """Task_ids reprocessed > STUCK_LOOP_ATTEMPTS times (per DLQ attempt)."""
@@ -166,6 +181,7 @@ def detect_stuck_loops() -> list[DiagnosticFinding]:
 # dead-worker
 # ---------------------------------------------------------------------------
 
+
 def _coordination_dir() -> Path:
     """Directory holding the observable ``*_heartbeat.json`` files."""
     override = os.getenv("SAMUS_COORDINATION_DIR", "").strip()
@@ -176,6 +192,7 @@ def _coordination_dir() -> Path:
     if hb:
         return Path(hb).parent
     from backend.common.state_paths import state_path
+
     return state_path("coordination")
 
 
@@ -225,13 +242,15 @@ def _remediate_dead_worker(finding: DiagnosticFinding) -> None:
         from backend.crm import service as crm
         from backend.crm.models import CreateOperatorTaskRequest
 
-        crm.create_operator_task(CreateOperatorTaskRequest(
-            kind="review",
-            title=f"Dead worker: {worker}",
-            description=finding.detail,
-            source="entropy_diagnostics",
-            source_ref=worker,
-        ))
+        crm.create_operator_task(
+            CreateOperatorTaskRequest(
+                kind="review",
+                title=f"Dead worker: {worker}",
+                description=finding.detail,
+                source="entropy_diagnostics",
+                source_ref=worker,
+            )
+        )
     except Exception as exc:  # noqa: BLE001
         _LOG.warning("dead-worker operator-task failed: %s", exc)
     # Container-restart-request event on the unified stream. Docker's restart
@@ -252,7 +271,10 @@ def _remediate_dead_worker(finding: DiagnosticFinding) -> None:
 # orphan-task
 # ---------------------------------------------------------------------------
 
-def detect_orphan_tasks(*, now: float | None = None, remediate: bool = True) -> list[DiagnosticFinding]:
+
+def detect_orphan_tasks(
+    *, now: float | None = None, remediate: bool = True
+) -> list[DiagnosticFinding]:
     """DLQ failures pending past the TTL with no replay -> requeue (safe)."""
     from backend.common import dlq
 
@@ -317,6 +339,7 @@ def _remediate_orphan(service: str, finding: DiagnosticFinding) -> None:
 # resource-exhaustion
 # ---------------------------------------------------------------------------
 
+
 def detect_resource_exhaustion() -> list[DiagnosticFinding]:
     """Low free disk, oversized ledger dir, or high process RSS."""
     findings: list[DiagnosticFinding] = []
@@ -324,6 +347,7 @@ def detect_resource_exhaustion() -> list[DiagnosticFinding]:
     # -- disk free --
     try:
         from backend.common.state_paths import state_root
+
         root = state_root()
         probe = root if root.exists() else Path.cwd()
         usage = shutil.disk_usage(str(probe))
@@ -333,9 +357,12 @@ def detect_resource_exhaustion() -> list[DiagnosticFinding]:
                 detector="resource_exhaustion",
                 severity="critical",
                 subject="disk",
-                detail=f"disk free {free_ratio*100:.1f}% < {DISK_FREE_MIN_RATIO*100:.0f}%",
-                extras={"free_bytes": usage.free, "total_bytes": usage.total,
-                        "free_ratio": round(free_ratio, 4)},
+                detail=f"disk free {free_ratio * 100:.1f}% < {DISK_FREE_MIN_RATIO * 100:.0f}%",
+                extras={
+                    "free_bytes": usage.free,
+                    "total_bytes": usage.total,
+                    "free_ratio": round(free_ratio, 4),
+                },
             )
             findings.append(f)
             _emit(f)
@@ -434,7 +461,9 @@ def _process_rss_mb() -> float | None:
             counters.cb = ctypes.sizeof(_PMC)
             handle = ctypes.windll.kernel32.GetCurrentProcess()
             ok = ctypes.windll.psapi.GetProcessMemoryInfo(
-                handle, ctypes.byref(counters), counters.cb,
+                handle,
+                ctypes.byref(counters),
+                counters.cb,
             )
             if ok:
                 return counters.WorkingSetSize / (1024 * 1024)
@@ -449,6 +478,7 @@ def _parse_ts_epoch(ts_raw: Any) -> float:
         return 0.0
     try:
         from datetime import datetime, timezone
+
         dt = datetime.strptime(str(ts_raw), "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
         return dt.timestamp()
     except (ValueError, TypeError):
@@ -458,6 +488,7 @@ def _parse_ts_epoch(ts_raw: Any) -> float:
 # ---------------------------------------------------------------------------
 # orchestrator
 # ---------------------------------------------------------------------------
+
 
 def run_diagnostics(*, remediate: bool = True) -> dict[str, Any]:
     """Run all four detectors; return a structured report. Never raises.

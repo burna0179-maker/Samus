@@ -5,6 +5,7 @@ default-page seeding, the LLM path with fail-closed taste sanitation, and the
 generate stage wired into the walk. No network: the Anthropic path is
 monkeypatched; the deterministic path needs no key.
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -57,17 +58,21 @@ def _no_dashes(brief: WebsiteBrief) -> bool:
 # deterministic ($0 budget) path
 # ---------------------------------------------------------------------------
 
+
 def test_deterministic_fills_all_fields_on_llm_error(monkeypatch):
     """When the LLM call errors (transport / budget / parse), the deterministic
     templated path fills every STANDARD_FIELD with taste-audited copy. The LLM
     backend is local LM Studio (free, unconditionally invoked); this exercises
     the fallback that fires when LM Studio itself is unavailable."""
+
     def _boom(**kwargs):
         raise content_gen.LlmCallError("stub_lm_studio_down")
+
     monkeypatch.setattr(content_gen, "anthropic_messages", _boom)
 
     enriched, report = content_gen.generate_site_content(
-        _brief(pages=[WebsitePage(slug="home", title="Home")]), settings=_settings(),
+        _brief(pages=[WebsitePage(slug="home", title="Home")]),
+        settings=_settings(),
     )
     assert report["llm_used"] is False
     assert report["taste_audit"]["passed"] is True
@@ -88,8 +93,8 @@ def test_operator_supplied_content_is_preserved():
     page = WebsitePage(slug="home", title="Home", content={"headline": "My Exact Headline"})
     enriched, _ = content_gen.generate_site_content(_brief(pages=[page]), settings=_settings())
     home = enriched.pages[0].content
-    assert home["headline"] == "My Exact Headline"   # operator wins
-    assert home.get("body")                           # the rest still filled
+    assert home["headline"] == "My Exact Headline"  # operator wins
+    assert home.get("body")  # the rest still filled
 
 
 def test_single_site_cta_avoids_duplicate_intent():
@@ -102,6 +107,7 @@ def test_single_site_cta_avoids_duplicate_intent():
 # ---------------------------------------------------------------------------
 # LLM path (monkeypatched) + fail-closed taste sanitation
 # ---------------------------------------------------------------------------
+
 
 def test_llm_path_used_when_key_present(monkeypatch):
     def fake_llm(**kwargs):
@@ -148,7 +154,7 @@ def test_llm_unparseable_falls_back_to_deterministic(monkeypatch):
         _brief(pages=[WebsitePage(slug="home", title="Home")]),
         settings=_settings(anthropic_api_key="sk-test"),
     )
-    assert report["llm_used"] is False        # parse failed -> fallback
+    assert report["llm_used"] is False  # parse failed -> fallback
     assert report["taste_audit"]["passed"] is True
     assert enriched.pages[0].content.get("headline")
 
@@ -170,6 +176,7 @@ def test_llm_call_error_falls_back(monkeypatch):
 # the generate stage
 # ---------------------------------------------------------------------------
 
+
 def _ctx(brief, settings):
     order = WebsiteOrder(customer_name="Sample Customer", brief=brief)
     state = WebsiteBuildState(order_id="wb-1", order=order)
@@ -180,8 +187,10 @@ def test_generate_stage_fills_brief_and_reports(monkeypatch):
     """The generate stage enriches the brief and records a truthful report even
     when the LLM is unavailable -- LM Studio down here is stubbed so the whole
     stage traverses the deterministic fallback path."""
+
     def _boom(**kwargs):
         raise content_gen.LlmCallError("stub_lm_studio_down")
+
     monkeypatch.setattr(content_gen, "anthropic_messages", _boom)
 
     ctx, order = _ctx(_brief(pages=[WebsitePage(slug="home", title="Home")]), _settings())

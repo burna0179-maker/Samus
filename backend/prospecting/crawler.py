@@ -21,6 +21,7 @@ the ``access_blocked`` status (the site loads fine in a real browser, so it is
 NOT a cold-call "your site is down" hook), distinct from a genuinely broken
 ``http_error`` / ``server_error`` page or a permanently-removed ``gone`` one.
 """
+
 from __future__ import annotations
 
 import logging
@@ -116,7 +117,12 @@ def _fetch_once(url: str, client: httpx.Client | None = None) -> dict[str, Any]:
     try:
         assert_public_http_url(url)
     except SsrfBlockedError as exc:
-        return {"final_url": url, "status_code": 0, "html": None, "fetch_error": f"ssrf_blocked: {exc}"}
+        return {
+            "final_url": url,
+            "status_code": 0,
+            "html": None,
+            "fetch_error": f"ssrf_blocked: {exc}",
+        }
     if client is None:
         client = get_shared_client(
             timeout=_TIMEOUT,
@@ -130,10 +136,20 @@ def _fetch_once(url: str, client: httpx.Client | None = None) -> dict[str, Any]:
     except httpx.TimeoutException as exc:
         return {"final_url": url, "status_code": 0, "html": None, "fetch_error": f"timeout: {exc}"}
     except httpx.HTTPError as exc:
-        return {"final_url": url, "status_code": 0, "html": None, "fetch_error": f"{exc.__class__.__name__}: {exc}"}
+        return {
+            "final_url": url,
+            "status_code": 0,
+            "html": None,
+            "fetch_error": f"{exc.__class__.__name__}: {exc}",
+        }
     except Exception as exc:  # noqa: BLE001 - log any unexpected condition
         _LOG.warning("fetch_homepage unexpected error url=%s err=%s", url, exc)
-        return {"final_url": url, "status_code": 0, "html": None, "fetch_error": f"unexpected: {exc}"}
+        return {
+            "final_url": url,
+            "status_code": 0,
+            "html": None,
+            "fetch_error": f"unexpected: {exc}",
+        }
 
     status = response.status_code
     final_url = str(response.url)
@@ -169,7 +185,9 @@ def fetch_homepage(url: str) -> dict[str, Any]:
     while attempts < _MAX_ATTEMPTS and not _is_terminal(int(result.get("status_code") or 0)):
         _LOG.info(
             "fetch_homepage retry url=%s attempt=%d prior_status=%s",
-            url, attempts + 1, result.get("status_code"),
+            url,
+            attempts + 1,
+            result.get("status_code"),
         )
         time.sleep(_RETRY_BACKOFF_SEC)
         result = _fetch_once(url)
@@ -183,18 +201,18 @@ def fetch_homepage(url: str) -> dict[str, Any]:
 # "access_blocked", where the site loads fine for a human and only a WAF
 # stopped our headless fetch (not a "your site is down" hook).
 WEBSITE_STATUSES: tuple[str, ...] = (
-    "live",                # fetched OK, real first-party content
-    "domain_unresolved",   # DNS lookup failed — the domain doesn't exist
-    "unreachable_timeout", # connected attempt timed out
-    "unreachable",         # other connection failure
-    "server_error",        # HTTP 5xx
-    "access_blocked",      # HTTP 403/429 — a WAF blocked the crawl; site is
-                           # almost certainly fine for a real visitor
-    "gone",                # HTTP 410 — the page is permanently removed
-    "http_error",          # other HTTP 4xx (e.g. 404)
-    "empty",               # 2xx but no html body
-    "parked",              # domain-parking placeholder
-    "social_only",         # "website" is really a facebook/yelp/etc page
+    "live",  # fetched OK, real first-party content
+    "domain_unresolved",  # DNS lookup failed — the domain doesn't exist
+    "unreachable_timeout",  # connected attempt timed out
+    "unreachable",  # other connection failure
+    "server_error",  # HTTP 5xx
+    "access_blocked",  # HTTP 403/429 — a WAF blocked the crawl; site is
+    # almost certainly fine for a real visitor
+    "gone",  # HTTP 410 — the page is permanently removed
+    "http_error",  # other HTTP 4xx (e.g. 404)
+    "empty",  # 2xx but no html body
+    "parked",  # domain-parking placeholder
+    "social_only",  # "website" is really a facebook/yelp/etc page
 )
 
 
@@ -213,9 +231,12 @@ def classify_website(page: dict[str, Any]) -> str:
     err = (page.get("fetch_error") or "").lower()
 
     if status == 0:
-        if ("getaddrinfo" in err or "name or service not known" in err
-                or "nodename nor servname" in err
-                or "no address associated" in err):
+        if (
+            "getaddrinfo" in err
+            or "name or service not known" in err
+            or "nodename nor servname" in err
+            or "no address associated" in err
+        ):
             return "domain_unresolved"
         if "timeout" in err or "timed out" in err:
             return "unreachable_timeout"

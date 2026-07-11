@@ -36,6 +36,7 @@ The seven HKDF purposes mirror the ecosystem Security-Layer invariant
 (Anita / Optimus): ``hmac, tls, governance, transit, enclave, token,
 audit``.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -165,9 +166,7 @@ class KeyVault:
         Raises :class:`ValueError` for an unknown purpose.
         """
         if purpose not in PURPOSES:
-            raise ValueError(
-                f"unknown purpose {purpose!r}; expected one of {PURPOSES}"
-            )
+            raise ValueError(f"unknown purpose {purpose!r}; expected one of {PURPOSES}")
         cache_key = f"{purpose}:{self._generation}:{length}"
         with self._lock:
             cached = self._cache.get(cache_key)

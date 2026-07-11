@@ -4,6 +4,7 @@
 combination of objective + actions and returns ``(level, reasons)``.
 ``approval_decision(...)`` wraps it with explicit-approvals enforcement.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

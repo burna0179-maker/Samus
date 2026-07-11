@@ -6,6 +6,7 @@ Isolation: conftest points SAMUS_FEEDBACK_STORE_PATH at a per-process tmpfile
 and truncates it per test; the autouse fixture here additionally resets to a
 known-empty store at the start of each test.
 """
+
 from __future__ import annotations
 
 import json
@@ -31,6 +32,7 @@ def _store_file() -> str:
 # Persistence — survives "restart" (state lives on disk, not in a module dict)
 # ---------------------------------------------------------------------------
 
+
 def test_log_interaction_persists_to_disk():
     feedback_store.log_interaction("p1", "closed", "price", "seo", "pain")
 
@@ -49,8 +51,12 @@ def test_reads_reflect_on_disk_state_written_out_of_band():
     # through the public API. A module-level-dict store would not see this.
     with open(_store_file(), "w", encoding="utf-8") as fh:
         json.dump(
-            {"objections": {}, "closes": {"seo": 4},
-             "failures": {}, "angles": {"pain": {"wins": 3, "losses": 1}}},
+            {
+                "objections": {},
+                "closes": {"seo": 4},
+                "failures": {},
+                "angles": {"pain": {"wins": 3, "losses": 1}},
+            },
             fh,
         )
 
@@ -61,6 +67,7 @@ def test_reads_reflect_on_disk_state_written_out_of_band():
 # ---------------------------------------------------------------------------
 # Unification — crm.feedback_engine + outreach.metrics share ONE store
 # ---------------------------------------------------------------------------
+
 
 def test_crm_and_outreach_engines_accumulate_into_one_store():
     from backend.crm import feedback_engine
@@ -117,7 +124,9 @@ def test_pitch_angle_prefers_higher_winrate_applicable_angle():
     # visibility_gap closes far better than the deterministic pick time_leak.
     learned = {"time_leak": 0.1, "visibility_gap": 0.9}
     angle = intelligence.determine_pitch_angle(
-        _MULTI_SIGNALS, _MULTI_SCORES, learned_performance=learned,
+        _MULTI_SIGNALS,
+        _MULTI_SCORES,
+        learned_performance=learned,
     )
     assert angle == "visibility_gap"
 
@@ -131,7 +140,9 @@ def test_pitch_angle_never_picks_inapplicable_angle_even_with_high_winrate():
     # trust_gap has a perfect win-rate but does NOT apply here.
     learned = {"trust_gap": 1.0}
     angle = intelligence.determine_pitch_angle(
-        signals, scores, learned_performance=learned,
+        signals,
+        scores,
+        learned_performance=learned,
     )
     assert angle == "general_growth"
 
@@ -142,7 +153,9 @@ def test_pitch_angle_keeps_deterministic_pick_when_it_is_best():
     # Deterministic pick (time_leak) is also the best performer -> no change.
     learned = {"time_leak": 0.9, "visibility_gap": 0.2}
     angle = intelligence.determine_pitch_angle(
-        _MULTI_SIGNALS, _MULTI_SCORES, learned_performance=learned,
+        _MULTI_SIGNALS,
+        _MULTI_SCORES,
+        learned_performance=learned,
     )
     assert angle == "time_leak"
 
@@ -154,6 +167,8 @@ def test_pitch_angle_avoids_proven_loser_for_neutral_unsampled_peer():
     # which beats the proven loser, so selection moves off time_leak.
     learned = {"time_leak": 0.1}
     angle = intelligence.determine_pitch_angle(
-        _MULTI_SIGNALS, _MULTI_SCORES, learned_performance=learned,
+        _MULTI_SIGNALS,
+        _MULTI_SCORES,
+        learned_performance=learned,
     )
     assert angle == "visibility_gap"

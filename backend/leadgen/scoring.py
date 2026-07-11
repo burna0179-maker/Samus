@@ -3,6 +3,7 @@
 Deterministic, in-process scoring. All weights and thresholds live here so they
 can be tuned without touching the service orchestrator.
 """
+
 from __future__ import annotations
 
 from typing import Any

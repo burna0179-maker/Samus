@@ -13,6 +13,7 @@ Data: ``backend/website/data/uiux/{colors,typography,ui-reasoning}.csv`` —
 Pure-stdlib (csv), deterministic, zero-cost, loaded once + cached. Never raises
 on bad data — degrades to a neutral professional default.
 """
+
 from __future__ import annotations
 
 import csv
@@ -88,15 +89,22 @@ class DesignSystem:
     effects: str = "Subtle hover (200-250ms) + smooth transitions"
     anti_patterns: list[str] = field(default_factory=list)
     severity: str = ""
-    palette: dict[str, str] = field(default_factory=dict)      # name/primary/accent/background/text
-    typography: dict[str, str] = field(default_factory=dict)   # pairing/heading/body/css_import/google_url
+    palette: dict[str, str] = field(default_factory=dict)  # name/primary/accent/background/text
+    typography: dict[str, str] = field(
+        default_factory=dict
+    )  # pairing/heading/body/css_import/google_url
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "category": self.category, "pattern": self.pattern, "style": self.style,
-            "color_mood": self.color_mood, "typography_mood": self.typography_mood,
-            "effects": self.effects, "anti_patterns": list(self.anti_patterns),
-            "severity": self.severity, "palette": dict(self.palette),
+            "category": self.category,
+            "pattern": self.pattern,
+            "style": self.style,
+            "color_mood": self.color_mood,
+            "typography_mood": self.typography_mood,
+            "effects": self.effects,
+            "anti_patterns": list(self.anti_patterns),
+            "severity": self.severity,
+            "palette": dict(self.palette),
             "typography": dict(self.typography),
         }
 
@@ -109,7 +117,11 @@ def _read(path: Path) -> list[list[str]]:
         _LOG.warning("design data read failed (%s): %s", path, exc)
         return []
     # drop header row (first cell is "No")
-    return [r for r in rows[1:] if r] if rows and rows[0] and rows[0][0].strip().lower() == "no" else rows
+    return (
+        [r for r in rows[1:] if r]
+        if rows and rows[0] and rows[0][0].strip().lower() == "no"
+        else rows
+    )
 
 
 @lru_cache(maxsize=1)
@@ -121,15 +133,19 @@ def _palettes() -> list[dict[str, str]]:
         hexes = [h for h in r if _HEX.fullmatch(h.strip())]
         if not hexes:
             continue
+
         def at(i: int, default: str) -> str:
             return hexes[i] if i < len(hexes) else default
-        out.append({
-            "name": r[1].strip(),
-            "primary": at(0, "#2563EB"),
-            "accent": at(4, at(0, "#EA580C")),
-            "background": at(6, "#FFFFFF"),
-            "text": at(7, "#1E293B"),
-        })
+
+        out.append(
+            {
+                "name": r[1].strip(),
+                "primary": at(0, "#2563EB"),
+                "accent": at(4, at(0, "#EA580C")),
+                "background": at(6, "#FFFFFF"),
+                "text": at(7, "#1E293B"),
+            }
+        )
     return out
 
 
@@ -139,12 +155,18 @@ def _typography() -> list[dict[str, str]]:
     for r in _read(_DATA / "typography.csv"):
         if len(r) < 9:
             continue
-        out.append({
-            "pairing": r[1].strip(), "category": r[2].strip(),
-            "heading": r[3].strip(), "body": r[4].strip(),
-            "mood": r[5].strip(), "best_for": r[6].strip(),
-            "google_url": r[7].strip(), "css_import": r[8].strip(),
-        })
+        out.append(
+            {
+                "pairing": r[1].strip(),
+                "category": r[2].strip(),
+                "heading": r[3].strip(),
+                "body": r[4].strip(),
+                "mood": r[5].strip(),
+                "best_for": r[6].strip(),
+                "google_url": r[7].strip(),
+                "css_import": r[8].strip(),
+            }
+        )
     return out
 
 
@@ -154,16 +176,24 @@ def _rules() -> list[dict[str, str]]:
     for r in _read(_DATA / "ui-reasoning.csv"):
         if len(r) < 9:
             continue
-        out.append({
-            "category": r[1].strip(), "pattern": r[2].strip(), "style": r[3].strip(),
-            "color_mood": r[4].strip(), "typography_mood": r[5].strip(),
-            "effects": r[6].strip(), "anti_patterns": r[8].strip(),
-            "severity": r[9].strip() if len(r) > 9 else "",
-        })
+        out.append(
+            {
+                "category": r[1].strip(),
+                "pattern": r[2].strip(),
+                "style": r[3].strip(),
+                "color_mood": r[4].strip(),
+                "typography_mood": r[5].strip(),
+                "effects": r[6].strip(),
+                "anti_patterns": r[8].strip(),
+                "severity": r[9].strip() if len(r) > 9 else "",
+            }
+        )
     return out
 
 
-def _best(query: set[str], rows: list[dict[str, str]], fields: tuple[str, ...]) -> tuple[dict[str, str] | None, int]:
+def _best(
+    query: set[str], rows: list[dict[str, str]], fields: tuple[str, ...]
+) -> tuple[dict[str, str] | None, int]:
     best, best_score = None, 0
     for row in rows:
         text = " ".join(row.get(f, "") for f in fields)
@@ -191,7 +221,9 @@ def recommend(industry: str = "", description: str = "") -> DesignSystem:
         ds.effects = rule["effects"] or ds.effects
         ds.severity = rule["severity"]
         if rule["anti_patterns"]:
-            ds.anti_patterns = [a.strip() for a in re.split(r"[+,;]", rule["anti_patterns"]) if a.strip()]
+            ds.anti_patterns = [
+                a.strip() for a in re.split(r"[+,;]", rule["anti_patterns"]) if a.strip()
+            ]
 
     # palette: match on category name (palette names mirror the rule taxonomy)
     cat_tokens = _tokens(ds.category) | q
@@ -204,8 +236,11 @@ def recommend(industry: str = "", description: str = "") -> DesignSystem:
     typ, score = _best(type_q, _typography(), ("mood", "best_for", "category"))
     if typ and score > 0:
         ds.typography = {
-            "pairing": typ["pairing"], "heading": typ["heading"], "body": typ["body"],
-            "css_import": typ["css_import"], "google_url": typ["google_url"],
+            "pairing": typ["pairing"],
+            "heading": typ["heading"],
+            "body": typ["body"],
+            "css_import": typ["css_import"],
+            "google_url": typ["google_url"],
         }
     return ds
 

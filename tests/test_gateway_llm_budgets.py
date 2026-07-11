@@ -1,4 +1,5 @@
 """Gateway operator endpoint: GET /admin/llm_budgets."""
+
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
@@ -6,16 +7,17 @@ from fastapi.testclient import TestClient
 
 def _client():
     from backend.gateway.app import app
+
     return TestClient(app)
 
 
 def test_admin_endpoint_returns_one_row_per_workcell(monkeypatch):
     # Seed budget state for one workcell so the snapshot has non-zero fields.
     import backend.common.llm_budget as bm
+
     bm.reset_store()
     store = bm.get_store()
-    store.record_spend("prospecting", input_tokens=150, output_tokens=75,
-                       outcome="success")
+    store.record_spend("prospecting", input_tokens=150, output_tokens=75, outcome="success")
 
     r = _client().get("/admin/llm_budgets")
     assert r.status_code == 200, r.text
@@ -56,6 +58,7 @@ def test_admin_endpoint_exposes_store_constants():
 def test_admin_endpoint_degrades_when_snapshot_raises(monkeypatch):
     """A broken backend must not crash the operator view — degrade per-row."""
     import backend.common.llm_budget as bm
+
     bm.reset_store()
     store = bm.get_store()
 

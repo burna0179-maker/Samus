@@ -5,6 +5,7 @@ banking vehicles, other-evidence list). The loader validates the shape
 and tags ``registry_loaded`` so /snapshot can show "no hardship data
 on file" vs the populated case.
 """
+
 from __future__ import annotations
 
 import logging

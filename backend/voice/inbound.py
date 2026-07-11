@@ -25,6 +25,7 @@ This module must NOT import :mod:`backend.voice.service`: service imports it
 (the inbound fork in ``handle_webhook_event``), so the dependency is
 one-directional.
 """
+
 from __future__ import annotations
 
 import logging
@@ -55,6 +56,7 @@ _VALID_CALL_ID = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 # Outcome shape returned to the webhook router
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class InboundCallOutcome:
     """Result of handling one inbound receptionist call.
@@ -64,6 +66,7 @@ class InboundCallOutcome:
     skipped); a hard failure on any write flips it False so the operator
     sees the degradation in the audit ledger.
     """
+
     call_id: str
     customer_slug: str
     outcome: str = ""
@@ -80,6 +83,7 @@ class InboundCallOutcome:
 # ---------------------------------------------------------------------------
 # Extraction / classification helpers
 # ---------------------------------------------------------------------------
+
 
 def _extract_inbound_summary(structured: dict[str, Any] | None) -> InboundSummary:
     """Pull the assistant's structured ``inbound_summary`` from Vapi's payload.
@@ -127,8 +131,7 @@ def _parse_iso(raw: str | None) -> datetime | None:
         return None
 
 
-def _duration_seconds(duration_seconds: float | None,
-                      raw_call: dict[str, Any]) -> int:
+def _duration_seconds(duration_seconds: float | None, raw_call: dict[str, Any]) -> int:
     """Whole-second call duration.
 
     Prefers Vapi's ``durationSeconds`` off the end-of-call report; falls back
@@ -144,8 +147,7 @@ def _duration_seconds(duration_seconds: float | None,
     return 0
 
 
-def _classify_outcome(summary: InboundSummary, *, answered: bool,
-                      voicemail_left: bool) -> str:
+def _classify_outcome(summary: InboundSummary, *, answered: bool, voicemail_left: bool) -> str:
     """Single-word call outcome for the Conversation row + briefing rollup."""
     if not answered:
         return "missed"
@@ -160,19 +162,20 @@ def _classify_outcome(summary: InboundSummary, *, answered: bool,
     return "handled"
 
 
-def _is_urgent(summary: InboundSummary, config: ReceptionistConfig,
-               transcript: str, vapi_summary: str) -> bool:
+def _is_urgent(
+    summary: InboundSummary, config: ReceptionistConfig, transcript: str, vapi_summary: str
+) -> bool:
     """True when the assistant flagged urgency or an escalation keyword hit."""
     if summary.urgent:
         return True
     haystack = f"{transcript}\n{vapi_summary}\n{summary.reason_for_call or ''}".lower()
-    return any(kw.strip().lower() in haystack
-               for kw in config.escalation_keywords if kw.strip())
+    return any(kw.strip().lower() in haystack for kw in config.escalation_keywords if kw.strip())
 
 
 # ---------------------------------------------------------------------------
 # CRM dispatch (signed HMAC POST — best-effort, never raises)
 # ---------------------------------------------------------------------------
+
 
 async def _signed_crm_post(path: str, payload: dict[str, Any]) -> tuple[bool, str | None]:
     """POST ``payload`` to samus-crm at ``path``. Returns (ok, error_or_none)."""
@@ -192,8 +195,9 @@ async def _signed_crm_post(path: str, payload: dict[str, Any]) -> tuple[bool, st
     return True, None
 
 
-def _conversation_payload(record: InboundCallRecord, summary: InboundSummary,
-                          transcript: str, outcome: str) -> dict[str, Any]:
+def _conversation_payload(
+    record: InboundCallRecord, summary: InboundSummary, transcript: str, outcome: str
+) -> dict[str, Any]:
     """Body for ``POST /crm/conversations`` — an inbound-direction Conversation.
 
     ``conversation_id`` is derived from the Vapi call id so a webhook
@@ -223,8 +227,9 @@ def _conversation_payload(record: InboundCallRecord, summary: InboundSummary,
     }
 
 
-def _artifact_payload(record: InboundCallRecord, kind: str, title: str,
-                      storage_url: str, mime_type: str) -> dict[str, Any]:
+def _artifact_payload(
+    record: InboundCallRecord, kind: str, title: str, storage_url: str, mime_type: str
+) -> dict[str, Any]:
     """Body for ``POST /crm/artifacts`` — a persisted call artifact."""
     return {
         "kind": kind,
@@ -238,8 +243,9 @@ def _artifact_payload(record: InboundCallRecord, kind: str, title: str,
     }
 
 
-def _operator_task_payload(record: InboundCallRecord, summary: InboundSummary,
-                           kind: str, title: str, description: str) -> dict[str, Any]:
+def _operator_task_payload(
+    record: InboundCallRecord, summary: InboundSummary, kind: str, title: str, description: str
+) -> dict[str, Any]:
     """Body for ``POST /crm/operator-tasks`` — an appointment / callback to-do."""
     return {
         "kind": kind,
@@ -256,8 +262,10 @@ def _operator_task_payload(record: InboundCallRecord, summary: InboundSummary,
 # Metered usage dispatch (voice -> finance -> Stripe Meter)
 # ---------------------------------------------------------------------------
 
-async def _report_usage(config: ReceptionistConfig,
-                        record: InboundCallRecord) -> tuple[bool, str | None]:
+
+async def _report_usage(
+    config: ReceptionistConfig, record: InboundCallRecord
+) -> tuple[bool, str | None]:
     """Report the call's billable minutes to finance's Stripe-Meter route.
 
     The Stripe write lives in the finance workcell (one container holds the
@@ -306,8 +314,10 @@ async def _report_usage(config: ReceptionistConfig,
 # Client alert email
 # ---------------------------------------------------------------------------
 
-def _send_client_alert(config: ReceptionistConfig, record: InboundCallRecord,
-                       summary: InboundSummary, *, urgent: bool) -> bool:
+
+def _send_client_alert(
+    config: ReceptionistConfig, record: InboundCallRecord, summary: InboundSummary, *, urgent: bool
+) -> bool:
     """Email the client about a voicemail / urgent call. Best-effort.
 
     Returns True when an email was sent. Skips silently (returns False) when
@@ -337,7 +347,9 @@ def _send_client_alert(config: ReceptionistConfig, record: InboundCallRecord,
     body = "\n".join(lines)
     subject = f"[{config.business_name or 'Receptionist'}] {flavour} — {caller}"
     try:
-        send_email(to, subject, body, reply_to=config.summary_email or None, message_kind="transactional")
+        send_email(
+            to, subject, body, reply_to=config.summary_email or None, message_kind="transactional"
+        )
     except (EmailBackendError, NotImplementedError, ValueError) as exc:
         _LOG.warning("client alert email failed for %s: %s", config.customer_slug, exc)
         return False
@@ -348,8 +360,10 @@ def _send_client_alert(config: ReceptionistConfig, record: InboundCallRecord,
 # Entry point
 # ---------------------------------------------------------------------------
 
+
 async def handle_inbound_end_of_call(
-    event: Any, config: ReceptionistConfig,
+    event: Any,
+    config: ReceptionistConfig,
 ) -> InboundCallOutcome:
     """Process one inbound ``end-of-call-report`` for a receptionist client.
 
@@ -380,8 +394,7 @@ async def handle_inbound_end_of_call(
     # flag, so the assistant's structured ``message`` field is the signal.
     voicemail_left = bool(summary.message)
     duration_sec = _duration_seconds(msg.durationSeconds, raw_call)
-    outcome = _classify_outcome(summary, answered=answered,
-                                voicemail_left=voicemail_left)
+    outcome = _classify_outcome(summary, answered=answered, voicemail_left=voicemail_left)
 
     record = InboundCallRecord(
         call_id=call_id,
@@ -405,8 +418,10 @@ async def handle_inbound_end_of_call(
     )
 
     result = InboundCallOutcome(
-        call_id=call_id, customer_slug=config.customer_slug,
-        outcome=outcome, record=record,
+        call_id=call_id,
+        customer_slug=config.customer_slug,
+        outcome=outcome,
+        record=record,
     )
 
     # 2. CRM — inbound Conversation row.
@@ -426,7 +441,8 @@ async def handle_inbound_end_of_call(
         if not path:
             continue
         a_ok, a_err = await _signed_crm_post(
-            "/crm/artifacts", _artifact_payload(record, kind, title, path, mime),
+            "/crm/artifacts",
+            _artifact_payload(record, kind, title, path, mime),
         )
         if not a_ok and a_err:
             artifact_errs.append(f"{kind}:{a_err}")
@@ -443,7 +459,9 @@ async def handle_inbound_end_of_call(
         t_ok, t_err = await _signed_crm_post(
             "/crm/operator-tasks",
             _operator_task_payload(
-                record, summary, "schedule",
+                record,
+                summary,
+                "schedule",
                 f"Book appointment — {config.business_name or config.customer_slug}",
                 desc,
             ),
@@ -462,7 +480,9 @@ async def handle_inbound_end_of_call(
         t_ok, t_err = await _signed_crm_post(
             "/crm/operator-tasks",
             _operator_task_payload(
-                record, summary, "call",
+                record,
+                summary,
+                "call",
                 f"Call back {cb_number} — {config.business_name or config.customer_slug}",
                 desc,
             ),
@@ -484,8 +504,7 @@ async def handle_inbound_end_of_call(
     result.metered_ok = metered_ok
     result.metering_note = metering_note
     if not metered_ok:
-        _LOG.warning("usage metering not recorded for %s: %s",
-                     call_id, metering_note)
+        _LOG.warning("usage metering not recorded for %s: %s", call_id, metering_note)
 
     # Roll the result up. Artifact / task / metering failures are surfaced but
     # do not by themselves flip crm_ok — the Conversation row is the primary

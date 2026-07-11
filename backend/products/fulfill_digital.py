@@ -18,6 +18,7 @@ The function is callable-injectable for tests:
     - send_email_fn      : callable(to=, subject=, body=, attachments=) -> dict
     - artifact_root_path : override SAMUS_ARTIFACT_ROOT for tests
 """
+
 from __future__ import annotations
 
 import logging
@@ -63,6 +64,7 @@ class DigitalFulfillStep(BaseModel):
 
 class DigitalFulfillmentResult(BaseModel):
     """Audit trail of a fulfill_digital_product() invocation."""
+
     model_config = ConfigDict(extra="forbid")
 
     email: str
@@ -81,6 +83,7 @@ class DigitalFulfillmentResult(BaseModel):
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -93,6 +96,7 @@ def _resolve_artifact_root(override: Path | str | None) -> Path:
     if override is not None:
         return Path(override)
     import os
+
     return Path(os.getenv("SAMUS_ARTIFACT_ROOT", r"E:\Hustleforge\Samus\data\artifacts"))
 
 
@@ -137,6 +141,7 @@ def _email_body_pack(title: str, file_list: list[str], customer_name: str = "") 
 # Artifact producers
 # ---------------------------------------------------------------------------
 
+
 def _produce_playbook(
     cfg: ProductConfig,
     customer_dir: Path,
@@ -148,9 +153,7 @@ def _produce_playbook(
     """
     src = products_root() / cfg.artifact_relpath
     if not src.is_file():
-        raise FileNotFoundError(
-            f"playbook source missing for {cfg.sku_id!r}: {src}"
-        )
+        raise FileNotFoundError(f"playbook source missing for {cfg.sku_id!r}: {src}")
     customer_dir.mkdir(parents=True, exist_ok=True)
     dest = customer_dir / f"{cfg.sku_id}.md"
     shutil.copyfile(src, dest)
@@ -167,9 +170,7 @@ def _produce_pack(
     """
     src = products_root() / cfg.artifact_relpath
     if not src.is_dir():
-        raise FileNotFoundError(
-            f"pack source missing for {cfg.sku_id!r}: {src}"
-        )
+        raise FileNotFoundError(f"pack source missing for {cfg.sku_id!r}: {src}")
     customer_dir.mkdir(parents=True, exist_ok=True)
     pack_dir = customer_dir / cfg.sku_id
     if pack_dir.exists():
@@ -206,6 +207,7 @@ def _produce_addon(
 # Orchestrator
 # ---------------------------------------------------------------------------
 
+
 def fulfill_digital_product(
     *,
     sku_id: str,
@@ -238,33 +240,48 @@ def fulfill_digital_product(
         t0: float,
     ) -> DigitalFulfillStep:
         s = DigitalFulfillStep(
-            name=name, status=status, detail=detail, elapsed_ms=_ms_since(t0),
+            name=name,
+            status=status,
+            detail=detail,
+            elapsed_ms=_ms_since(t0),
         )
         steps.append(s)
         _LOG.info(
             "digital_fulfill_step",
             extra={
-                "step": name, "status": status, "detail": detail,
-                "email": email, "sku_id": sku_id,
+                "step": name,
+                "status": status,
+                "detail": detail,
+                "email": email,
+                "sku_id": sku_id,
             },
         )
         return s
 
     def _fail_result() -> DigitalFulfillmentResult:
         return DigitalFulfillmentResult(
-            email=email, sku_id=sku_id, customer_id=customer_id,
-            prior_state=prior_state, final_state=final_state,
-            artifact_path=artifact_path, email_message_id=email_message_id,
-            ok=False, steps=steps, ts=started,
+            email=email,
+            sku_id=sku_id,
+            customer_id=customer_id,
+            prior_state=prior_state,
+            final_state=final_state,
+            artifact_path=artifact_path,
+            email_message_id=email_message_id,
+            ok=False,
+            steps=steps,
+            ts=started,
         )
 
     # ---- 1. Look up the SKU ---------------------------------------------
     t0 = time.monotonic()
     try:
         cfg = get_any(sku_id)
-        _step("lookup_sku", "ok",
-              f"{cfg.kind if isinstance(cfg, ProductConfig) else 'addon'} "
-              f"-> {cfg.display_name}", t0)
+        _step(
+            "lookup_sku",
+            "ok",
+            f"{cfg.kind if isinstance(cfg, ProductConfig) else 'addon'} -> {cfg.display_name}",
+            t0,
+        )
     except UnknownSKUError as exc:
         _step("lookup_sku", "failed", str(exc), t0)
         return _fail_result()
@@ -272,10 +289,12 @@ def fulfill_digital_product(
     # ---- 2. Resolve injectables (after lookup so a bad SKU short-circuits) -
     if customer_store is None:
         from backend.memory.customers import CustomerStore
+
         customer_store = CustomerStore()
     if send_email_fn is None:
         from functools import partial
         from backend.common.email_backend import send_email as _real_send
+
         # Digital product delivery is CAN-SPAM transactional/relationship mail —
         # exempt from unsubscribe/postal rules (suppression still applies).
         send_email_fn = partial(_real_send, message_kind="transactional")
@@ -286,16 +305,25 @@ def fulfill_digital_product(
         existing = customer_store.get_by_email(email)
         if existing is not None:
             customer = existing
-            _step("find_or_create_customer", "ok",
-                  f"found existing {customer.id} (state={customer.current_state})",
-                  t0)
+            _step(
+                "find_or_create_customer",
+                "ok",
+                f"found existing {customer.id} (state={customer.current_state})",
+                t0,
+            )
         else:
             customer = customer_store.create_customer(
-                email=email, name=name, company=company,
+                email=email,
+                name=name,
+                company=company,
                 source=f"digital:{sku_id}",
             )
-            _step("find_or_create_customer", "ok",
-                  f"created {customer.id} in state={customer.current_state}", t0)
+            _step(
+                "find_or_create_customer",
+                "ok",
+                f"created {customer.id} in state={customer.current_state}",
+                t0,
+            )
         customer_id = customer.id
         prior_state = customer.current_state
         final_state = customer.current_state
@@ -306,20 +334,23 @@ def fulfill_digital_product(
     # ---- 4. Advance to in_delivery --------------------------------------
     t0 = time.monotonic()
     if customer.current_state in ("delivered", "renewed", "churned"):
-        _step("advance_to_in_delivery", "skipped",
-              f"current_state={customer.current_state} already past in_delivery",
-              t0)
+        _step(
+            "advance_to_in_delivery",
+            "skipped",
+            f"current_state={customer.current_state} already past in_delivery",
+            t0,
+        )
     elif customer.current_state == "in_delivery":
         _step("advance_to_in_delivery", "skipped", "already in_delivery", t0)
     else:
         try:
             event = customer_store.advance_state(
-                customer_id=customer.id, to_state="in_delivery",
+                customer_id=customer.id,
+                to_state="in_delivery",
                 reason=f"digital fulfill started ({sku_id})",
             )
             final_state = event.to_state
-            _step("advance_to_in_delivery", "ok",
-                  f"{event.from_state} -> in_delivery", t0)
+            _step("advance_to_in_delivery", "ok", f"{event.from_state} -> in_delivery", t0)
         except Exception as exc:
             _step("advance_to_in_delivery", "failed", str(exc), t0)
             return _fail_result()
@@ -341,8 +372,7 @@ def fulfill_digital_product(
                 content=cfg.deliverable_body,
                 customer_name=customer.name,
             )
-            _step("produce_artifact", "ok",
-                  f"addon brief -> {dest}", t0)
+            _step("produce_artifact", "ok", f"addon brief -> {dest}", t0)
 
         elif cfg.kind == "playbook":
             dest = _produce_playbook(cfg, customer_dir)
@@ -353,8 +383,7 @@ def fulfill_digital_product(
                 content=content,
                 customer_name=customer.name,
             )
-            _step("produce_artifact", "ok",
-                  f"playbook -> {dest}", t0)
+            _step("produce_artifact", "ok", f"playbook -> {dest}", t0)
 
         elif cfg.kind == "pack":
             pack_dir, zip_path, file_list = _produce_pack(cfg, customer_dir)
@@ -364,14 +393,19 @@ def fulfill_digital_product(
                 file_list=file_list,
                 customer_name=customer.name,
             )
-            attachments = [{
-                "filename": zip_path.name,
-                "content": zip_path.read_bytes(),
-                "mime_type": "application/zip",
-            }]
-            _step("produce_artifact", "ok",
-                  f"pack -> {pack_dir} (zip {zip_path.name}, "
-                  f"{len(file_list)} files)", t0)
+            attachments = [
+                {
+                    "filename": zip_path.name,
+                    "content": zip_path.read_bytes(),
+                    "mime_type": "application/zip",
+                }
+            ]
+            _step(
+                "produce_artifact",
+                "ok",
+                f"pack -> {pack_dir} (zip {zip_path.name}, {len(file_list)} files)",
+                t0,
+            )
         else:
             raise ValueError(f"unknown product kind: {cfg.kind!r}")
     except Exception as exc:
@@ -392,8 +426,7 @@ def fulfill_digital_product(
             send_result = send_email_fn(**send_kwargs)
             email_message_id = send_result.get("message_id")
             channel = send_result.get("channel", "?")
-            _step("send_email", "ok",
-                  f"{channel} message_id={email_message_id}", t0)
+            _step("send_email", "ok", f"{channel} message_id={email_message_id}", t0)
         except Exception as exc:
             _step("send_email", "failed", str(exc), t0)
             return _fail_result()
@@ -407,11 +440,12 @@ def fulfill_digital_product(
         if send_email:
             reason += f" (email message_id={email_message_id})"
         event = customer_store.advance_state(
-            customer_id=customer.id, to_state="delivered", reason=reason,
+            customer_id=customer.id,
+            to_state="delivered",
+            reason=reason,
         )
         final_state = event.to_state
-        _step("advance_to_delivered", "ok",
-              f"{event.from_state} -> delivered", t0)
+        _step("advance_to_delivered", "ok", f"{event.from_state} -> delivered", t0)
     except Exception as exc:
         _step("advance_to_delivered", "failed", str(exc), t0)
         return _fail_result()
@@ -422,6 +456,7 @@ def fulfill_digital_product(
     try:
         from datetime import datetime, timezone
         from backend.finance.upsell_queue import enqueue_upsell
+
         enqueue_upsell(
             customer_id=customer.id,
             customer_email=email,
@@ -432,10 +467,16 @@ def fulfill_digital_product(
         _LOG.warning("upsell enqueue failed for %s/%s: %s", email, sku_id, exc)
 
     return DigitalFulfillmentResult(
-        email=email, sku_id=sku_id, customer_id=customer_id,
-        prior_state=prior_state, final_state=final_state,
-        artifact_path=artifact_path, email_message_id=email_message_id,
-        ok=True, steps=steps, ts=started,
+        email=email,
+        sku_id=sku_id,
+        customer_id=customer_id,
+        prior_state=prior_state,
+        final_state=final_state,
+        artifact_path=artifact_path,
+        email_message_id=email_message_id,
+        ok=True,
+        steps=steps,
+        ts=started,
     )
 
 

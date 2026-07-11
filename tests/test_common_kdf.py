@@ -3,6 +3,7 @@
 Verifies the stdlib HKDF impl against the published RFC 5869 Test
 Case 1, plus the Samus namespace constants are stable.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -15,9 +16,7 @@ _RFC_IKM = bytes.fromhex("0b" * 22)
 _RFC_SALT = bytes.fromhex("000102030405060708090a0b0c")
 _RFC_INFO = bytes.fromhex("f0f1f2f3f4f5f6f7f8f9")
 _RFC_OKM_42 = bytes.fromhex(
-    "3cb25f25faacd57a90434f64d0362f2a"
-    "2d2d0a90cf1a5a4c5db02d56ecc4c5bf"
-    "34007208d5b887185865"
+    "3cb25f25faacd57a90434f64d0362f2a2d2d0a90cf1a5a4c5db02d56ecc4c5bf34007208d5b887185865"
 )
 
 

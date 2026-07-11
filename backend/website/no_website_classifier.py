@@ -12,6 +12,7 @@ Usage:
     for rec, cls in ranked:
         print(rec.company_name, cls.tier, cls.pitch_hook)
 """
+
 from __future__ import annotations
 
 from enum import Enum
@@ -24,36 +25,40 @@ from backend.website.models import WebsiteBrief
 
 # Statuses that indicate a prospect has no usable web presence.
 # Grouped by the pitch angle each warrants.
-_NO_WEBSITE_STATUSES = frozenset({
-    "no_website",       # no URL at all
-    "domain_unresolved",# DNS dead
-    "gone",             # HTTP 410
-    "parked",           # parked/placeholder domain
-    "social_only",      # Facebook/IG page only, no real site
-})
+_NO_WEBSITE_STATUSES = frozenset(
+    {
+        "no_website",  # no URL at all
+        "domain_unresolved",  # DNS dead
+        "gone",  # HTTP 410
+        "parked",  # parked/placeholder domain
+        "social_only",  # Facebook/IG page only, no real site
+    }
+)
 
-_BROKEN_STATUSES = frozenset({
-    "empty",            # blank page
-    "unreachable",      # generic unreachable
-    "unreachable_timeout",
-    "server_error",     # 5xx
-})
+_BROKEN_STATUSES = frozenset(
+    {
+        "empty",  # blank page
+        "unreachable",  # generic unreachable
+        "unreachable_timeout",
+        "server_error",  # 5xx
+    }
+)
 
 # access_blocked = WAF blocked the crawl; site is fine for humans → skip
 # live = working website → skip
 
 
 class WebsiteGap(str, Enum):
-    NO_WEBSITE = "no_website"   # truly absent
-    PARKED = "parked"           # domain exists but unused
-    SOCIAL_ONLY = "social_only" # only social profiles
-    GONE = "gone"               # domain gone / 410
-    BROKEN = "broken"           # broken / unreachable / empty
+    NO_WEBSITE = "no_website"  # truly absent
+    PARKED = "parked"  # domain exists but unused
+    SOCIAL_ONLY = "social_only"  # only social profiles
+    GONE = "gone"  # domain gone / 410
+    BROKEN = "broken"  # broken / unreachable / empty
 
 
 class WebsiteProspectTier(str, Enum):
-    HIGH_VALUE = "high_value"   # lead_score ≥70 AND contactable
-    QUICK_WIN = "quick_win"     # lead_score 45-69, or high-score but no contact
+    HIGH_VALUE = "high_value"  # lead_score ≥70 AND contactable
+    QUICK_WIN = "quick_win"  # lead_score 45-69, or high-score but no contact
     LOW_PRIORITY = "low_priority"
 
 
@@ -127,10 +132,7 @@ def _pitch_hook(record: ProspectRecord, gap: WebsiteGap) -> str:
             "and captures leads you're missing right now."
         )
     if gap == WebsiteGap.GONE:
-        return (
-            f"{name}'s website is gone. "
-            "Customers searching for you are hitting a dead end."
-        )
+        return f"{name}'s website is gone. Customers searching for you are hitting a dead end."
     # BROKEN
     return (
         f"{name}{suffix}'s website is down or broken. "

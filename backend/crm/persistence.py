@@ -10,6 +10,7 @@ Read endpoints use full-table ``scan`` with attribute filters in Phase 1.
 At current volume that's fine; GSIs (by prospect_id, by stage, by status)
 are deferred — see Phase 2+ notes in :mod:`backend.crm.__init__`.
 """
+
 from __future__ import annotations
 
 import logging
@@ -26,6 +27,7 @@ _LOG = logging.getLogger("samus.crm.persistence")
 # ---------------------------------------------------------------------------
 # Table accessors
 # ---------------------------------------------------------------------------
+
 
 def _prospects_table() -> Any:
     s = get_settings()
@@ -71,6 +73,7 @@ def _onboarding_leads_table() -> Any:
 # ---------------------------------------------------------------------------
 # Generic helpers (kept tiny — every workcell has its own variant of these)
 # ---------------------------------------------------------------------------
+
 
 def _coerce_floats(value: Any) -> Any:
     """Recursively convert floats to Decimal for a DynamoDB put.
@@ -133,7 +136,9 @@ _SCAN_PAGE_CAP = 20
 
 
 def safe_scan(
-    table: Any, *, limit: int = 50,
+    table: Any,
+    *,
+    limit: int = 50,
     filter_expression: Any = None,
     expression_attribute_values: dict[str, Any] | None = None,
     expression_attribute_names: dict[str, str] | None = None,

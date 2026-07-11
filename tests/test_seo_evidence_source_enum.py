@@ -6,6 +6,7 @@ Covers (Codex chapter 04 / ADR-009):
   * SeoIssue accepts every enum value as evidence_source and rejects
     any string that isn't in the Literal.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -62,7 +63,10 @@ def test_seo_issue_accepts_every_enum_value() -> None:
 
 def test_seo_issue_default_is_none() -> None:
     issue = SeoIssue(
-        id="x", severity="low", category="content", message="m",
+        id="x",
+        severity="low",
+        category="content",
+        message="m",
     )
     assert issue.evidence_source is None
 
@@ -70,7 +74,10 @@ def test_seo_issue_default_is_none() -> None:
 def test_seo_issue_rejects_unknown_source() -> None:
     with pytest.raises(ValidationError):
         SeoIssue(
-            id="x", severity="low", category="content", message="m",
+            id="x",
+            severity="low",
+            category="content",
+            message="m",
             evidence_source="llm_inferred",  # type: ignore[arg-type]
         )
 

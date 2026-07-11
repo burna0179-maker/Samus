@@ -21,6 +21,7 @@ legitimate reviews. The unconditional banned-phrase (G2) scan still runs over
 the Stake Sentence here as defence-in-depth; the downstream sequence
 re-validates an ``outreach_send`` at the actual send handoff.
 """
+
 from __future__ import annotations
 
 import logging
@@ -72,7 +73,10 @@ def _blocked(
 
 
 def _run_meaning_advisory(
-    req: RevenueTriggerRequest, *, opportunity_id: str, stake: str,
+    req: RevenueTriggerRequest,
+    *,
+    opportunity_id: str,
+    stake: str,
 ) -> None:
     """Emit the MFH advisory meaning-anchor assessment as a decision.made event.
 
@@ -85,12 +89,14 @@ def _run_meaning_advisory(
         from backend.common.business_events import DECISION_MADE, emit_business_event
         from backend.governance.mfh_evaluator import evaluate_meaning
 
-        assessment = evaluate_meaning({
-            "kind": "cash_engine_review",
-            "stake_sentence": stake,
-            "trigger_source": req.trigger_source,
-            "trigger_reason": getattr(req, "trigger_reason", "") or "",
-        })
+        assessment = evaluate_meaning(
+            {
+                "kind": "cash_engine_review",
+                "stake_sentence": stake,
+                "trigger_source": req.trigger_source,
+                "trigger_reason": getattr(req, "trigger_reason", "") or "",
+            }
+        )
         emit_business_event(
             DECISION_MADE,
             workcell="cash_engine",
@@ -106,7 +112,9 @@ def _run_meaning_advisory(
         if assessment.get("flagged"):
             _LOG.info(
                 "cash_engine MFH advisory flag prospect=%s opp=%s anchors=%s",
-                req.prospect_id, opportunity_id, assessment.get("anchors"),
+                req.prospect_id,
+                opportunity_id,
+                assessment.get("anchors"),
             )
     except Exception as exc:  # noqa: BLE001 — advisory telemetry never blocks
         _LOG.warning("cash_engine meaning advisory failed (proceeding): %s", exc)
@@ -200,6 +208,7 @@ def evaluate_gate(
     # non-opportunity block as "escalated"). Never breaks the gate.
     try:
         from backend.governance.karma import engine as karma
+
         decision = karma.check("opportunity_write")
         if not decision.allowed:
             return _blocked(

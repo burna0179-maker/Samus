@@ -4,16 +4,11 @@ The Gmail API client is replaced by a fake (no network); CRM service
 functions are stubbed so we can assert exactly what the poller asks
 them to create.
 """
+
 from __future__ import annotations
 
-from typing import Any
-
-import pytest
 
 from backend.intake.gmail_poller import (
-    DrainPassResult,
-    InboundEmailHandled,
-    ParsedInboundEmail,
     drain_once,
     handle_parsed_email,
     parse_rfc822,
@@ -73,25 +68,38 @@ def test_parse_rfc822_multipart_prefers_plain_over_html():
 # handle_parsed_email — CRM artifact + task wiring (with stubs)
 # ---------------------------------------------------------------------------
 
-def _stub_crm(monkeypatch, *, artifact_id="art_1", task_id="ot_1",
-              artifact_status="created", task_status="created",
-              capture: dict | None = None):
+
+def _stub_crm(
+    monkeypatch,
+    *,
+    artifact_id="art_1",
+    task_id="ot_1",
+    artifact_status="created",
+    task_status="created",
+    capture: dict | None = None,
+):
     """Replace CRM service functions used by the handler."""
 
     def _create_artifact(req):
         if capture is not None:
             capture["artifact_req"] = req
         from backend.crm.models import CreateArtifactResult
+
         return CreateArtifactResult(
-            status=artifact_status, artifact_id=artifact_id, ts="now",
+            status=artifact_status,
+            artifact_id=artifact_id,
+            ts="now",
         )
 
     def _create_task(req):
         if capture is not None:
             capture["task_req"] = req
         from backend.crm.models import CreateOperatorTaskResult
+
         return CreateOperatorTaskResult(
-            status=task_status, operator_task_id=task_id, ts="now",
+            status=task_status,
+            operator_task_id=task_id,
+            ts="now",
         )
 
     def _find_opp(email):
@@ -100,6 +108,7 @@ def _stub_crm(monkeypatch, *, artifact_id="art_1", task_id="ot_1",
         return capture.get("opp_id_returns", "") if capture else ""
 
     import backend.crm.service as crm_svc
+
     monkeypatch.setattr(crm_svc, "create_artifact", _create_artifact)
     monkeypatch.setattr(crm_svc, "create_operator_task", _create_task)
     monkeypatch.setattr(crm_svc, "find_opportunity_for_email", _find_opp)
@@ -119,35 +128,49 @@ def _stub_billing(monkeypatch, *, state="unknown"):
 
     def _summary(email, *, charges_limit=5):
         kwargs: dict = {
-            "email": email, "state": state, "ts": "now",
+            "email": email,
+            "state": state,
+            "ts": "now",
         }
         if state == "subscriber":
             kwargs["stripe_customer_id"] = "cus_x"
             kwargs["mrr_usd"] = 300.0
-            kwargs["active_subscriptions"] = [CustomerSubscriptionRow(
-                subscription_id="sub_1", status="active", mrr_usd=300.0,
-            )]
+            kwargs["active_subscriptions"] = [
+                CustomerSubscriptionRow(
+                    subscription_id="sub_1",
+                    status="active",
+                    mrr_usd=300.0,
+                )
+            ]
         elif state == "customer":
             kwargs["stripe_customer_id"] = "cus_x"
             kwargs["total_paid_usd"] = 100.0
-            kwargs["recent_charges"] = [CustomerChargeRow(
-                charge_id="ch_1", amount_usd=100.0, currency="usd",
-                status="succeeded", paid=True,
-                created_iso="2026-05-01T00:00:00Z",
-            )]
+            kwargs["recent_charges"] = [
+                CustomerChargeRow(
+                    charge_id="ch_1",
+                    amount_usd=100.0,
+                    currency="usd",
+                    status="succeeded",
+                    paid=True,
+                    created_iso="2026-05-01T00:00:00Z",
+                )
+            ]
         elif state == "lookup_failed":
             kwargs["lookup_error"] = "stripe_api_key_unset"
         return CustomerBillingSummary(**kwargs)
 
     import backend.finance.service as fin_svc
+
     monkeypatch.setattr(fin_svc, "get_customer_billing_summary", _summary)
 
 
 def test_handle_parsed_email_creates_artifact_and_task_for_unknown_sender(
-    monkeypatch, tmp_path,
+    monkeypatch,
+    tmp_path,
 ):
     monkeypatch.setenv(
-        "SAMUS_GMAIL_INBOX_LEDGER", str(tmp_path / "inbound.jsonl"),
+        "SAMUS_GMAIL_INBOX_LEDGER",
+        str(tmp_path / "inbound.jsonl"),
     )
     capture: dict = {"opp_id_returns": ""}
     _stub_crm(monkeypatch, capture=capture)
@@ -178,10 +201,12 @@ def test_handle_parsed_email_creates_artifact_and_task_for_unknown_sender(
 
 
 def test_handle_parsed_email_attaches_to_open_opportunity_when_found(
-    monkeypatch, tmp_path,
+    monkeypatch,
+    tmp_path,
 ):
     monkeypatch.setenv(
-        "SAMUS_GMAIL_INBOX_LEDGER", str(tmp_path / "inbound.jsonl"),
+        "SAMUS_GMAIL_INBOX_LEDGER",
+        str(tmp_path / "inbound.jsonl"),
     )
     capture: dict = {"opp_id_returns": "op_abc"}
     _stub_crm(monkeypatch, capture=capture)
@@ -203,17 +228,21 @@ def test_handle_parsed_email_attaches_to_open_opportunity_when_found(
 
 
 def test_handle_parsed_email_survives_billing_lookup_exception(
-    monkeypatch, tmp_path,
+    monkeypatch,
+    tmp_path,
 ):
     monkeypatch.setenv(
-        "SAMUS_GMAIL_INBOX_LEDGER", str(tmp_path / "inbound.jsonl"),
+        "SAMUS_GMAIL_INBOX_LEDGER",
+        str(tmp_path / "inbound.jsonl"),
     )
     capture: dict = {"opp_id_returns": ""}
     _stub_crm(monkeypatch, capture=capture)
 
     import backend.finance.service as fin_svc
+
     def _boom(email, *, charges_limit=5):
         raise RuntimeError("stripe down")
+
     monkeypatch.setattr(fin_svc, "get_customer_billing_summary", _boom)
 
     parsed = parse_rfc822(_PLAIN_TEXT_MSG)
@@ -228,6 +257,7 @@ def test_handle_parsed_email_survives_billing_lookup_exception(
 # ---------------------------------------------------------------------------
 # drain_once — full pass orchestration with a fake Gmail API client
 # ---------------------------------------------------------------------------
+
 
 class _FakeApiClient:
     """Minimal Gmail-API context-manager fake for drain_once tests.
@@ -273,17 +303,22 @@ def _override_poller_settings(monkeypatch, tmp_path, **overrides):
 
     class _S:
         pass
+
     s = _S()
     for k, v in defaults.items():
         setattr(s, k, v)
     import backend.intake.gmail_poller as poll_mod
+
     monkeypatch.setattr(poll_mod, "get_settings", lambda: s)
 
 
 def test_drain_once_disabled_when_credentials_missing(monkeypatch, tmp_path):
     _override_poller_settings(
-        monkeypatch, tmp_path,
-        gmail_inbox_email="", gmail_oauth_client_id="", gmail_oauth_client_secret="",
+        monkeypatch,
+        tmp_path,
+        gmail_inbox_email="",
+        gmail_oauth_client_id="",
+        gmail_oauth_client_secret="",
     )
     result = drain_once()
     assert result.enabled is False
@@ -292,7 +327,8 @@ def test_drain_once_disabled_when_credentials_missing(monkeypatch, tmp_path):
 
 def test_drain_once_disabled_when_only_client_secret_missing(monkeypatch, tmp_path):
     _override_poller_settings(
-        monkeypatch, tmp_path,
+        monkeypatch,
+        tmp_path,
         gmail_oauth_client_secret="",
     )
     result = drain_once()
@@ -326,7 +362,8 @@ def test_drain_once_treats_known_message_id_as_duplicate(monkeypatch, tmp_path):
     _override_poller_settings(monkeypatch, tmp_path)
     ledger_path = tmp_path / "inbound.jsonl"
     ledger_path.write_text(
-        '{"message_id": "<abc123@mail.example.com>"}\n', encoding="utf-8",
+        '{"message_id": "<abc123@mail.example.com>"}\n',
+        encoding="utf-8",
     )
     _stub_crm(monkeypatch, capture={"opp_id_returns": ""})
     _stub_billing(monkeypatch, state="unknown")
@@ -341,7 +378,9 @@ def test_drain_once_treats_known_message_id_as_duplicate(monkeypatch, tmp_path):
 
 def test_drain_once_caps_at_max_per_pass(monkeypatch, tmp_path):
     _override_poller_settings(
-        monkeypatch, tmp_path, gmail_inbox_max_per_pass=2,
+        monkeypatch,
+        tmp_path,
+        gmail_inbox_max_per_pass=2,
     )
     _stub_crm(monkeypatch, capture={"opp_id_returns": ""})
     _stub_billing(monkeypatch, state="unknown")

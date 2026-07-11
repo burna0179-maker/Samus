@@ -4,6 +4,7 @@ The generic test suite runs with ``SAMUS_RATE_LIMIT_ENABLED=0`` (set in
 conftest) so endpoint tests post unthrottled. These tests re-enable the
 limiter per-test to exercise the limiter contract directly.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -23,7 +24,8 @@ def _enable(monkeypatch, **scopes: int) -> None:
     monkeypatch.setenv("SAMUS_RATE_LIMIT_ENABLED", "1")
     for scope, limit in scopes.items():
         monkeypatch.setenv(
-            f"SAMUS_RATE_LIMIT_{scope.upper()}_PER_MINUTE", str(limit),
+            f"SAMUS_RATE_LIMIT_{scope.upper()}_PER_MINUTE",
+            str(limit),
         )
 
 
@@ -37,9 +39,7 @@ def test_allows_up_to_limit_then_denies(monkeypatch):
     _enable(monkeypatch, voice_call=3)
     # now is pinned so every call lands in the same fixed window.
     now = 1_000_000.0
-    decisions = [
-        check_rate_limit("voice_call", "1.2.3.4", now=now) for _ in range(4)
-    ]
+    decisions = [check_rate_limit("voice_call", "1.2.3.4", now=now) for _ in range(4)]
     assert [d.allowed for d in decisions] == [True, True, True, False]
     breach = decisions[-1]
     assert breach.scope == "voice_call"

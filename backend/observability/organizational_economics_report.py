@@ -34,6 +34,7 @@ No new top-level package; no source modules are refactored.
 Wire: enabled by default; kill-switch ``SAMUS_ORG_ECONOMICS_REPORT_ENABLED``
 (set 0/false/off to silence, matching production_health's convention).
 """
+
 from __future__ import annotations
 
 import logging
@@ -67,13 +68,17 @@ _TOP_WORKCELL_LIMIT = 3
 
 def _enabled() -> bool:
     return os.getenv("SAMUS_ORG_ECONOMICS_REPORT_ENABLED", "1").strip().lower() not in (
-        "0", "false", "no", "off",
+        "0",
+        "false",
+        "no",
+        "off",
     )
 
 
 # ---------------------------------------------------------------------------
 # Result shapes
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class MetricRow:
@@ -85,6 +90,7 @@ class MetricRow:
     ``sources_missing`` flips to True when the underlying source was
     unavailable and a neutral fallback was used.
     """
+
     name: str
     value: float
     unit: str
@@ -130,6 +136,7 @@ class OrganizationalEconomicsReport:
 # Source readers - each returns a MetricRow; fail-soft neutral on any error
 # ---------------------------------------------------------------------------
 
+
 def _coordination_cost(org_debt_reader: Optional[Callable[[], dict[str, Any]]]) -> MetricRow:
     """Total organizational debt as a coordination-cost proxy.
 
@@ -143,6 +150,7 @@ def _coordination_cost(org_debt_reader: Optional[Callable[[], dict[str, Any]]]) 
         reader = org_debt_reader
         if reader is None:
             from backend.governance.org_debt import org_debt_report
+
             reader = org_debt_report
         report = reader() or {}
         total = float(report.get("total_org_debt") or 0.0)
@@ -156,10 +164,14 @@ def _coordination_cost(org_debt_reader: Optional[Callable[[], dict[str, Any]]]) 
         return MetricRow(name, total, "sum_org_debt", source, detail)
     except Exception as exc:  # noqa: BLE001 - fail-soft neutral
         _LOG.debug("coordination_cost read failed: %s", exc)
-        return MetricRow(name, 0.0, "sum_org_debt", source, f"org_debt unavailable: {exc}", sources_missing=True)
+        return MetricRow(
+            name, 0.0, "sum_org_debt", source, f"org_debt unavailable: {exc}", sources_missing=True
+        )
 
 
-def _decision_latency(approvals_reader: Optional[Callable[[], list[dict[str, Any]]]], now_ts: float) -> MetricRow:
+def _decision_latency(
+    approvals_reader: Optional[Callable[[], list[dict[str, Any]]]], now_ts: float
+) -> MetricRow:
     """Median age of pending HOTL approvals - how long decisions wait.
 
     Long-pending approvals stall every gated action downstream (stake gate,
@@ -176,6 +188,7 @@ def _decision_latency(approvals_reader: Optional[Callable[[], list[dict[str, Any
 
             def reader() -> list[dict[str, Any]]:
                 return list_approvals(status=STATUS_PENDING, limit=200)
+
         rows = reader() or []
         ages_s: list[float] = []
         for row in rows:
@@ -191,11 +204,15 @@ def _decision_latency(approvals_reader: Optional[Callable[[], list[dict[str, Any
         ages_s.sort()
         median_s = ages_s[len(ages_s) // 2]
         median_h = median_s / 3600.0
-        detail = f"{len(ages_s)} pending, median age {median_h:.2f}h, oldest {ages_s[-1] / 3600.0:.2f}h"
+        detail = (
+            f"{len(ages_s)} pending, median age {median_h:.2f}h, oldest {ages_s[-1] / 3600.0:.2f}h"
+        )
         return MetricRow(name, round(median_h, 4), "hours_median", source, detail)
     except Exception as exc:  # noqa: BLE001 - fail-soft neutral
         _LOG.debug("decision_latency read failed: %s", exc)
-        return MetricRow(name, 0.0, "hours_median", source, f"approvals unavailable: {exc}", sources_missing=True)
+        return MetricRow(
+            name, 0.0, "hours_median", source, f"approvals unavailable: {exc}", sources_missing=True
+        )
 
 
 def _context_switching(org_debt_reader: Optional[Callable[[], dict[str, Any]]]) -> MetricRow:
@@ -213,6 +230,7 @@ def _context_switching(org_debt_reader: Optional[Callable[[], dict[str, Any]]]) 
         reader = org_debt_reader
         if reader is None:
             from backend.governance.org_debt import org_debt_report
+
             reader = org_debt_report
         report = reader() or {}
         rows = report.get("workcells") or []
@@ -221,12 +239,19 @@ def _context_switching(org_debt_reader: Optional[Callable[[], dict[str, Any]]]) 
             return MetricRow(name, 0.0, "stddev_org_debt", source, "no workcells reported")
         mean = sum(debts) / len(debts)
         variance = sum((d - mean) ** 2 for d in debts) / len(debts)
-        stddev = variance ** 0.5
+        stddev = variance**0.5
         detail = f"{len(debts)} workcells, mean debt {mean:.3f}, stddev {stddev:.3f}"
         return MetricRow(name, round(stddev, 4), "stddev_org_debt", source, detail)
     except Exception as exc:  # noqa: BLE001 - fail-soft neutral
         _LOG.debug("context_switching read failed: %s", exc)
-        return MetricRow(name, 0.0, "stddev_org_debt", source, f"org_debt unavailable: {exc}", sources_missing=True)
+        return MetricRow(
+            name,
+            0.0,
+            "stddev_org_debt",
+            source,
+            f"org_debt unavailable: {exc}",
+            sources_missing=True,
+        )
 
 
 def _cognitive_overhead(
@@ -246,8 +271,12 @@ def _cognitive_overhead(
         reader = saturation_reader
         if reader is None:
             return MetricRow(
-                name, 0.0, "mean_saturation_risk", source,
-                "no trials-by-vertical supplier configured", sources_missing=True,
+                name,
+                0.0,
+                "mean_saturation_risk",
+                source,
+                "no trials-by-vertical supplier configured",
+                sources_missing=True,
             )
         risks = reader() or {}
         if not risks:
@@ -259,7 +288,14 @@ def _cognitive_overhead(
         return MetricRow(name, round(mean, 4), "mean_saturation_risk", source, detail)
     except Exception as exc:  # noqa: BLE001 - fail-soft neutral
         _LOG.debug("cognitive_overhead read failed: %s", exc)
-        return MetricRow(name, 0.0, "mean_saturation_risk", source, f"saturation unavailable: {exc}", sources_missing=True)
+        return MetricRow(
+            name,
+            0.0,
+            "mean_saturation_risk",
+            source,
+            f"saturation unavailable: {exc}",
+            sources_missing=True,
+        )
 
 
 def _approval_friction(
@@ -293,6 +329,7 @@ def _approval_friction(
                     STATUS_REJECTED: list_approvals(status=STATUS_REJECTED, limit=200),
                     STATUS_EXPIRED: list_approvals(status=STATUS_EXPIRED, limit=200),
                 }
+
         buckets = reader() or {}
         counts = {status: len(rows or []) for status, rows in buckets.items()}
         total = sum(counts.values())
@@ -308,7 +345,14 @@ def _approval_friction(
         return MetricRow(name, round(friction, 4), "expired_share", source, detail)
     except Exception as exc:  # noqa: BLE001 - fail-soft neutral
         _LOG.debug("approval_friction read failed: %s", exc)
-        return MetricRow(name, 0.0, "expired_share", source, f"approvals unavailable: {exc}", sources_missing=True)
+        return MetricRow(
+            name,
+            0.0,
+            "expired_share",
+            source,
+            f"approvals unavailable: {exc}",
+            sources_missing=True,
+        )
 
 
 def _communication_entropy(
@@ -328,24 +372,37 @@ def _communication_entropy(
         reader = regret_reader
         if reader is None:
             return MetricRow(
-                name, 0.0, "regret_per_token", source,
-                "no regret-supplier configured", sources_missing=True,
+                name,
+                0.0,
+                "regret_per_token",
+                source,
+                "no regret-supplier configured",
+                sources_missing=True,
             )
         cumulative, token_spend = reader()
         cumulative = float(cumulative)
         token_spend = float(token_spend) if token_spend else _REGRET_TOKEN_BASELINE
         from backend.strategy.regret_engine import regret_per_token
+
         rpt = regret_per_token(cumulative, token_spend)
         detail = f"cumulative regret {cumulative:.4f} over token_spend {token_spend:.2f}"
         return MetricRow(name, round(rpt, 6), "regret_per_token", source, detail)
     except Exception as exc:  # noqa: BLE001 - fail-soft neutral
         _LOG.debug("communication_entropy read failed: %s", exc)
-        return MetricRow(name, 0.0, "regret_per_token", source, f"regret unavailable: {exc}", sources_missing=True)
+        return MetricRow(
+            name,
+            0.0,
+            "regret_per_token",
+            source,
+            f"regret unavailable: {exc}",
+            sources_missing=True,
+        )
 
 
 # ---------------------------------------------------------------------------
 # ISO helper - kept local to avoid coupling to approvals internals
 # ---------------------------------------------------------------------------
+
 
 def _iso_to_epoch(value: str) -> float:
     import calendar
@@ -359,6 +416,7 @@ def _iso_to_epoch(value: str) -> float:
 # ---------------------------------------------------------------------------
 # Orchestrator
 # ---------------------------------------------------------------------------
+
 
 def compute_organizational_economics(
     *,
@@ -392,6 +450,7 @@ def compute_organizational_economics(
 # ---------------------------------------------------------------------------
 # CLI - ad-hoc run, mirrors production_health.main() shape
 # ---------------------------------------------------------------------------
+
 
 def main(argv: Optional[list[str]] = None) -> int:  # noqa: ARG001 - argv reserved
     logging.basicConfig(

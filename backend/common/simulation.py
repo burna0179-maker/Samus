@@ -31,6 +31,7 @@ conservative "unknown effect, unknown cost, would_succeed unknown" result
 best-effort; a read failure means ``has`` returns False (fail-CLOSED for the
 gate: no proof of simulation -> refuse).
 """
+
 from __future__ import annotations
 
 import json
@@ -54,17 +55,19 @@ _LOCK = threading.Lock()
 # dispatch/plan-step action name. Kept small + explicit so the gate never
 # over-fires on an internal compute step. Extend deliberately as new
 # building-leaving actions are wired.
-EXTERNAL_EFFECT_ACTIONS: frozenset[str] = frozenset({
-    "send_message",            # outreach — email/voicemail send
-    "outreach_send",           # outreach — alt name at some call sites
-    "initiate_call",           # voice — Vapi outbound dial
-    "voice_dial",              # voice — alt name
-    "payment_link",            # finance — create a payable link
-    "create_invoice",          # finance — issue an invoice
-    "publish",                 # website / social — publish live
-    "publish_post",            # social — publish a post
-    "cash_engine_step",        # cash_engine — advances a revenue sequence
-})
+EXTERNAL_EFFECT_ACTIONS: frozenset[str] = frozenset(
+    {
+        "send_message",  # outreach — email/voicemail send
+        "outreach_send",  # outreach — alt name at some call sites
+        "initiate_call",  # voice — Vapi outbound dial
+        "voice_dial",  # voice — alt name
+        "payment_link",  # finance — create a payable link
+        "create_invoice",  # finance — issue an invoice
+        "publish",  # website / social — publish live
+        "publish_post",  # social — publish a post
+        "cash_engine_step",  # cash_engine — advances a revenue sequence
+    }
+)
 
 
 def is_external_effect(action: str | None) -> bool:
@@ -79,7 +82,7 @@ class SimulationResult:
     decision_id: str
     action: str
     target: str = ""
-    would_succeed: bool | None = None      # None = unknown (unmodelled)
+    would_succeed: bool | None = None  # None = unknown (unmodelled)
     predicted_cost_usd: float = 0.0
     predicted_effect: dict[str, Any] = field(default_factory=dict)
     notes: str = ""
@@ -95,6 +98,7 @@ class SimulationResult:
 # ---------------------------------------------------------------------------
 # Durable registry
 # ---------------------------------------------------------------------------
+
 
 def ledger_path() -> Path:
     explicit = os.environ.get(ENV_LEDGER, "").strip()
@@ -157,6 +161,7 @@ def has(decision_id: str) -> bool:
 # Dry-run action simulators
 # ---------------------------------------------------------------------------
 
+
 def _simulate_send(payload: dict[str, Any]) -> tuple[bool | None, float, dict, str]:
     """Predict an outreach send: deliverable iff a recipient is present."""
     to = str(payload.get("to") or payload.get("email") or "").strip()
@@ -176,8 +181,9 @@ def _simulate_send(payload: dict[str, Any]) -> tuple[bool | None, float, dict, s
 
 def _simulate_call(payload: dict[str, Any]) -> tuple[bool | None, float, dict, str]:
     """Predict a voice dial: placeable iff a destination number is present."""
-    to = str(payload.get("customer_number") or payload.get("to")
-             or payload.get("phone") or "").strip()
+    to = str(
+        payload.get("customer_number") or payload.get("to") or payload.get("phone") or ""
+    ).strip()
     would = bool(to)
     # Rough per-call Vapi estimate (a short connect). Real cost is metered post-hoc.
     cost = 0.0 if not would else 0.03
@@ -188,8 +194,7 @@ def _simulate_call(payload: dict[str, Any]) -> tuple[bool | None, float, dict, s
 
 def _simulate_publish(payload: dict[str, Any]) -> tuple[bool | None, float, dict, str]:
     """Predict a publish: possible iff there is content/target to publish."""
-    target = str(payload.get("url") or payload.get("page")
-                 or payload.get("target") or "").strip()
+    target = str(payload.get("url") or payload.get("page") or payload.get("target") or "").strip()
     has_content = bool(payload.get("content") or payload.get("body") or target)
     would = has_content
     effect = {"target": target, "has_content": has_content}
@@ -265,6 +270,7 @@ def simulate_action(
 # ---------------------------------------------------------------------------
 # Dispatch gate — the mandatory "no external effect without simulation" check
 # ---------------------------------------------------------------------------
+
 
 class SimulationRequired(RuntimeError):
     """Raised when an external-effect dispatch lacks a passing simulation.

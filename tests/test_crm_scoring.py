@@ -1,4 +1,5 @@
 """Unit tests for CRM deal scoring helpers (pure functions)."""
+
 from __future__ import annotations
 
 import pytest
@@ -16,19 +17,23 @@ from backend.crm.scoring import (
 # classify_tier — boundary checks at 40 / 70 / 90
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("score,expected", [
-    (0, "low"),
-    (1, "low"),
-    (39, "low"),
-    (40, "warm"),
-    (50, "warm"),
-    (69, "warm"),
-    (70, "hot"),
-    (80, "hot"),
-    (89, "hot"),
-    (90, "priority"),
-    (100, "priority"),
-])
+
+@pytest.mark.parametrize(
+    "score,expected",
+    [
+        (0, "low"),
+        (1, "low"),
+        (39, "low"),
+        (40, "warm"),
+        (50, "warm"),
+        (69, "warm"),
+        (70, "hot"),
+        (80, "hot"),
+        (89, "hot"),
+        (90, "priority"),
+        (100, "priority"),
+    ],
+)
 def test_classify_tier_boundaries(score, expected):
     assert classify_tier(score) == expected
 
@@ -47,6 +52,7 @@ def test_tier_close_probability_monotonic():
 # ---------------------------------------------------------------------------
 # estimate_deal_size_usd
 # ---------------------------------------------------------------------------
+
 
 def test_estimate_deal_size_500_2000_band_single_service():
     # midpoint=1250 -> annual=15000
@@ -87,6 +93,7 @@ def test_estimate_deal_size_unknown_budget_returns_zero():
 # ---------------------------------------------------------------------------
 # score_opportunity_from_lead — composite
 # ---------------------------------------------------------------------------
+
 
 def test_score_opportunity_priority_tier_high_budget():
     lead = {
@@ -136,6 +143,7 @@ def test_score_opportunity_handles_non_list_services():
 # ---------------------------------------------------------------------------
 # effective_deal_size_usd — ranking fallback for budget-unknown opps
 # ---------------------------------------------------------------------------
+
 
 def test_effective_deal_size_zero_returns_floor():
     assert effective_deal_size_usd(0.0) == 1200.0

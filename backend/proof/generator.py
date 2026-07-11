@@ -6,10 +6,10 @@ renders it to markdown, and attaches Article JSON-LD via
 :mod:`backend.seo.schema_builder`. An optional budget-gated LLM call polishes
 the connective narrative; it always degrades to a deterministic assembly.
 """
+
 from __future__ import annotations
 
 import logging
-import os
 
 from backend.proof.models import CaseStudy, CaseStudyInput, ProofPoint, ProofWall
 from backend.seo import schema_builder
@@ -76,7 +76,9 @@ def _narrative_templated(data: CaseStudyInput) -> str:
             f"{data.company}{f', a {data.size},' if data.size else ''} faced a clear problem: {data.challenge}"
         )
     if data.tried_before:
-        parts.append(f"Before Hustleforge, they tried {data.tried_before} — without the result they needed.")
+        parts.append(
+            f"Before Hustleforge, they tried {data.tried_before} — without the result they needed."
+        )
     if data.solution_used:
         parts.append(f"With Hustleforge, they {data.solution_used}.")
     if data.results:
@@ -204,7 +206,13 @@ def handle_build_proof_wall(payload: dict) -> dict:
         "count": wall.count,
         "industries": wall.industries,
         "points": [
-            {"company": p.company, "result": p.result, "quote": p.quote, "author": p.author, "industry": p.industry}
+            {
+                "company": p.company,
+                "result": p.result,
+                "quote": p.quote,
+                "author": p.author,
+                "industry": p.industry,
+            }
             for p in wall.points
         ],
     }

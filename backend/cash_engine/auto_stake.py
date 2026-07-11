@@ -27,11 +27,11 @@ Knobs (env, read directly so they're tunable without a redeploy):
 This module is the SINGLE source of auto-staking; callers (control_tick
 loop, operator HTTP route) just invoke :func:`run_auto_stake_sweep`.
 """
+
 from __future__ import annotations
 
 import logging
 import os
-import uuid
 from typing import Any
 
 _LOG = logging.getLogger("samus.cash_engine.auto_stake")
@@ -242,8 +242,7 @@ def _stake_one(prospect: dict[str, Any]) -> dict[str, Any]:
         opp_id = getattr(creation, "opportunity_id", "") or ""
         status = str(getattr(creation, "status", ""))
         if status != "created" or not opp_id:
-            return {"ok": False, "prospect_id": pid,
-                    "error": f"create_status:{status}"}
+            return {"ok": False, "prospect_id": pid, "error": f"create_status:{status}"}
     except Exception as exc:  # noqa: BLE001
         return {"ok": False, "prospect_id": pid, "error": f"create_failed:{exc}"}
 
@@ -263,8 +262,12 @@ def _stake_one(prospect: dict[str, Any]) -> dict[str, Any]:
             "task_id": str(getattr(result, "task_id", "")),
         }
     except Exception as exc:  # noqa: BLE001
-        return {"ok": False, "prospect_id": pid, "opportunity_id": opp_id,
-                "error": f"review_failed:{exc}"}
+        return {
+            "ok": False,
+            "prospect_id": pid,
+            "opportunity_id": opp_id,
+            "error": f"review_failed:{exc}",
+        }
 
 
 def run_auto_stake_sweep() -> dict[str, Any]:
@@ -275,8 +278,7 @@ def run_auto_stake_sweep() -> dict[str, Any]:
     revenue heartbeat goes silent. Errors are captured in the result.
     """
     if not _sweep_enabled():
-        return {"enabled": False, "scanned": 0, "staked": 0, "skipped": 0,
-                "results": []}
+        return {"enabled": False, "scanned": 0, "staked": 0, "skipped": 0, "results": []}
 
     # Defensive: review_opportunity fail-closes with "codex registry not
     # loaded" if it's called outside the gateway HTTP app lifespan that
@@ -286,6 +288,7 @@ def run_auto_stake_sweep() -> dict[str, Any]:
     # path. Idempotent; cheap; never raises.
     try:
         from backend.common.codex import REGISTRY  # noqa: PLC0415
+
         if not REGISTRY.is_loaded():
             REGISTRY.load()
     except Exception:  # noqa: BLE001 — codex must never block the sweep
@@ -298,12 +301,15 @@ def run_auto_stake_sweep() -> dict[str, Any]:
     # which pauses autonomous expansion). Fail-soft — never breaks the sweep.
     try:
         from backend.heat import service as _heat
+
         _mult = _heat.send_multiplier_now()
         if _mult < 1.0:
             scaled = int(max_per_sweep * _mult)
             _LOG.info(
                 "auto-stake heat throttle: mult=%.2f max_per_sweep %d->%d",
-                _mult, max_per_sweep, scaled,
+                _mult,
+                max_per_sweep,
+                scaled,
             )
             max_per_sweep = scaled
     except Exception as exc:  # noqa: BLE001 — heat must never break the sweep
@@ -313,8 +319,12 @@ def run_auto_stake_sweep() -> dict[str, Any]:
 
     candidates = _candidates(scan_limit=scan_limit, min_lead=min_lead)
     scanned = len(candidates)
-    _LOG.info("auto-stake sweep: scanned=%d min_lead=%d max_per_sweep=%d",
-              scanned, min_lead, max_per_sweep)
+    _LOG.info(
+        "auto-stake sweep: scanned=%d min_lead=%d max_per_sweep=%d",
+        scanned,
+        min_lead,
+        max_per_sweep,
+    )
 
     # Sort candidates by lead_score DESC so the highest-confidence prospects
     # take the limited slots when more pass the bar than max_per_sweep.
@@ -323,6 +333,7 @@ def run_auto_stake_sweep() -> dict[str, Any]:
             return int(p.get("lead_score") or 0)
         except (ValueError, TypeError):
             return 0
+
     candidates.sort(key=_ls, reverse=True)
 
     # Highest qualified score in the pool (candidates are sorted DESC above).
@@ -358,8 +369,12 @@ def run_auto_stake_sweep() -> dict[str, Any]:
     staked = len([r for r in results if r.get("ok")])
     failed = len(results) - staked
     summary = {
-        "enabled": True, "scanned": scanned, "staked": staked,
-        "skipped": skipped, "failed": failed, "top_score": top_score,
+        "enabled": True,
+        "scanned": scanned,
+        "staked": staked,
+        "skipped": skipped,
+        "failed": failed,
+        "top_score": top_score,
         "skip_reasons": {
             "no_pid": skip_no_pid,
             "already_staked": skip_has_opp,
@@ -370,8 +385,14 @@ def run_auto_stake_sweep() -> dict[str, Any]:
     _LOG.info(
         "auto-stake sweep complete: scanned=%d staked=%d skipped=%d failed=%d "
         "top_score=%d (skip: already_staked=%d recently_contacted=%d no_pid=%d)",
-        scanned, staked, skipped, failed, top_score,
-        skip_has_opp, skip_recent, skip_no_pid,
+        scanned,
+        staked,
+        skipped,
+        failed,
+        top_score,
+        skip_has_opp,
+        skip_recent,
+        skip_no_pid,
     )
     if scanned > 0 and staked == 0:
         _LOG.warning(
@@ -379,7 +400,12 @@ def run_auto_stake_sweep() -> dict[str, Any]:
             "(min_lead=%d, top_score=%d): already_staked=%d recently_contacted=%d "
             "no_pid=%d — qualified pool appears saturated; replenish upstream "
             "(email enrichment / fresh discovery) rather than lowering the bar",
-            scanned, min_lead, top_score, skip_has_opp, skip_recent, skip_no_pid,
+            scanned,
+            min_lead,
+            top_score,
+            skip_has_opp,
+            skip_recent,
+            skip_no_pid,
         )
     return summary
 

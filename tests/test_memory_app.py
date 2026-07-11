@@ -1,4 +1,5 @@
 """TestClient smoke for backend.memory.app."""
+
 from __future__ import annotations
 
 

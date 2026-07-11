@@ -7,6 +7,7 @@ Covers:
   * autonomy.run_cycle SIMULATE phase
   * cash_engine stage dry-run paths
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock
@@ -18,12 +19,15 @@ import pytest
 # simulate_action + registry
 # ---------------------------------------------------------------------------
 
+
 def test_simulate_send_predicts_deliverable(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_SIMULATION_LEDGER_PATH", str(tmp_path / "sim.jsonl"))
     from backend.common import simulation
 
     res = simulation.simulate_action(
-        "send_message", decision_id="d1", target="outreach",
+        "send_message",
+        decision_id="d1",
+        target="outreach",
         payload={"to": "owner@acme.com", "subject": "hi", "body": "hello"},
     )
     assert res.would_succeed is True
@@ -39,7 +43,9 @@ def test_simulate_send_without_recipient_predicts_no_send(tmp_path, monkeypatch)
     from backend.common import simulation
 
     res = simulation.simulate_action(
-        "send_message", decision_id="d2", payload={"subject": "hi", "body": "x"},
+        "send_message",
+        decision_id="d2",
+        payload={"subject": "hi", "body": "x"},
     )
     assert res.would_succeed is False
     assert res.predicted_cost_usd == 0.0
@@ -58,6 +64,7 @@ def test_simulate_unmodelled_action_is_unknown_but_recorded(tmp_path, monkeypatc
 def test_has_is_fail_closed_when_absent(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_SIMULATION_LEDGER_PATH", str(tmp_path / "sim.jsonl"))
     from backend.common import simulation
+
     assert simulation.has("never-simulated") is False
 
 
@@ -65,9 +72,11 @@ def test_has_is_fail_closed_when_absent(tmp_path, monkeypatch):
 # gate_dispatch
 # ---------------------------------------------------------------------------
 
+
 def test_gate_passes_non_external_effect(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_SIMULATION_LEDGER_PATH", str(tmp_path / "sim.jsonl"))
     from backend.common import simulation
+
     # A non-external action is never gated (returns None, no raise).
     assert simulation.gate_dispatch("score", decision_id="d") is None
 
@@ -75,6 +84,7 @@ def test_gate_passes_non_external_effect(tmp_path, monkeypatch):
 def test_gate_refuses_missing_simulation(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_SIMULATION_LEDGER_PATH", str(tmp_path / "sim.jsonl"))
     from backend.common import simulation
+
     with pytest.raises(simulation.SimulationRequired) as ei:
         simulation.gate_dispatch("send_message", decision_id="dX")
     assert ei.value.reason == "missing_simulation"
@@ -83,8 +93,10 @@ def test_gate_refuses_missing_simulation(tmp_path, monkeypatch):
 def test_gate_passes_with_recorded_simulation(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_SIMULATION_LEDGER_PATH", str(tmp_path / "sim.jsonl"))
     from backend.common import simulation
+
     simulation.simulate_action(
-        "send_message", decision_id="dY",
+        "send_message",
+        decision_id="dY",
         payload={"to": "a@b.com", "body": "hi"},
     )
     sim = simulation.gate_dispatch("send_message", decision_id="dY")
@@ -94,6 +106,7 @@ def test_gate_passes_with_recorded_simulation(tmp_path, monkeypatch):
 def test_gate_high_risk_refuses_failed_simulation(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_SIMULATION_LEDGER_PATH", str(tmp_path / "sim.jsonl"))
     from backend.common import simulation
+
     # Simulation predicts failure (no recipient) — HIGH risk must refuse.
     simulation.simulate_action("send_message", decision_id="dZ", payload={})
     with pytest.raises(simulation.SimulationRequired) as ei:
@@ -105,13 +118,16 @@ def test_gate_high_risk_refuses_failed_simulation(tmp_path, monkeypatch):
 # gateway /dispatch gate
 # ---------------------------------------------------------------------------
 
+
 def _gateway_client(monkeypatch):
     monkeypatch.setenv("SAMUS_SHARED_HMAC_KEY", "test-hmac-key")
     from backend.common.settings import reload_settings
+
     reload_settings()
     from fastapi.testclient import TestClient
     from backend.gateway import sqs_dispatch
     from backend.gateway.app import create_app
+
     sqs_dispatch.reload_queue_urls()
     return TestClient(create_app())
 
@@ -119,11 +135,14 @@ def _gateway_client(monkeypatch):
 def test_dispatch_refuses_unsimulated_external_action(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_SIMULATION_LEDGER_PATH", str(tmp_path / "sim.jsonl"))
     client = _gateway_client(monkeypatch)
-    resp = client.post("/dispatch/outreach", json={
-        "task_id": "t-ext",
-        "payload": {"to": "x@y.com"},
-        "metadata": {"action": "send_message", "decision_id": "dGate"},
-    })
+    resp = client.post(
+        "/dispatch/outreach",
+        json={
+            "task_id": "t-ext",
+            "payload": {"to": "x@y.com"},
+            "metadata": {"action": "send_message", "decision_id": "dGate"},
+        },
+    )
     assert resp.status_code == 409, resp.text
     detail = resp.json()["detail"]
     assert detail["error"] == "simulation_required"
@@ -135,16 +154,20 @@ def test_dispatch_allows_internal_action(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_SIMULATION_LEDGER_PATH", str(tmp_path / "sim.jsonl"))
     client = _gateway_client(monkeypatch)
     from backend.gateway import sqs_dispatch
+
     monkeypatch.setitem(sqs_dispatch.QUEUE_URLS, "leadgen", "https://sqs.example/leadgen")
     fake_sqs = MagicMock()
     fake_sqs.send_message = MagicMock(return_value={"MessageId": "m1"})
     monkeypatch.setattr(sqs_dispatch, "sqs_client", lambda: fake_sqs)
 
-    resp = client.post("/dispatch/leadgen", json={
-        "task_id": "t-int",
-        "payload": {},
-        "metadata": {"action": "score"},
-    })
+    resp = client.post(
+        "/dispatch/leadgen",
+        json={
+            "task_id": "t-int",
+            "payload": {},
+            "metadata": {"action": "score"},
+        },
+    )
     assert resp.status_code == 200, resp.text
     assert resp.json()["queued"] is True
 
@@ -152,22 +175,29 @@ def test_dispatch_allows_internal_action(tmp_path, monkeypatch):
 def test_dispatch_allows_simulated_external_action(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_SIMULATION_LEDGER_PATH", str(tmp_path / "sim.jsonl"))
     from backend.common import simulation
+
     # Pre-record a passing simulation for this decision_id.
     simulation.simulate_action(
-        "send_message", decision_id="dOK", payload={"to": "a@b.com", "body": "hi"},
+        "send_message",
+        decision_id="dOK",
+        payload={"to": "a@b.com", "body": "hi"},
     )
     client = _gateway_client(monkeypatch)
     from backend.gateway import sqs_dispatch
+
     monkeypatch.setitem(sqs_dispatch.QUEUE_URLS, "outreach", "https://sqs.example/outreach")
     fake_sqs = MagicMock()
     fake_sqs.send_message = MagicMock(return_value={"MessageId": "m2"})
     monkeypatch.setattr(sqs_dispatch, "sqs_client", lambda: fake_sqs)
 
-    resp = client.post("/dispatch/outreach", json={
-        "task_id": "t-ok",
-        "payload": {"to": "a@b.com"},
-        "metadata": {"action": "send_message", "decision_id": "dOK"},
-    })
+    resp = client.post(
+        "/dispatch/outreach",
+        json={
+            "task_id": "t-ok",
+            "payload": {"to": "a@b.com"},
+            "metadata": {"action": "send_message", "decision_id": "dOK"},
+        },
+    )
     assert resp.status_code == 200, resp.text
     assert resp.json()["queued"] is True
 
@@ -175,6 +205,7 @@ def test_dispatch_allows_simulated_external_action(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 # autonomy SIMULATE phase
 # ---------------------------------------------------------------------------
+
 
 def test_run_cycle_simulates_external_effect_step(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_SIMULATION_LEDGER_PATH", str(tmp_path / "sim.jsonl"))
@@ -184,11 +215,17 @@ def test_run_cycle_simulates_external_effect_step(tmp_path, monkeypatch):
     out = autonomy.run_cycle("task-cy", "publish the launch", inputs={"url": "x", "content": "y"})
     assert "simulation" in out
     # Craft a plan with an explicit external-effect step and simulate directly.
-    plan = autonomy.Plan(steps=[
-        autonomy.PlanStep(name="s1", target="outreach", action="send_message",
-                          metadata={"payload": {"to": "a@b.com", "body": "hi"}}),
-        autonomy.PlanStep(name="s2", target="leadgen", action="execute"),
-    ])
+    plan = autonomy.Plan(
+        steps=[
+            autonomy.PlanStep(
+                name="s1",
+                target="outreach",
+                action="send_message",
+                metadata={"payload": {"to": "a@b.com", "body": "hi"}},
+            ),
+            autonomy.PlanStep(name="s2", target="leadgen", action="execute"),
+        ]
+    )
     sim = autonomy.simulate(plan, decision_id="task-cy2")
     assert sim["external_effect_steps"] == 1
     assert sim["simulated"][0]["step"] == "s1"
@@ -199,6 +236,7 @@ def test_run_cycle_simulates_external_effect_step(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 # cash_engine stage dry-run
 # ---------------------------------------------------------------------------
+
 
 def test_outreach_stage_dry_run_predicts_without_sending():
     from backend.cash_engine.stages import StageContext, _outreach_stage
@@ -216,8 +254,12 @@ def test_outreach_stage_dry_run_predicts_without_sending():
         trigger_source = "manual_review"
 
     ctx = StageContext(
-        state=_State(), opportunity=_Opp(), prospect=_Prospect(),
-        stake_sentence="stake", crm=MagicMock(), dry_run=True,
+        state=_State(),
+        opportunity=_Opp(),
+        prospect=_Prospect(),
+        stake_sentence="stake",
+        crm=MagicMock(),
+        dry_run=True,
     )
     res = _outreach_stage(ctx)
     assert res.ok is True
@@ -238,8 +280,12 @@ def test_deliver_stage_dry_run_predicts_without_build():
         prospect_id = "pr2"
 
     ctx = StageContext(
-        state=_State(), opportunity=_Opp(), prospect=MagicMock(),
-        stake_sentence="stake", crm=MagicMock(), dry_run=True,
+        state=_State(),
+        opportunity=_Opp(),
+        prospect=MagicMock(),
+        stake_sentence="stake",
+        crm=MagicMock(),
+        dry_run=True,
     )
     res = _deliver_stage(ctx)
     assert res.ok is True

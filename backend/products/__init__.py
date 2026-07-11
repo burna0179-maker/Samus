@@ -11,6 +11,7 @@ Public surface:
     - fulfill_digital_product — orchestrator (mirrors backend.fulfill shape)
     - FulfillmentResult — re-exported from backend.fulfill for typing convenience
 """
+
 from __future__ import annotations
 
 from .registry import (

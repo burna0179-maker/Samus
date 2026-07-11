@@ -34,6 +34,7 @@ Budget registry
     (int) on the outgoing message; the consumer gives that value priority over
     the registry entry.
 """
+
 from __future__ import annotations
 
 import logging
@@ -51,8 +52,7 @@ class BudgetExhausted(RuntimeError):
 
     def __init__(self, service: str, action: str, budget: int, used: int) -> None:
         super().__init__(
-            f"{service}.{action}: action budget exhausted "
-            f"(allotted={budget}, used={used})"
+            f"{service}.{action}: action budget exhausted (allotted={budget}, used={used})"
         )
         self.service = service
         self.action = action
@@ -120,10 +120,7 @@ class ActionContext:
         return self._used
 
     def __repr__(self) -> str:
-        return (
-            f"ActionContext({self.service!r}, {self.action!r}, "
-            f"used={self._used}/{self._total})"
-        )
+        return f"ActionContext({self.service!r}, {self.action!r}, used={self._used}/{self._total})"
 
 
 # ---------------------------------------------------------------------------

@@ -22,6 +22,7 @@ CLI::
         --pages 1 --per-page 25 \\
         --label sac_hvac_plumbing_roofing
 """
+
 from __future__ import annotations
 
 import argparse
@@ -41,17 +42,42 @@ from backend.outreach.apollo_source import (
 
 
 _CSV_COLUMNS = (
-    "prospect_id", "account_id", "company_name", "phone", "website_url",
-    "website_status", "city", "state", "zipcode", "industry",
-    "call_priority", "lead_score", "policy_family", "llm_cost_usd",
-    "seo_score", "security_grade",
-    "owner_name", "owner_email", "owner_title", "owner_linkedin_url",
-    "contact_emails", "review_rating", "review_count",
-    "business_description", "business_hours", "business_categories",
-    "social_facebook", "social_instagram", "social_linkedin",
+    "prospect_id",
+    "account_id",
+    "company_name",
+    "phone",
+    "website_url",
+    "website_status",
+    "city",
+    "state",
+    "zipcode",
+    "industry",
+    "call_priority",
+    "lead_score",
+    "policy_family",
+    "llm_cost_usd",
+    "seo_score",
+    "security_grade",
+    "owner_name",
+    "owner_email",
+    "owner_title",
+    "owner_linkedin_url",
+    "contact_emails",
+    "review_rating",
+    "review_count",
+    "business_description",
+    "business_hours",
+    "business_categories",
+    "social_facebook",
+    "social_instagram",
+    "social_linkedin",
     "negative_review_snippets",
-    "callsheet_issues", "callsheet_offer", "callsheet_pitch",
-    "callsheet_opener", "callsheet_voicemail", "callsheet_objections",
+    "callsheet_issues",
+    "callsheet_offer",
+    "callsheet_pitch",
+    "callsheet_opener",
+    "callsheet_voicemail",
+    "callsheet_objections",
 )
 
 
@@ -76,42 +102,42 @@ def _to_csv_row(p: ApolloContact) -> dict[str, str]:
     back to the cold-opener variant when those are empty."""
     pid = "apollo_" + (p.person_id or _slug(p.email or p.name))
     return {
-        "prospect_id":           pid,
-        "account_id":            "apollo_" + _slug(p.company_domain or p.company),
-        "company_name":          p.company or "",
-        "phone":                 p.phone or "",
-        "website_url":           _website_from_domain(p.company_domain),
-        "website_status":        "",
-        "city":                  p.city or "",
-        "state":                 p.state or "",
-        "zipcode":               "",
-        "industry":              p.industry or "",
-        "call_priority":         "warm",
-        "lead_score":            "55",
-        "policy_family":         "apollo_cold",
-        "llm_cost_usd":          "0.0",
-        "seo_score":             "",
-        "security_grade":        "",
-        "owner_name":            p.name or p.first_name or "",
-        "owner_email":           p.email or "",
-        "owner_title":           p.title or "",
-        "owner_linkedin_url":    p.linkedin_url or "",
-        "contact_emails":        p.email or "",
-        "review_rating":         "",
-        "review_count":          "",
-        "business_description":  "",
-        "business_hours":        "",
-        "business_categories":   "",
-        "social_facebook":       "",
-        "social_instagram":      "",
-        "social_linkedin":       p.linkedin_url or "",
+        "prospect_id": pid,
+        "account_id": "apollo_" + _slug(p.company_domain or p.company),
+        "company_name": p.company or "",
+        "phone": p.phone or "",
+        "website_url": _website_from_domain(p.company_domain),
+        "website_status": "",
+        "city": p.city or "",
+        "state": p.state or "",
+        "zipcode": "",
+        "industry": p.industry or "",
+        "call_priority": "warm",
+        "lead_score": "55",
+        "policy_family": "apollo_cold",
+        "llm_cost_usd": "0.0",
+        "seo_score": "",
+        "security_grade": "",
+        "owner_name": p.name or p.first_name or "",
+        "owner_email": p.email or "",
+        "owner_title": p.title or "",
+        "owner_linkedin_url": p.linkedin_url or "",
+        "contact_emails": p.email or "",
+        "review_rating": "",
+        "review_count": "",
+        "business_description": "",
+        "business_hours": "",
+        "business_categories": "",
+        "social_facebook": "",
+        "social_instagram": "",
+        "social_linkedin": p.linkedin_url or "",
         "negative_review_snippets": "",
-        "callsheet_issues":      "",
-        "callsheet_offer":       "",
-        "callsheet_pitch":       "",
-        "callsheet_opener":      "",
-        "callsheet_voicemail":   "",
-        "callsheet_objections":  "",
+        "callsheet_issues": "",
+        "callsheet_offer": "",
+        "callsheet_pitch": "",
+        "callsheet_opener": "",
+        "callsheet_voicemail": "",
+        "callsheet_objections": "",
     }
 
 
@@ -119,23 +145,37 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Apollo People Search → daily_calls CSV materialisation.",
     )
-    parser.add_argument("--titles", required=True,
-                        help='Comma-separated job titles (e.g. "owner,founder,president").')
-    parser.add_argument("--industries", required=True,
-                        help='Comma-separated industry keywords '
-                             '(e.g. "hvac,plumbing,roofing,dentist,real estate").')
-    parser.add_argument("--locations", required=True,
-                        help='Semicolon-separated person locations '
-                             '(e.g. "Sacramento, California, US;Roseville, California, US"). '
-                             "Use semicolons since locations contain commas.")
-    parser.add_argument("--pages", type=int, default=1,
-                        help="Pages to pull (1 page = up to per_page contacts).")
-    parser.add_argument("--per-page", type=int, default=25,
-                        help="Per-page size, 1-100. Apollo bills 1 unit per page.")
-    parser.add_argument("--label", default="apollo_pull",
-                        help="Slug appended to the output CSV filename.")
-    parser.add_argument("--out", default=None,
-                        help="Override the output CSV path.")
+    parser.add_argument(
+        "--titles",
+        required=True,
+        help='Comma-separated job titles (e.g. "owner,founder,president").',
+    )
+    parser.add_argument(
+        "--industries",
+        required=True,
+        help="Comma-separated industry keywords "
+        '(e.g. "hvac,plumbing,roofing,dentist,real estate").',
+    )
+    parser.add_argument(
+        "--locations",
+        required=True,
+        help="Semicolon-separated person locations "
+        '(e.g. "Sacramento, California, US;Roseville, California, US"). '
+        "Use semicolons since locations contain commas.",
+    )
+    parser.add_argument(
+        "--pages", type=int, default=1, help="Pages to pull (1 page = up to per_page contacts)."
+    )
+    parser.add_argument(
+        "--per-page",
+        type=int,
+        default=25,
+        help="Per-page size, 1-100. Apollo bills 1 unit per page.",
+    )
+    parser.add_argument(
+        "--label", default="apollo_pull", help="Slug appended to the output CSV filename."
+    )
+    parser.add_argument("--out", default=None, help="Override the output CSV path.")
     args = parser.parse_args(argv)
 
     titles = [t.strip() for t in args.titles.split(",") if t.strip()]
@@ -147,9 +187,13 @@ def main(argv: list[str] | None = None) -> int:
 
     today = datetime.date.today().isoformat()
     out_path = (
-        Path(args.out) if args.out else
-        (Path(os.getenv("SAMUS_ARTIFACT_ROOT", "/opt/samus/data/host_artifacts"))
-         / "daily_calls" / f"call_list_{today}__{_slug(args.label)}.csv")
+        Path(args.out)
+        if args.out
+        else (
+            Path(os.getenv("SAMUS_ARTIFACT_ROOT", "/opt/samus/data/host_artifacts"))
+            / "daily_calls"
+            / f"call_list_{today}__{_slug(args.label)}.csv"
+        )
     )
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -158,6 +202,7 @@ def main(argv: list[str] | None = None) -> int:
     # don't have an app-lifespan to do it.
     try:
         from backend.common.codex.registry import REGISTRY  # noqa: PLC0415
+
         if not REGISTRY.is_loaded():
             REGISTRY.load()
     except Exception as exc:  # noqa: BLE001
@@ -167,8 +212,11 @@ def main(argv: list[str] | None = None) -> int:
     for page in range(1, max(1, args.pages) + 1):
         try:
             batch = search_people(
-                titles=titles, industries=industries, locations=locations,
-                per_page=args.per_page, page=page,
+                titles=titles,
+                industries=industries,
+                locations=locations,
+                per_page=args.per_page,
+                page=page,
             )
         except ApolloError as exc:
             sys.stderr.write(f"apollo error on page {page}: {exc}\n")
@@ -199,9 +247,13 @@ def main(argv: list[str] | None = None) -> int:
 
     summary = {
         "csv": str(out_path),
-        "filters": {"titles": titles, "industries": industries,
-                    "locations": locations, "pages": args.pages,
-                    "per_page": args.per_page},
+        "filters": {
+            "titles": titles,
+            "industries": industries,
+            "locations": locations,
+            "pages": args.pages,
+            "per_page": args.per_page,
+        },
         "pulled_total": len(pulled),
         "sendable": len(sendable),
         "after_dedupe": len(deduped),

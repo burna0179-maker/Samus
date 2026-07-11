@@ -1,4 +1,5 @@
 """G7 — negative reward inputs clip to zero (Codex chapter 04 G7 spec)."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -52,7 +53,8 @@ class _Store:
 @pytest.fixture(autouse=True)
 def _isolate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv(
-        "SAMUS_REWARD_PERSIST_PATH", str(tmp_path / "reward.jsonl"),
+        "SAMUS_REWARD_PERSIST_PATH",
+        str(tmp_path / "reward.jsonl"),
     )
 
 

@@ -19,6 +19,7 @@ Persistence mirrors :mod:`backend.crm.needs_warm_path`: a JSON file at
 Never raises into the caller — the end-of-call webhook must not fail on a
 bookkeeping miss.
 """
+
 from __future__ import annotations
 
 import json
@@ -49,6 +50,7 @@ _HARD_NO_ACTIONS = frozenset({"disqualify"})
 # Classifier
 # ---------------------------------------------------------------------------
 
+
 def is_buying_signal(lead: Any, *, intent_threshold: int = 70) -> bool:
     """True when a call's lead_summary represents a real buying signal.
 
@@ -76,6 +78,7 @@ def is_buying_signal(lead: Any, *, intent_threshold: int = 70) -> bool:
 # Persistence (JSON, atomic replace) — mirrors needs_warm_path's fallback store
 # ---------------------------------------------------------------------------
 
+
 def _artifact_root() -> str:
     return os.getenv("SAMUS_ARTIFACT_ROOT", _DEFAULT_ARTIFACT_ROOT)
 
@@ -102,9 +105,7 @@ def _write(records: list[dict[str, Any]]) -> bool:
     path = _store_path()
     try:
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-        fd, tmp = tempfile.mkstemp(
-            dir=os.path.dirname(path) or ".", prefix=".bsr_", suffix=".tmp"
-        )
+        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path) or ".", prefix=".bsr_", suffix=".tmp")
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as fh:
                 json.dump(records, fh, indent=2)
@@ -121,6 +122,7 @@ def _write(records: list[dict[str, Any]]) -> bool:
 # ---------------------------------------------------------------------------
 # Record <-> Enrollment conversion
 # ---------------------------------------------------------------------------
+
 
 def _enrollment_from_record(rec: dict[str, Any]) -> Enrollment:
     events = [
@@ -147,15 +149,13 @@ def _apply_enrollment_to_record(rec: dict[str, Any], enr: Enrollment) -> None:
     """Write back the mutable enrollment fields onto its stored record."""
     rec["status"] = enr.status
     rec["completed_steps"] = list(enr.completed_steps)
-    rec["events"] = [
-        {"type": e.type, "day": e.day, "step": e.step, "at": e.at}
-        for e in enr.events
-    ]
+    rec["events"] = [{"type": e.type, "day": e.day, "step": e.step, "at": e.at} for e in enr.events]
 
 
 # ---------------------------------------------------------------------------
 # Enrollment (called from the voice end-of-call handler)
 # ---------------------------------------------------------------------------
+
 
 def maybe_enroll_buying_signal(
     *,
@@ -224,13 +224,17 @@ def maybe_enroll_buying_signal(
             return {"enrolled": False, "reason": "persist_failed"}
         _LOG.info(
             "buying_signal enrolled prospect=%s score=%s action=%s",
-            prospect_id, record["intent_score"], record["recommended_action"],
+            prospect_id,
+            record["intent_score"],
+            record["recommended_action"],
         )
-        return {"enrolled": True, "prospect_id": prospect_id,
-                "sequence_id": BUYING_SIGNAL_SEQUENCE_ID}
+        return {
+            "enrolled": True,
+            "prospect_id": prospect_id,
+            "sequence_id": BUYING_SIGNAL_SEQUENCE_ID,
+        }
     except Exception as exc:  # noqa: BLE001 — best-effort; never fail the webhook
-        _LOG.warning("maybe_enroll_buying_signal failed prospect=%s: %s",
-                     prospect_id, exc)
+        _LOG.warning("maybe_enroll_buying_signal failed prospect=%s: %s", prospect_id, exc)
         return {"enrolled": False, "reason": f"error:{exc}"}
 
 
@@ -255,39 +259,82 @@ def maybe_enroll_buying_signal(
 # phrases need to accumulate.
 _EMAIL_REPLY_POSITIVE: tuple[tuple[str, int], ...] = (
     # Strong — explicit move-to-buy / move-to-call signals
-    ("book a call", 75), ("book a meeting", 75), ("schedule a call", 75),
-    ("set up a call", 70), ("set up a meeting", 70), ("hop on a call", 70),
-    ("get on a call", 65), ("on a call", 45), ("on a quick call", 70),
-    ("send me the quote", 75), ("send the quote", 75), ("send a quote", 70),
-    ("send me a quote", 75), ("what is the price", 70), ("what's the price", 70),
-    ("how much", 60), ("how much does", 70), ("pricing", 50),
-    ("ready to start", 80), ("ready to proceed", 80), ("let's do it", 80),
-    ("let's go", 65), ("sign me up", 85), ("sign us up", 85),
-    ("when can we start", 70), ("when can you start", 70),
-    ("next steps", 60), ("what are the next steps", 75),
+    ("book a call", 75),
+    ("book a meeting", 75),
+    ("schedule a call", 75),
+    ("set up a call", 70),
+    ("set up a meeting", 70),
+    ("hop on a call", 70),
+    ("get on a call", 65),
+    ("on a call", 45),
+    ("on a quick call", 70),
+    ("send me the quote", 75),
+    ("send the quote", 75),
+    ("send a quote", 70),
+    ("send me a quote", 75),
+    ("what is the price", 70),
+    ("what's the price", 70),
+    ("how much", 60),
+    ("how much does", 70),
+    ("pricing", 50),
+    ("ready to start", 80),
+    ("ready to proceed", 80),
+    ("let's do it", 80),
+    ("let's go", 65),
+    ("sign me up", 85),
+    ("sign us up", 85),
+    ("when can we start", 70),
+    ("when can you start", 70),
+    ("next steps", 60),
+    ("what are the next steps", 75),
     # Medium — clear interest, needs a nudge
-    ("interested", 45), ("very interested", 65), ("definitely interested", 70),
-    ("sounds good", 45), ("sounds great", 50), ("looks good", 45),
-    ("tell me more", 50), ("want to learn more", 55), ("learn more", 35),
-    ("would like to", 35), ("we'd like to", 45), ("we want to", 50),
-    ("yes please", 60), ("yes,", 30), ("go ahead", 55),
+    ("interested", 45),
+    ("very interested", 65),
+    ("definitely interested", 70),
+    ("sounds good", 45),
+    ("sounds great", 50),
+    ("looks good", 45),
+    ("tell me more", 50),
+    ("want to learn more", 55),
+    ("learn more", 35),
+    ("would like to", 35),
+    ("we'd like to", 45),
+    ("we want to", 50),
+    ("yes please", 60),
+    ("yes,", 30),
+    ("go ahead", 55),
     # Soft — questions that imply intent
-    ("do you offer", 35), ("can you", 25), ("would you", 25),
-    ("what does it", 25), ("how does it work", 35), ("how do you", 25),
+    ("do you offer", 35),
+    ("can you", 25),
+    ("would you", 25),
+    ("what does it", 25),
+    ("how does it work", 35),
+    ("how do you", 25),
 )
 
 # A hard-no in the reply VETOES enrollment regardless of positive matches —
 # parallels the voice route's ``_HARD_NO_ACTIONS`` (``disqualify``).
 _EMAIL_REPLY_HARD_NO: tuple[str, ...] = (
-    "not interested", "no thanks", "no thank you",
-    "remove me", "unsubscribe", "stop emailing", "stop contacting",
-    "do not contact", "don't contact", "please remove",
-    "take me off", "opt out", "opt-out",
+    "not interested",
+    "no thanks",
+    "no thank you",
+    "remove me",
+    "unsubscribe",
+    "stop emailing",
+    "stop contacting",
+    "do not contact",
+    "don't contact",
+    "please remove",
+    "take me off",
+    "opt out",
+    "opt-out",
 )
 
 
 def is_email_reply_buying_signal(
-    reply_text: str, *, intent_threshold: int = 70,
+    reply_text: str,
+    *,
+    intent_threshold: int = 70,
 ) -> tuple[bool, int, list[str]]:
     """Classify a raw email-reply body as a buying signal.
 
@@ -313,7 +360,9 @@ def is_email_reply_buying_signal(
 
 
 def _synthesise_email_reply_lead(
-    *, score: int, company: str = "",
+    *,
+    score: int,
+    company: str = "",
 ) -> SimpleNamespace:
     """Build a lead-shaped object so the existing voice-path enroller can
     consume an email-reply signal unchanged."""
@@ -356,12 +405,20 @@ def maybe_enroll_buying_signal_from_email_reply(
     else:
         qualifies, score, hits = is_email_reply_buying_signal(reply_text)
         if not qualifies:
-            return {"enrolled": False, "reason": "not_a_buying_signal",
-                    "score": score, "hits": hits}
+            return {
+                "enrolled": False,
+                "reason": "not_a_buying_signal",
+                "score": score,
+                "hits": hits,
+            }
     lead = _synthesise_email_reply_lead(score=score, company=company)
     result = maybe_enroll_buying_signal(
-        prospect_id=prospect_id, lead=lead, now_iso=now_iso,
-        email=email, company=company, call_id="",
+        prospect_id=prospect_id,
+        lead=lead,
+        now_iso=now_iso,
+        email=email,
+        company=company,
+        call_id="",
         source="email_reply_operator" if operator_override else "email_reply",
     )
     result.setdefault("score", score)
@@ -403,7 +460,8 @@ def _synthesise_website_form_lead(*, stored_lead: Any) -> SimpleNamespace:
     cadence, not to grade every field precisely.
     """
     interests = [
-        s for s in (getattr(stored_lead, "service_interest", None) or [])
+        s
+        for s in (getattr(stored_lead, "service_interest", None) or [])
         if s != _WEBSITE_FORM_NOT_SURE_MARKER
     ]
     budget = getattr(stored_lead, "monthly_budget", "") or ""
@@ -454,12 +512,15 @@ def maybe_enroll_buying_signal_from_website_form(
     try:
         settings = get_settings()
         if not getattr(
-            settings, "outreach_website_form_warm_enroll_enabled", False,
+            settings,
+            "outreach_website_form_warm_enroll_enabled",
+            False,
         ):
             return {"enrolled": False, "reason": "route_disabled"}
 
         interests = [
-            s for s in (getattr(stored_lead, "service_interest", None) or [])
+            s
+            for s in (getattr(stored_lead, "service_interest", None) or [])
             if s != _WEBSITE_FORM_NOT_SURE_MARKER
         ]
         if not interests:
@@ -476,7 +537,9 @@ def maybe_enroll_buying_signal_from_website_form(
         # the stored email field on the enrollment record.
         prospect_id = f"lead_{lead_id}"
         result = maybe_enroll_buying_signal(
-            prospect_id=prospect_id, lead=lead, now_iso=now_iso,
+            prospect_id=prospect_id,
+            lead=lead,
+            now_iso=now_iso,
             email=getattr(stored_lead, "email", "") or "",
             company=getattr(stored_lead, "company", "") or "",
             call_id="",  # no upstream call
@@ -490,7 +553,8 @@ def maybe_enroll_buying_signal_from_website_form(
         return result
     except Exception as exc:  # noqa: BLE001 — best-effort; never fail intake
         _LOG.warning(
-            "maybe_enroll_buying_signal_from_website_form failed: %s", exc,
+            "maybe_enroll_buying_signal_from_website_form failed: %s",
+            exc,
         )
         return {"enrolled": False, "reason": f"error:{exc}"}
 
@@ -500,6 +564,7 @@ def maybe_enroll_buying_signal_from_website_form(
 # an active warm sequence off tomorrow's morning_call_list.
 # ---------------------------------------------------------------------------
 
+
 def active_warm_prospect_ids() -> set[str]:
     """Set of prospect_ids currently in an active buying_signal enrollment.
 
@@ -508,10 +573,7 @@ def active_warm_prospect_ids() -> set[str]:
     """
     out: set[str] = set()
     for rec in _read():
-        if (
-            rec.get("sequence_id") == BUYING_SIGNAL_SEQUENCE_ID
-            and rec.get("status") == "active"
-        ):
+        if rec.get("sequence_id") == BUYING_SIGNAL_SEQUENCE_ID and rec.get("status") == "active":
             pid = str(rec.get("prospect_id") or "").strip()
             if pid:
                 out.add(pid)
@@ -522,8 +584,13 @@ def active_warm_prospect_ids() -> set[str]:
 # Dispatch (wired-DORMANT — dry_run by default, no scheduler)
 # ---------------------------------------------------------------------------
 
+
 def dispatch_due_buying_signal(
-    *, now_iso: str, dry_run: bool = True, max_send: int = 25, composer=None,
+    *,
+    now_iso: str,
+    dry_run: bool = True,
+    max_send: int = 25,
+    composer=None,
 ) -> list[dict[str, Any]]:
     """Plan (and, when ``dry_run=False``, send) the next due touch for every
     active buying-signal enrollment.
@@ -608,6 +675,7 @@ def dispatch_due_buying_signal(
             # promotional — a flyer + buy button converts better than text).
             # Fail-soft: "" -> text-only, same as before.
             from .flyer import flyer_html_for
+
             _flyer = flyer_html_for(
                 prospect_id=str(rec.get("prospect_id") or ""),
                 to_email=email,
@@ -629,6 +697,7 @@ def dispatch_due_buying_signal(
             for touch in seq.touches:
                 if touch.step == step:
                     from .sequences import mark_sent
+
                     mark_sent(enr, touch, now_iso)
                     break
             _apply_enrollment_to_record(rec, enr)
@@ -636,8 +705,9 @@ def dispatch_due_buying_signal(
             sent += 1
             entry.update({"sent": True, "step": step})
         except Exception as exc:  # noqa: BLE001 — never let one prospect break the run
-            _LOG.warning("buying_signal dispatch send failed prospect=%s: %s",
-                         rec.get("prospect_id"), exc)
+            _LOG.warning(
+                "buying_signal dispatch send failed prospect=%s: %s", rec.get("prospect_id"), exc
+            )
             entry.update({"sent": False, "reason": f"error:{exc}"})
         results.append(entry)
 

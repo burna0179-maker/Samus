@@ -24,6 +24,7 @@ to a logged warning + ``False``. ``recent_ticks`` returns an empty list with
 an error string on any read failure. A telemetry hiccup must never break the
 control loop it instruments.
 """
+
 from __future__ import annotations
 
 import logging

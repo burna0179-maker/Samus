@@ -1,21 +1,26 @@
 """Voice service — outbound initiate + inbound webhook routing."""
+
 from __future__ import annotations
 
 import asyncio
 import json
 from typing import Any
 
-import pytest
 
-
-def _override_settings(monkeypatch, *, vapi_api_key: str = "",
-                       memory_url: str = "", crm_url: str = "",
-                       shared_hmac_key: str = "test-hmac-32"):
+def _override_settings(
+    monkeypatch,
+    *,
+    vapi_api_key: str = "",
+    memory_url: str = "",
+    crm_url: str = "",
+    shared_hmac_key: str = "test-hmac-32",
+):
     """Configure voice service settings stub.
 
     HEAD branch extended this helper with ``crm_url`` to support Phase 2
     CRM dispatch tests. Origin had only memory_url. Union keeps both.
     """
+
     class _S:
         pass
 
@@ -34,6 +39,7 @@ def _override_settings(monkeypatch, *, vapi_api_key: str = "",
         gw["crm"] = crm_url
     settings.gateway_urls = gw
     import backend.voice.service as svc_mod
+
     monkeypatch.setattr(svc_mod, "get_settings", lambda: settings)
 
 
@@ -45,14 +51,20 @@ def _audit_to_tmp(monkeypatch, tmp_path):
 # initiate_call
 # ---------------------------------------------------------------------------
 
+
 def test_initiate_call_returns_degraded_without_key(tmp_path, monkeypatch):
     _audit_to_tmp(monkeypatch, tmp_path)
     _override_settings(monkeypatch, vapi_api_key="")
     from backend.voice.service import initiate_call
     from backend.voice.models import InitiateCallRequest
-    result = initiate_call(InitiateCallRequest(
-        assistant_id="asst", phone_number_id="phn", customer_number="+15555550100",
-    ))
+
+    result = initiate_call(
+        InitiateCallRequest(
+            assistant_id="asst",
+            phone_number_id="phn",
+            customer_number="+15555550100",
+        )
+    )
     assert result.vapi_error == "vapi_api_key_unset"
     assert result.call_id == ""
 
@@ -67,17 +79,27 @@ def test_initiate_call_success(tmp_path, monkeypatch):
 
         def create_call(self, **kwargs):
             from backend.voice.models import VapiCall
-            return VapiCall(id="call_new", status="queued",
-                            assistantId=kwargs["assistant_id"],
-                            phoneNumberId=kwargs["phone_number_id"])
+
+            return VapiCall(
+                id="call_new",
+                status="queued",
+                assistantId=kwargs["assistant_id"],
+                phoneNumberId=kwargs["phone_number_id"],
+            )
 
     import backend.voice.service as svc_mod
+
     monkeypatch.setattr(svc_mod, "VapiClient", _FakeClient)
     from backend.voice.service import initiate_call
     from backend.voice.models import InitiateCallRequest
-    result = initiate_call(InitiateCallRequest(
-        assistant_id="asst", phone_number_id="phn", customer_number="+15555550100",
-    ))
+
+    result = initiate_call(
+        InitiateCallRequest(
+            assistant_id="asst",
+            phone_number_id="phn",
+            customer_number="+15555550100",
+        )
+    )
     assert result.call_id == "call_new"
     assert result.status == "queued"
     assert result.vapi_error is None
@@ -97,12 +119,18 @@ def test_initiate_call_records_vapi_error(tmp_path, monkeypatch):
             raise VapiError("vapi_http_401: bad key")
 
     import backend.voice.service as svc_mod
+
     monkeypatch.setattr(svc_mod, "VapiClient", _FakeClient)
     from backend.voice.service import initiate_call
     from backend.voice.models import InitiateCallRequest
-    result = initiate_call(InitiateCallRequest(
-        assistant_id="asst", phone_number_id="phn", customer_number="+15555550100",
-    ))
+
+    result = initiate_call(
+        InitiateCallRequest(
+            assistant_id="asst",
+            phone_number_id="phn",
+            customer_number="+15555550100",
+        )
+    )
     assert result.call_id == ""
     assert "vapi_http_401" in (result.vapi_error or "")
 
@@ -111,11 +139,15 @@ def test_initiate_call_records_vapi_error(tmp_path, monkeypatch):
 # handle_webhook_event
 # ---------------------------------------------------------------------------
 
-def _end_of_call_event(*, lead_summary: dict | None = None,
-                       call_id: str = "call_end_1",
-                       metadata: dict | None = None,
-                       transcript: str | None = None,
-                       ended_reason: str = "customer-ended-call"):
+
+def _end_of_call_event(
+    *,
+    lead_summary: dict | None = None,
+    call_id: str = "call_end_1",
+    metadata: dict | None = None,
+    transcript: str | None = None,
+    ended_reason: str = "customer-ended-call",
+):
     """Build a synthetic end-of-call webhook payload.
 
     HEAD branch extended this helper with ``metadata`` and ``transcript``
@@ -146,9 +178,10 @@ def test_webhook_non_terminal_event_skips_dispatch(tmp_path, monkeypatch):
     _override_settings(monkeypatch, vapi_api_key="vapi_x", memory_url="")
     from backend.voice.service import handle_webhook_event
     from backend.voice.models import VapiWebhookEvent
-    event = VapiWebhookEvent.model_validate({
-        "message": {"type": "transcript", "call": {"id": "c1"}}
-    })
+
+    event = VapiWebhookEvent.model_validate(
+        {"message": {"type": "transcript", "call": {"id": "c1"}}}
+    )
     result = asyncio.run(handle_webhook_event(event))
     assert result.received is True
     assert result.message_type == "transcript"
@@ -159,10 +192,10 @@ def test_webhook_non_terminal_event_skips_dispatch(tmp_path, monkeypatch):
 
 def test_webhook_end_of_call_without_lead_summary(tmp_path, monkeypatch):
     _audit_to_tmp(monkeypatch, tmp_path)
-    _override_settings(monkeypatch, vapi_api_key="vapi_x",
-                       memory_url="http://samus-memory:8080")
+    _override_settings(monkeypatch, vapi_api_key="vapi_x", memory_url="http://samus-memory:8080")
     from backend.voice.service import handle_webhook_event
     from backend.voice.models import VapiWebhookEvent
+
     event = VapiWebhookEvent.model_validate(_end_of_call_event(lead_summary=None))
     result = asyncio.run(handle_webhook_event(event))
     assert result.received is True
@@ -173,8 +206,7 @@ def test_webhook_end_of_call_without_lead_summary(tmp_path, monkeypatch):
 
 def test_webhook_end_of_call_dispatches_to_memory(tmp_path, monkeypatch):
     _audit_to_tmp(monkeypatch, tmp_path)
-    _override_settings(monkeypatch, vapi_api_key="vapi_x",
-                       memory_url="http://samus-memory:8080")
+    _override_settings(monkeypatch, vapi_api_key="vapi_x", memory_url="http://samus-memory:8080")
 
     captured: dict = {}
 
@@ -189,19 +221,25 @@ def test_webhook_end_of_call_dispatches_to_memory(tmp_path, monkeypatch):
         return _FakeResp()
 
     import backend.voice.service as svc_mod
+
     monkeypatch.setattr(svc_mod, "signed_post_json", _fake_signed_post_json)
 
     from backend.voice.service import handle_webhook_event
     from backend.voice.models import VapiWebhookEvent
-    event = VapiWebhookEvent.model_validate(_end_of_call_event(lead_summary={
-        "company": "Acme",
-        "lead_volume": "10/week",
-        "automation_level": "manual",
-        "pain_points": ["missed follow-ups"],
-        "intent_score": 82,
-        "tier": "high",
-        "recommended_action": "book_call",
-    }))
+
+    event = VapiWebhookEvent.model_validate(
+        _end_of_call_event(
+            lead_summary={
+                "company": "Acme",
+                "lead_volume": "10/week",
+                "automation_level": "manual",
+                "pain_points": ["missed follow-ups"],
+                "intent_score": 82,
+                "tier": "high",
+                "recommended_action": "book_call",
+            }
+        )
+    )
     result = asyncio.run(handle_webhook_event(event))
     assert result.memory_dispatch_ok is True
     assert result.memory_dispatch_error is None
@@ -220,9 +258,15 @@ def test_webhook_end_of_call_handles_memory_url_unset(tmp_path, monkeypatch):
     _override_settings(monkeypatch, vapi_api_key="vapi_x", memory_url="")
     from backend.voice.service import handle_webhook_event
     from backend.voice.models import VapiWebhookEvent
-    event = VapiWebhookEvent.model_validate(_end_of_call_event(lead_summary={
-        "tier": "low", "recommended_action": "disqualify",
-    }))
+
+    event = VapiWebhookEvent.model_validate(
+        _end_of_call_event(
+            lead_summary={
+                "tier": "low",
+                "recommended_action": "disqualify",
+            }
+        )
+    )
     result = asyncio.run(handle_webhook_event(event))
     assert result.memory_dispatch_ok is False
     assert result.memory_dispatch_error == "memory_url_unset"
@@ -235,21 +279,31 @@ def test_audit_ledger_is_written(tmp_path, monkeypatch):
     _override_settings(monkeypatch, vapi_api_key="vapi_x", memory_url="")
     from backend.voice.service import handle_webhook_event
     from backend.voice.models import VapiWebhookEvent
-    event = VapiWebhookEvent.model_validate(_end_of_call_event(lead_summary={
-        "tier": "medium", "intent_score": 55,
-    }))
+
+    event = VapiWebhookEvent.model_validate(
+        _end_of_call_event(
+            lead_summary={
+                "tier": "medium",
+                "intent_score": 55,
+            }
+        )
+    )
     asyncio.run(handle_webhook_event(event))
     assert audit_path.exists()
-    lines = [json.loads(l) for l in audit_path.read_text(encoding="utf-8").splitlines() if l.strip()]
-    assert any(rec.get("service") == "voice"
-               and rec.get("action") == "webhook_end_of_call"
-               for rec in lines)
+    lines = [
+        json.loads(l) for l in audit_path.read_text(encoding="utf-8").splitlines() if l.strip()
+    ]
+    assert any(
+        rec.get("service") == "voice" and rec.get("action") == "webhook_end_of_call"
+        for rec in lines
+    )
 
 
 # ---------------------------------------------------------------------------
 # Phase 2 — voice end-of-call also dispatches to samus-crm
 # (Conversation row + per-prospect CallState upsert)
 # ---------------------------------------------------------------------------
+
 
 def _capture_signed_posts(monkeypatch):
     """Stub signed_post_json to record every (base_url, path, payload) call.
@@ -268,17 +322,20 @@ def _capture_signed_posts(monkeypatch):
         return _FakeResp()
 
     import backend.voice.service as svc_mod
+
     monkeypatch.setattr(svc_mod, "signed_post_json", _fake)
     return captured
 
 
 def test_webhook_end_of_call_dispatches_to_crm_alongside_memory(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ):
     """Both memory and CRM receive the end-of-call payload."""
     _audit_to_tmp(monkeypatch, tmp_path)
     _override_settings(
-        monkeypatch, vapi_api_key="vapi_x",
+        monkeypatch,
+        vapi_api_key="vapi_x",
         memory_url="http://samus-memory:8080",
         crm_url="http://samus-crm:8080",
     )
@@ -286,16 +343,19 @@ def test_webhook_end_of_call_dispatches_to_crm_alongside_memory(
 
     from backend.voice.service import handle_webhook_event
     from backend.voice.models import VapiWebhookEvent
-    event = VapiWebhookEvent.model_validate(_end_of_call_event(
-        lead_summary={
-            "company": "Acme",
-            "intent_score": 82,
-            "tier": "high",
-            "recommended_action": "book_call",
-        },
-        metadata={"prospect_id": "pr_acme"},
-        transcript="Hi, this is Morgan...",
-    ))
+
+    event = VapiWebhookEvent.model_validate(
+        _end_of_call_event(
+            lead_summary={
+                "company": "Acme",
+                "intent_score": 82,
+                "tier": "high",
+                "recommended_action": "book_call",
+            },
+            metadata={"prospect_id": "pr_acme"},
+            transcript="Hi, this is Morgan...",
+        )
+    )
     result = asyncio.run(handle_webhook_event(event))
 
     assert result.memory_dispatch_ok is True
@@ -325,7 +385,7 @@ def test_webhook_end_of_call_dispatches_to_crm_alongside_memory(
 
     crm_state = next(c for c in captured if c["path"] == "/crm/call-state/pr_acme")
     assert crm_state["payload"]["prospect_id"] == "pr_acme"
-    assert crm_state["payload"]["state"] == "completed"   # booked -> completed
+    assert crm_state["payload"]["state"] == "completed"  # booked -> completed
     assert crm_state["payload"]["last_call_id"] == "call_end_1"
     assert crm_state["payload"]["last_outcome"] == "booked"
 
@@ -335,7 +395,8 @@ def test_webhook_no_answer_records_no_answer_outcome(tmp_path, monkeypatch):
     no_answer outcome + state — not the old hardcoded 'completed'."""
     _audit_to_tmp(monkeypatch, tmp_path)
     _override_settings(
-        monkeypatch, vapi_api_key="vapi_x",
+        monkeypatch,
+        vapi_api_key="vapi_x",
         memory_url="http://samus-memory:8080",
         crm_url="http://samus-crm:8080",
     )
@@ -343,11 +404,14 @@ def test_webhook_no_answer_records_no_answer_outcome(tmp_path, monkeypatch):
 
     from backend.voice.service import handle_webhook_event
     from backend.voice.models import VapiWebhookEvent
-    event = VapiWebhookEvent.model_validate(_end_of_call_event(
-        lead_summary=None,
-        ended_reason="customer-did-not-answer",
-        metadata={"prospect_id": "pr_acme"},
-    ))
+
+    event = VapiWebhookEvent.model_validate(
+        _end_of_call_event(
+            lead_summary=None,
+            ended_reason="customer-did-not-answer",
+            metadata={"prospect_id": "pr_acme"},
+        )
+    )
     asyncio.run(handle_webhook_event(event))
 
     crm_conv = next(c for c in captured if c["path"] == "/crm/conversations")
@@ -361,7 +425,8 @@ def test_webhook_voicemail_records_voicemail_outcome(tmp_path, monkeypatch):
     """A Vapi call that hit voicemail records the canonical voicemail state."""
     _audit_to_tmp(monkeypatch, tmp_path)
     _override_settings(
-        monkeypatch, vapi_api_key="vapi_x",
+        monkeypatch,
+        vapi_api_key="vapi_x",
         memory_url="http://samus-memory:8080",
         crm_url="http://samus-crm:8080",
     )
@@ -369,11 +434,14 @@ def test_webhook_voicemail_records_voicemail_outcome(tmp_path, monkeypatch):
 
     from backend.voice.service import handle_webhook_event
     from backend.voice.models import VapiWebhookEvent
-    event = VapiWebhookEvent.model_validate(_end_of_call_event(
-        lead_summary=None,
-        ended_reason="voicemail",
-        metadata={"prospect_id": "pr_acme"},
-    ))
+
+    event = VapiWebhookEvent.model_validate(
+        _end_of_call_event(
+            lead_summary=None,
+            ended_reason="voicemail",
+            metadata={"prospect_id": "pr_acme"},
+        )
+    )
     asyncio.run(handle_webhook_event(event))
 
     crm_state = next(c for c in captured if c["path"] == "/crm/call-state/pr_acme")
@@ -386,7 +454,8 @@ def test_webhook_gatekeeper_keeps_prospect_callable(tmp_path, monkeypatch):
     state — the prospect stays callable, not marked completed."""
     _audit_to_tmp(monkeypatch, tmp_path)
     _override_settings(
-        monkeypatch, vapi_api_key="vapi_x",
+        monkeypatch,
+        vapi_api_key="vapi_x",
         memory_url="http://samus-memory:8080",
         crm_url="http://samus-crm:8080",
     )
@@ -394,10 +463,13 @@ def test_webhook_gatekeeper_keeps_prospect_callable(tmp_path, monkeypatch):
 
     from backend.voice.service import handle_webhook_event
     from backend.voice.models import VapiWebhookEvent
-    event = VapiWebhookEvent.model_validate(_end_of_call_event(
-        lead_summary={"company": "Acme", "recommended_action": "gatekeeper"},
-        metadata={"prospect_id": "pr_acme"},
-    ))
+
+    event = VapiWebhookEvent.model_validate(
+        _end_of_call_event(
+            lead_summary={"company": "Acme", "recommended_action": "gatekeeper"},
+            metadata={"prospect_id": "pr_acme"},
+        )
+    )
     asyncio.run(handle_webhook_event(event))
 
     crm_conv = next(c for c in captured if c["path"] == "/crm/conversations")
@@ -412,7 +484,8 @@ def test_webhook_validates_a_contact_offered_on_the_call(tmp_path, monkeypatch):
     verdict rides on the Conversation's structured_data."""
     _audit_to_tmp(monkeypatch, tmp_path)
     _override_settings(
-        monkeypatch, vapi_api_key="vapi_x",
+        monkeypatch,
+        vapi_api_key="vapi_x",
         memory_url="http://samus-memory:8080",
         crm_url="http://samus-crm:8080",
     )
@@ -420,14 +493,17 @@ def test_webhook_validates_a_contact_offered_on_the_call(tmp_path, monkeypatch):
 
     from backend.voice.service import handle_webhook_event
     from backend.voice.models import VapiWebhookEvent
-    event = VapiWebhookEvent.model_validate(_end_of_call_event(
-        lead_summary={
-            "company": "Magnolia Modern Dentistry",
-            "recommended_action": "gatekeeper",
-            "contact_offered": "info@magnolia-.com",
-        },
-        metadata={"prospect_id": "pr_mag"},
-    ))
+
+    event = VapiWebhookEvent.model_validate(
+        _end_of_call_event(
+            lead_summary={
+                "company": "Magnolia Modern Dentistry",
+                "recommended_action": "gatekeeper",
+                "contact_offered": "info@magnolia-.com",
+            },
+            metadata={"prospect_id": "pr_mag"},
+        )
+    )
     asyncio.run(handle_webhook_event(event))
 
     crm_conv = next(c for c in captured if c["path"] == "/crm/conversations")
@@ -442,7 +518,8 @@ def test_webhook_prefers_text_rides_on_structured_data(tmp_path, monkeypatch):
     """prefers_text captured by the agent survives onto the Conversation."""
     _audit_to_tmp(monkeypatch, tmp_path)
     _override_settings(
-        monkeypatch, vapi_api_key="vapi_x",
+        monkeypatch,
+        vapi_api_key="vapi_x",
         memory_url="http://samus-memory:8080",
         crm_url="http://samus-crm:8080",
     )
@@ -450,11 +527,17 @@ def test_webhook_prefers_text_rides_on_structured_data(tmp_path, monkeypatch):
 
     from backend.voice.service import handle_webhook_event
     from backend.voice.models import VapiWebhookEvent
-    event = VapiWebhookEvent.model_validate(_end_of_call_event(
-        lead_summary={"company": "Acme", "recommended_action": "follow_up",
-                      "prefers_text": True},
-        metadata={"prospect_id": "pr_acme"},
-    ))
+
+    event = VapiWebhookEvent.model_validate(
+        _end_of_call_event(
+            lead_summary={
+                "company": "Acme",
+                "recommended_action": "follow_up",
+                "prefers_text": True,
+            },
+            metadata={"prospect_id": "pr_acme"},
+        )
+    )
     asyncio.run(handle_webhook_event(event))
 
     crm_conv = next(c for c in captured if c["path"] == "/crm/conversations")
@@ -463,13 +546,15 @@ def test_webhook_prefers_text_rides_on_structured_data(tmp_path, monkeypatch):
 
 
 def test_webhook_end_of_call_crm_skips_callstate_when_no_prospect_id(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ):
     """No prospect_id in metadata -> Conversation still written, CallState
     skipped without flagging as an error (data gap upstream, not CRM failure)."""
     _audit_to_tmp(monkeypatch, tmp_path)
     _override_settings(
-        monkeypatch, vapi_api_key="vapi_x",
+        monkeypatch,
+        vapi_api_key="vapi_x",
         memory_url="http://samus-memory:8080",
         crm_url="http://samus-crm:8080",
     )
@@ -477,10 +562,13 @@ def test_webhook_end_of_call_crm_skips_callstate_when_no_prospect_id(
 
     from backend.voice.service import handle_webhook_event
     from backend.voice.models import VapiWebhookEvent
-    event = VapiWebhookEvent.model_validate(_end_of_call_event(
-        lead_summary={"tier": "medium", "recommended_action": "follow_up"},
-        # no metadata
-    ))
+
+    event = VapiWebhookEvent.model_validate(
+        _end_of_call_event(
+            lead_summary={"tier": "medium", "recommended_action": "follow_up"},
+            # no metadata
+        )
+    )
     result = asyncio.run(handle_webhook_event(event))
 
     assert result.crm_dispatch_ok is True  # treated as full success
@@ -490,13 +578,15 @@ def test_webhook_end_of_call_crm_skips_callstate_when_no_prospect_id(
 
 
 def test_webhook_end_of_call_crm_failure_does_not_block_memory(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ):
     """A 5xx from CRM is recorded as crm_dispatch_error but memory_dispatch
     still succeeds and the webhook returns 200 (best-effort contract)."""
     _audit_to_tmp(monkeypatch, tmp_path)
     _override_settings(
-        monkeypatch, vapi_api_key="vapi_x",
+        monkeypatch,
+        vapi_api_key="vapi_x",
         memory_url="http://samus-memory:8080",
         crm_url="http://samus-crm:8080",
     )
@@ -515,14 +605,18 @@ def test_webhook_end_of_call_crm_failure_does_not_block_memory(
         return _OkResp()
 
     import backend.voice.service as svc_mod
+
     monkeypatch.setattr(svc_mod, "signed_post_json", _fake)
 
     from backend.voice.service import handle_webhook_event
     from backend.voice.models import VapiWebhookEvent
-    event = VapiWebhookEvent.model_validate(_end_of_call_event(
-        lead_summary={"tier": "high", "recommended_action": "book_call"},
-        metadata={"prospect_id": "pr_acme"},
-    ))
+
+    event = VapiWebhookEvent.model_validate(
+        _end_of_call_event(
+            lead_summary={"tier": "high", "recommended_action": "book_call"},
+            metadata={"prospect_id": "pr_acme"},
+        )
+    )
     result = asyncio.run(handle_webhook_event(event))
 
     assert result.memory_dispatch_ok is True
@@ -532,23 +626,28 @@ def test_webhook_end_of_call_crm_failure_does_not_block_memory(
 
 
 def test_webhook_end_of_call_crm_url_unset_is_explicit_error(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ):
     """When CRM URL isn't configured, the dispatch returns crm_url_unset —
     explicit (not silently swallowed) so the operator can wire it up."""
     _audit_to_tmp(monkeypatch, tmp_path)
     _override_settings(
-        monkeypatch, vapi_api_key="vapi_x",
+        monkeypatch,
+        vapi_api_key="vapi_x",
         memory_url="http://samus-memory:8080",
         # crm_url omitted
     )
     captured = _capture_signed_posts(monkeypatch)
     from backend.voice.service import handle_webhook_event
     from backend.voice.models import VapiWebhookEvent
-    event = VapiWebhookEvent.model_validate(_end_of_call_event(
-        lead_summary={"tier": "high", "recommended_action": "book_call"},
-        metadata={"prospect_id": "pr_acme"},
-    ))
+
+    event = VapiWebhookEvent.model_validate(
+        _end_of_call_event(
+            lead_summary={"tier": "high", "recommended_action": "book_call"},
+            metadata={"prospect_id": "pr_acme"},
+        )
+    )
     result = asyncio.run(handle_webhook_event(event))
 
     assert result.crm_dispatch_ok is False
@@ -568,7 +667,8 @@ def test_webhook_end_of_call_audit_records_crm_status(tmp_path, monkeypatch):
     audit_path = tmp_path / "voice_audit.jsonl"
     monkeypatch.setenv("SAMUS_VOICE_AUDIT_PATH", str(audit_path))
     _override_settings(
-        monkeypatch, vapi_api_key="vapi_x",
+        monkeypatch,
+        vapi_api_key="vapi_x",
         memory_url="http://samus-memory:8080",
         crm_url="http://samus-crm:8080",
     )
@@ -576,13 +676,18 @@ def test_webhook_end_of_call_audit_records_crm_status(tmp_path, monkeypatch):
 
     from backend.voice.service import handle_webhook_event
     from backend.voice.models import VapiWebhookEvent
-    event = VapiWebhookEvent.model_validate(_end_of_call_event(
-        lead_summary={"tier": "low", "recommended_action": "disqualify"},
-        metadata={"prospect_id": "pr_x"},
-    ))
+
+    event = VapiWebhookEvent.model_validate(
+        _end_of_call_event(
+            lead_summary={"tier": "low", "recommended_action": "disqualify"},
+            metadata={"prospect_id": "pr_x"},
+        )
+    )
     asyncio.run(handle_webhook_event(event))
     assert audit_path.exists()
-    lines = [json.loads(l) for l in audit_path.read_text(encoding="utf-8").splitlines() if l.strip()]
+    lines = [
+        json.loads(l) for l in audit_path.read_text(encoding="utf-8").splitlines() if l.strip()
+    ]
     eoc = next((r for r in lines if r.get("action") == "webhook_end_of_call"), None)
     assert eoc is not None
     # With both dispatches succeeding (memory + CRM 200s), status is completed.

@@ -56,6 +56,7 @@ Worker tick
 900s / 15 min). The chain is cancel-safe via the returned ``stop`` handle;
 intended to be wired into a FastAPI lifespan or a CLI long-runner.
 """
+
 from __future__ import annotations
 
 import json
@@ -102,6 +103,7 @@ TRIGGER_NAMES: tuple[str, ...] = (
 # ---------------------------------------------------------------------------
 # Data structures
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class PortfolioSnapshot:
@@ -179,6 +181,7 @@ class TriggerContext:
 # ---------------------------------------------------------------------------
 # Helpers (utc clock isolated so tests can monkeypatch)
 # ---------------------------------------------------------------------------
+
 
 def _today_utc() -> str:
     return time.strftime("%Y-%m-%d", time.gmtime())
@@ -263,6 +266,7 @@ def _append_trigger_event(event: TriggerEvent) -> None:
 # Rate limiter (operator_manual: 1 fire / hour, in-process token bucket)
 # ---------------------------------------------------------------------------
 
+
 class RateLimiter:
     """Tiny in-process leaky-bucket. One slot, refilled every ``interval_sec``.
 
@@ -324,6 +328,7 @@ def _consume_manual_signal() -> None:
 # ---------------------------------------------------------------------------
 # Snapshot store (DDB + JSON fallback; mirrors llm_budget._JsonBackend)
 # ---------------------------------------------------------------------------
+
 
 class _JsonSnapshotBackend:
     """Local JSON-file backend. Process-local lock; atomic rename on save."""
@@ -393,6 +398,7 @@ class _DdbSnapshotBackend:
 
     def _table(self) -> Any:
         from backend.common import aws  # local import so JSON fallback works without boto3
+
         return aws.table(self.table_name, self.region)
 
     def load(self, bucket_day: str) -> PortfolioSnapshot | None:
@@ -457,7 +463,8 @@ class SnapshotStore:
         # caller didn't pass anything (None).
         if ddb_table is None:
             self._ddb_table = os.environ.get(
-                "DDB_PORTFOLIO_SNAPSHOTS_TABLE", "samus_portfolio_snapshots",
+                "DDB_PORTFOLIO_SNAPSHOTS_TABLE",
+                "samus_portfolio_snapshots",
             )
         else:
             self._ddb_table = ddb_table
@@ -523,6 +530,7 @@ def set_default_store(store: SnapshotStore | None) -> None:
 # Snapshot derivation from a TriggerContext
 # ---------------------------------------------------------------------------
 
+
 def derive_snapshot(ctx: TriggerContext) -> PortfolioSnapshot:
     """Compute a snapshot from the current context. Pure function."""
     ev_total = sum(_score_opportunity(p) for p in ctx.prospects)
@@ -543,6 +551,7 @@ def derive_snapshot(ctx: TriggerContext) -> PortfolioSnapshot:
 # ---------------------------------------------------------------------------
 # The five trigger checks — pure booleans
 # ---------------------------------------------------------------------------
+
 
 def check_pipeline_ev_step(
     snapshot: PortfolioSnapshot,
@@ -584,9 +593,8 @@ def check_forecast_density(
         PROACTIVE_SHIFT_THRESHOLD_DEFAULT,
         should_proactively_shift,
     )
-    eff_threshold = (
-        PROACTIVE_SHIFT_THRESHOLD_DEFAULT if threshold is None else threshold
-    )
+
+    eff_threshold = PROACTIVE_SHIFT_THRESHOLD_DEFAULT if threshold is None else threshold
     return should_proactively_shift(industry_forecasts, threshold=eff_threshold)
 
 
@@ -634,7 +642,8 @@ def check_new_cohort(
         return False
     prev_ids = set(prev_snapshot.prospect_ids or ())
     new_cohort = [
-        p for p in prospects
+        p
+        for p in prospects
         if (str(p.get("prospect_id") or p.get("id") or "")) not in prev_ids
         and (str(p.get("prospect_id") or p.get("id") or ""))
     ]
@@ -687,6 +696,7 @@ def check_budget_recovery(
 # Walker: check_and_fire
 # ---------------------------------------------------------------------------
 
+
 def _do_fire(
     ctx: TriggerContext,
     *,
@@ -697,9 +707,11 @@ def _do_fire(
 ) -> TriggerEvent:
     """Call propose_allocation, record the audit event, return it."""
     from .portfolio_manager import PortfolioState
+
     fn = propose_fn
     if fn is None:
         from .portfolio_manager import propose_allocation as _pa
+
         fn = _pa
 
     state = PortfolioState(
@@ -712,13 +724,16 @@ def _do_fire(
 
     decision = fn(state, ctx.market_signals, api_key=api_key)
     budget_denied = bool(getattr(decision, "parse_error", False)) and not getattr(
-        decision, "raw_text", "",
+        decision,
+        "raw_text",
+        "",
     )
 
     enriched_detail = dict(detail)
     enriched_detail.setdefault("priorities_count", len(getattr(decision, "priorities", []) or []))
     enriched_detail.setdefault(
-        "deprioritize_count", len(getattr(decision, "deprioritize", []) or []),
+        "deprioritize_count",
+        len(getattr(decision, "deprioritize", []) or []),
     )
     enriched_detail.setdefault("actions_count", len(getattr(decision, "actions", []) or []))
     enriched_detail.setdefault("parse_error", bool(getattr(decision, "parse_error", False)))
@@ -789,6 +804,7 @@ def check_and_fire(
     #    so a forward-looking shift beats the reactive bandit's regret.
     if fired is None and check_forecast_density(ctx.industry_forecasts):
         from .predictive_allocator import forecast_score
+
         fired = _do_fire(
             ctx,
             name="forecast_density",
@@ -804,8 +820,13 @@ def check_and_fire(
         )
 
     # 3. bandit_divergence
-    if fired is None and prev is not None and check_bandit_divergence_against_top(
-        ctx.bandit_stats, prev.bandit_top_arms,
+    if (
+        fired is None
+        and prev is not None
+        and check_bandit_divergence_against_top(
+            ctx.bandit_stats,
+            prev.bandit_top_arms,
+        )
     ):
         fired = _do_fire(
             ctx,
@@ -820,15 +841,16 @@ def check_and_fire(
 
     # 4. new_cohort
     if fired is None and check_new_cohort(
-        ctx.prospects, prev, cur.pipeline_median_score,
+        ctx.prospects,
+        prev,
+        cur.pipeline_median_score,
     ):
         prev_ids = set(prev.prospect_ids or ()) if prev else set()
         new_count = sum(
             1
             for p in ctx.prospects
-            if (str(p.get("prospect_id") or p.get("id") or "")) and (
-                str(p.get("prospect_id") or p.get("id") or "")
-            ) not in prev_ids
+            if (str(p.get("prospect_id") or p.get("id") or ""))
+            and (str(p.get("prospect_id") or p.get("id") or "")) not in prev_ids
         )
         fired = _do_fire(
             ctx,
@@ -895,6 +917,7 @@ def check_bandit_divergence_against_top(
 # ---------------------------------------------------------------------------
 # Worker tick — daemon Timer chain
 # ---------------------------------------------------------------------------
+
 
 class _TickHandle:
     """Returned by :func:`start_tick_loop`. Call ``.stop()`` to cancel the chain."""

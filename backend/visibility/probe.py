@@ -8,6 +8,7 @@ an exception). Every probe is read-only and appended to a JSONL ledger.
 ``query_platform`` is the single network seam, so tests stub it to run the
 whole pipeline offline.
 """
+
 from __future__ import annotations
 
 import json
@@ -93,9 +94,7 @@ def _chat_completions(
         if resp.status_code != 200:
             return None, f"{label}_http_{resp.status_code}"
         data = resp.json()
-        text = (
-            (data.get("choices") or [{}])[0].get("message", {}).get("content") or ""
-        )
+        text = (data.get("choices") or [{}])[0].get("message", {}).get("content") or ""
         return (text, "") if text else (None, f"{label}_empty")
     except (httpx.HTTPError, ValueError, KeyError, IndexError) as exc:
         return None, f"{label}_error:{type(exc).__name__}"
@@ -229,7 +228,9 @@ def handle_aio_probe(payload: dict) -> dict:
     brand = [str(b) for b in (payload.get("brand_terms") or [])]
     competitors = [str(c) for c in (payload.get("competitor_terms") or [])]
     platforms = [str(p) for p in (payload.get("platforms") or ["claude"])]
-    report = run_probes(questions, brand, competitors, platforms, persist=bool(payload.get("persist", True)))  # type: ignore[arg-type]
+    report = run_probes(
+        questions, brand, competitors, platforms, persist=bool(payload.get("persist", True))
+    )  # type: ignore[arg-type]
     return {
         "enabled": True,
         "sov": asdict(report.sov) if report.sov else None,

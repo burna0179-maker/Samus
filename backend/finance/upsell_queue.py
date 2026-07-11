@@ -20,6 +20,7 @@ Path defaults to ``/opt/samus/data/finance/upsell_queue.jsonl`` (env
 override ``SAMUS_UPSELL_QUEUE_PATH``). Read/write is via
 ``backend.common.persistence.JsonlLedger``.
 """
+
 from __future__ import annotations
 
 import logging
@@ -56,30 +57,31 @@ UpsellRowKind = Literal[
 
 class UpsellQueueRow(BaseModel):
     """One row in upsell_queue.jsonl. Represents a state transition."""
+
     model_config = ConfigDict(extra="forbid")
 
-    event_id: str               # unique per row (uuid4 hex)
-    ts: str                     # ISO UTC of this transition
+    event_id: str  # unique per row (uuid4 hex)
+    ts: str  # ISO UTC of this transition
     kind: UpsellRowKind
-    touch_num: int              # 1, 2, or 3 — the position in the sequence
+    touch_num: int  # 1, 2, or 3 — the position in the sequence
     customer_id: str
     customer_email: str
-    source_offer_code: str      # e.g. "seo_audit"
-    target_offer_code: str = ""     # e.g. "seo_implementation"
-    target_price_id: str = ""       # e.g. "price_1TKu0a..."
-    due_at: str = ""                # ISO UTC; only set on 'queued'
-    sent_message_id: str = ""       # only set on 'sent'
-    subscription_id: str = ""       # only set on 'converted'
-    error: str = ""                 # only set on 'failed'
+    source_offer_code: str  # e.g. "seo_audit"
+    target_offer_code: str = ""  # e.g. "seo_implementation"
+    target_price_id: str = ""  # e.g. "price_1TKu0a..."
+    due_at: str = ""  # ISO UTC; only set on 'queued'
+    sent_message_id: str = ""  # only set on 'sent'
+    subscription_id: str = ""  # only set on 'converted'
+    error: str = ""  # only set on 'failed'
     # --- credit-application fields (Stripe coupon per customer×source) ----
     # Shared across all 3 touches of one customer's enqueue batch. Empty when
     # Stripe coupon creation failed or was skipped (no API key, dev env);
     # render_upsell_email then sends the email without an auto-applied
     # discount and the operator can manually attach a coupon if needed.
-    coupon_id: str = ""             # Stripe coupon id, e.g. "iVklcKWE"
-    promotion_code_id: str = ""     # Stripe promotion_code id, "promo_..."
-    promotion_code: str = ""        # human-readable code, e.g. "AUDIT-CREDIT-7K2QXM"
-    credit_usd_cents: int = 0       # amount_off the coupon carries
+    coupon_id: str = ""  # Stripe coupon id, e.g. "iVklcKWE"
+    promotion_code_id: str = ""  # Stripe promotion_code id, "promo_..."
+    promotion_code: str = ""  # human-readable code, e.g. "AUDIT-CREDIT-7K2QXM"
+    credit_usd_cents: int = 0  # amount_off the coupon carries
 
 
 def _iso_now() -> str:
@@ -108,7 +110,8 @@ def _ledger() -> persistence.Ledger:
     ``backend.common.persistence.open_ledger``.
     """
     return persistence.open_ledger(
-        jsonl_path=str(queue_path()), collection="upsell_queue",
+        jsonl_path=str(queue_path()),
+        collection="upsell_queue",
     )
 
 
@@ -199,10 +202,10 @@ UPSELL_TARGET_MAP: dict[str, dict[str, Any]] = {
 # Stripe coupons cap at invoice amount, so excess credit is forfeit unless
 # we switch the coupon to duration="repeating".
 UPSELL_CREDIT_CENTS_BY_SOURCE: dict[str, int] = {
-    "seo_audit": 14900,                  # $149 → toward $200 Implementation = $51 net
-    "seo_implementation": 20000,         # $200 → toward $300/mo Optimization = $100 first month
-    "service_workflow_rescue": 50000,    # $500 → toward $2,500-$3,000 Buildout = $2k-$2.5k net
-    "service_workflow_buildout": 250000, # $2,500 → toward $2k-$5k AI Ops Build (varies, operator-applied)
+    "seo_audit": 14900,  # $149 → toward $200 Implementation = $51 net
+    "seo_implementation": 20000,  # $200 → toward $300/mo Optimization = $100 first month
+    "service_workflow_rescue": 50000,  # $500 → toward $2,500-$3,000 Buildout = $2k-$2.5k net
+    "service_workflow_buildout": 250000,  # $2,500 → toward $2k-$5k AI Ops Build (varies, operator-applied)
 }
 
 
@@ -228,9 +231,11 @@ def _existing_coupon_for(
     burning a second Stripe coupon for the same funnel hop.
     """
     for row in rows:
-        if (row.customer_id == customer_id
-                and row.source_offer_code == source_offer_code
-                and row.coupon_id):
+        if (
+            row.customer_id == customer_id
+            and row.source_offer_code == source_offer_code
+            and row.coupon_id
+        ):
             return _CouponBundle(
                 coupon_id=row.coupon_id,
                 promotion_code_id=row.promotion_code_id,
@@ -249,6 +254,7 @@ def _generate_promo_code(source_offer_code: str) -> str:
     """
     import secrets
     import string
+
     prefix_map = {
         "seo_audit": "AUDIT",
         "seo_implementation": "IMPL",
@@ -303,7 +309,7 @@ def _default_create_coupon_fn(
             currency="usd",
             duration="once",
             max_redemptions=1,
-            name=name[:160],   # Stripe name cap is 160 chars
+            name=name[:160],  # Stripe name cap is 160 chars
             metadata=metadata,
         )
         coupon_id = str(coupon.get("id") or "")
@@ -331,13 +337,19 @@ def _default_create_coupon_fn(
     except StripeError as exc:
         _LOG.warning(
             "Stripe coupon create failed for %s %s→%s: %s",
-            customer_email, source_offer_code, target_offer_code, exc,
+            customer_email,
+            source_offer_code,
+            target_offer_code,
+            exc,
         )
         return _CouponBundle(credit_usd_cents=credit_cents)
     except Exception as exc:  # noqa: BLE001 — best-effort; never raise from enqueue
         _LOG.warning(
             "Unexpected coupon create error for %s %s→%s: %s",
-            customer_email, source_offer_code, target_offer_code, exc,
+            customer_email,
+            source_offer_code,
+            target_offer_code,
+            exc,
         )
         return _CouponBundle(credit_usd_cents=credit_cents)
 
@@ -525,16 +537,20 @@ def mark_converted(
     # Find the matching 'sent' row to copy customer_email + target fields.
     match: UpsellQueueRow | None = None
     for r in rows:
-        if (r.customer_id == customer_id
-                and r.source_offer_code == source_offer_code
-                and r.touch_num == touch_num
-                and r.kind == "sent"):
+        if (
+            r.customer_id == customer_id
+            and r.source_offer_code == source_offer_code
+            and r.touch_num == touch_num
+            and r.kind == "sent"
+        ):
             match = r
             break
     if match is None:
         _LOG.warning(
             "mark_converted: no prior 'sent' row found for %s/%s/touch%d",
-            customer_id, source_offer_code, touch_num,
+            customer_id,
+            source_offer_code,
+            touch_num,
         )
         return
     row = UpsellQueueRow(

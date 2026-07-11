@@ -4,6 +4,7 @@ The Tier-1 enrichment cascade must NEVER raise and must return neutral
 defaults when DNS/SSL/homepage are unreachable or no API keys are set. All
 network I/O is monkeypatched — no test touches the wire.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -45,12 +46,16 @@ def test_firmographic_enrichment_with_key_still_neutral_when_unwired():
 def test_resolve_dns_empty_domain_is_neutral():
     result = resolve_dns("")
     assert result == {
-        "resolves": False, "has_mx": False, "mx_count": 0, "addresses": 0,
+        "resolves": False,
+        "has_mx": False,
+        "mx_count": 0,
+        "addresses": 0,
     }
 
 
 def test_resolve_dns_failure_returns_neutral(monkeypatch):
     """A getaddrinfo failure degrades to a neutral dict, never raises."""
+
     def _boom(*_a: Any, **_k: Any) -> Any:
         raise OSError("dns unreachable")
 
@@ -66,6 +71,7 @@ def test_validate_ssl_empty_domain_is_neutral():
 
 def test_validate_ssl_connect_failure_is_neutral(monkeypatch):
     """A TLS connect failure degrades to a neutral dict, never raises."""
+
     def _boom(*_a: Any, **_k: Any) -> Any:
         raise OSError("connection refused")
 
@@ -80,6 +86,7 @@ def test_validate_ssl_connect_failure_is_neutral(monkeypatch):
 
 def _patch_all_offline(monkeypatch) -> None:
     """Make DNS, SSL, and the homepage fetch all fail — full offline mode."""
+
     def _dns_boom(*_a: Any, **_k: Any) -> Any:
         raise OSError("offline")
 

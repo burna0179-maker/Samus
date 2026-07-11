@@ -1,7 +1,8 @@
 """Tests for backend.intake.calendar_projection — universal planner API."""
+
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -45,15 +46,20 @@ def _client_stub(monkeypatch):
 
 # --- pure helpers ---------------------------------------------------------
 
+
 def test_format_title_uses_prefix_and_client_tag():
-    assert _format_title(
-        "deliverable", "SEO audit due", client_id="sample_school",
-    ) == "[DELIVERABLE] Sample School: SEO audit due"
+    assert (
+        _format_title(
+            "deliverable",
+            "SEO audit due",
+            client_id="sample_school",
+        )
+        == "[DELIVERABLE] Sample School: SEO audit due"
+    )
 
 
 def test_format_title_no_client_still_works():
-    assert _format_title("engagement", "Weekly team review") == \
-        "[ENGAGEMENT] Weekly team review"
+    assert _format_title("engagement", "Weekly team review") == "[ENGAGEMENT] Weekly team review"
 
 
 def test_ensure_iso_utc_from_z():
@@ -73,16 +79,15 @@ def test_ensure_iso_utc_invalid_returns_empty():
 
 
 def test_default_end_meeting_request_is_30min():
-    assert _default_end("2026-07-15T15:00:00Z", "meeting_request") == \
-        "2026-07-15T15:30:00Z"
+    assert _default_end("2026-07-15T15:00:00Z", "meeting_request") == "2026-07-15T15:30:00Z"
 
 
 def test_default_end_deliverable_is_15min_marker():
-    assert _default_end("2026-07-15T15:00:00Z", "deliverable") == \
-        "2026-07-15T15:15:00Z"
+    assert _default_end("2026-07-15T15:00:00Z", "deliverable") == "2026-07-15T15:15:00Z"
 
 
 # --- project_event happy paths -------------------------------------------
+
 
 def test_project_deliverable_happy_path(_client_stub):
     out = project_event(
@@ -167,6 +172,7 @@ def test_project_hiring_milestone_carries_kind(_client_stub):
 
 # --- idempotency ---------------------------------------------------------
 
+
 def test_project_dedupe_via_source_id(_client_stub):
     _client_stub.list_events.return_value = [
         {
@@ -192,12 +198,8 @@ def test_project_dedupe_via_source_id(_client_stub):
     # Verify we used the privateExtendedProperty filter, not q=
     kwargs = _client_stub.list_events.call_args.kwargs
     assert kwargs.get("q") in (None, "")
-    assert "source_id=seo/audit/2026-07-20" in (
-        kwargs.get("private_extended_property") or []
-    )
-    assert "source=samus.projection" in (
-        kwargs.get("private_extended_property") or []
-    )
+    assert "source_id=seo/audit/2026-07-20" in (kwargs.get("private_extended_property") or [])
+    assert "source=samus.projection" in (kwargs.get("private_extended_property") or [])
 
 
 def test_source_id_match_requires_samus_projection_source(_client_stub):
@@ -227,9 +229,11 @@ def test_source_id_match_requires_samus_projection_source(_client_stub):
 
 # --- validation + fail-soft ----------------------------------------------
 
+
 def test_missing_title_reports_error(_client_stub):
     out = project_event(
-        title="", start_iso="2026-07-20T15:00:00Z",
+        title="",
+        start_iso="2026-07-20T15:00:00Z",
         projection_kind="deliverable",
     )
     assert out["created"] is False
@@ -239,7 +243,9 @@ def test_missing_title_reports_error(_client_stub):
 
 def test_missing_start_iso_reports_error(_client_stub):
     out = project_event(
-        title="X", start_iso="", projection_kind="deliverable",
+        title="X",
+        start_iso="",
+        projection_kind="deliverable",
     )
     assert out["created"] is False
     assert "missing_required" in out["error"]
@@ -247,7 +253,9 @@ def test_missing_start_iso_reports_error(_client_stub):
 
 def test_invalid_start_iso_reports_error(_client_stub):
     out = project_event(
-        title="X", start_iso="tomorrow", projection_kind="deliverable",
+        title="X",
+        start_iso="tomorrow",
+        projection_kind="deliverable",
     )
     assert out["created"] is False
     assert "invalid_start_iso" in out["error"]
@@ -255,7 +263,8 @@ def test_invalid_start_iso_reports_error(_client_stub):
 
 def test_unknown_projection_kind_reports_error(_client_stub):
     out = project_event(
-        title="X", start_iso="2026-07-20T15:00:00Z",
+        title="X",
+        start_iso="2026-07-20T15:00:00Z",
         projection_kind="party",  # type: ignore[arg-type]
     )
     assert out["created"] is False
@@ -264,11 +273,13 @@ def test_unknown_projection_kind_reports_error(_client_stub):
 
 def test_scope_missing_reports_scope_error(_client_stub):
     from backend.intake.calendar_api_client import CalendarApiError
+
     _client_stub.check_scope_or_raise.side_effect = CalendarApiError(
         "calendar_scope_missing: token lacks calendar.events."
     )
     out = project_event(
-        title="X", start_iso="2026-07-20T15:00:00Z",
+        title="X",
+        start_iso="2026-07-20T15:00:00Z",
         projection_kind="deliverable",
     )
     assert out["created"] is False
@@ -278,7 +289,8 @@ def test_scope_missing_reports_scope_error(_client_stub):
 def test_insert_5xx_reports_insert_failed(_client_stub):
     _client_stub.insert_event.side_effect = RuntimeError("calendar 503")
     out = project_event(
-        title="X", start_iso="2026-07-20T15:00:00Z",
+        title="X",
+        start_iso="2026-07-20T15:00:00Z",
         projection_kind="deliverable",
     )
     assert out["created"] is False
@@ -291,10 +303,12 @@ def test_config_missing_disables_projection(monkeypatch):
     fake.gmail_oauth_client_id = ""
     fake.gmail_oauth_client_secret = ""
     monkeypatch.setattr(
-        "backend.intake.calendar_projection.get_settings", lambda: fake,
+        "backend.intake.calendar_projection.get_settings",
+        lambda: fake,
     )
     out = project_event(
-        title="X", start_iso="2026-07-20T15:00:00Z",
+        title="X",
+        start_iso="2026-07-20T15:00:00Z",
         projection_kind="deliverable",
     )
     assert out["created"] is False

@@ -1,4 +1,5 @@
 """Tests for backend.leadgen.scoring."""
+
 from __future__ import annotations
 
 
@@ -37,7 +38,7 @@ def test_score_lead_priority_finance_smb():
 
     assert 0 <= total <= 100
     assert breakdown["industry"] == 20  # finance
-    assert breakdown["geo"] == 8        # US
+    assert breakdown["geo"] == 8  # US
     assert "manual_ops" in matched and "fragmented_tooling" in matched
     assert breakdown["signals"] == 14 + 12
     assert tier_for_score(total) in ("medium", "high", "priority")

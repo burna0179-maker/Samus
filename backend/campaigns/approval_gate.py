@@ -12,6 +12,7 @@ scheme. The orchestrator asks this module two things:
 High-risk nodes (registry.is_high_risk) whose resolved level is ``none`` are a
 config error the *executor* rejects; this gate only handles legitimate gates.
 """
+
 from __future__ import annotations
 
 from backend.common import approvals

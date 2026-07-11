@@ -1,4 +1,5 @@
 """Economic task arbiter — bids, ranking, collectors, ledger, channel bandit."""
+
 from __future__ import annotations
 
 import json
@@ -48,23 +49,24 @@ def _bid(**over) -> WorkBid:
 # WorkBid priority + ranking
 # ---------------------------------------------------------------------------
 
+
 def test_bid_priority_matches_hand_computed_formula():
     # (1000 * 0.5 * 1.0) / (1.0 * 0.5) = 1000
     assert _bid().priority == pytest.approx(1000.0)
 
 
 def test_rank_bids_orders_by_priority_desc():
-    low = _bid(target_id="low", ev_usd=100.0)          # 100
-    mid = _bid(target_id="mid", ev_usd=500.0)          # 500
-    high = _bid(target_id="high", ev_usd=5000.0)       # 5000
+    low = _bid(target_id="low", ev_usd=100.0)  # 100
+    mid = _bid(target_id="mid", ev_usd=500.0)  # 500
+    high = _bid(target_id="high", ev_usd=5000.0)  # 5000
     ranked = rank_bids([mid, low, high])
     assert [b.target_id for b in ranked] == ["high", "mid", "low"]
 
 
 def test_rank_bids_tie_breaks_on_ev():
     # Same priority (both 1000), a has bigger EV via cheaper cost inverse.
-    a = _bid(target_id="a", ev_usd=2000.0, cost_usd=1.0)   # 2000*0.5/1 = 1000
-    b = _bid(target_id="b", ev_usd=1000.0, cost_usd=0.5)   # 1000*0.5/0.5 = 1000
+    a = _bid(target_id="a", ev_usd=2000.0, cost_usd=1.0)  # 2000*0.5/1 = 1000
+    b = _bid(target_id="b", ev_usd=1000.0, cost_usd=0.5)  # 1000*0.5/0.5 = 1000
     ranked = rank_bids([b, a])
     assert [x.target_id for x in ranked] == ["a", "b"]
 
@@ -78,6 +80,7 @@ def test_bid_to_record_includes_priority():
 # ---------------------------------------------------------------------------
 # Collectors degrade to empty when data sources are absent
 # ---------------------------------------------------------------------------
+
 
 def test_collectors_degrade_to_empty_without_data_sources(monkeypatch, tmp_path):
     # No AWS in tests -> CRM scans error out -> empty lists, never raises.
@@ -93,12 +96,23 @@ def test_collectors_degrade_to_empty_without_data_sources(monkeypatch, tmp_path)
 def test_collect_reengagement_bids_reads_queued_ledger(monkeypatch, tmp_path):
     monkeypatch.setenv("SAMUS_STATE_ROOT", str(tmp_path))
     from backend.common.dates import iso_now
+
     ledger = tmp_path / "crm" / "reengagement_queued.jsonl"
     ledger.parent.mkdir(parents=True)
     rows = [
         {"ts": iso_now(), "prospect_id": "p_re1", "opportunity_id": "op_9", "task_id": "t1"},
-        {"ts": iso_now(), "prospect_id": "p_re1", "opportunity_id": "op_9", "task_id": "t2"},  # dup pid
-        {"ts": "2020-01-01T00:00:00Z", "prospect_id": "p_old", "opportunity_id": "", "task_id": "t3"},
+        {
+            "ts": iso_now(),
+            "prospect_id": "p_re1",
+            "opportunity_id": "op_9",
+            "task_id": "t2",
+        },  # dup pid
+        {
+            "ts": "2020-01-01T00:00:00Z",
+            "prospect_id": "p_old",
+            "opportunity_id": "",
+            "task_id": "t3",
+        },
     ]
     ledger.write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
 
@@ -114,6 +128,7 @@ def test_collect_reengagement_bids_reads_queued_ledger(monkeypatch, tmp_path):
 # ---------------------------------------------------------------------------
 # arbitrate_daily — ranked queue + ledger + decision records
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture()
 def _arb_ledger(monkeypatch, tmp_path):
@@ -179,14 +194,17 @@ def test_arbitrate_daily_emits_decision_made_via_shim(_arb_ledger, monkeypatch):
 
 def test_arbitrate_daily_empty_sources_yields_empty_queue(_arb_ledger, monkeypatch, tmp_path):
     monkeypatch.setenv("SAMUS_STATE_ROOT", str(tmp_path))
-    result = arbitrate_daily(day="2026-07-05", apply_affordability=False)   # collectors all degrade
+    result = arbitrate_daily(day="2026-07-05", apply_affordability=False)  # collectors all degrade
     assert result.bid_count == 0
     assert result.ranked == []
 
 
 def test_arbitrate_daily_persist_false_skips_ledger(_arb_ledger):
     arbitrate_daily(
-        [_bid()], day="2026-07-05", persist=False, apply_affordability=False,
+        [_bid()],
+        day="2026-07-05",
+        persist=False,
+        apply_affordability=False,
     )
     assert not _arb_ledger.exists()
 
@@ -194,6 +212,7 @@ def test_arbitrate_daily_persist_false_skips_ledger(_arb_ledger):
 # ---------------------------------------------------------------------------
 # Channel bandit (parallel arm dimension: channel::<name>)
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(autouse=True)
 def _fresh_bandit():
@@ -205,6 +224,7 @@ def _fresh_bandit():
 def test_channel_arms_namespaced_no_schema_change():
     update_channel_bandit("email", 1.0)
     from backend.strategy.portfolio_manager import get_bandit_stats
+
     stats = get_bandit_stats()
     assert "channel::email" in stats
     assert stats["channel::email"]["trials"] == 1
@@ -241,6 +261,7 @@ def test_select_best_channel_respects_candidate_narrowing():
 def test_get_channel_bandit_stats_only_channel_arms_bare_keys():
     update_channel_bandit("seo", 0.5)
     from backend.strategy.portfolio_manager import update_bandit
+
     update_bandit("plumbing", 1.0)  # flat industry arm must not leak in
     stats = get_channel_bandit_stats()
     assert set(stats) == {"seo"}
@@ -251,11 +272,21 @@ def test_get_channel_bandit_stats_only_channel_arms_bare_keys():
 # Slice C — prospect + campaign collectors + affordability gating
 # ---------------------------------------------------------------------------
 
+
 class _StubOpportunity:
     """Duck-typed opportunity for the CRM stub — just what priority_score reads."""
 
-    def __init__(self, *, opportunity_id, prospect_id, stage, deal_size_usd,
-                 close_probability, updated_at, industry="tech"):
+    def __init__(
+        self,
+        *,
+        opportunity_id,
+        prospect_id,
+        stage,
+        deal_size_usd,
+        close_probability,
+        updated_at,
+        industry="tech",
+    ):
         self.opportunity_id = opportunity_id
         self.prospect_id = prospect_id
         self.stage = stage
@@ -287,17 +318,24 @@ def test_collect_prospect_bids_skips_closed_and_uses_priority_score(monkeypatch)
     from backend.crm import service as crm_service
 
     hot = _StubOpportunity(
-        opportunity_id="op1", prospect_id="p1", stage="proposal",
-        deal_size_usd=5000.0, close_probability=0.5,
+        opportunity_id="op1",
+        prospect_id="p1",
+        stage="proposal",
+        deal_size_usd=5000.0,
+        close_probability=0.5,
         updated_at="2026-07-05T00:00:00+00:00",
     )
     lost = _StubOpportunity(
-        opportunity_id="op2", prospect_id="p2", stage="closed_lost",
-        deal_size_usd=1000.0, close_probability=0.0,
+        opportunity_id="op2",
+        prospect_id="p2",
+        stage="closed_lost",
+        deal_size_usd=1000.0,
+        close_probability=0.0,
         updated_at="2026-07-05T00:00:00+00:00",
     )
     monkeypatch.setattr(
-        crm_service, "list_opportunities",
+        crm_service,
+        "list_opportunities",
         lambda **_: _StubOpportunityList([hot, lost]),
     )
 
@@ -334,12 +372,15 @@ def test_collect_campaign_bids_only_eligible_and_carries_cost_tier(monkeypatch):
             self.campaigns = campaigns
 
     monkeypatch.setattr(
-        cp, "default_portfolio_deps",
-        lambda **_: _StubDeps([
-            _StubCampaign("voice_free", "voice", 1.2, "free", 0.0, 5, True),
-            _StubCampaign("email_low",  "email", 1.0, "low",  0.5, 10, True),
-            _StubCampaign("ineligible", "email", 0.5, "low",  0.5, 10, False),  # skipped
-        ]),
+        cp,
+        "default_portfolio_deps",
+        lambda **_: _StubDeps(
+            [
+                _StubCampaign("voice_free", "voice", 1.2, "free", 0.0, 5, True),
+                _StubCampaign("email_low", "email", 1.0, "low", 0.5, 10, True),
+                _StubCampaign("ineligible", "email", 0.5, "low", 0.5, 10, False),  # skipped
+            ]
+        ),
     )
 
     bids = collect_campaign_bids()
@@ -353,7 +394,8 @@ def test_collect_campaign_bids_only_eligible_and_carries_cost_tier(monkeypatch):
 
 
 def test_arbitrate_daily_gates_paid_bids_under_conserve_posture(
-    _arb_ledger, monkeypatch,
+    _arb_ledger,
+    monkeypatch,
 ):
     """Under 'conserve' posture, paid-tier bids move to held_by_affordability."""
     from backend.cash_engine import affordability as afford_mod
@@ -380,12 +422,13 @@ def test_arbitrate_daily_gates_paid_bids_under_conserve_posture(
 
     monkeypatch.setattr(afford_mod, "assess_affordability", lambda: _Afford())
 
-    seo_bid = _bid(target_id="seo_only", channel="seo")           # tier=free -> active
-    email_bid = _bid(target_id="email_low", channel="email")      # tier=low -> held
-    call_bid = _bid(target_id="call_paid", channel="call")        # tier=paid -> held
+    seo_bid = _bid(target_id="seo_only", channel="seo")  # tier=free -> active
+    email_bid = _bid(target_id="email_low", channel="email")  # tier=low -> held
+    call_bid = _bid(target_id="call_paid", channel="call")  # tier=paid -> held
 
     result = arbitrate_daily(
-        [seo_bid, email_bid, call_bid], day="2026-07-06",
+        [seo_bid, email_bid, call_bid],
+        day="2026-07-06",
     )
     assert result.bid_count == 1
     assert [r["target_id"] for r in result.ranked] == ["seo_only"]
@@ -399,7 +442,8 @@ def test_arbitrate_daily_gates_paid_bids_under_conserve_posture(
 
 
 def test_arbitrate_daily_permissive_when_affordability_read_fails(
-    _arb_ledger, monkeypatch,
+    _arb_ledger,
+    monkeypatch,
 ):
     """A finance outage must NOT turn arbitration into a blanket block."""
     from backend.cash_engine import affordability as afford_mod
@@ -410,7 +454,8 @@ def test_arbitrate_daily_permissive_when_affordability_read_fails(
     monkeypatch.setattr(afford_mod, "assess_affordability", _boom)
 
     result = arbitrate_daily(
-        [_bid(target_id="only", channel="call")], day="2026-07-06",
+        [_bid(target_id="only", channel="call")],
+        day="2026-07-06",
     )
     # Fail-open: the bid stays active; nothing held.
     assert result.bid_count == 1

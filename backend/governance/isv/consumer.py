@@ -5,6 +5,7 @@ Per directed_capability.protocol.yaml v0.6.0:
   - At most one ISV active at a time; new ISV deprecates the previous.
   - Max lifetime 24h; expired ISV -> no_active_isv refusal.
 """
+
 from __future__ import annotations
 
 import datetime as _dt
@@ -54,8 +55,7 @@ class IsvConsumer:
                         raise
         elif env in ("production", "prod"):
             raise RuntimeError(
-                "samus.isv.missing_major_pubkey: prod refuses without "
-                "SAMUS_MAJOR_PUBLIC_KEY_PATH"
+                "samus.isv.missing_major_pubkey: prod refuses without SAMUS_MAJOR_PUBLIC_KEY_PATH"
             )
 
     def poll_inbox(self) -> dict | None:
@@ -105,8 +105,10 @@ class IsvConsumer:
             if not signature:
                 raise ProtocolViolation("isv_signature_missing")
             payload = _canonical_payload(isv)
-            sig_bytes = signature if isinstance(signature, bytes) else bytes.fromhex(
-                signature.removeprefix("ed25519:").strip()
+            sig_bytes = (
+                signature
+                if isinstance(signature, bytes)
+                else bytes.fromhex(signature.removeprefix("ed25519:").strip())
             )
             try:
                 self._major_pubkey.verify(sig_bytes, payload)
@@ -118,7 +120,8 @@ class IsvConsumer:
             except OSError:
                 pass
         (self._active_dir / f"{isv_id}.yaml").write_text(
-            yaml.safe_dump(isv, sort_keys=False), encoding="utf-8",
+            yaml.safe_dump(isv, sort_keys=False),
+            encoding="utf-8",
         )
         _LOG.info("samus.isv.accepted: id=%s expires=%s", isv_id, expires_at)
         return isv

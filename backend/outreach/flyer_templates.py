@@ -12,6 +12,7 @@ Store (under ``storage.root()``):
   ``marketing/flyer_templates/<template_id>.html``   — the current template
   ``marketing/flyer_templates/manifest.jsonl``       — one row per version
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -52,6 +53,7 @@ def _store_dir() -> Path:
 def render_template_html(offer: object) -> str:
     """Render the offer's flyer with merge-field placeholders (the template)."""
     from .flyer import render_flyer_html
+
     return render_flyer_html(
         company=_PH_COMPANY,
         first_name=_PH_FIRST_NAME,
@@ -90,16 +92,18 @@ def save_template(offer: object, *, sample_company: str = "") -> SavedTemplate |
             return SavedTemplate(tid, str(path), sha, changed=False)
 
         path.write_text(html, encoding="utf-8")
-        _append_manifest({
-            "template_id": tid,
-            "sku_id": getattr(offer, "sku_id", ""),
-            "kind": getattr(offer, "kind", ""),
-            "label": getattr(offer, "label", ""),
-            "price_usd": getattr(offer, "price_usd", 0.0),
-            "content_sha": sha,
-            "saved_at": iso_now(),
-            "sample_company": sample_company,
-        })
+        _append_manifest(
+            {
+                "template_id": tid,
+                "sku_id": getattr(offer, "sku_id", ""),
+                "kind": getattr(offer, "kind", ""),
+                "label": getattr(offer, "label", ""),
+                "price_usd": getattr(offer, "price_usd", 0.0),
+                "content_sha": sha,
+                "saved_at": iso_now(),
+                "sample_company": sample_company,
+            }
+        )
         _LOG.info("saved flyer template %s (sha=%s)", tid, sha)
         return SavedTemplate(tid, str(path), sha, changed=True)
     except Exception as exc:  # noqa: BLE001 — never disturb the caller

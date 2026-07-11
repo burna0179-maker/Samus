@@ -1,4 +1,5 @@
 """Domain normalization for the leadgen workcell."""
+
 from __future__ import annotations
 
 from urllib.parse import urlparse

@@ -11,6 +11,7 @@ This module owns only the state shape + its load/save; the stage logic lives
 in :mod:`backend.cash_engine.stages` and the orchestration in
 :mod:`backend.cash_engine.worker`.
 """
+
 from __future__ import annotations
 
 import json

@@ -7,6 +7,7 @@ counter) and its wiring into the two learners
 reconstructable record — what arm, from what outcome, to what wins/trials, and
 whether the durable write persisted — without changing the learning outcome.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -17,7 +18,8 @@ from backend.common import learning_telemetry, metrics
 @pytest.fixture(autouse=True)
 def _isolate(tmp_path, monkeypatch):
     monkeypatch.setenv(
-        "SAMUS_LEARNING_TELEMETRY_PATH", str(tmp_path / "bandit_learning.jsonl"),
+        "SAMUS_LEARNING_TELEMETRY_PATH",
+        str(tmp_path / "bandit_learning.jsonl"),
     )
     monkeypatch.setenv("SAMUS_LEDGER_BACKEND", "jsonl")
     monkeypatch.setenv("SAMUS_STRATEGY_BANDIT_PATH", str(tmp_path / "bandit.json"))
@@ -27,6 +29,7 @@ def _isolate(tmp_path, monkeypatch):
     # Reset the cached singleton stores so they re-read the tmp paths above.
     import backend.strategy.portfolio_manager as pm
     from backend.attribution import store as attr_store
+
     pm.reset_bandit()
     attr_store.reset_store()
 
@@ -35,12 +38,18 @@ def _isolate(tmp_path, monkeypatch):
 # Module-direct
 # ---------------------------------------------------------------------------
 
+
 class TestRecordLearningUpdate:
     def test_bandit_update_is_reconstructable(self):
         learning_telemetry.record_learning_update(
-            kind=learning_telemetry.KIND_BANDIT, arm_id="plumbing::aggressive",
-            outcome=1.0, reward=0.73, wins=3.0, trials=5,
-            persisted=True, density_applied=True,
+            kind=learning_telemetry.KIND_BANDIT,
+            arm_id="plumbing::aggressive",
+            outcome=1.0,
+            reward=0.73,
+            wins=3.0,
+            trials=5,
+            persisted=True,
+            density_applied=True,
         )
         rows = learning_telemetry.read_learning(kind="bandit")
         assert len(rows) == 1
@@ -55,12 +64,18 @@ class TestRecordLearningUpdate:
 
     def test_not_persisted_is_recorded_and_filterable(self):
         learning_telemetry.record_learning_update(
-            kind=learning_telemetry.KIND_BANDIT, arm_id="a", outcome=1.0,
-            reward=1.0, persisted=False,
+            kind=learning_telemetry.KIND_BANDIT,
+            arm_id="a",
+            outcome=1.0,
+            reward=1.0,
+            persisted=False,
         )
         learning_telemetry.record_learning_update(
-            kind=learning_telemetry.KIND_BANDIT, arm_id="b", outcome=1.0,
-            reward=1.0, persisted=True,
+            kind=learning_telemetry.KIND_BANDIT,
+            arm_id="b",
+            outcome=1.0,
+            reward=1.0,
+            persisted=True,
         )
         degraded = learning_telemetry.read_learning(persisted=False)
         assert len(degraded) == 1
@@ -70,10 +85,16 @@ class TestRecordLearningUpdate:
 
     def test_read_filters_by_kind_and_arm(self):
         learning_telemetry.record_learning_update(
-            kind=learning_telemetry.KIND_BANDIT, arm_id="x", outcome=1.0, reward=1.0,
+            kind=learning_telemetry.KIND_BANDIT,
+            arm_id="x",
+            outcome=1.0,
+            reward=1.0,
         )
         learning_telemetry.record_learning_update(
-            kind=learning_telemetry.KIND_VARIANT, arm_id="y", outcome=1.0, reward=1.0,
+            kind=learning_telemetry.KIND_VARIANT,
+            arm_id="y",
+            outcome=1.0,
+            reward=1.0,
         )
         assert len(learning_telemetry.read_learning(kind="variant")) == 1
         assert len(learning_telemetry.read_learning(arm_id="x")) == 1
@@ -84,20 +105,28 @@ class TestRecordLearningUpdate:
 
         monkeypatch.setattr(learning_telemetry, "open_ledger", _boom)
         rec = learning_telemetry.record_learning_update(
-            kind=learning_telemetry.KIND_BANDIT, arm_id="a", outcome=1.0, reward=1.0,
+            kind=learning_telemetry.KIND_BANDIT,
+            arm_id="a",
+            outcome=1.0,
+            reward=1.0,
         )
         assert rec["arm_id"] == "a"  # returned despite persistence failure
 
     def test_counter_increments_with_persisted_label(self):
         before = metrics.SAMUS_LEARNING_UPDATES_TOTAL.labels(
-            kind="bandit", persisted="false",
+            kind="bandit",
+            persisted="false",
         )._value.get()
         learning_telemetry.record_learning_update(
-            kind=learning_telemetry.KIND_BANDIT, arm_id="a", outcome=1.0,
-            reward=1.0, persisted=False,
+            kind=learning_telemetry.KIND_BANDIT,
+            arm_id="a",
+            outcome=1.0,
+            reward=1.0,
+            persisted=False,
         )
         after = metrics.SAMUS_LEARNING_UPDATES_TOTAL.labels(
-            kind="bandit", persisted="false",
+            kind="bandit",
+            persisted="false",
         )._value.get()
         assert after == before + 1
 
@@ -106,9 +135,11 @@ class TestRecordLearningUpdate:
 # Integration: the learners emit
 # ---------------------------------------------------------------------------
 
+
 class TestBanditEmitsLearning:
     def test_update_bandit_emits_learning(self):
         import backend.strategy.portfolio_manager as pm
+
         pm.update_bandit("accelerate", 1.0)
         rows = learning_telemetry.read_learning(kind="bandit", arm_id="accelerate")
         assert len(rows) == 1
@@ -118,6 +149,7 @@ class TestBanditEmitsLearning:
 
     def test_update_policy_bandit_emits_composite_arm(self):
         import backend.strategy.portfolio_manager as pm
+
         pm.update_policy_bandit("plumbing", "aggressive", 1.0)
         rows = learning_telemetry.read_learning(kind="bandit")
         assert len(rows) == 1
@@ -133,7 +165,8 @@ class TestBanditEmitsLearning:
             raise RuntimeError("telemetry down")
 
         monkeypatch.setattr(
-            "backend.common.learning_telemetry.record_learning_update", _boom,
+            "backend.common.learning_telemetry.record_learning_update",
+            _boom,
         )
         pm.update_bandit("accelerate", 1.0)  # must not raise
         assert pm.get_bandit_stats()["accelerate"]["trials"] == 1
@@ -142,6 +175,7 @@ class TestBanditEmitsLearning:
 class TestVariantEmitsLearning:
     def test_record_outcome_emits_learning(self):
         from backend.attribution import engine
+
         engine.record_outcome("tmpl::subjA::ctaB", 1.0, won=True)
         rows = learning_telemetry.read_learning(kind="variant")
         assert len(rows) == 1
@@ -154,5 +188,6 @@ class TestVariantEmitsLearning:
 
     def test_record_outcome_empty_arm_emits_nothing(self):
         from backend.attribution import engine
+
         engine.record_outcome("", 1.0)  # early-returns before any learn
         assert learning_telemetry.read_learning(kind="variant") == []

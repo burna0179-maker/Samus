@@ -3,6 +3,7 @@
 The neo4j Python driver is monkeypatched: ``GraphDatabase.driver`` returns a
 fake driver whose .session().run() captures the Cypher + params for asserts.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -101,6 +102,7 @@ def unavailable_driver(monkeypatch):
 
 # --- happy path ------------------------------------------------------------
 
+
 def test_available_true_when_driver_connects(fake_driver):
     client = GraphClient(password="x")
     assert client.available is True
@@ -191,6 +193,7 @@ def test_get_client_returns_singleton(fake_driver):
 
 
 # --- unavailability paths --------------------------------------------------
+
 
 def test_unavailable_when_service_unreachable(unavailable_driver):
     client = GraphClient(password="x", required=False)
@@ -289,7 +292,9 @@ def test_promote_node_rejects_unsafe_label(fake_driver):
     client = GraphClient(password="x")
     with pytest.raises(ValueError, match="unsafe node label"):
         client.promote_node(
-            "Account) DETACH DELETE n //", "x", key_property="account_id",
+            "Account) DETACH DELETE n //",
+            "x",
+            key_property="account_id",
         )
     assert fake_driver.calls == []
 

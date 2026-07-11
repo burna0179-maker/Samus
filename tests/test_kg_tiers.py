@@ -7,6 +7,7 @@ faked throughout.
 
 See CLOUD_RUN_DEPLOY.md §5.2 / decision D-6 option 6b.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -120,7 +121,7 @@ def test_should_auto_promote_only_verified_when_label(monkeypatch):
     monkeypatch.setenv("SAMUS_KG_TIER_MODE", "label")
     reload_settings()
     assert tiers.should_auto_promote("verified") is True
-    assert tiers.should_auto_promote("VERIFIED") is True   # case-insensitive
+    assert tiers.should_auto_promote("VERIFIED") is True  # case-insensitive
     assert tiers.should_auto_promote("internal") is False
     assert tiers.should_auto_promote("external") is False
     assert tiers.should_auto_promote(None) is False
@@ -132,10 +133,16 @@ def test_auto_promote_on_ingest_promotes_verified(monkeypatch):
     monkeypatch.setenv("SAMUS_KG_TIER_MODE", "label")
     reload_settings()
     client = _RecordingClient()
-    assert tiers.auto_promote_on_ingest(
-        "KnowledgeChunk", "c-1", "verified",
-        key_property="chunk_id", client=client,
-    ) is True
+    assert (
+        tiers.auto_promote_on_ingest(
+            "KnowledgeChunk",
+            "c-1",
+            "verified",
+            key_property="chunk_id",
+            client=client,
+        )
+        is True
+    )
     assert client.promote_calls == [("KnowledgeChunk", "c-1", "chunk_id")]
 
 
@@ -145,9 +152,15 @@ def test_auto_promote_on_ingest_skips_internal(monkeypatch):
     monkeypatch.setenv("SAMUS_KG_TIER_MODE", "label")
     reload_settings()
     client = _RecordingClient()
-    assert tiers.auto_promote_on_ingest(
-        "KnowledgeChunk", "c-1", "internal", client=client,
-    ) is False
+    assert (
+        tiers.auto_promote_on_ingest(
+            "KnowledgeChunk",
+            "c-1",
+            "internal",
+            client=client,
+        )
+        is False
+    )
     assert client.promote_calls == []
 
 
@@ -157,9 +170,15 @@ def test_auto_promote_on_ingest_noop_when_mode_off(monkeypatch):
     monkeypatch.setenv("SAMUS_KG_TIER_MODE", "off")
     reload_settings()
     client = _RecordingClient()
-    assert tiers.auto_promote_on_ingest(
-        "KnowledgeChunk", "c-1", "verified", client=client,
-    ) is False
+    assert (
+        tiers.auto_promote_on_ingest(
+            "KnowledgeChunk",
+            "c-1",
+            "verified",
+            client=client,
+        )
+        is False
+    )
     assert client.promote_calls == []
 
 
@@ -177,16 +196,15 @@ class _LifecycleClient:
         return True
 
     def nodes_in_tier(self, tier, *, label=None, limit=100) -> list[dict]:
-        return [
-            {"chunk_id": key} for (lbl, key) in self.promoted
-            if label in (None, lbl)
-        ]
+        return [{"chunk_id": key} for (lbl, key) in self.promoted if label in (None, lbl)]
 
 
 def test_ingest_verified_auto_promotes_to_hivemind(monkeypatch):
     from backend.memory import tiers
     from backend.memory.knowledge_ingest import (
-        IngestRequest, KnowledgeIngestPod, TrustLevel,
+        IngestRequest,
+        KnowledgeIngestPod,
+        TrustLevel,
     )
 
     monkeypatch.setenv("SAMUS_KG_TIER_MODE", "label")
@@ -195,11 +213,13 @@ def test_ingest_verified_auto_promotes_to_hivemind(monkeypatch):
     monkeypatch.setattr(tiers, "get_client", lambda: client)
 
     pod = KnowledgeIngestPod(graph_writer=lambda rec: None)
-    receipt = pod.handle(IngestRequest(
-        documents=[{"id": "doc1", "document": "authoritative fact"}],
-        trust_level=TrustLevel.VERIFIED,
-        signature="sig",   # VERIFIED requires a signature; no verifier -> passes
-    ))
+    receipt = pod.handle(
+        IngestRequest(
+            documents=[{"id": "doc1", "document": "authoritative fact"}],
+            trust_level=TrustLevel.VERIFIED,
+            signature="sig",  # VERIFIED requires a signature; no verifier -> passes
+        )
+    )
 
     assert receipt.chunks_indexed == 1
     # The verified chunk was auto-promoted...
@@ -212,7 +232,9 @@ def test_ingest_verified_auto_promotes_to_hivemind(monkeypatch):
 def test_ingest_internal_stays_private(monkeypatch):
     from backend.memory import tiers
     from backend.memory.knowledge_ingest import (
-        IngestRequest, KnowledgeIngestPod, TrustLevel,
+        IngestRequest,
+        KnowledgeIngestPod,
+        TrustLevel,
     )
 
     monkeypatch.setenv("SAMUS_KG_TIER_MODE", "label")
@@ -221,10 +243,12 @@ def test_ingest_internal_stays_private(monkeypatch):
     monkeypatch.setattr(tiers, "get_client", lambda: client)
 
     pod = KnowledgeIngestPod(graph_writer=lambda rec: None)
-    receipt = pod.handle(IngestRequest(
-        documents=[{"id": "doc2", "document": "an internal note"}],
-        trust_level=TrustLevel.INTERNAL,
-    ))
+    receipt = pod.handle(
+        IngestRequest(
+            documents=[{"id": "doc2", "document": "an internal note"}],
+            trust_level=TrustLevel.INTERNAL,
+        )
+    )
 
     assert receipt.chunks_indexed == 1
     assert client.promoted == []  # internal knowledge is not auto-promoted
@@ -316,8 +340,7 @@ def test_graph_promote_ok(monkeypatch):
 
     r = client.post(
         "/graph/promote",
-        json={"label": "KnowledgeChunk", "key_value": "c-1",
-              "key_property": "chunk_id"},
+        json={"label": "KnowledgeChunk", "key_value": "c-1", "key_property": "chunk_id"},
     )
 
     assert r.status_code == 200, r.text

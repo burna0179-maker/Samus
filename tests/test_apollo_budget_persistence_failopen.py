@@ -3,6 +3,7 @@
 Per Codex chapter 04: Apollo budget is a cost cap, not a safety cap. Losing
 the store means bounded overspend, NOT system unavailability.
 """
+
 from __future__ import annotations
 
 import logging

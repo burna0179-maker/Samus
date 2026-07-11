@@ -7,6 +7,7 @@ registered back into samus-crm as an Artifact.
 dispatch is a best-effort ``create_artifact`` TaskEnvelope at the gateway's
 ``/dispatch/crm``; ``signed_post_json_sync`` is stubbed so tests stay offline.
 """
+
 from __future__ import annotations
 
 
@@ -14,18 +15,20 @@ def _reset_idempotency(monkeypatch):
     from backend.common.idempotency import IdempotencyStore
     import backend.common.idempotency as idem_mod
     import backend.scaffold.logic as logic_mod
+
     fresh = IdempotencyStore()
     monkeypatch.setattr(idem_mod, "GLOBAL_IDEMPOTENCY_STORE", fresh)
     monkeypatch.setattr(logic_mod, "GLOBAL_IDEMPOTENCY_STORE", fresh)
 
 
-def _stub_settings(monkeypatch, *, gateway_url="http://gateway.local",
-                   shared_hmac_key="secret"):
+def _stub_settings(monkeypatch, *, gateway_url="http://gateway.local", shared_hmac_key="secret"):
     class _S:
         gateway_urls = {"gateway": gateway_url} if gateway_url else {}
+
     s = _S()
     s.shared_hmac_key = shared_hmac_key
     import backend.scaffold.logic as logic
+
     monkeypatch.setattr(logic, "get_settings", lambda: s)
 
 
@@ -50,6 +53,7 @@ def _capture_posts(monkeypatch):
 def _request(monkeypatch, **inputs):
     """Build a proposal_pack ScaffoldRequest with the given inputs linkage."""
     from backend.scaffold.models import ScaffoldRequest
+
     return ScaffoldRequest(
         asset_type="proposal_pack",
         title="Proposal Pack: Acme HVAC",
@@ -69,6 +73,7 @@ def test_scaffold_with_opportunity_linkage_registers_artifact(tmp_path, monkeypa
     posts = _capture_posts(monkeypatch)
 
     from backend.scaffold.logic import generate_scaffold
+
     generate_scaffold(_request(monkeypatch, opportunity_id="op_acme_7"))
 
     assert len(posts) == 1
@@ -77,7 +82,7 @@ def test_scaffold_with_opportunity_linkage_registers_artifact(tmp_path, monkeypa
     assert path == "/dispatch/crm"
     assert envelope["metadata"]["action"] == "create_artifact"
     body = envelope["payload"]
-    assert body["kind"] == "proposal"          # proposal_pack -> "proposal"
+    assert body["kind"] == "proposal"  # proposal_pack -> "proposal"
     assert body["owner_entity_kind"] == "opportunity"
     assert body["owner_entity_id"] == "op_acme_7"
     assert body["source"] == "scaffold"
@@ -93,6 +98,7 @@ def test_scaffold_with_prospect_only_uses_prospect(tmp_path, monkeypatch):
     posts = _capture_posts(monkeypatch)
 
     from backend.scaffold.logic import generate_scaffold
+
     generate_scaffold(_request(monkeypatch, prospect_id="pr_acme"))
 
     assert len(posts) == 1
@@ -109,13 +115,15 @@ def test_scaffold_without_linkage_skips_dispatch(tmp_path, monkeypatch):
     posts = _capture_posts(monkeypatch)
 
     from backend.scaffold.logic import generate_scaffold
-    payload = generate_scaffold(_request(monkeypatch))   # empty inputs
+
+    payload = generate_scaffold(_request(monkeypatch))  # empty inputs
     assert posts == []
-    assert payload["document"]   # the asset still rendered
+    assert payload["document"]  # the asset still rendered
 
 
 def test_scaffold_artifact_payload_validates_as_create_artifact_request(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ):
     """The dispatched payload round-trips through CRM's CreateArtifactRequest
     (extra='forbid', owner fields min_length=1)."""
@@ -125,9 +133,11 @@ def test_scaffold_artifact_payload_validates_as_create_artifact_request(
     posts = _capture_posts(monkeypatch)
 
     from backend.scaffold.logic import generate_scaffold
+
     generate_scaffold(_request(monkeypatch, opportunity_id="op_v"))
 
     from backend.crm.models import CreateArtifactRequest
+
     car = CreateArtifactRequest.model_validate(posts[0][2]["payload"])
     assert car.kind == "proposal"
     assert car.owner_entity_id == "op_v"
@@ -144,9 +154,11 @@ def test_scaffold_crm_dispatch_failure_does_not_break_generate(tmp_path, monkeyp
 
     def _raising(*a, **k):
         raise RuntimeError("simulated gateway outage")
+
     monkeypatch.setattr(logic, "signed_post_json_sync", _raising)
 
     from backend.scaffold.logic import generate_scaffold
+
     payload = generate_scaffold(_request(monkeypatch, opportunity_id="op_x"))
-    assert payload["document"]   # render unaffected by the CRM hiccup
+    assert payload["document"]  # render unaffected by the CRM hiccup
     assert payload["asset_type"] == "proposal_pack"

@@ -14,6 +14,7 @@ The function is pure given an injected ``now`` so the trigger stays
 deterministic and testable. It performs no I/O — the caller supplies the
 Opportunity, the (optional) CallState, and any external-factor signal.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -41,9 +42,7 @@ STAGE_DECAY_WEIGHT: dict[str, float] = {
     "negotiation": 0.95,
 }
 
-TERMINAL_STAGES: frozenset[str] = frozenset(
-    {"closed_won", "closed_won_retainer", "closed_lost"}
-)
+TERMINAL_STAGES: frozenset[str] = frozenset({"closed_won", "closed_won_retainer", "closed_lost"})
 
 _ISO_FMT = "%Y-%m-%dT%H:%M:%SZ"
 
@@ -86,12 +85,12 @@ class DecayAssessment:
     opportunity_id: str
     prospect_id: str
     stage: str
-    decay_risk: float          # the headline 0.0-1.0 score
-    staleness_days: float      # whole-ish days since last known contact
-    stall_factor: float        # staleness saturated against the stall window
-    stage_weight: float        # STAGE_DECAY_WEIGHT for this stage
-    external_factor: float     # clamped external contribution
-    is_terminal: bool          # closed deal — never at decay risk
+    decay_risk: float  # the headline 0.0-1.0 score
+    staleness_days: float  # whole-ish days since last known contact
+    stall_factor: float  # staleness saturated against the stall window
+    stage_weight: float  # STAGE_DECAY_WEIGHT for this stage
+    external_factor: float  # clamped external contribution
+    is_terminal: bool  # closed deal — never at decay risk
 
     def crosses(self, threshold: float) -> bool:
         """True when this deal should fire a signal_decay trigger."""

@@ -16,46 +16,61 @@ No real network: ``discover_for_zipcode`` is monkeypatched to return fixtures,
 and the enrichment internals (``fetch_homepage`` etc.) are patched to hang /
 raise on demand.
 """
+
 from __future__ import annotations
 
 import threading
 import time
 from pathlib import Path
 
-import pytest
-
 
 def _reset_idempotency(monkeypatch):
     from backend.common.idempotency import IdempotencyStore
     import backend.common.idempotency as idem_mod
+
     store = IdempotencyStore()
     monkeypatch.setattr(idem_mod, "GLOBAL_IDEMPOTENCY_STORE", store)
     import backend.prospecting.service as svc_mod
+
     monkeypatch.setattr(svc_mod, "GLOBAL_IDEMPOTENCY_STORE", store)
 
 
 def _fixture_prospects():
     from backend.prospecting.models import ProspectRecord
+
     return [
         ProspectRecord(
-            prospect_id="pr_fast", account_id="acct_fast",
-            company_name="Fast Co", phone="(530) 111-1111",
+            prospect_id="pr_fast",
+            account_id="acct_fast",
+            company_name="Fast Co",
+            phone="(530) 111-1111",
             website_url="https://fast.example/",
-            city="Yuba City", state="CA", zipcode="95993",
-            industry="finance", review_rating="4.8", review_count="20",
+            city="Yuba City",
+            state="CA",
+            zipcode="95993",
+            industry="finance",
+            review_rating="4.8",
+            review_count="20",
         ),
         ProspectRecord(
-            prospect_id="pr_slow", account_id="acct_slow",
-            company_name="Slow Co", phone="(530) 222-2222",
+            prospect_id="pr_slow",
+            account_id="acct_slow",
+            company_name="Slow Co",
+            phone="(530) 222-2222",
             website_url="https://slow.example/",
-            city="Yuba City", state="CA", zipcode="95993",
-            industry="finance", review_rating="4.1", review_count="9",
+            city="Yuba City",
+            state="CA",
+            zipcode="95993",
+            industry="finance",
+            review_rating="4.1",
+            review_count="9",
         ),
     ]
 
 
 def _base_request(**overrides):
     from backend.prospecting.models import DiscoveryRequest
+
     kwargs = dict(
         campaign_name="hang_guard_test",
         zipcodes=["95993"],
@@ -80,8 +95,9 @@ def _common_env(monkeypatch, tmp_path):
     _reset_idempotency(monkeypatch)
     monkeypatch.setattr(
         "backend.prospecting.service.discover_for_zipcode",
-        lambda *, zipcode, industries, max_results_per_zip, must_have_website:
-            list(_fixture_prospects()) if zipcode == "95993" else [],
+        lambda *, zipcode, industries, max_results_per_zip, must_have_website: (
+            list(_fixture_prospects()) if zipcode == "95993" else []
+        ),
     )
 
 
@@ -93,7 +109,8 @@ def test_hanging_enrichment_is_bounded_and_skipped(tmp_path, monkeypatch):
 
     # Tiny deadline so the test is fast; a real hang would blow past it.
     monkeypatch.setattr(
-        "backend.prospecting.service._ENRICH_DEADLINE_S", 0.3,
+        "backend.prospecting.service._ENRICH_DEADLINE_S",
+        0.3,
     )
 
     released = threading.Event()
@@ -102,17 +119,24 @@ def test_hanging_enrichment_is_bounded_and_skipped(tmp_path, monkeypatch):
         if "slow" in url:
             # Simulate the unbounded getaddrinfo/socket hang.
             released.wait(timeout=10.0)
-        return {"final_url": url, "status_code": 200,
-                "html": "<title>ok</title>", "fetch_error": None}
+        return {
+            "final_url": url,
+            "status_code": 200,
+            "html": "<title>ok</title>",
+            "fetch_error": None,
+        }
 
     monkeypatch.setattr(
-        "backend.prospecting.crawler.fetch_homepage", _fake_fetch_homepage,
+        "backend.prospecting.crawler.fetch_homepage",
+        _fake_fetch_homepage,
     )
     monkeypatch.setattr(
-        "backend.prospecting.crawler.classify_website", lambda page: "live",
+        "backend.prospecting.crawler.classify_website",
+        lambda page: "live",
     )
     monkeypatch.setattr(
-        "backend.prospecting.seo_audit.score_seo", lambda page: (55, []),
+        "backend.prospecting.seo_audit.score_seo",
+        lambda page: (55, []),
     )
     monkeypatch.setattr(
         "backend.prospecting.enrichment.enrich_from_page_with_fallback",
@@ -152,17 +176,24 @@ def test_one_failing_prospect_does_not_abort_batch(tmp_path, monkeypatch):
     def _fake_fetch_homepage(url):
         if "slow" in url:
             raise RuntimeError("boom: hostile site")
-        return {"final_url": url, "status_code": 200,
-                "html": "<title>ok</title>", "fetch_error": None}
+        return {
+            "final_url": url,
+            "status_code": 200,
+            "html": "<title>ok</title>",
+            "fetch_error": None,
+        }
 
     monkeypatch.setattr(
-        "backend.prospecting.crawler.fetch_homepage", _fake_fetch_homepage,
+        "backend.prospecting.crawler.fetch_homepage",
+        _fake_fetch_homepage,
     )
     monkeypatch.setattr(
-        "backend.prospecting.crawler.classify_website", lambda page: "live",
+        "backend.prospecting.crawler.classify_website",
+        lambda page: "live",
     )
     monkeypatch.setattr(
-        "backend.prospecting.seo_audit.score_seo", lambda page: (60, []),
+        "backend.prospecting.seo_audit.score_seo",
+        lambda page: (60, []),
     )
     monkeypatch.setattr(
         "backend.prospecting.enrichment.enrich_from_page_with_fallback",
@@ -170,6 +201,7 @@ def test_one_failing_prospect_does_not_abort_batch(tmp_path, monkeypatch):
     )
 
     from backend.prospecting.service import process_discovery
+
     result = process_discovery(_base_request(), task_id="t-hang-2")
 
     assert result.prospect_count == 2  # both retained
@@ -190,10 +222,12 @@ def test_all_enrichment_failing_still_writes_nonempty_list(tmp_path, monkeypatch
         lambda url: (_ for _ in ()).throw(RuntimeError("all sites down")),
     )
     monkeypatch.setattr(
-        "backend.prospecting.crawler.classify_website", lambda page: "live",
+        "backend.prospecting.crawler.classify_website",
+        lambda page: "live",
     )
     monkeypatch.setattr(
-        "backend.prospecting.seo_audit.score_seo", lambda page: (0, []),
+        "backend.prospecting.seo_audit.score_seo",
+        lambda page: (0, []),
     )
     monkeypatch.setattr(
         "backend.prospecting.enrichment.enrich_from_page_with_fallback",
@@ -201,6 +235,7 @@ def test_all_enrichment_failing_still_writes_nonempty_list(tmp_path, monkeypatch
     )
 
     from backend.prospecting.service import process_discovery
+
     result = process_discovery(_base_request(), task_id="t-hang-3")
 
     assert result.prospect_count == 2
@@ -216,14 +251,20 @@ def test_hanging_full_audit_is_bounded_and_skipped(tmp_path, monkeypatch):
     # Enrichment is cheap here; the hang is in the Step 2.7 deep audit.
     monkeypatch.setattr(
         "backend.prospecting.crawler.fetch_homepage",
-        lambda url: {"final_url": url, "status_code": 200,
-                     "html": "<title>ok</title>", "fetch_error": None},
+        lambda url: {
+            "final_url": url,
+            "status_code": 200,
+            "html": "<title>ok</title>",
+            "fetch_error": None,
+        },
     )
     monkeypatch.setattr(
-        "backend.prospecting.crawler.classify_website", lambda page: "live",
+        "backend.prospecting.crawler.classify_website",
+        lambda page: "live",
     )
     monkeypatch.setattr(
-        "backend.prospecting.seo_audit.score_seo", lambda page: (30, []),
+        "backend.prospecting.seo_audit.score_seo",
+        lambda page: (30, []),
     )
     monkeypatch.setattr(
         "backend.prospecting.enrichment.enrich_from_page_with_fallback",
@@ -231,7 +272,8 @@ def test_hanging_full_audit_is_bounded_and_skipped(tmp_path, monkeypatch):
     )
 
     monkeypatch.setattr(
-        "backend.prospecting.service._AUDIT_DEADLINE_S", 0.3,
+        "backend.prospecting.service._AUDIT_DEADLINE_S",
+        0.3,
     )
 
     released = threading.Event()
@@ -241,13 +283,16 @@ def test_hanging_full_audit_is_bounded_and_skipped(tmp_path, monkeypatch):
         return {"report_path": "/tmp/never.md", "audit": {}, "content": {}}
 
     monkeypatch.setattr(
-        "backend.seo.service.audit_and_report", _hanging_audit,
+        "backend.seo.service.audit_and_report",
+        _hanging_audit,
     )
 
     from backend.prospecting.service import process_discovery
+
     started = time.monotonic()
     result = process_discovery(
-        _base_request(enable_full_audit_for_warm=True), task_id="t-hang-4",
+        _base_request(enable_full_audit_for_warm=True),
+        task_id="t-hang-4",
     )
     elapsed = time.monotonic() - started
     released.set()

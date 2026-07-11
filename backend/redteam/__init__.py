@@ -8,6 +8,7 @@ breach into the guidance ledger as Blue's remediation work.
 
 Public entry point: :func:`backend.redteam.sentinel.run_redteam_pass`.
 """
+
 from __future__ import annotations
 
 from .models import ProbeOutcome, ProbeResult, ResilienceReport

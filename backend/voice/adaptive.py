@@ -12,6 +12,7 @@ adaptive as ready-for-wiring; do not assume it's running in production.
 Ported from: Samus/recovery/realtime_adaptive_agent.py (2026-05-17)
 Sibling modules: backend/outreach/objection.py, backend/outreach/closer.py
 """
+
 from __future__ import annotations
 
 from typing import Final

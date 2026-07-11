@@ -1,4 +1,5 @@
 """Tests for the SAMUS_APOLLO_CREDIT_CEILING finite-resource guard."""
+
 from __future__ import annotations
 
 import pytest

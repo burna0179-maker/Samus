@@ -38,6 +38,7 @@ Window knobs (Pacific 24h):
   * ``SAMUS_COGNITIVE_OBSERVER_LATEST_HOUR_PT`` - latest fire hour (excl.), default 5
   * ``SAMUS_COGNITIVE_OBSERVER_INTERVAL_SEC``   - poll cadence, default 600s
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -82,10 +83,12 @@ def _now_pt() -> tuple[str, int]:
     try:
         from datetime import datetime, timezone
         from backend.common.us_timezones import state_to_timezone
+
         now = datetime.now(timezone.utc).astimezone(state_to_timezone("CA"))
         return now.date().isoformat(), now.hour
     except Exception:  # noqa: BLE001
         from datetime import date, datetime
+
         now = datetime.utcnow()
         return date.today().isoformat(), now.hour
 
@@ -96,6 +99,7 @@ def _report_path(business_date: str):
     (``storage.root()/cognition/calibration_report_<date>.json``). Its
     existence is our once-per-day gate."""
     from backend.common import storage
+
     return storage.root() / "cognition" / f"calibration_report_{business_date}.json"
 
 
@@ -139,12 +143,14 @@ def _fire(business_date: str) -> dict[str, Any]:
     design)."""
     try:
         from backend.cognitive.calibration_diagnostic import write_calibration_report
+
         path = write_calibration_report(business_date)
         # Read back a quick summary line for the ops log without re-running
         # the reconcile (the JSON is small).
         summary: dict[str, Any] = {"ran": True, "report_path": str(path)}
         try:
             import json
+
             with path.open("r", encoding="utf-8") as fh:
                 doc = json.load(fh)
             overall = doc.get("overall") or {}
@@ -177,21 +183,28 @@ async def _cognitive_observer_loop(interval: float) -> None:
             if fire:
                 _LOG.info(
                     "cognitive_observer firing: %s (business_date=%s hour_pt=%d)",
-                    reason, business_date, hour,
+                    reason,
+                    business_date,
+                    hour,
                 )
                 result = _fire(business_date)
                 _LOG.info(
                     "cognitive_observer done: ran=%s decisions=%s unscoreable=%s "
                     "loop_completion_rate=%s actors=%s error=%s",
-                    result.get("ran"), result.get("decisions"),
-                    result.get("unscoreable"), result.get("loop_completion_rate"),
-                    result.get("actors"), result.get("error"),
+                    result.get("ran"),
+                    result.get("decisions"),
+                    result.get("unscoreable"),
+                    result.get("loop_completion_rate"),
+                    result.get("actors"),
+                    result.get("error"),
                 )
             else:
                 if hour != getattr(_cognitive_observer_loop, "_last_hour", None):
                     _LOG.info(
                         "cognitive_observer skip: %s (business_date=%s hour_pt=%d)",
-                        reason, business_date, hour,
+                        reason,
+                        business_date,
+                        hour,
                     )
                     _cognitive_observer_loop._last_hour = hour  # type: ignore[attr-defined]
         except Exception:  # noqa: BLE001
@@ -212,7 +225,8 @@ async def start_cognitive_observer_loop(app: Any) -> Optional[asyncio.Task]:
         return existing
     interval = _float_env(ENV_INTERVAL, _DEFAULT_INTERVAL_SEC)
     task = asyncio.create_task(
-        _cognitive_observer_loop(interval), name="samus.cognitive_observer_loop",
+        _cognitive_observer_loop(interval),
+        name="samus.cognitive_observer_loop",
     )
     app.state.cognitive_observer_task = task
     _LOG.info("cognitive_observer loop started (interval=%.0fs)", interval)

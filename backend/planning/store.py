@@ -11,6 +11,7 @@ latest plan generation is active, older ones superseded), so — unlike the
 append-only business-event ledger — each id is a row that is overwritten in
 place. That is exactly the approval-store shape.
 """
+
 from __future__ import annotations
 
 import json
@@ -35,6 +36,7 @@ _PLANS_ENV = "SAMUS_PLANS_PATH"
 # Path resolution (env override -> state root)
 # ---------------------------------------------------------------------------
 
+
 def _json_path(env_var: str, *parts: str) -> str:
     override = os.getenv(env_var)
     if override:
@@ -55,6 +57,7 @@ def _plans_path() -> str:
 # ---------------------------------------------------------------------------
 # JSON fallback (dict keyed by id)
 # ---------------------------------------------------------------------------
+
 
 def _json_load_all(path: str) -> dict[str, dict[str, Any]]:
     with _JSON_LOCK:
@@ -93,6 +96,7 @@ def _json_save(path: str, row: dict[str, Any]) -> bool:
 # ---------------------------------------------------------------------------
 # DDB (best-effort; JSON is the safety net)
 # ---------------------------------------------------------------------------
+
 
 def _ddb_table(table_attr: str) -> Any | None:
     try:
@@ -189,6 +193,7 @@ def _save(table_attr: str, path: str, row: dict[str, Any]) -> None:
 # Goals API
 # ---------------------------------------------------------------------------
 
+
 def save_goal(goal: Goal) -> Goal:
     """Persist one goal (overwrite by id). Stamps updated_at. Never raises."""
     try:
@@ -215,7 +220,9 @@ def get_goal(goal_id: str) -> Goal | None:
 
 
 def list_goals(
-    *, horizon: str | None = None, status: str | None = None,
+    *,
+    horizon: str | None = None,
+    status: str | None = None,
     parent_id: str | None = None,
 ) -> list[Goal]:
     try:
@@ -238,6 +245,7 @@ def list_goals(
 # Plans API
 # ---------------------------------------------------------------------------
 
+
 def save_plan(plan: Plan) -> Plan:
     try:
         if not plan.created_at:
@@ -259,7 +267,9 @@ def get_plan(plan_id: str) -> Plan | None:
 
 
 def list_plans(
-    *, goal_id: str | None = None, status: str | None = None,
+    *,
+    goal_id: str | None = None,
+    status: str | None = None,
 ) -> list[Plan]:
     try:
         rows = _load_all("ddb_plans_table", _plans_path()).values()
@@ -277,10 +287,7 @@ def list_plans(
 
 def active_plan_for_goal(goal_id: str) -> Plan | None:
     """The single active (latest-generation) plan for a goal, if any."""
-    actives = [
-        p for p in list_plans(goal_id=goal_id)
-        if p.status == "active"
-    ]
+    actives = [p for p in list_plans(goal_id=goal_id) if p.status == "active"]
     if not actives:
         return None
     actives.sort(key=lambda p: p.plan_generation)
@@ -293,7 +300,13 @@ def latest_generation_for_goal(goal_id: str) -> int:
 
 
 __all__ = [
-    "save_goal", "save_goals", "get_goal", "list_goals",
-    "save_plan", "get_plan", "list_plans",
-    "active_plan_for_goal", "latest_generation_for_goal",
+    "save_goal",
+    "save_goals",
+    "get_goal",
+    "list_goals",
+    "save_plan",
+    "get_plan",
+    "list_plans",
+    "active_plan_for_goal",
+    "latest_generation_for_goal",
 ]

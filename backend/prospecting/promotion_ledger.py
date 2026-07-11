@@ -25,6 +25,7 @@ Storage: ``<artifact_root>/daily_calls/promoted_prospects.jsonl`` — append-
 only, one row per promotion, replayed on read (the read set is small and the
 file is bounded by real-world prospect volume).
 """
+
 from __future__ import annotations
 
 import json
@@ -124,12 +125,18 @@ def record_promotions(prospects: Iterable[Any]) -> int:
                 pid = str(getattr(p, "prospect_id", "") or "").strip()
                 if not pid:
                     continue
-                fh.write(json.dumps({
-                    "ts": iso_now(),
-                    "prospect_id": pid,
-                    "company": str(getattr(p, "company_name", "") or ""),
-                    "owner_email": str(getattr(p, "owner_email", "") or ""),
-                }, ensure_ascii=False) + "\n")
+                fh.write(
+                    json.dumps(
+                        {
+                            "ts": iso_now(),
+                            "prospect_id": pid,
+                            "company": str(getattr(p, "company_name", "") or ""),
+                            "owner_email": str(getattr(p, "owner_email", "") or ""),
+                        },
+                        ensure_ascii=False,
+                    )
+                    + "\n"
+                )
                 written += 1
     except Exception as exc:  # noqa: BLE001
         _LOG.warning("promotion ledger append failed: %s", exc)

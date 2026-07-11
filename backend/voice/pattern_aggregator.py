@@ -13,6 +13,7 @@ PatternReport with:
 Writes PatternReport to <artifact_root>/voice/call_patterns.json.
 callsheet_updater.py reads this to produce the dynamic callsheet intel.
 """
+
 from __future__ import annotations
 
 import json
@@ -30,12 +31,14 @@ _LOG = logging.getLogger("samus.voice.pattern_aggregator")
 
 _PATTERNS_FILE = "voice/call_patterns.json"
 
-_POSITIVE_OUTCOMES = frozenset({
-    "converted",
-    "warm_lead",
-    "follow_up_scheduled",
-    "call_back_requested",
-})
+_POSITIVE_OUTCOMES = frozenset(
+    {
+        "converted",
+        "warm_lead",
+        "follow_up_scheduled",
+        "call_back_requested",
+    }
+)
 
 
 @dataclass
@@ -102,12 +105,14 @@ def aggregate_patterns(analyses: list[TranscriptAnalysis] | None = None) -> Patt
         handlers = obj_handlers[text]
         avg_eff = sum(s for _, s in handlers) / len(handlers) if handlers else 0.0
         best = max(handlers, key=lambda x: x[1], default=("", 0.0))[0]
-        top_objections.append(ObjectionPattern(
-            text=text,
-            count=count,
-            avg_handling_effectiveness=round(avg_eff, 3),
-            best_handler=best[:300],
-        ))
+        top_objections.append(
+            ObjectionPattern(
+                text=text,
+                count=count,
+                avg_handling_effectiveness=round(avg_eff, 3),
+                best_handler=best[:300],
+            )
+        )
 
     # ── Conversion signals — weight by positive outcomes ───────────
     signals: list[str] = []

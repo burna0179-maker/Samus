@@ -43,6 +43,7 @@ Fail-closed is the spine: unknown / ambiguous signals resolve to the LESS
 permissive value (``harm`` / ``high``), so an unrecognised proposal can
 never be APPROVE — only REJECT or ABSTAIN.
 """
+
 from __future__ import annotations
 
 import logging
@@ -67,43 +68,131 @@ AbuseRisk = Literal["low", "medium", "high"]
 # Tokens that, when they appear in the action/target, mean the proposal
 # touches something Samus guards HIGH (its data / outreach / secrets) OR is a
 # security-control / privilege change → abuse_risk escalates toward high.
-_HIGH_ABUSE_TOKENS: frozenset[str] = frozenset({
-    "secret", "secrets", "credential", "credentials", "key", "keys", "token",
-    "password", "auth", "rbac", "scope", "scopes", "privilege", "privileges",
-    "permission", "permissions", "grant", "sudo", "root", "admin",
-    "disable", "bypass", "waiver", "override", "unsafe", "unrestricted",
-    "unbounded", "unsandboxed", "exfiltrate", "delete", "drop", "wipe",
-    "purge", "weaken", "loosen", "open", "expose", "public",
-})
+_HIGH_ABUSE_TOKENS: frozenset[str] = frozenset(
+    {
+        "secret",
+        "secrets",
+        "credential",
+        "credentials",
+        "key",
+        "keys",
+        "token",
+        "password",
+        "auth",
+        "rbac",
+        "scope",
+        "scopes",
+        "privilege",
+        "privileges",
+        "permission",
+        "permissions",
+        "grant",
+        "sudo",
+        "root",
+        "admin",
+        "disable",
+        "bypass",
+        "waiver",
+        "override",
+        "unsafe",
+        "unrestricted",
+        "unbounded",
+        "unsandboxed",
+        "exfiltrate",
+        "delete",
+        "drop",
+        "wipe",
+        "purge",
+        "weaken",
+        "loosen",
+        "open",
+        "expose",
+        "public",
+    }
+)
 
 # Tokens meaning the proposal touches Samus's revenue / customer / outreach
 # surface specifically — these make self_benefit sensitive (Samus's mission &
 # compliance posture). Touching these without a clear upside is harm.
-_SAMUS_SENSITIVE_TOKENS: frozenset[str] = frozenset({
-    "customer", "customers", "prospect", "prospects", "lead", "leads",
-    "outreach", "email", "campaign", "send", "ses", "sendgrid", "vapi",
-    "crm", "pipeline", "revenue", "billing", "stripe", "payment",
-    "can-spam", "canspam", "unsubscribe", "suppression", "contact",
-    "contacts", "conversation", "conversations", "pii",
-})
+_SAMUS_SENSITIVE_TOKENS: frozenset[str] = frozenset(
+    {
+        "customer",
+        "customers",
+        "prospect",
+        "prospects",
+        "lead",
+        "leads",
+        "outreach",
+        "email",
+        "campaign",
+        "send",
+        "ses",
+        "sendgrid",
+        "vapi",
+        "crm",
+        "pipeline",
+        "revenue",
+        "billing",
+        "stripe",
+        "payment",
+        "can-spam",
+        "canspam",
+        "unsubscribe",
+        "suppression",
+        "contact",
+        "contacts",
+        "conversation",
+        "conversations",
+        "pii",
+    }
+)
 
 # Tokens that signal a clearly-beneficial, well-bounded change to Samus
 # (additive capability, observability, sandboxing, hardening). Only used to
 # lift self_benefit to ``benefit`` when NO harm/high signal is present.
-_SAMUS_BENEFIT_TOKENS: frozenset[str] = frozenset({
-    "sandbox", "sandboxed", "harden", "hardening", "audit", "observability",
-    "fail-closed", "failclosed", "least-privilege", "metric", "metrics",
-    "monitor", "monitoring", "backup", "redundancy", "resilience",
-})
+_SAMUS_BENEFIT_TOKENS: frozenset[str] = frozenset(
+    {
+        "sandbox",
+        "sandboxed",
+        "harden",
+        "hardening",
+        "audit",
+        "observability",
+        "fail-closed",
+        "failclosed",
+        "least-privilege",
+        "metric",
+        "metrics",
+        "monitor",
+        "monitoring",
+        "backup",
+        "redundancy",
+        "resilience",
+    }
+)
 
 # Tokens meaning the change is broadly good for the ecosystem (shared
 # infra / governance integrity / coordination). Used to lift
 # ecosystem_benefit to ``benefit`` ONLY when no harm signal is present.
-_ECOSYSTEM_BENEFIT_TOKENS: frozenset[str] = frozenset({
-    "audit", "auditability", "fail-closed", "failclosed", "least-privilege",
-    "harden", "hardening", "observability", "consensus", "quorum",
-    "governance", "integrity", "resilience", "redundancy", "interop",
-})
+_ECOSYSTEM_BENEFIT_TOKENS: frozenset[str] = frozenset(
+    {
+        "audit",
+        "auditability",
+        "fail-closed",
+        "failclosed",
+        "least-privilege",
+        "harden",
+        "hardening",
+        "observability",
+        "consensus",
+        "quorum",
+        "governance",
+        "integrity",
+        "resilience",
+        "redundancy",
+        "interop",
+    }
+)
 
 
 def _tokens(proposal: dict[str, Any]) -> set[str]:
@@ -156,6 +245,7 @@ def _impact(proposal: dict[str, Any]) -> str:
 # Per-axis assessors. Each returns its axis value PLUS a short reason
 # fragment. Fail-closed: ambiguity resolves to the less-permissive value.
 # ---------------------------------------------------------------------------
+
 
 def _assess_abuse_risk(tokens: set[str], impact: str) -> tuple[AbuseRisk, str]:
     """abuse_risk — could the consumer / target misuse or over-privilege?"""
@@ -216,6 +306,7 @@ def _assess_ecosystem_benefit(tokens: set[str], impact: str) -> tuple[Polarity, 
 # Aggregation — the spec's fail-closed, security-first rule.
 # ---------------------------------------------------------------------------
 
+
 def _aggregate(
     self_benefit: Polarity,
     ecosystem_benefit: Polarity,
@@ -230,18 +321,17 @@ def _aggregate(
     """
     if self_benefit == "harm" or ecosystem_benefit == "harm" or abuse_risk == "high":
         return "REJECT"
-    if (
-        self_benefit != "harm"
-        and ecosystem_benefit == "benefit"
-        and abuse_risk == "low"
-    ):
+    if self_benefit != "harm" and ecosystem_benefit == "benefit" and abuse_risk == "low":
         return "APPROVE"
     return "ABSTAIN"
 
 
 def _confidence(
-    vote: Vote, self_benefit: Polarity, ecosystem_benefit: Polarity,
-    abuse_risk: AbuseRisk, legible: bool,
+    vote: Vote,
+    self_benefit: Polarity,
+    ecosystem_benefit: Polarity,
+    abuse_risk: AbuseRisk,
+    legible: bool,
 ) -> float:
     """A bounded, deterministic confidence (0..1).
 
@@ -266,6 +356,7 @@ def _confidence(
 # LLM-escalation extension hook (DOCUMENTED, NOT STUBBED).
 # ---------------------------------------------------------------------------
 
+
 def _should_escalate_to_llm(impact: str, axes: tuple[Polarity, Polarity, AbuseRisk]) -> bool:
     """Whether a future budget-capped LLM tiebreak WOULD be invoked.
 
@@ -289,6 +380,7 @@ def _should_escalate_to_llm(impact: str, axes: tuple[Polarity, Polarity, AbuseRi
 # ---------------------------------------------------------------------------
 # Public entry point.
 # ---------------------------------------------------------------------------
+
 
 def decide_ballot(proposal: dict[str, Any]) -> dict[str, Any]:
     """Reason about a peer's CROSS_AGENT proposal → a 3-axis ballot dict.
@@ -326,11 +418,16 @@ def decide_ballot(proposal: dict[str, Any]) -> dict[str, Any]:
 
     vote = _aggregate(self_benefit, ecosystem_benefit, abuse_risk)
     confidence = _confidence(
-        vote, self_benefit, ecosystem_benefit, abuse_risk, legible,
+        vote,
+        self_benefit,
+        ecosystem_benefit,
+        abuse_risk,
+        legible,
     )
 
     would_escalate = _should_escalate_to_llm(
-        impact, (self_benefit, ecosystem_benefit, abuse_risk),
+        impact,
+        (self_benefit, ecosystem_benefit, abuse_risk),
     )
 
     reasoning = (

@@ -50,6 +50,7 @@ FUTURE HOOK POINTS (planned, not yet wired)
   TBD placeholder event so operator sees the request on the calendar
   in addition to the operator queue. (Wired here.)
 """
+
 from __future__ import annotations
 
 import logging
@@ -62,12 +63,12 @@ from backend.common.config import get_settings
 _LOG = logging.getLogger("samus.intake.calendar_projection")
 
 ProjectionKind = Literal[
-    "deliverable",         # product/service deliverable due to a client
-    "client_request",      # something a client asked us to do by a date
+    "deliverable",  # product/service deliverable due to a client
+    "client_request",  # something a client asked us to do by a date
     "campaign_milestone",  # campaign template's node deadline
-    "engagement",          # recurring engagement rhythm (weekly report, ...)
-    "meeting_request",     # client asked for a meeting (TBD placeholder)
-    "hiring_milestone",    # staffing campaign — posting close, shortlist, offer window
+    "engagement",  # recurring engagement rhythm (weekly report, ...)
+    "meeting_request",  # client asked for a meeting (TBD placeholder)
+    "hiring_milestone",  # staffing campaign — posting close, shortlist, offer window
 ]
 
 
@@ -77,12 +78,12 @@ ProjectionKind = Literal[
 # prefixes the operator already recognizes).
 
 _PREFIXES: dict[str, str] = {
-    "deliverable":        "[DELIVERABLE]",
-    "client_request":     "[REQUEST]",
+    "deliverable": "[DELIVERABLE]",
+    "client_request": "[REQUEST]",
     "campaign_milestone": "[CAMPAIGN]",
-    "engagement":         "[ENGAGEMENT]",
-    "meeting_request":    "[MEETING-REQUEST]",
-    "hiring_milestone":   "[HIRING]",
+    "engagement": "[ENGAGEMENT]",
+    "meeting_request": "[MEETING-REQUEST]",
+    "hiring_milestone": "[HIRING]",
 }
 
 
@@ -197,10 +198,7 @@ def _find_existing(client, source_id: str) -> str:
         return ""
     for e in events:
         priv = (e.get("extendedProperties") or {}).get("private") or {}
-        if (
-            priv.get("source") == "samus.projection"
-            and priv.get("source_id") == source_id
-        ):
+        if priv.get("source") == "samus.projection" and priv.get("source_id") == source_id:
             return str(e.get("id") or "")
     return ""
 
@@ -249,8 +247,13 @@ def project_event(
     if not start_utc:
         outcome["error"] = f"invalid_start_iso: {start_iso!r}"
         return outcome
-    end_utc = _ensure_iso_utc(end_iso) if end_iso else _default_end(
-        start_utc, projection_kind,
+    end_utc = (
+        _ensure_iso_utc(end_iso)
+        if end_iso
+        else _default_end(
+            start_utc,
+            projection_kind,
+        )
     )
     if not end_utc:
         outcome["error"] = "invalid_end_iso"
@@ -316,7 +319,9 @@ def project_event(
     except Exception as exc:  # noqa: BLE001
         _LOG.warning(
             "projection %s -> %s failed: %s",
-            projection_kind, title[:60], exc,
+            projection_kind,
+            title[:60],
+            exc,
         )
         outcome["error"] = f"insert_failed: {exc}"
         return outcome
@@ -328,6 +333,7 @@ def project_event(
             CALENDAR_EVENT_SCHEDULED,
             emit_business_event,
         )
+
         emit_business_event(
             CALENDAR_EVENT_SCHEDULED,
             workcell=source_workcell or "intake",

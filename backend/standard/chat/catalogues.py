@@ -1,4 +1,5 @@
 """JSON catalogue loaders (Samus STANDARD)."""
+
 from __future__ import annotations
 
 import json
@@ -122,6 +123,10 @@ class EnrichmentCatalogue:
 
 __all__ = [
     "EnrichmentCatalogue",
-    "load_prompt_pieces", "load_scenario_presets", "load_spice_pool",
-    "save_prompt_pieces", "save_scenario_presets", "save_spice_pool",
+    "load_prompt_pieces",
+    "load_scenario_presets",
+    "load_spice_pool",
+    "save_prompt_pieces",
+    "save_scenario_presets",
+    "save_spice_pool",
 ]

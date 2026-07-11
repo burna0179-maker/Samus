@@ -1,4 +1,5 @@
 """Tests for backend.prospecting.seo_audit.score_seo."""
+
 from __future__ import annotations
 
 from backend.prospecting.seo_audit import score_seo

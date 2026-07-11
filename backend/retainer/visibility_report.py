@@ -10,6 +10,7 @@ Style matches ``backend/seo/report.py`` — ASCII only, no em-dashes, no
 unicode bullets, so the report renders cleanly in Windows console + plain
 text email clients alongside the rich HTML mirror.
 """
+
 from __future__ import annotations
 
 import json
@@ -21,6 +22,7 @@ from typing import Any
 # ---------------------------------------------------------------------------
 # Diff / movement primitives
 # ---------------------------------------------------------------------------
+
 
 def _arrow(delta: int | float) -> str:
     """ASCII arrow: ``+5`` -> ``->`` (up), ``-3`` -> ``<-`` (down), ``0`` -> ``--``."""
@@ -55,31 +57,46 @@ def _rank_movement(
     for keyword, this_rank in this_month_ranks.items():
         prior_rank = prior_month_ranks.get(keyword)
         if prior_rank is None:
-            out.append({
-                "keyword": keyword, "this_rank": this_rank,
-                "prior_rank": None, "delta": None, "status": "new",
-            })
+            out.append(
+                {
+                    "keyword": keyword,
+                    "this_rank": this_rank,
+                    "prior_rank": None,
+                    "delta": None,
+                    "status": "new",
+                }
+            )
         else:
             # Positive delta == improvement (smaller rank number wins)
             delta = prior_rank - this_rank
-            out.append({
-                "keyword": keyword, "this_rank": this_rank,
-                "prior_rank": prior_rank, "delta": delta,
-                "status": "tracked",
-            })
+            out.append(
+                {
+                    "keyword": keyword,
+                    "this_rank": this_rank,
+                    "prior_rank": prior_rank,
+                    "delta": delta,
+                    "status": "tracked",
+                }
+            )
     # Lost keywords (tracked last month, gone this month)
     for keyword, prior_rank in prior_month_ranks.items():
         if keyword not in this_month_ranks:
-            out.append({
-                "keyword": keyword, "this_rank": None,
-                "prior_rank": prior_rank, "delta": None, "status": "dropped",
-            })
+            out.append(
+                {
+                    "keyword": keyword,
+                    "this_rank": None,
+                    "prior_rank": prior_rank,
+                    "delta": None,
+                    "status": "dropped",
+                }
+            )
     return out
 
 
 # ---------------------------------------------------------------------------
 # Renderer
 # ---------------------------------------------------------------------------
+
 
 def render_visibility_report(
     *,
@@ -117,7 +134,7 @@ def render_visibility_report(
       The full markdown body (no I/O — caller writes the file).
     """
     ts = ts or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    month_label = ts[:7]   # YYYY-MM
+    month_label = ts[:7]  # YYYY-MM
     is_first_cycle = prior_month is None
     greeting = f"Hi {customer_name}," if customer_name else "Hi,"
 
@@ -154,10 +171,7 @@ def render_visibility_report(
             "deltas + the GSC delta will be a real comparison."
         )
     else:
-        lines.append(
-            "Here's what changed on your site this month and what we did "
-            "about it."
-        )
+        lines.append("Here's what changed on your site this month and what we did about it.")
     lines.append("")
 
     # ----- Section 1: Headline metrics -----
@@ -333,8 +347,7 @@ def _render_ai_ops_report(
     lines.append("---")
     lines.append("")
     lines.append(
-        "Calendar invite for next cycle's Week 1 assessment call is in "
-        "your inbox separately."
+        "Calendar invite for next cycle's Week 1 assessment call is in your inbox separately."
     )
     lines.append("")
     lines.append("— Morgan, HustleForge")
@@ -347,14 +360,16 @@ def _render_ai_ops_report(
 # Snapshot read / write helpers (used by monthly_cycle steps)
 # ---------------------------------------------------------------------------
 
+
 def write_snapshot(
     customer_id: str,
     sku_id: str,
-    cycle_month: str,    # YYYY-MM
+    cycle_month: str,  # YYYY-MM
     snapshot: dict[str, Any],
 ) -> Path:
     """Persist this-month's audit snapshot for next-month's diff."""
     from backend.common import storage
+
     target_dir = storage.root() / "customers" / customer_id / sku_id / cycle_month
     target_dir.mkdir(parents=True, exist_ok=True)
     path = target_dir / "snapshot.json"
@@ -365,14 +380,12 @@ def write_snapshot(
 def read_snapshot(
     customer_id: str,
     sku_id: str,
-    cycle_month: str,    # YYYY-MM
+    cycle_month: str,  # YYYY-MM
 ) -> dict[str, Any] | None:
     """Load a prior cycle's snapshot, or None if no file exists yet."""
     from backend.common import storage
-    path = (
-        storage.root() / "customers" / customer_id / sku_id / cycle_month
-        / "snapshot.json"
-    )
+
+    path = storage.root() / "customers" / customer_id / sku_id / cycle_month / "snapshot.json"
     if not path.exists():
         return None
     try:

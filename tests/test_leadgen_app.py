@@ -1,4 +1,5 @@
 """TestClient smoke for backend.leadgen.app."""
+
 from __future__ import annotations
 
 
@@ -9,6 +10,7 @@ def _reset_idempotency(monkeypatch):
     fresh = IdempotencyStore()
     monkeypatch.setattr(idem_mod, "GLOBAL_IDEMPOTENCY_STORE", fresh)
     import backend.leadgen.service as svc_mod
+
     monkeypatch.setattr(svc_mod, "GLOBAL_IDEMPOTENCY_STORE", fresh)
 
 
@@ -30,15 +32,18 @@ def test_score_endpoint(tmp_path, monkeypatch):
     from backend.leadgen.app import app
 
     client = TestClient(app)
-    r = client.post("/score", json={
-        "company": "Acme",
-        "domain": "https://acme.com",
-        "industry": "finance",
-        "employee_count": 75,
-        "annual_revenue_usd": 5_000_000,
-        "geo": "US",
-        "signals": ["manual_ops"],
-    })
+    r = client.post(
+        "/score",
+        json={
+            "company": "Acme",
+            "domain": "https://acme.com",
+            "industry": "finance",
+            "employee_count": 75,
+            "annual_revenue_usd": 5_000_000,
+            "geo": "US",
+            "signals": ["manual_ops"],
+        },
+    )
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["normalized_domain"] == "acme.com"
@@ -52,11 +57,14 @@ def test_work_endpoint_validation_error(tmp_path, monkeypatch):
     from backend.leadgen.app import app
 
     client = TestClient(app)
-    r = client.post("/work", json={
-        "task_id": "t-1",
-        "payload": {"company": "X"},  # missing fields
-        "metadata": {},
-    })
+    r = client.post(
+        "/work",
+        json={
+            "task_id": "t-1",
+            "payload": {"company": "X"},  # missing fields
+            "metadata": {},
+        },
+    )
     assert r.status_code == 422
 
 
@@ -67,18 +75,21 @@ def test_work_endpoint_ok(tmp_path, monkeypatch):
     from backend.leadgen.app import app
 
     client = TestClient(app)
-    r = client.post("/work", json={
-        "task_id": "t-1",
-        "payload": {
-            "company": "Acme",
-            "domain": "acme.com",
-            "industry": "finance",
-            "employee_count": 75,
-            "annual_revenue_usd": 5_000_000,
-            "geo": "US",
-            "signals": ["manual_ops"],
+    r = client.post(
+        "/work",
+        json={
+            "task_id": "t-1",
+            "payload": {
+                "company": "Acme",
+                "domain": "acme.com",
+                "industry": "finance",
+                "employee_count": 75,
+                "annual_revenue_usd": 5_000_000,
+                "geo": "US",
+                "signals": ["manual_ops"],
+            },
+            "metadata": {},
         },
-        "metadata": {},
-    })
+    )
     assert r.status_code == 200, r.text
     assert r.json()["company"] == "Acme"

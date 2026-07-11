@@ -1,4 +1,5 @@
 """Strategy service — orchestrates engine + CRM client + dispatcher."""
+
 from __future__ import annotations
 
 import logging
@@ -60,9 +61,7 @@ def _reward_signal_from_request(req: RecordOutcomeRequest) -> RewardSignal:
       - estimated_close_probability / latency — left at their documented
         neutral defaults (pending dedicated telemetry).
     """
-    contactability = (
-        _CONTACTABILITY_WITH_EMAIL if req.owner_email else _CONTACTABILITY_NEUTRAL
-    )
+    contactability = _CONTACTABILITY_WITH_EMAIL if req.owner_email else _CONTACTABILITY_NEUTRAL
     signal_fields: dict[str, Any] = dict(
         outcome=float(req.outcome),
         owner_email=req.owner_email,

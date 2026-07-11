@@ -4,6 +4,7 @@ Regex-driven and forgiving of whitespace variation, strict on section
 presence. Missing expected chapters or sections raise CodexParseError —
 the registry catches and re-raises as CodexUnavailable (fail-closed).
 """
+
 from __future__ import annotations
 
 import re
@@ -38,7 +39,8 @@ _SUPERSEDED_RE = re.compile(
 _WHERE_LINE_RE = re.compile(r"\*\*Where:\*\*\s*(.+?)(?=\n\n|\Z)", re.DOTALL)
 _WHAT_STOPS_RE = re.compile(r"\*\*What it stops:\*\*\s*(.+?)(?=\n\n|\Z)", re.DOTALL)
 _WHAT_SHOULD_STOP_RE = re.compile(
-    r"\*\*What it should stop:\*\*\s*(.+?)(?=\n\n|\Z)", re.DOTALL,
+    r"\*\*What it should stop:\*\*\s*(.+?)(?=\n\n|\Z)",
+    re.DOTALL,
 )
 _INTENT_MARKERS = (
     "currently intent-only",
@@ -52,10 +54,12 @@ _INTENT_MARKERS = (
 )
 _SHUTDOWN_HEADER_RE = re.compile(r"^### (\d+)\.\s+(.+?)\s*$", re.MULTILINE)
 _SHUTDOWN_SIGNAL_RE = re.compile(
-    r"\*\*Signal:\*\*\s*(.+?)(?=\n\n|\Z)", re.DOTALL,
+    r"\*\*Signal:\*\*\s*(.+?)(?=\n\n|\Z)",
+    re.DOTALL,
 )
 _SHUTDOWN_ACTION_RE = re.compile(
-    r"\*\*Action:\*\*\s*(.+?)(?=\n\n|\Z)", re.DOTALL,
+    r"\*\*Action:\*\*\s*(.+?)(?=\n\n|\Z)",
+    re.DOTALL,
 )
 _GLOSSARY_TERM_RE = re.compile(
     r"^\*\*([^*]+?)\*\*\s+[—-]\s+(.+?)(?=\n\n|\Z)",
@@ -126,12 +130,18 @@ def _parse_guardrails(text: str) -> list[Guardrail]:
         gid = f"G{int(m.group(1))}"
         title = m.group(2).strip()
         status = _detect_status(block)
-        what_stops = _first_group(_WHAT_STOPS_RE, block) or _first_group(
-            _WHAT_SHOULD_STOP_RE, block,
-        ) or ""
+        what_stops = (
+            _first_group(_WHAT_STOPS_RE, block)
+            or _first_group(
+                _WHAT_SHOULD_STOP_RE,
+                block,
+            )
+            or ""
+        )
         if not what_stops:
             raise CodexParseError(
-                _GUARDRAILS_FILE, gid,
+                _GUARDRAILS_FILE,
+                gid,
                 "missing both '**What it stops:**' and '**What it should stop:**'",
             )
         out.append(
@@ -162,7 +172,9 @@ def _parse_adrs(text: str) -> list[ADR]:
         decision = _first_group(_DECISION_BODY_RE, block)
         if not decision:
             raise CodexParseError(
-                _ADR_FILE, adr_id, "missing '**Decision:**' body",
+                _ADR_FILE,
+                adr_id,
+                "missing '**Decision:**' body",
             )
         superseded_raw = _first_group(_SUPERSEDED_RE, block)
         superseded_by: str | None = None
@@ -186,7 +198,8 @@ def _parse_shutdown_signals(text: str) -> list[ShutdownSignal]:
     section_start = text.find("## Three reasons to shut Samus down")
     if section_start == -1:
         raise CodexParseError(
-            _SHUTDOWN_FILE, "(section)",
+            _SHUTDOWN_FILE,
+            "(section)",
             "missing '## Three reasons to shut Samus down' section",
         )
     section_end = text.find("\n## ", section_start + 1)
@@ -196,18 +209,20 @@ def _parse_shutdown_signals(text: str) -> list[ShutdownSignal]:
     headers = list(_SHUTDOWN_HEADER_RE.finditer(section))
     if len(headers) < 3:
         raise CodexParseError(
-            _SHUTDOWN_FILE, "(signals)",
+            _SHUTDOWN_FILE,
+            "(signals)",
             f"expected 3 numbered shutdown signals, found {len(headers)}",
         )
     out: list[ShutdownSignal] = []
     for i, m in enumerate(headers[:3]):
         next_start = headers[i + 1].start() if i + 1 < len(headers) else len(section)
-        block = section[m.start():next_start]
+        block = section[m.start() : next_start]
         description = _first_group(_SHUTDOWN_SIGNAL_RE, block) or m.group(2).strip()
         action = _first_group(_SHUTDOWN_ACTION_RE, block) or ""
         if not action:
             raise CodexParseError(
-                _SHUTDOWN_FILE, f"S{i + 1}",
+                _SHUTDOWN_FILE,
+                f"S{i + 1}",
                 "missing '**Action:**' line under shutdown signal",
             )
         out.append(
@@ -242,7 +257,9 @@ def _load_banned_phrases() -> list[BannedPhrase]:
 def parse_codex(codex_dir: Path) -> ParsedCodex:
     if not codex_dir.is_dir():
         raise CodexParseError(
-            "(directory)", "(root)", f"codex directory not found: {codex_dir}",
+            "(directory)",
+            "(root)",
+            f"codex directory not found: {codex_dir}",
         )
     guardrails_text = _read(codex_dir, _GUARDRAILS_FILE)
     adr_text = _read(codex_dir, _ADR_FILE)

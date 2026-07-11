@@ -29,6 +29,7 @@ the decision it instruments (mirrors ``emit_business_event`` /
 ``create_approval``). On any failure it logs a warning and returns the record
 dict anyway so the caller can still inspect / log what would have been written.
 """
+
 from __future__ import annotations
 
 import logging
@@ -131,9 +132,7 @@ def make_decision_record(
         opportunity_id=str(opportunity_id or ""),
         campaign_id=str(campaign_id or ""),
         validation_performed=[str(v) for v in (validation_performed or [])],
-        memories_retrieved=[
-            dict(m) for m in (memories_retrieved or []) if isinstance(m, dict)
-        ],
+        memories_retrieved=[dict(m) for m in (memories_retrieved or []) if isinstance(m, dict)],
         extra=dict(extra or {}),
     )
 

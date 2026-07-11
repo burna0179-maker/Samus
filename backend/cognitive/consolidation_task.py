@@ -49,6 +49,7 @@ Default ON. Off-switch ``SAMUS_CONSOLIDATION_LOOP_ENABLED=0``; fire hour
 synchronous ledger work, so it runs in a worker thread to keep the event loop
 responsive. A run fault is logged and never kills the loop.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -98,6 +99,7 @@ def _now_local() -> datetime:
     """
     try:
         from backend.common.us_timezones import state_to_timezone
+
         return datetime.now(timezone.utc).astimezone(state_to_timezone("CA"))
     except Exception:  # noqa: BLE001 -- a tz fault must not kill scheduling
         return datetime.now()
@@ -112,7 +114,10 @@ def seconds_until_next_fire(now: datetime | None = None) -> float:
     """
     current = now if now is not None else _now_local()
     target = current.replace(
-        hour=_fire_hour(), minute=0, second=0, microsecond=0,
+        hour=_fire_hour(),
+        minute=0,
+        second=0,
+        microsecond=0,
     )
     if target <= current:
         target += timedelta(days=1)
@@ -165,6 +170,7 @@ def is_consolidation_due(
 # ---------------------------------------------------------------------------
 def _marker_path() -> Path:
     from backend.common.state_paths import state_path
+
     return state_path(_MARKER_SUBDIR, _MARKER_NAME)
 
 
@@ -210,6 +216,7 @@ def _write_last_run_day(day: str, *, ok: bool) -> None:
     """
     try:
         from backend.common.dates import iso_now
+
         path = _marker_path()
         path.parent.mkdir(parents=True, exist_ok=True)
         payload = {
@@ -254,6 +261,7 @@ def run_if_due(
         run = runner
         if run is None:
             from backend.cognitive.consolidator import run_consolidation
+
             run = run_consolidation
         # Pin the run to the owed fire day (not the container's naive "today"),
         # so the day windowed by distill/calibrate + the marker recorded below
@@ -294,7 +302,9 @@ async def _consolidation_loop() -> None:
             if result.get("ran"):
                 _LOG.info(
                     "consolidation_loop run: ok=%s day=%s (%s)",
-                    result.get("ok"), result.get("day"), result.get("reason"),
+                    result.get("ok"),
+                    result.get("day"),
+                    result.get("reason"),
                 )
         except asyncio.CancelledError:
             raise
@@ -315,7 +325,8 @@ async def start_consolidation_loop(app: Any) -> Optional[asyncio.Task]:
     if existing is not None and not existing.done():
         return existing
     task = asyncio.create_task(
-        _consolidation_loop(), name="samus.consolidation_loop",
+        _consolidation_loop(),
+        name="samus.consolidation_loop",
     )
     app.state.consolidation_task = task
     _LOG.info(

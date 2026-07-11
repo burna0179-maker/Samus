@@ -14,6 +14,7 @@ model still resolves via the fallback.
 
 Returns ``(callback_date_iso, reason)`` or ``(None, "")``. Never raises.
 """
+
 from __future__ import annotations
 
 import logging
@@ -24,8 +25,16 @@ _LOG = logging.getLogger("samus.voice.closure_detector")
 
 # Cheap gate: only invoke the LLM if the transcript smells like a closure.
 _CLOSURE_HINTS = (
-    "closed", "closure", "reopen", "re-open", "be closed", "will be closed",
-    "back in the office", "back on", "out of the office", "holiday hours",
+    "closed",
+    "closure",
+    "reopen",
+    "re-open",
+    "be closed",
+    "will be closed",
+    "back in the office",
+    "back on",
+    "out of the office",
+    "holiday hours",
     "observ",  # "observing the holiday"
 )
 

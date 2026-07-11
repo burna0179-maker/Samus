@@ -1,4 +1,5 @@
 """FastAPI routes for the operator_console pack (Samus)."""
+
 from __future__ import annotations
 
 import hmac
@@ -75,14 +76,13 @@ def _make_token_dep(state: OperatorConsoleState):
                 "unset in a non-development environment — rejecting request",
             )
             raise HTTPException(
-                status_code=503, detail="operator_token_not_configured",
+                status_code=503,
+                detail="operator_token_not_configured",
             )
         if not authorization or not authorization.startswith("Bearer "):
             raise HTTPException(status_code=401, detail="missing_bearer")
         presented = authorization.split(" ", 1)[1].strip()
-        if not hmac.compare_digest(
-            presented.encode("utf-8"), expected.encode("utf-8")
-        ):
+        if not hmac.compare_digest(presented.encode("utf-8"), expected.encode("utf-8")):
             raise HTTPException(status_code=403, detail="invalid_bearer")
 
     return _token_dep
@@ -184,7 +184,10 @@ def build_api_router(state: OperatorConsoleState) -> APIRouter:
         preset = state.catalogue().preset(bag.preset_id)
         spice_category = preset.spice_category if preset is not None else "default"
         chat = state.history.create_chat(
-            name=name, persona_id=persona_id, bag=bag, spice_category=spice_category,
+            name=name,
+            persona_id=persona_id,
+            bag=bag,
+            spice_category=spice_category,
         )
         return chat.to_dict()
 
@@ -239,7 +242,9 @@ def build_api_router(state: OperatorConsoleState) -> APIRouter:
         if not content.strip():
             raise HTTPException(status_code=400, detail="content must be non-empty")
         msg = state.history.append_message(
-            chat_id=chat_id, role=role, content=content,
+            chat_id=chat_id,
+            role=role,
+            content=content,
             metadata=body.get("metadata") if isinstance(body.get("metadata"), dict) else None,
         )
         return msg.to_dict()
@@ -259,7 +264,9 @@ def build_api_router(state: OperatorConsoleState) -> APIRouter:
         assembler = PromptAssembler(library=catalogue.library, pool=catalogue.pool)
         context = EnrichmentContext(chat_id=chat_id, turn=chat.spice_state.turn)
         result = assembler.assemble(
-            preset=preset, bag=chat.bag, context=context,
+            preset=preset,
+            bag=chat.bag,
+            context=context,
             variables={
                 "ai_name": state.ai_display_name,
                 "user_name": state.operator_display_name,
@@ -276,6 +283,7 @@ def build_api_router(state: OperatorConsoleState) -> APIRouter:
     @router.get("/opportunities/pending_stake", dependencies=[Depends(token_dep)])
     async def opportunities_pending_stake() -> dict[str, Any]:
         from backend.crm import service as crm_service
+
         pending = crm_service.list_opportunities_pending_stake(limit=50)
         return {
             "count": len(pending),
@@ -291,12 +299,9 @@ def build_api_router(state: OperatorConsoleState) -> APIRouter:
             StakeOpportunityError,
             attach_stake_sentence,
         )
+
         sentence = str(body.get("stake_sentence") or "")
-        operator_id = str(
-            body.get("operator_id")
-            or os.environ.get("SAMUS_OPERATOR")
-            or "alex"
-        )
+        operator_id = str(body.get("operator_id") or os.environ.get("SAMUS_OPERATOR") or "alex")
         try:
             result = attach_stake_sentence(
                 opportunity_id=opportunity_id,
@@ -320,6 +325,7 @@ def build_api_router(state: OperatorConsoleState) -> APIRouter:
                 detail={"reason": exc.reason, "message": str(exc)},
             ) from exc
         from backend.crm import service as crm_service
+
         opp = crm_service.get_opportunity(opportunity_id)
         return {
             "stake_result": result,
@@ -330,6 +336,7 @@ def build_api_router(state: OperatorConsoleState) -> APIRouter:
     async def needs_warm_path_list(limit: int = 50) -> dict[str, Any]:
         """List prospects diverted by the G8 warmth pre-flight."""
         from backend.crm.needs_warm_path import list_pending
+
         try:
             limit_val = max(1, min(int(limit), 500))
         except (TypeError, ValueError):
@@ -345,23 +352,26 @@ def build_api_router(state: OperatorConsoleState) -> APIRouter:
         dependencies=[Depends(token_dep)],
     )
     async def needs_warm_path_promote(
-        prospect_id: str, body: dict,
+        prospect_id: str,
+        body: dict,
     ) -> dict[str, Any]:
         """Operator promotes a diverted prospect with a manual warmth signal."""
         from backend.crm.needs_warm_path import (
             NeedsWarmPathPersistError,
             promote,
         )
+
         signal_kind = str(body.get("signal_kind") or "").strip()
         signal_source = str(body.get("signal_source") or "").strip()
         operator_id = str(
-            body.get("operator_id")
-            or os.environ.get("SAMUS_OPERATOR")
-            or "alex",
+            body.get("operator_id") or os.environ.get("SAMUS_OPERATOR") or "alex",
         )
         valid_kinds = {
-            "rfp", "chamber_roster", "prior_inbound",
-            "public_registry", "open_job_listing",
+            "rfp",
+            "chamber_roster",
+            "prior_inbound",
+            "public_registry",
+            "open_job_listing",
         }
         if signal_kind not in valid_kinds:
             raise HTTPException(
@@ -370,7 +380,8 @@ def build_api_router(state: OperatorConsoleState) -> APIRouter:
             )
         if not signal_source:
             raise HTTPException(
-                status_code=400, detail={"reason": "missing_signal_source"},
+                status_code=400,
+                detail={"reason": "missing_signal_source"},
             )
         try:
             record = promote(
@@ -384,7 +395,8 @@ def build_api_router(state: OperatorConsoleState) -> APIRouter:
             if "not found" in msg:
                 raise HTTPException(status_code=404, detail={"reason": "not_found"}) from exc
             raise HTTPException(
-                status_code=500, detail={"reason": "persist_failed", "message": msg},
+                status_code=500,
+                detail={"reason": "persist_failed", "message": msg},
             ) from exc
         return {"promoted": record.model_dump()}
 
@@ -398,6 +410,7 @@ def build_api_router(state: OperatorConsoleState) -> APIRouter:
         08_decisions_log.md) or modify the code to remove the violation.
         """
         from backend.common.codex.adr_drafter import _default_drafts_dir
+
         drafts_dir = _default_drafts_dir()
         if not drafts_dir.exists():
             return {"count": 0, "drafts": []}
@@ -405,14 +418,19 @@ def build_api_router(state: OperatorConsoleState) -> APIRouter:
         for path in sorted(drafts_dir.glob("ADR-*.draft.md")):
             try:
                 stat = path.stat()
-                entries.append({
-                    "name": path.name,
-                    "path": str(path),
-                    "size_bytes": stat.st_size,
-                    "mtime_iso": __import__("datetime").datetime.utcfromtimestamp(
-                        stat.st_mtime,
-                    ).isoformat() + "Z",
-                })
+                entries.append(
+                    {
+                        "name": path.name,
+                        "path": str(path),
+                        "size_bytes": stat.st_size,
+                        "mtime_iso": __import__("datetime")
+                        .datetime.utcfromtimestamp(
+                            stat.st_mtime,
+                        )
+                        .isoformat()
+                        + "Z",
+                    }
+                )
             except OSError:
                 continue
         return {"count": len(entries), "drafts": entries}
@@ -427,6 +445,7 @@ def build_api_router(state: OperatorConsoleState) -> APIRouter:
         zeros + a ``store_status`` flag the console can show.
         """
         from backend.common.apollo_budget import get_daily_cap_usd, get_store
+
         store = get_store()
         cap = get_daily_cap_usd()
         try:
@@ -462,6 +481,7 @@ def build_api_router(state: OperatorConsoleState) -> APIRouter:
         from backend.common.codex import REGISTRY
         from backend.common.codex.exceptions import CodexUnavailable
         from backend.common.codex.resolution import _drafts_dir, resolve_draft
+
         decision = str(body.get("decision") or "").strip().lower()
         rationale = str(body.get("rationale") or "").strip()
         operator = body.get("operator")
@@ -521,6 +541,7 @@ def build_api_router(state: OperatorConsoleState) -> APIRouter:
         from backend.common.codex.exceptions import CodexUnavailable
         from backend.common.codex.registry import _default_codex_dir
         from backend.common.codex.resolution import promote_to_decisions_log
+
         if _unsafe_draft_name(draft_name):
             raise HTTPException(status_code=400, detail="invalid draft name")
         resolved_path = _default_codex_dir() / "_resolved" / draft_name
@@ -553,6 +574,7 @@ def build_api_router(state: OperatorConsoleState) -> APIRouter:
         """
         from backend.common.codex import REGISTRY
         from backend.common.codex.exceptions import CodexUnavailable
+
         try:
             REGISTRY.reload()
             return {
@@ -586,7 +608,9 @@ def build_api_router(state: OperatorConsoleState) -> APIRouter:
         assembler = PromptAssembler(library=catalogue.library, pool=catalogue.pool)
         ctx = EnrichmentContext(chat_id=chat_id, turn=chat.spice_state.turn)
         assembled = assembler.assemble(
-            preset=preset, bag=chat.bag, context=ctx,
+            preset=preset,
+            bag=chat.bag,
+            context=ctx,
             variables={
                 "ai_name": state.ai_display_name,
                 "user_name": state.operator_display_name,
@@ -595,12 +619,16 @@ def build_api_router(state: OperatorConsoleState) -> APIRouter:
         )
         provider = state.model_backend
         try:
-            response_text = provider.complete(user_msg) if provider is not None else f"[echo] {user_msg}"
+            response_text = (
+                provider.complete(user_msg) if provider is not None else f"[echo] {user_msg}"
+            )
         except Exception as exc:  # noqa: BLE001
             response_text = f"[echo error] {exc!r}"
         backend_name = getattr(provider, "name", "unknown") if provider is not None else "none"
         assistant_msg = state.history.append_message(
-            chat_id=chat_id, role="assistant", content=response_text,
+            chat_id=chat_id,
+            role="assistant",
+            content=response_text,
             metadata={
                 "model_backend": backend_name,
                 "assembled_char_count": assembled.char_count,

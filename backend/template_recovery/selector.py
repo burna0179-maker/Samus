@@ -7,6 +7,7 @@ to template_recovery at all, per the spec rule:
 
     if outcome == "error" and efficiency_ema < 0.45: route = "template_recovery"
 """
+
 from __future__ import annotations
 
 from typing import Any

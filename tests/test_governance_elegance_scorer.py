@@ -1,4 +1,5 @@
 """Tests for backend.governance.elegance_scorer."""
+
 from __future__ import annotations
 
 import pytest
@@ -85,8 +86,8 @@ def test_novel_capability_weighted_3x():
     # plan_b: 1.0 + 3.0 = 4.0    novel beats branches in raw count but
     # at the *same* raw count plan_b would lose. Validate the weight by
     # constructing equal counts:
-    p_branch = dict(plan_a, branch_count=2, novel_capabilities_required=0)   # 1.0 + 3.0 = 4.0
-    p_novel = dict(plan_a, branch_count=0, novel_capabilities_required=1)    # 1.0 + 3.0 = 4.0
+    p_branch = dict(plan_a, branch_count=2, novel_capabilities_required=0)  # 1.0 + 3.0 = 4.0
+    p_novel = dict(plan_a, branch_count=0, novel_capabilities_required=1)  # 1.0 + 3.0 = 4.0
     s_branch = score_elegance(p_branch)
     s_novel = score_elegance(p_novel)
     assert s_branch.complexity == pytest.approx(s_novel.complexity)

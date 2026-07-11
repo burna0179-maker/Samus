@@ -61,9 +61,7 @@ def _jail_source_path(source_path: Path | str) -> Path:
     candidate = Path(source_path)
     resolved = (candidate if candidate.is_absolute() else root / candidate).resolve()
     if not resolved.is_relative_to(root):
-        raise ValueError(
-            f"source_path escapes the knowledge ingest root: {source_path!r}"
-        )
+        raise ValueError(f"source_path escapes the knowledge ingest root: {source_path!r}")
     return resolved
 
 
@@ -73,9 +71,9 @@ def _jail_source_path(source_path: Path | str) -> Path:
 
 
 class TrustLevel(str, Enum):
-    VERIFIED = "verified"   # signed authority source
-    INTERNAL = "internal"   # in-house generated
-    EXTERNAL = "external"   # third-party / scraped
+    VERIFIED = "verified"  # signed authority source
+    INTERNAL = "internal"  # in-house generated
+    EXTERNAL = "external"  # third-party / scraped
 
 
 @dataclass
@@ -85,7 +83,7 @@ class IngestRequest:
     source_path: Path | None = None
     documents: list[dict] | None = None
     trust_level: TrustLevel = TrustLevel.INTERNAL
-    signature: str | None = None          # HMAC/minisign (deferred verification)
+    signature: str | None = None  # HMAC/minisign (deferred verification)
     chunk_size: int = 800
     chunk_overlap: int = 100
     batch_size: int = 64
@@ -101,7 +99,7 @@ class IngestReceipt:
     docs_processed: int = 0
     chunks_indexed: int = 0
     duplicates_skipped: int = 0
-    failures: list[dict] = field(default_factory=list)   # {chunk_id, error}
+    failures: list[dict] = field(default_factory=list)  # {chunk_id, error}
     content_hashes: list[str] = field(default_factory=list)
     dry_run: bool = False
 
@@ -134,7 +132,7 @@ def _chunk_text(text: str, chunk_size: int, chunk_overlap: int) -> list[str]:
     stride = max(1, chunk_size - chunk_overlap)
     start = 0
     while start < len(text):
-        chunks.append(text[start: start + chunk_size])
+        chunks.append(text[start : start + chunk_size])
         start += stride
     return chunks
 
@@ -172,16 +170,13 @@ def _default_neo4j_writer(chunk_record: dict) -> None:
     # W-4: stamp the default knowledge-graph tier (tier='private') when
     # SAMUS_KG_TIER_MODE=label. A no-op for the local stack (mode 'off').
     from backend.memory.tiers import stamp_default_tier
+
     props = stamp_default_tier(props)
     # Neo4j rejects list/dict property values; serialize embedding list to JSON
     if "embedding" in props and isinstance(props["embedding"], list):
         props["embedding"] = json.dumps(props["embedding"])
 
-    cypher = (
-        "MERGE (c:KnowledgeChunk {chunk_id: $chunk_id}) "
-        "SET c += $props "
-        "RETURN c"
-    )
+    cypher = "MERGE (c:KnowledgeChunk {chunk_id: $chunk_id}) SET c += $props RETURN c"
     client._run(cypher, {"chunk_id": chunk_id, "props": props})  # noqa: SLF001
 
 
@@ -216,9 +211,7 @@ class KnowledgeIngestPod:
         )
         self._embedder: Callable[[str], list[float]] | None = embedder
         self._dlq_writer: Callable[[dict], None] | None = dlq_writer
-        self._signature_verifier: Callable[[bytes, str], bool] | None = (
-            signature_verifier
-        )
+        self._signature_verifier: Callable[[bytes, str], bool] | None = signature_verifier
 
     # --- late-bind hooks ----------------------------------------------------
 
@@ -284,7 +277,10 @@ class KnowledgeIngestPod:
         for doc in raw_docs:
             if not _validate_doc(doc):
                 receipt.failures.append(
-                    {"chunk_id": None, "error": f"invalid_doc: missing id or document; got keys={list(doc.keys())}"}
+                    {
+                        "chunk_id": None,
+                        "error": f"invalid_doc: missing id or document; got keys={list(doc.keys())}",
+                    }
                 )
                 continue
 
@@ -319,9 +315,7 @@ class KnowledgeIngestPod:
                     try:
                         chunk_record["embedding"] = self._embedder(chunk_text_slice)
                     except Exception as exc:  # noqa: BLE001
-                        _LOG.warning(
-                            "embedder_failed chunk_id=%s err=%s", chunk_id, exc
-                        )
+                        _LOG.warning("embedder_failed chunk_id=%s err=%s", chunk_id, exc)
                         receipt.failures.append(
                             {"chunk_id": chunk_id, "error": f"embedder_error: {exc}"}
                         )
@@ -342,28 +336,29 @@ class KnowledgeIngestPod:
                         # promotion — the default local stack is unchanged.
                         try:
                             from backend.memory import tiers as _tiers
+
                             _tiers.auto_promote_on_ingest(
-                                "KnowledgeChunk", chunk_id, req.trust_level.value,
+                                "KnowledgeChunk",
+                                chunk_id,
+                                req.trust_level.value,
                             )
                         except Exception as promo_exc:  # noqa: BLE001
                             _LOG.warning(
                                 "auto_promote_failed chunk_id=%s err=%s",
-                                chunk_id, promo_exc,
+                                chunk_id,
+                                promo_exc,
                             )
                     except Exception as exc:  # noqa: BLE001
-                        _LOG.warning(
-                            "graph_writer_failed chunk_id=%s err=%s", chunk_id, exc
-                        )
-                        receipt.failures.append(
-                            {"chunk_id": chunk_id, "error": str(exc)}
-                        )
+                        _LOG.warning("graph_writer_failed chunk_id=%s err=%s", chunk_id, exc)
+                        receipt.failures.append({"chunk_id": chunk_id, "error": str(exc)})
                         if self._dlq_writer is not None:
                             try:
                                 self._dlq_writer(chunk_record)
                             except Exception as dlq_exc:  # noqa: BLE001
                                 _LOG.warning(
                                     "dlq_writer_failed chunk_id=%s err=%s",
-                                    chunk_id, dlq_exc,
+                                    chunk_id,
+                                    dlq_exc,
                                 )
                 else:
                     # dry_run: count as indexed (no actual write)

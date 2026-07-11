@@ -1,4 +1,5 @@
 """CA SOS lookup — deterministic parse, miss handling, network-error handling."""
+
 from __future__ import annotations
 
 from backend.prospecting.sources.ca_sos import lookup_ca_sos

@@ -1,4 +1,5 @@
 """upsell_template — per-touch email composers + variable injection."""
+
 from __future__ import annotations
 
 from backend.catalog.registry import CATALOG
@@ -17,6 +18,7 @@ def _catalog_buy_url(sku_id: str) -> str:
 # ---------------------------------------------------------------------------
 # Promotion code embedding (Stripe coupon auto-apply at checkout)
 # ---------------------------------------------------------------------------
+
 
 def test_render_with_promotion_code_embeds_in_link():
     """promotion_code threads into the buy-link as prefilled_promotion_code."""
@@ -71,6 +73,7 @@ def test_render_with_promo_for_implementation_to_optimization_hop():
 # Automation funnel composers (quote-based, "reply to scope" CTA)
 # ---------------------------------------------------------------------------
 
+
 def test_rescue_to_buildout_touch_1_mentions_credit_and_range_no_link():
     result = render_upsell_email(
         source_offer_code="service_workflow_rescue",
@@ -110,9 +113,9 @@ def test_buildout_to_aiops_touch_1_mentions_credit_and_retainer():
     assert result is not None
     subject, text, html, payment_link = result
     assert payment_link == ""
-    assert "$2,500" in text                    # Buildout credit
-    assert "$2,000-$5,000" in text or "$2,000" in text   # quote range
-    assert "$5,000/mo" in text                 # retainer reference
+    assert "$2,500" in text  # Buildout credit
+    assert "$2,000-$5,000" in text or "$2,000" in text  # quote range
+    assert "$5,000/mo" in text  # retainer reference
     assert "reply" in text.lower()
 
 
@@ -217,20 +220,26 @@ def test_render_includes_public_page_link_for_trust():
 
 def test_render_unknown_source_returns_none():
     """No composer set → caller (runner) marks the row as failed cleanly."""
-    assert render_upsell_email(
-        source_offer_code="not_in_map",
-        target_offer_code="seo_optimization",
-        touch_num=1,
-    ) is None
+    assert (
+        render_upsell_email(
+            source_offer_code="not_in_map",
+            target_offer_code="seo_optimization",
+            touch_num=1,
+        )
+        is None
+    )
 
 
 def test_render_unknown_touch_returns_none():
     """Cadence override beyond 3 touches must not raise."""
-    assert render_upsell_email(
-        source_offer_code="seo_audit",
-        target_offer_code="seo_optimization",
-        touch_num=99,
-    ) is None
+    assert (
+        render_upsell_email(
+            source_offer_code="seo_audit",
+            target_offer_code="seo_optimization",
+            touch_num=99,
+        )
+        is None
+    )
 
 
 def test_render_html_has_table_or_list_structure():
@@ -260,6 +269,7 @@ def test_render_signs_as_morgan():
 # ---------------------------------------------------------------------------
 # Cut 3 — client_reference_id UTM injection
 # ---------------------------------------------------------------------------
+
 
 def test_render_appends_client_reference_id_when_queue_event_id_set():
     """Cut 3: queue_event_id non-empty -> URL has ?client_reference_id=upsell_<id>."""
@@ -307,6 +317,7 @@ def test_render_uses_ampersand_when_url_already_has_query_string():
     """Defensive: if a base payment link ever grows a query param of its
     own, the append must use & not ? (would otherwise yield '?a=1?b=2')."""
     from backend.finance.upsell_template import _append_query_param
+
     out = _append_query_param("https://example.com/buy?foo=bar", "x", "y")
     assert out == "https://example.com/buy?foo=bar&x=y"
 
@@ -314,6 +325,7 @@ def test_render_uses_ampersand_when_url_already_has_query_string():
 def test_append_query_param_url_encodes_value():
     """client_reference_id values are hex, but defensive: helper must escape."""
     from backend.finance.upsell_template import _append_query_param
+
     out = _append_query_param("https://example.com/buy", "ref", "upsell_a b")
     # urlencode quotes the space to '+' (form-encoded)
     assert out == "https://example.com/buy?ref=upsell_a+b"
@@ -323,12 +335,14 @@ def test_append_query_param_url_encodes_value():
 # CAN-SPAM footer (postal address + unsubscribe) — required before enforce
 # ---------------------------------------------------------------------------
 
+
 def test_render_appends_canspam_footer(monkeypatch):
     """Commercial upsell emails must carry a postal address + unsubscribe so
     they clear the ComplianceGuard (and are CAN-SPAM compliant)."""
     monkeypatch.setenv("SAMUS_SENDER_POSTAL_ADDRESS", "HustleForge LLC, Marysville, CA 95901")
     monkeypatch.setenv("SAMUS_UNSUBSCRIBE_URL", "https://hustleforge.tech/unsubscribe")
     from backend.common.settings import reload_settings
+
     reload_settings()
 
     result = render_upsell_email(
@@ -351,8 +365,10 @@ def test_canspam_footer_clears_compliance_guard(monkeypatch):
     monkeypatch.setenv("SAMUS_SENDER_POSTAL_ADDRESS", "HustleForge LLC, Marysville, CA 95901")
     monkeypatch.setenv("SAMUS_UNSUBSCRIBE_URL", "https://hustleforge.tech/unsubscribe")
     from backend.common.settings import reload_settings
+
     reload_settings()
     import backend.common.compliance_guard as cg
+
     monkeypatch.setattr(cg, "is_email_suppressed", lambda e: False)
 
     result = render_upsell_email(
@@ -361,10 +377,15 @@ def test_canspam_footer_clears_compliance_guard(monkeypatch):
         touch_num=1,
     )
     subject, text, html, _ = result
-    verdict = cg.evaluate(cg.ComplianceMessage(
-        to="customer@example.com", subject=subject, body=text, html_body=html,
-        kind="commercial",
-    ))
+    verdict = cg.evaluate(
+        cg.ComplianceMessage(
+            to="customer@example.com",
+            subject=subject,
+            body=text,
+            html_body=html,
+            kind="commercial",
+        )
+    )
     assert verdict.ok is True, verdict.reasons
 
 

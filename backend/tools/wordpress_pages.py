@@ -3,6 +3,7 @@
 Called after a call ends and a product is confirmed as selling well.
 The draft appears in hustleforge.tech/wp-admin for Alex to review and publish.
 """
+
 from __future__ import annotations
 
 import logging
@@ -37,14 +38,10 @@ def submit_product_page(
     Returns:
         dict with 'page_id', 'slug', 'edit_url', 'status'
     """
-    deliverables_html = "\n".join(
-        f"<li>{item}</li>" for item in key_deliverables
-    )
+    deliverables_html = "\n".join(f"<li>{item}</li>" for item in key_deliverables)
 
     context_block = (
-        f'<p><em>Added from sales call: {call_context}</em></p>\n'
-        if call_context
-        else ""
+        f"<p><em>Added from sales call: {call_context}</em></p>\n" if call_context else ""
     )
 
     content = f"""<!-- wp:paragraph -->
@@ -74,9 +71,7 @@ def submit_product_page(
     # this offer is already in the catalogue — skip silently rather than
     # creating duplicate drafts every time the same offer lands on a call.
     if slug_exists(slug):
-        _LOG.info(
-            "product page skipped (SKU already exists): %s (slug=%s)", product_name, slug
-        )
+        _LOG.info("product page skipped (SKU already exists): %s (slug=%s)", product_name, slug)
         return {
             "status": "skipped_existing_sku",
             "slug": slug,
@@ -102,8 +97,7 @@ def submit_product_page(
             "slug": page_slug,
             "edit_url": edit_url,
             "message": (
-                f"Draft page '{product_name}' created. "
-                f"Alex can review and publish at: {edit_url}"
+                f"Draft page '{product_name}' created. Alex can review and publish at: {edit_url}"
             ),
         }
     except RuntimeError as exc:
@@ -136,7 +130,9 @@ def revise_product_page(
                 items = "\n".join(f"<li>{i}</li>" for i in key_deliverables)
                 parts.append(f"<!-- wp:list -->\n<ul>\n{items}\n</ul>\n<!-- /wp:list -->")
             if price_usd:
-                parts.append(f"<!-- wp:paragraph -->\n<p><strong>Investment:</strong> {price_usd}</p>\n<!-- /wp:paragraph -->")
+                parts.append(
+                    f"<!-- wp:paragraph -->\n<p><strong>Investment:</strong> {price_usd}</p>\n<!-- /wp:paragraph -->"
+                )
             if parts:
                 payload["content"] = "\n\n".join(parts)
 

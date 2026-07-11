@@ -5,6 +5,7 @@ The outer SNS envelope (:class:`SnsNotification`) carries either a
 field is a JSON-encoded SES event. SES events are typed via
 :class:`SesNotification` with one of three payload variants attached.
 """
+
 from __future__ import annotations
 
 from typing import Any, Literal

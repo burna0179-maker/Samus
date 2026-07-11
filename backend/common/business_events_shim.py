@@ -27,6 +27,7 @@ Contract (fixed — matches the sibling branch's API exactly)::
 Never raises: a broken real module is treated the same as an absent one on a
 per-call basis (allow-on-failure, mirrors ``llm_budget`` / ``bandit_store``).
 """
+
 from __future__ import annotations
 
 import logging
@@ -48,6 +49,7 @@ def _real_module() -> Any | None:
     """
     import importlib
     import sys
+
     # sys.modules is the authoritative first check so tests that install a
     # fake via ``monkeypatch.setitem(sys.modules, ...)`` are honored.
     cached = sys.modules.get("backend.common.business_events")
@@ -121,13 +123,16 @@ def read_events(
     if mod is None:
         return []
     try:
-        return list(mod.read_events(
-            prospect_id=prospect_id,
-            opportunity_id=opportunity_id,
-            since=since,
-            event_types=event_types,
-            limit=limit,
-        ) or [])
+        return list(
+            mod.read_events(
+                prospect_id=prospect_id,
+                opportunity_id=opportunity_id,
+                since=since,
+                event_types=event_types,
+                limit=limit,
+            )
+            or []
+        )
     except Exception as exc:  # noqa: BLE001 — reads degrade to empty
         _LOG.warning("business_events read failed (%s); returning []", exc)
         return []

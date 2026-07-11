@@ -1,4 +1,5 @@
 """Tests for backend.intake.forwarded_email — Gmail forward preamble parser."""
+
 from __future__ import annotations
 
 from backend.intake.forwarded_email import parse_forwarded_body, strip_html
@@ -88,19 +89,20 @@ Body
 
 # --- HTML-heavy Titan forwards -------------------------------------------
 
+
 def test_parse_handles_titan_html_forward():
     """Titan wraps the whole forwarded email in HTML — the stripped
     result is a single run-on line. parse_forwarded_body must strip
     HTML and use inline field extractors (not line-anchored regex)."""
     body = (
-        '<div><span>Alex Hartman Founder & Principal Consultant HustleForge</span></div>'
-        '<div>---------- Forwarded message --------- '
-        'From: Alex &lt;ahartman@hustleforge.tech&gt; '
-        'Subject: Sample School – Back to School Brigade '
-        'Date: Jul 10 2026, at 8:20 am '
-        'To: <recipient>@example.com, contact@sample-school.example '
-        'Good afternoon Ms. Goodly, My name is Alex Hartman...'
-        '</div>'
+        "<div><span>Alex Hartman Founder & Principal Consultant HustleForge</span></div>"
+        "<div>---------- Forwarded message --------- "
+        "From: Alex &lt;ahartman@hustleforge.tech&gt; "
+        "Subject: Sample School – Back to School Brigade "
+        "Date: Jul 10 2026, at 8:20 am "
+        "To: <recipient>@example.com, contact@sample-school.example "
+        "Good afternoon Ms. Goodly, My name is Alex Hartman..."
+        "</div>"
     )
     r = parse_forwarded_body(body)
     assert r is not None
@@ -115,14 +117,14 @@ def test_parse_handles_titan_html_forward():
 def test_parse_titan_reply_to_known_client():
     """Titan HTML forward of the outbound reply to Kerry."""
     body = (
-        '<div>HustleForge Marketing &amp; Technology Partner</div>'
-        '<div>---------- Forwarded message --------- '
-        'From: Alex &lt;ahartman@hustleforge.tech&gt; '
-        'Subject: Enrollment Rush '
-        'Date: Jul 10 2026, at 8:38 am '
-        'To: <client-email>@example.com '
-        'Hi Pastor, Thank you for your honesty...'
-        '</div>'
+        "<div>HustleForge Marketing &amp; Technology Partner</div>"
+        "<div>---------- Forwarded message --------- "
+        "From: Alex &lt;ahartman@hustleforge.tech&gt; "
+        "Subject: Enrollment Rush "
+        "Date: Jul 10 2026, at 8:38 am "
+        "To: <client-email>@example.com "
+        "Hi Pastor, Thank you for your honesty..."
+        "</div>"
     )
     r = parse_forwarded_body(body)
     assert r is not None
@@ -132,8 +134,9 @@ def test_parse_titan_reply_to_known_client():
 
 # --- strip_html ----------------------------------------------------------
 
+
 def test_strip_html_removes_tags_and_entities():
-    got = strip_html('<div>Hello &amp; goodbye <span>world</span></div>')
+    got = strip_html("<div>Hello &amp; goodbye <span>world</span></div>")
     assert got == "Hello & goodbye world"
 
 

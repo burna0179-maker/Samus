@@ -1,4 +1,5 @@
 """Tests for backend.website.demo_sites — offline (deploy + LLM monkeypatched)."""
+
 from __future__ import annotations
 
 import json
@@ -83,20 +84,23 @@ def _no_llm(monkeypatch):
     def _unavailable(*a, **kw):
         raise LlmCallError("llm disabled in test")
 
-    monkeypatch.setattr(
-        "backend.website.content_gen.anthropic_messages", _unavailable
-    )
+    monkeypatch.setattr("backend.website.content_gen.anthropic_messages", _unavailable)
 
 
 # ---------------------------------------------------------------------------
 # CSV loading / filtering
 # ---------------------------------------------------------------------------
 
+
 def test_load_filters_no_website_only(artifact_root):
     records = [
         _rec(prospect_id="a", company_name="No Site Co"),
-        _rec(prospect_id="b", company_name="Live Co", website_status="live",
-             website_url="https://live.example"),
+        _rec(
+            prospect_id="b",
+            company_name="Live Co",
+            website_status="live",
+            website_url="https://live.example",
+        ),
         _rec(prospect_id="c", company_name="Parked Co", website_status="parked"),
     ]
     write_call_list(records, run_date=RUN_DATE)
@@ -138,6 +142,7 @@ def test_load_missing_file_raises(artifact_root):
 # brief enrichment
 # ---------------------------------------------------------------------------
 
+
 def test_enrich_brief_carries_reviews_description_and_contact():
     rec = _rec()
     brief = enrich_brief(classify(rec).brief_draft, rec)
@@ -160,13 +165,17 @@ def test_enrich_brief_never_fabricates_trust_line():
 # slug sanitization
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("name,expected", [
-    ("Acme Plumbing", "demo-acme-plumbing"),
-    ("  Bob's HVAC & Sons!  ", "demo-bob-s-hvac-sons"),
-    ("ÜBER--Clean__LLC", "demo-ber-clean-llc"),
-    ("", "demo-site"),
-    ("!!!", "demo-site"),
-])
+
+@pytest.mark.parametrize(
+    "name,expected",
+    [
+        ("Acme Plumbing", "demo-acme-plumbing"),
+        ("  Bob's HVAC & Sons!  ", "demo-bob-s-hvac-sons"),
+        ("ÜBER--Clean__LLC", "demo-ber-clean-llc"),
+        ("", "demo-site"),
+        ("!!!", "demo-site"),
+    ],
+)
 def test_demo_project_slug(name, expected):
     assert demo_project_slug(name) == expected
 
@@ -182,6 +191,7 @@ def test_demo_project_slug_length_and_determinism():
 # flag gate
 # ---------------------------------------------------------------------------
 
+
 def test_flag_off_refuses(artifact_root):
     with pytest.raises(RuntimeError, match="website_demo_sites_enabled"):
         build_demo_sites([_rec()], settings=_settings(website_demo_sites_enabled=False))
@@ -190,6 +200,7 @@ def test_flag_off_refuses(artifact_root):
 # ---------------------------------------------------------------------------
 # build run — deterministic ($0), deploy skipped without creds
 # ---------------------------------------------------------------------------
+
 
 def test_build_no_creds_files_only(artifact_root):
     run = build_demo_sites([_rec()], settings=_settings(), run_date=RUN_DATE)
@@ -220,7 +231,8 @@ def test_build_deploy_success_per_project(artifact_root, monkeypatch):
     settings = _settings(cloudflare_api_token="tok", cloudflare_account_id="acct")
     run = build_demo_sites(
         [_rec(prospect_id="a"), _rec(prospect_id="b", company_name="Beta Roofing")],
-        settings=settings, run_date=RUN_DATE,
+        settings=settings,
+        run_date=RUN_DATE,
     )
     assert run.deployed == 2
     assert seen == ["demo-acme-plumbing", "demo-beta-roofing"]
@@ -231,8 +243,10 @@ def test_build_deploy_success_per_project(artifact_root, monkeypatch):
 # cost ceiling — HARD, checked before each LLM call
 # ---------------------------------------------------------------------------
 
+
 def _fake_content_gen(monkeypatch, calls: list[str]):
     """generate_site_content stand-in: 'uses' the LLM iff an api_key arrives."""
+
     def fake(brief, *, settings, api_key=None):
         used = bool(api_key)
         if used:
@@ -248,14 +262,16 @@ def test_ceiling_stops_llm_but_run_continues(artifact_root, monkeypatch):
     prospects = [_rec(prospect_id=str(i), company_name=f"Co {i}") for i in range(4)]
     # estimate is $0.05/call -> ceiling $0.12 allows exactly 2 calls
     run = build_demo_sites(
-        prospects, ceiling_usd=0.12,
-        settings=_settings(anthropic_api_key="k"), run_date=RUN_DATE,
+        prospects,
+        ceiling_usd=0.12,
+        settings=_settings(anthropic_api_key="k"),
+        run_date=RUN_DATE,
     )
     assert run.llm_calls == 2
     assert len(calls) == 2
     assert run.llm_stopped_at_ceiling is True
     assert run.cumulative_cost_usd <= 0.12  # NEVER exceeds the ceiling
-    assert run.built == 4                   # deterministic path finished the rest
+    assert run.built == 4  # deterministic path finished the rest
     assert [r.llm_used for r in run.results] == [True, True, False, False]
 
 
@@ -263,8 +279,10 @@ def test_no_llm_flag_means_zero_cost(artifact_root, monkeypatch):
     calls: list[str] = []
     _fake_content_gen(monkeypatch, calls)
     run = build_demo_sites(
-        [_rec()], use_llm_copy=False,
-        settings=_settings(anthropic_api_key="k"), run_date=RUN_DATE,
+        [_rec()],
+        use_llm_copy=False,
+        settings=_settings(anthropic_api_key="k"),
+        run_date=RUN_DATE,
     )
     assert calls == []
     assert run.cumulative_cost_usd == 0.0
@@ -280,6 +298,7 @@ def test_no_llm_flag_means_zero_cost(artifact_root, monkeypatch):
 # per-prospect fault isolation
 # ---------------------------------------------------------------------------
 
+
 def test_one_prospect_failure_is_isolated(artifact_root, monkeypatch):
     real = demo_sites.classify
 
@@ -290,9 +309,13 @@ def test_one_prospect_failure_is_isolated(artifact_root, monkeypatch):
 
     monkeypatch.setattr(demo_sites, "classify", exploding_classify)
     run = build_demo_sites(
-        [_rec(prospect_id="a"), _rec(prospect_id="b", company_name="Boom Co"),
-         _rec(prospect_id="c", company_name="Gamma Dental")],
-        settings=_settings(), run_date=RUN_DATE,
+        [
+            _rec(prospect_id="a"),
+            _rec(prospect_id="b", company_name="Boom Co"),
+            _rec(prospect_id="c", company_name="Gamma Dental"),
+        ],
+        settings=_settings(),
+        run_date=RUN_DATE,
     )
     assert run.built == 2 and run.failed == 1
     assert "synthetic classifier failure" in run.results[1].error
@@ -305,7 +328,9 @@ def test_non_gap_prospect_recorded_not_crashed(artifact_root):
     # tests/test_presence_check.py and below).
     run = build_demo_sites(
         [_rec(website_status="live", website_url="https://x.example")],
-        settings=_settings(), run_date=RUN_DATE, verify_presence=False,
+        settings=_settings(),
+        run_date=RUN_DATE,
+        verify_presence=False,
     )
     assert run.failed == 1
     assert "not a website-gap prospect" in run.results[0].error
@@ -316,7 +341,9 @@ def test_presence_gate_skips_business_with_a_site(artifact_root):
     # website, without reaching classify/build.
     run = build_demo_sites(
         [_rec(website_status="live", website_url="https://x.example")],
-        settings=_settings(), run_date=RUN_DATE, verify_presence=True,
+        settings=_settings(),
+        run_date=RUN_DATE,
+        verify_presence=True,
     )
     assert run.built == 0
     assert run.skipped_has_site == 1
@@ -326,6 +353,7 @@ def test_presence_gate_skips_business_with_a_site(artifact_root):
 # ---------------------------------------------------------------------------
 # run summaries
 # ---------------------------------------------------------------------------
+
 
 def test_summary_files_written(artifact_root):
     run = build_demo_sites([_rec()], settings=_settings(), run_date=RUN_DATE)
@@ -341,12 +369,15 @@ def test_summary_files_written(artifact_root):
     assert "hook" in sheet
     assert "$0.00" in sheet
 
+
 # ---------------------------------------------------------------------------
 # industry service catalog (operator HVAC spec)
 # ---------------------------------------------------------------------------
 
+
 def test_industry_services_per_industry_differ():
     from backend.website.demo_sites import industry_services
+
     hvac, hvac_offer = industry_services("hvac contractor")
     acct, _ = industry_services("accounting firm")
     assert "AC Repair" in hvac and "Furnace Installation" in hvac
@@ -356,23 +387,28 @@ def test_industry_services_per_industry_differ():
     assert 4 <= len(hvac) <= 6 and 4 <= len(acct) <= 6
 
 
-@pytest.mark.parametrize("industry,expect", [
-    ("HVAC Contractor", "AC Repair"),
-    ("Plumber", "Drain Cleaning"),
-    ("roofing contractor", "Roof Repair"),
-    ("Electrician", "Panel Upgrades"),
-    ("Real Estate Agency", "Home Buying"),
-    ("car dealership", "Trade-In Appraisals"),
-    ("Dentist", "Teeth Whitening"),
-])
+@pytest.mark.parametrize(
+    "industry,expect",
+    [
+        ("HVAC Contractor", "AC Repair"),
+        ("Plumber", "Drain Cleaning"),
+        ("roofing contractor", "Roof Repair"),
+        ("Electrician", "Panel Upgrades"),
+        ("Real Estate Agency", "Home Buying"),
+        ("car dealership", "Trade-In Appraisals"),
+        ("Dentist", "Teeth Whitening"),
+    ],
+)
 def test_industry_services_keyword_resolution(industry, expect):
     from backend.website.demo_sites import industry_services
+
     services, _ = industry_services(industry)
     assert expect in services
 
 
 def test_industry_services_generic_fallback():
     from backend.website.demo_sites import industry_services
+
     services, offer = industry_services("interpretive dance studio")
     assert services and offer
     assert "AC Repair" not in services  # never the wrong trade's catalog
@@ -411,9 +447,11 @@ def test_enrich_brief_no_reviews_means_no_trust_line():
 # rendered demo page — operator HVAC spec end-to-end (deterministic $0 path)
 # ---------------------------------------------------------------------------
 
+
 def _built_html(artifact_root, **rec_over) -> str:
-    run = build_demo_sites([_rec(**rec_over)], settings=_settings(),
-                           deploy=False, run_date=RUN_DATE)
+    run = build_demo_sites(
+        [_rec(**rec_over)], settings=_settings(), deploy=False, run_date=RUN_DATE
+    )
     assert run.built == 1 and run.cumulative_cost_usd == 0.0
     return (Path(run.results[0].output_dir) / "index.html").read_text(encoding="utf-8")
 
@@ -429,7 +467,7 @@ def test_demo_page_industry_services_promo_and_placeholders(artifact_root):
     html = _built_html(artifact_root, industry="hvac contractor")
     assert "AC Repair" in html and "Duct Cleaning" in html
     assert 'id="promo"' in html and "call 555-1234 today" in html
-    assert html.count("Demo preview") >= 3      # reviews + credentials + portfolio
+    assert html.count("Demo preview") >= 3  # reviews + credentials + portfolio
     assert "Your customer reviews featured here" in html
     assert "license &amp; certifications" in html.lower()
     assert 'id="portfolio"' in html and 'id="reviews"' in html
@@ -441,8 +479,13 @@ def test_demo_page_real_trust_line_only(artifact_root):
 
 
 def test_demo_page_no_reviews_degrades_without_fabrication(artifact_root):
-    html = _built_html(artifact_root, industry="hvac contractor",
-                       review_rating="", review_count="", business_description="")
+    html = _built_html(
+        artifact_root,
+        industry="hvac contractor",
+        review_rating="",
+        review_count="",
+        business_description="",
+    )
     assert "Rated" not in html  # no invented social proof anywhere
     # the placeholder cards still demo the sections
     assert "Your customer reviews featured here" in html
@@ -457,7 +500,8 @@ def test_demo_page_two_click_nav(artifact_root):
 
 def test_demo_page_differs_by_industry(artifact_root):
     hvac = _built_html(artifact_root, industry="hvac contractor")
-    acct = _built_html(artifact_root, prospect_id="p2", company_name="Ledger Co",
-                       industry="accounting firm")
+    acct = _built_html(
+        artifact_root, prospect_id="p2", company_name="Ledger Co", industry="accounting firm"
+    )
     assert "AC Repair" in hvac and "AC Repair" not in acct
     assert "Tax Preparation" in acct and "Tax Preparation" not in hvac

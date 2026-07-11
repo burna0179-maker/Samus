@@ -57,6 +57,7 @@ Asymmetric reconcile-on-open:
 Port of :class:`backend.core.security.evidence_ledger.EvidenceLedger`
 from Anita round-5 (2026-05-17).
 """
+
 from __future__ import annotations
 
 import base64
@@ -116,7 +117,9 @@ class LedgerTamperError(RuntimeError):
 # ---------- module-level helpers ------------------------------------------
 
 
-def _canonical_material(seq: int, ts: float, type_: str, prev_hash: str, payload: Dict[str, Any]) -> bytes:
+def _canonical_material(
+    seq: int, ts: float, type_: str, prev_hash: str, payload: Dict[str, Any]
+) -> bytes:
     return json.dumps(
         {
             "seq": seq,
@@ -221,7 +224,7 @@ def _read_last_jsonl_record(path: Path) -> Optional[dict]:
             stripped = buf.rstrip(b"\r\n")
             nl = stripped.rfind(b"\n")
             if nl != -1:
-                last_line = stripped[nl + 1:]
+                last_line = stripped[nl + 1 :]
                 try:
                     return json.loads(last_line.decode("utf-8"))
                 except (json.JSONDecodeError, UnicodeDecodeError):
@@ -362,9 +365,7 @@ class AuditLedger:
             # sealed — existing deployments keep working without any
             # config change.
             self._env_name = getattr(s, "env", "development") or "development"
-            ledger_secret_str = (
-                getattr(s, "samus_ledger_secret_key", "") or s.shared_hmac_key
-            )
+            ledger_secret_str = getattr(s, "samus_ledger_secret_key", "") or s.shared_hmac_key
             if not ledger_secret_str:
                 # Fail closed outside development: an unconfigured ledger key
                 # means every chain entry is signed with a known plaintext
@@ -387,17 +388,13 @@ class AuditLedger:
             self._epoch_overlap_sec = (
                 epoch_overlap_sec
                 if epoch_overlap_sec is not None
-                else int(
-                    getattr(s, "samus_ledger_epoch_overlap_sec", _DEFAULT_EPOCH_OVERLAP_SEC)
-                )
+                else int(getattr(s, "samus_ledger_epoch_overlap_sec", _DEFAULT_EPOCH_OVERLAP_SEC))
             )
         else:
             self._secret = secret_key
             self._epoch_sec = epoch_sec if epoch_sec is not None else _DEFAULT_EPOCH_SEC
             self._epoch_overlap_sec = (
-                epoch_overlap_sec
-                if epoch_overlap_sec is not None
-                else _DEFAULT_EPOCH_OVERLAP_SEC
+                epoch_overlap_sec if epoch_overlap_sec is not None else _DEFAULT_EPOCH_OVERLAP_SEC
             )
 
         # O(1) tip cache (R1). ``_scan_tip_hash`` / ``_scan_next_seq`` each did
@@ -567,7 +564,10 @@ class AuditLedger:
             pass
         try:  # real-time operator push (fail-soft; import lazy to avoid cycle)
             from .notify import notify_operator
-            notify_operator("Audit ledger tamper", msg, severity="critical", dedup_key="ledger_tamper")
+
+            notify_operator(
+                "Audit ledger tamper", msg, severity="critical", dedup_key="ledger_tamper"
+            )
         except Exception:  # noqa: BLE001 - notify must never mask the break
             pass
         if self._env_name != "development":
@@ -648,7 +648,9 @@ class AuditLedger:
 
     # ---- internal: signing + verification ------------------------------
 
-    def _sign(self, seq: int, ts: float, type_: str, prev_hash: str, payload: Dict[str, Any]) -> str:
+    def _sign(
+        self, seq: int, ts: float, type_: str, prev_hash: str, payload: Dict[str, Any]
+    ) -> str:
         material = _canonical_material(seq, ts, type_, prev_hash, payload)
         epoch = _epoch_number(ts, self._epoch_sec)
         key = _epoch_key(self._secret, epoch)
@@ -788,7 +790,10 @@ class AuditLedger:
             pass
         try:  # real-time operator push (fail-soft; import lazy to avoid cycle)
             from .notify import notify_operator
-            notify_operator("Audit ledger tamper", msg, severity="critical", dedup_key="ledger_tamper")
+
+            notify_operator(
+                "Audit ledger tamper", msg, severity="critical", dedup_key="ledger_tamper"
+            )
         except Exception:  # noqa: BLE001 - notify must never mask the break
             pass
         if self._env_name != "development":

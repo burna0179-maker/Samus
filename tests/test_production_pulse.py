@@ -4,12 +4,12 @@ The trigger moves from a 30-min metronome to watching the idle signal:
 dormant by default, arms via SAMUS_PRODUCTION_PULSE_ENABLED, and each pulse
 re-runs the SAME governed idle-drive reasoning with a pulse-scale threshold.
 """
+
 from __future__ import annotations
 
 import asyncio
 from types import SimpleNamespace
 
-import pytest
 
 from backend.gateway import production_pulse_task as pp
 
@@ -70,8 +70,7 @@ def test_pulse_invokes_idle_drive_with_threshold(monkeypatch):
         calls.append(kwargs)
         if len(calls) == 1:
             raise RuntimeError("first pulse faults")  # loop must survive
-        return {"ok": True, "produced": True, "reason": "test",
-                "actuation": {"initiated": 2}}
+        return {"ok": True, "produced": True, "reason": "test", "actuation": {"initiated": 2}}
 
     monkeypatch.setattr(ip, "run_idle_drive", fake_drive)
     monkeypatch.setattr(pp, "_INITIAL_DELAY_SEC", 0.0)

@@ -1,4 +1,5 @@
 """Finance service — pull Stripe + load CODB + compute runway, audit it all."""
+
 from __future__ import annotations
 
 import logging
@@ -118,8 +119,7 @@ def _build_liabilities_summary(ts: str) -> LiabilitiesSummary:
 
 
 def _build_declines_summary(ts: str, window_days: int = 30) -> DeclinesSummary:
-    return declines.summarize(declines.load_registry(),
-                              window_days=window_days, ts=ts)
+    return declines.summarize(declines.load_registry(), window_days=window_days, ts=ts)
 
 
 def _build_debt_portfolio(ts: str) -> DebtPortfolioSummary:
@@ -142,8 +142,7 @@ def _build_hardship_context() -> HardshipContext:
 
 
 def _charges_total_usd_dollars(charges) -> float:
-    cents = sum(c.amount for c in charges
-                if c.paid and c.currency.lower() == "usd")
+    cents = sum(c.amount for c in charges if c.paid and c.currency.lower() == "usd")
     return round(cents / 100.0, 2)
 
 
@@ -162,8 +161,11 @@ def get_snapshot(req: SnapshotRequest) -> FinanceSnapshot:
     cache_key = f"finance.snapshot:{req.charges_limit}:{req.payouts_limit}"
     cached = GLOBAL_IDEMPOTENCY_STORE.get(cache_key)
     if cached is not None and isinstance(cached, dict):
-        _LOG.info("snapshot cache hit charges_limit=%s payouts_limit=%s",
-                  req.charges_limit, req.payouts_limit)
+        _LOG.info(
+            "snapshot cache hit charges_limit=%s payouts_limit=%s",
+            req.charges_limit,
+            req.payouts_limit,
+        )
         return FinanceSnapshot.model_validate(cached)
 
     ts = iso_now()
@@ -364,17 +366,15 @@ def get_recent_payments(window_days: int = 7) -> RecentPaymentsSummary:
     # Correlate auto_fulfill follow-ups back to their originating event_id so
     # the awaiting count drops when the background thread succeeded.
     auto_ok_event_ids = {e.event_id for e in auto_events if e.auto_fulfill_ok}
-    auto_fail_event_ids = {
-        e.event_id for e in auto_events if not e.auto_fulfill_ok
-    }
+    auto_fail_event_ids = {e.event_id for e in auto_events if not e.auto_fulfill_ok}
     # Awaiting fulfillment: 'processed' events where neither auto-fulfill nor
     # a manual Run-Fulfill has completed. Operator's Run-Fulfill is idempotent
     # so over-surfacing the manual path is harmless; under-surfacing would
     # leave a paid customer in limbo.
     awaiting = sum(
-        1 for e in stripe_events
-        if e.process_status == "processed"
-        and e.event_id not in auto_ok_event_ids
+        1
+        for e in stripe_events
+        if e.process_status == "processed" and e.event_id not in auto_ok_event_ids
     )
     return RecentPaymentsSummary(
         window_days=window_days,
@@ -388,7 +388,9 @@ def get_recent_payments(window_days: int = 7) -> RecentPaymentsSummary:
         # Surface stripe events to the briefing; auto_fulfill rows are
         # internal correlation rows, not operator-facing line items.
         recent_events=sorted(
-            stripe_events, key=lambda e: e.received_at, reverse=True,
+            stripe_events,
+            key=lambda e: e.received_at,
+            reverse=True,
         ),
         ts=iso_now(),
         log_loaded=log_loaded,
@@ -414,12 +416,14 @@ def get_mrr_adds(window_days: int = 7) -> MrrAddSummary:
             continue
         if ev.subscription_mrr_usd is None or ev.subscription_mrr_usd <= 0:
             continue
-        adds.append(MrrAddDigest(
-            customer_email=ev.customer_email,
-            subscription_id=ev.subscription_id,
-            mrr_usd=ev.subscription_mrr_usd,
-            ts=ev.received_at,
-        ))
+        adds.append(
+            MrrAddDigest(
+                customer_email=ev.customer_email,
+                subscription_id=ev.subscription_id,
+                mrr_usd=ev.subscription_mrr_usd,
+                ts=ev.received_at,
+            )
+        )
         total += ev.subscription_mrr_usd
     adds.sort(key=lambda r: r.ts, reverse=True)
     return MrrAddSummary(
@@ -454,11 +458,16 @@ def get_upsell_summary(window_days: int = 14) -> UpsellSummary:
     if not log_loaded:
         return UpsellSummary(
             window_days=window_days,
-            queued_count=0, due_now_count=0,
-            sent_count=0, failed_count=0,
-            converted_count=0, skipped_dup_count=0,
-            recent_sent=[], recent_failed=[],
-            ts=iso_now(), log_loaded=False,
+            queued_count=0,
+            due_now_count=0,
+            sent_count=0,
+            failed_count=0,
+            converted_count=0,
+            skipped_dup_count=0,
+            recent_sent=[],
+            recent_failed=[],
+            ts=iso_now(),
+            log_loaded=False,
         )
 
     all_rows = _read_all_rows()
@@ -483,18 +492,28 @@ def get_upsell_summary(window_days: int = 14) -> UpsellSummary:
             continue
         if row.kind == "sent":
             sent += 1
-            recent_sent.append(UpsellRowDigest(
-                customer_email=row.customer_email, touch_num=row.touch_num,
-                kind=row.kind, source_offer_code=row.source_offer_code,
-                target_offer_code=row.target_offer_code, ts=row.ts,
-            ))
+            recent_sent.append(
+                UpsellRowDigest(
+                    customer_email=row.customer_email,
+                    touch_num=row.touch_num,
+                    kind=row.kind,
+                    source_offer_code=row.source_offer_code,
+                    target_offer_code=row.target_offer_code,
+                    ts=row.ts,
+                )
+            )
         elif row.kind == "failed":
             failed += 1
-            recent_failed.append(UpsellRowDigest(
-                customer_email=row.customer_email, touch_num=row.touch_num,
-                kind=row.kind, source_offer_code=row.source_offer_code,
-                target_offer_code=row.target_offer_code, ts=row.ts,
-            ))
+            recent_failed.append(
+                UpsellRowDigest(
+                    customer_email=row.customer_email,
+                    touch_num=row.touch_num,
+                    kind=row.kind,
+                    source_offer_code=row.source_offer_code,
+                    target_offer_code=row.target_offer_code,
+                    ts=row.ts,
+                )
+            )
         elif row.kind == "converted":
             converted += 1
         elif row.kind == "skipped_dup":
@@ -502,21 +521,31 @@ def get_upsell_summary(window_days: int = 14) -> UpsellSummary:
 
     return UpsellSummary(
         window_days=window_days,
-        queued_count=queued, due_now_count=due_now,
-        sent_count=sent, failed_count=failed,
-        converted_count=converted, skipped_dup_count=skipped_dup,
+        queued_count=queued,
+        due_now_count=due_now,
+        sent_count=sent,
+        failed_count=failed,
+        converted_count=converted,
+        skipped_dup_count=skipped_dup,
         recent_sent=sorted(recent_sent, key=lambda r: r.ts, reverse=True)[:5],
         recent_failed=sorted(recent_failed, key=lambda r: r.ts, reverse=True)[:5],
-        ts=iso_now(), log_loaded=True,
+        ts=iso_now(),
+        log_loaded=True,
     )
 
 
 def _charge_to_row(charge) -> CustomerChargeRow:
     """Convert a StripeCharge into the per-customer summary row shape."""
     from datetime import datetime, timezone
-    created_iso = datetime.fromtimestamp(
-        int(charge.created or 0), tz=timezone.utc,
-    ).isoformat().replace("+00:00", "Z")
+
+    created_iso = (
+        datetime.fromtimestamp(
+            int(charge.created or 0),
+            tz=timezone.utc,
+        )
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
     return CustomerChargeRow(
         charge_id=charge.id,
         amount_usd=round(int(charge.amount or 0) / 100.0, 2),
@@ -541,7 +570,9 @@ def _subscription_to_row(sub) -> CustomerSubscriptionRow:
 
 
 def get_customer_billing_summary(
-    email: str, *, charges_limit: int = 5,
+    email: str,
+    *,
+    charges_limit: int = 5,
 ) -> CustomerBillingSummary:
     """Per-customer billing snapshot for the inbound-email handler.
 
@@ -561,7 +592,9 @@ def get_customer_billing_summary(
     client = _new_stripe_client()
     if client is None:
         return CustomerBillingSummary(
-            email=email_clean, state="lookup_failed", ts=ts,
+            email=email_clean,
+            state="lookup_failed",
+            ts=ts,
             lookup_error="stripe_api_key_unset",
         )
 
@@ -571,20 +604,26 @@ def get_customer_billing_summary(
         _LOG.warning("customer lookup failed for %s: %s", email_clean[-12:], exc)
         return CustomerBillingSummary(
             # LEAK-FIN-MRR — opaque token; raw StripeError stays in the log.
-            email=email_clean, state="lookup_failed", ts=ts,
+            email=email_clean,
+            state="lookup_failed",
+            ts=ts,
             lookup_error="lookup_failed",
         )
 
     if not customers:
         return CustomerBillingSummary(
-            email=email_clean, state="unknown", ts=ts,
+            email=email_clean,
+            state="unknown",
+            ts=ts,
         )
 
     # Stripe can return multiple rows per email (legacy duplicates +
     # test/live mixups). Pick the most-recent livemode row when present,
     # else the most-recent overall. Keep the full id list for audit.
     customers_sorted = sorted(
-        customers, key=lambda c: (c.livemode, c.created), reverse=True,
+        customers,
+        key=lambda c: (c.livemode, c.created),
+        reverse=True,
     )
     primary = customers_sorted[0]
     customer_ids = [c.id for c in customers_sorted]
@@ -594,31 +633,31 @@ def get_customer_billing_summary(
     error_note = ""
     try:
         subs = client.fetch_subscriptions(
-            status="active", limit=20, customer=primary.id,
+            status="active",
+            limit=20,
+            customer=primary.id,
         )
     except StripeError as exc:
         # LEAK-FIN-MRR — opaque note; raw StripeError stays in the log.
         error_note = "subscriptions_failed"
-        _LOG.warning("subscription lookup failed for %s: %s",
-                     primary.id, exc)
+        _LOG.warning("subscription lookup failed for %s: %s", primary.id, exc)
 
     try:
         charges = client.fetch_charges(
-            limit=max(1, min(100, int(charges_limit))), customer=primary.id,
+            limit=max(1, min(100, int(charges_limit))),
+            customer=primary.id,
         )
     except StripeError as exc:
         # Non-fatal: surface in error_note but keep returning what we have.
         # LEAK-FIN-MRR — opaque note; raw StripeError stays in the log.
-        error_note = (
-            f"{error_note}; charges_failed" if error_note
-            else "charges_failed"
-        )
+        error_note = f"{error_note}; charges_failed" if error_note else "charges_failed"
         _LOG.warning("charge lookup failed for %s: %s", primary.id, exc)
 
     charge_rows = [_charge_to_row(c) for c in charges]
     sub_rows = [_subscription_to_row(s) for s in subs]
     total_paid = round(
-        sum(c.amount_usd for c in charge_rows if c.paid), 2,
+        sum(c.amount_usd for c in charge_rows if c.paid),
+        2,
     )
     mrr_total = round(sum(s.mrr_usd for s in sub_rows), 2)
 

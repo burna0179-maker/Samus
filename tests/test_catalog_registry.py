@@ -75,22 +75,24 @@ def test_stripe_product_ids_are_unique_per_entry_or_intentionally_shared():
     # pointing at the same product), with the exception of intentional
     # reuse — currently none. If reuse is added later, update this test.
     product_ids = [e.stripe_product_id for e in CATALOG if e.stripe_product_id]
-    assert len(product_ids) == len(set(product_ids)), \
+    assert len(product_ids) == len(set(product_ids)), (
         f"Duplicate stripe_product_id in CATALOG: {product_ids}"
+    )
 
 
 def test_stripe_price_ids_are_unique():
     price_ids = [e.stripe_price_id for e in CATALOG if e.stripe_price_id]
-    assert len(price_ids) == len(set(price_ids)), \
+    assert len(price_ids) == len(set(price_ids)), (
         f"Duplicate stripe_price_id in CATALOG: {price_ids}"
+    )
 
 
 def test_every_entry_has_description():
     for e in CATALOG:
-        assert e.description and e.description.strip(), \
-            f"{e.sku_id} has empty description"
-        assert len(e.description) > 20, \
+        assert e.description and e.description.strip(), f"{e.sku_id} has empty description"
+        assert len(e.description) > 20, (
             f"{e.sku_id} description is too short to be real: {e.description!r}"
+        )
 
 
 _QUOTE_BASED_SKUS = {"service_ai_ops_partner_build"}
@@ -106,30 +108,35 @@ def test_every_non_quote_based_entry_has_live_stripe_product_id():
     """Quote-based + Stripe-pending SKUs intentionally lack live Stripe IDs."""
     for e in CATALOG:
         if e.sku_id in _NO_LIVE_STRIPE_SKUS:
-            assert e.stripe_product_id is None, \
+            assert e.stripe_product_id is None, (
                 f"{e.sku_id} has no live Stripe product yet; must be None"
+            )
             continue
         assert e.stripe_product_id, f"{e.sku_id} missing stripe_product_id"
-        assert e.stripe_product_id.startswith("prod_"), \
+        assert e.stripe_product_id.startswith("prod_"), (
             f"{e.sku_id} stripe_product_id is malformed: {e.stripe_product_id}"
+        )
 
 
 def test_every_non_quote_based_entry_has_live_stripe_price_id():
     for e in CATALOG:
         if e.sku_id in _NO_LIVE_STRIPE_SKUS:
-            assert e.stripe_price_id is None, \
+            assert e.stripe_price_id is None, (
                 f"{e.sku_id} has no live Stripe price yet; must be None"
+            )
             continue
         assert e.stripe_price_id, f"{e.sku_id} missing stripe_price_id"
-        assert e.stripe_price_id.startswith("price_"), \
+        assert e.stripe_price_id.startswith("price_"), (
             f"{e.sku_id} stripe_price_id is malformed: {e.stripe_price_id}"
+        )
 
 
 def test_retainers_are_recurring():
     for e in by_category(SkuCategory.RETAINER):
         assert e.recurring is True, f"{e.sku_id} is RETAINER but not recurring"
-        assert e.fulfillment_module == FulfillmentModule.RETAINER, \
+        assert e.fulfillment_module == FulfillmentModule.RETAINER, (
             f"{e.sku_id} RETAINER must use RETAINER fulfillment module"
+        )
 
 
 def test_addons_route_via_services_or_products():
@@ -138,15 +145,17 @@ def test_addons_route_via_services_or_products():
     # hygiene sweep). Either is valid; only RETAINER/LEGACY are not.
     valid = {FulfillmentModule.SERVICES, FulfillmentModule.PRODUCTS}
     for e in by_category(SkuCategory.ADDON):
-        assert e.fulfillment_module in valid, \
+        assert e.fulfillment_module in valid, (
             f"{e.sku_id} ADDON routes via unexpected module {e.fulfillment_module}"
+        )
         assert e.recurring is False, f"{e.sku_id} ADDON should be one-time"
 
 
 def test_digital_use_products_fulfillment():
     for e in by_category(SkuCategory.DIGITAL):
-        assert e.fulfillment_module == FulfillmentModule.PRODUCTS, \
+        assert e.fulfillment_module == FulfillmentModule.PRODUCTS, (
             f"{e.sku_id} DIGITAL must route via PRODUCTS fulfillment"
+        )
 
 
 def test_price_cents_positive():
@@ -191,8 +200,7 @@ def test_lookup_by_stripe_price_unknown_returns_none():
 
 def test_by_category_partitions_catalog():
     total = sum(len(by_category(c)) for c in SkuCategory)
-    assert total == len(CATALOG), \
-        "by_category() returned overlapping or missing entries"
+    assert total == len(CATALOG), "by_category() returned overlapping or missing entries"
 
 
 def test_by_category_counts():
@@ -213,7 +221,7 @@ def test_ai_ops_partner_build_entry():
     assert entry.category == SkuCategory.SERVICE
     assert entry.fulfillment_module == FulfillmentModule.SERVICES
     assert entry.recurring is False
-    assert entry.price_usd_cents == 200000   # $2,000 floor
+    assert entry.price_usd_cents == 200000  # $2,000 floor
     assert entry.stripe_product_id is None
     assert entry.stripe_price_id is None
     assert entry.payment_link_url is None
@@ -250,5 +258,6 @@ def test_addon_stripe_hardening_entry():
 
 def test_all_addons_have_payment_links():
     for e in by_category(SkuCategory.ADDON):
-        assert e.payment_link_url and e.payment_link_url.startswith("https://buy.stripe.com/"), \
+        assert e.payment_link_url and e.payment_link_url.startswith("https://buy.stripe.com/"), (
             f"{e.sku_id} add-on missing payment_link_url"
+        )

@@ -7,6 +7,7 @@ The score is a weighted sum of four normalised instability signals, each
 expected in ``[0.0, 1.0]``. The weights sum to 1.0 so a well-formed input
 maps to a score in ``[0.0, 1.0]``; the output is clamped regardless.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

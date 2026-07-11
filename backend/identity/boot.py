@@ -19,6 +19,7 @@ can abort boot is the explicit ``SAMUS_IMMUTABLE_GATE_MODE=enforce`` +
 ``env=production`` + detected drift/tamper path — the deliberate fail-closed
 posture an operator opts into.
 """
+
 from __future__ import annotations
 
 import logging
@@ -34,7 +35,8 @@ class ImmutableGateAbort(RuntimeError):
 
 def _is_production(env: Mapping[str, str]) -> bool:
     return (env.get("SAMUS_ENV") or env.get("ENV") or "").strip().lower() in (
-        "production", "prod",
+        "production",
+        "prod",
     )
 
 
@@ -108,7 +110,8 @@ def run_identity_boot(app: Any = None, *, env: Mapping[str, str] | None = None) 
             if drift:
                 log.error(
                     "samus immutable gate: DRIFT detected (%d paths) — %s",
-                    len(result.drift), result.to_dict(),
+                    len(result.drift),
+                    result.to_dict(),
                 )
             if sig_tamper:
                 log.error(
@@ -117,8 +120,8 @@ def run_identity_boot(app: Any = None, *, env: Mapping[str, str] | None = None) 
                 )
             if not trust.production_ready and not trust.tamper:
                 log.warning(
-                    "samus immutable gate: baseline NON-PRODUCTION trust "
-                    "(unsigned). %s", trust.detail,
+                    "samus immutable gate: baseline NON-PRODUCTION trust (unsigned). %s",
+                    trust.detail,
                 )
 
             if mode == "enforce" and (drift or (sig_tamper and production)):

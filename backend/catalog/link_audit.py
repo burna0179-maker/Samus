@@ -28,6 +28,7 @@ CLI::
     python -m backend.catalog.link_audit        # exits 3 if any link is stale
     python -m backend.catalog.link_audit --wp   # also scan WordPress content
 """
+
 from __future__ import annotations
 
 import argparse
@@ -63,6 +64,7 @@ class HardcodedURL:
     ``stale`` is True when the hardcoded URL is ALSO not in the live active-link
     set (double violation: hardcoded AND dead — customers hit a 404).
     """
+
     file: str
     line: int
     url: str
@@ -72,10 +74,11 @@ class HardcodedURL:
 @dataclass(frozen=True)
 class LinkDetail:
     """One Stripe payment link with the identity fields remediation needs."""
+
     url: str
     active: bool
-    description: str      # first line item's product description
-    amount_cents: int     # first line item's amount_total
+    description: str  # first line item's product description
+    amount_cents: int  # first line item's amount_total
 
 
 def fetch_links_detailed(
@@ -103,8 +106,7 @@ def fetch_links_detailed(
             page_params = list(params)
             if starting_after:
                 page_params.append(("starting_after", starting_after))
-            resp = client.get(f"{base_url}/v1/payment_links",
-                              params=page_params, headers=headers)
+            resp = client.get(f"{base_url}/v1/payment_links", params=page_params, headers=headers)
             resp.raise_for_status()
             data = resp.json()
             rows = data.get("data") or []
@@ -151,8 +153,7 @@ def fetch_active_links(
             page_params = list(params)
             if starting_after:
                 page_params.append(("starting_after", starting_after))
-            resp = client.get(f"{base_url}/v1/payment_links",
-                              params=page_params, headers=headers)
+            resp = client.get(f"{base_url}/v1/payment_links", params=page_params, headers=headers)
             resp.raise_for_status()
             data = resp.json()
             rows = data.get("data") or []
@@ -163,7 +164,8 @@ def fetch_active_links(
                 li = (l.get("line_items") or {}).get("data") or []
                 if li:
                     by_price.setdefault(li[0]["amount_total"], []).append(
-                        (li[0].get("description") or "", l["url"]))
+                        (li[0].get("description") or "", l["url"])
+                    )
             if not data.get("has_more") or not rows:
                 break
             starting_after = rows[-1]["id"]
@@ -200,7 +202,9 @@ def audit_links(
             _LOG.warning("no STRIPE_API_KEY — catalog link audit skipped")
             return []
         active_urls, by_price = fetch_active_links(
-            key, base_url=base_url, http_client=http_client,
+            key,
+            base_url=base_url,
+            http_client=http_client,
         )
     if not active_urls:
         _LOG.warning("no active Stripe links fetched — cannot audit")
@@ -211,12 +215,14 @@ def audit_links(
         link = getattr(e, "payment_link_url", None)
         if not link or link in active_urls:
             continue
-        stale.append(StaleLink(
-            sku_id=e.sku_id,
-            price_usd=e.price_usd_cents / 100.0,
-            current_link=link,
-            candidates=by_price.get(e.price_usd_cents, []),
-        ))
+        stale.append(
+            StaleLink(
+                sku_id=e.sku_id,
+                price_usd=e.price_usd_cents / 100.0,
+                current_link=link,
+                candidates=by_price.get(e.price_usd_cents, []),
+            )
+        )
     return stale
 
 
@@ -225,8 +231,8 @@ def audit_links(
 # — the audit only flags live customer-facing code paths.
 _SCAN_ROOT = Path(__file__).resolve().parents[2] / "backend"
 _SCAN_EXCLUDE_FILES = {
-    Path(__file__).resolve().parent / "registry.py",   # source of truth
-    Path(__file__).resolve(),                          # this file
+    Path(__file__).resolve().parent / "registry.py",  # source of truth
+    Path(__file__).resolve(),  # this file
 }
 # Match an ACTUAL Stripe URL (host + path segment), not the bare host string
 # used in send_lint.py's URL parser or a docstring mentioning the domain.
@@ -274,12 +280,14 @@ def audit_hardcoded_urls(
                     for m in _STRIPE_URL_RE.finditer(line):
                         url = m.group(0)
                         stale = active_urls is not None and url not in active_urls
-                        out.append(HardcodedURL(
-                            file=str(src.relative_to(root.parent)).replace("\\", "/"),
-                            line=lineno,
-                            url=url,
-                            stale=stale,
-                        ))
+                        out.append(
+                            HardcodedURL(
+                                file=str(src.relative_to(root.parent)).replace("\\", "/"),
+                                line=lineno,
+                                url=url,
+                                stale=stale,
+                            )
+                        )
     return out
 
 
@@ -292,7 +300,8 @@ _WP_BASE = f"https://public-api.wordpress.com/wp/v2/sites/{_WP_SITE}"
 @dataclass
 class WordPressLink:
     """A buy.stripe.com URL found in a published WordPress page or post."""
-    post_type: str   # "page" or "post"
+
+    post_type: str  # "page" or "post"
     post_id: int
     title: str
     slug: str
@@ -353,14 +362,16 @@ def audit_wordpress_content(
                     for m in _STRIPE_URL_RE.finditer(content):
                         url = m.group(0)
                         stale = active_urls is not None and url not in active_urls
-                        out.append(WordPressLink(
-                            post_type=post_type.rstrip("s"),
-                            post_id=post_id,
-                            title=title,
-                            slug=slug,
-                            url=url,
-                            stale=stale,
-                        ))
+                        out.append(
+                            WordPressLink(
+                                post_type=post_type.rstrip("s"),
+                                post_id=post_id,
+                                title=title,
+                                slug=slug,
+                                url=url,
+                                stale=stale,
+                            )
+                        )
                 page += 1
     except Exception as exc:  # noqa: BLE001
         _LOG.warning("wordpress content scan failed: %s", exc)
@@ -374,12 +385,13 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m backend.catalog.link_audit",
         description="Flag catalog payment links that no longer point at a live "
-                    "Stripe checkout. Read-only. Exit 3 if any are stale.",
+        "Stripe checkout. Read-only. Exit 3 if any are stale.",
     )
     parser.add_argument(
-        "--wp", action="store_true",
+        "--wp",
+        action="store_true",
         help="Also scan WordPress CMS content for buy.stripe.com links "
-             "(requires network access to public-api.wordpress.com).",
+        "(requires network access to public-api.wordpress.com).",
     )
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -406,7 +418,9 @@ def main(argv: list[str] | None = None) -> int:
     if stale:
         print(f"STALE catalog payment links: {len(stale)}")
         for s in stale:
-            cand = "; ".join(f"{d} -> {u}" for d, u in s.candidates) or "(no live link at this price)"
+            cand = (
+                "; ".join(f"{d} -> {u}" for d, u in s.candidates) or "(no live link at this price)"
+            )
             print(f"  {s.sku_id} (${s.price_usd:g}) -> live candidate: {cand}")
         print("Fix backend/catalog/registry.py payment_link_url to the live link(s).")
         exit_code = 3
@@ -416,8 +430,7 @@ def main(argv: list[str] | None = None) -> int:
     if hardcoded:
         stale_ct = sum(1 for h in hardcoded if h.stale)
         print(
-            f"HARDCODED buy.stripe.com URLs in live code: {len(hardcoded)} "
-            f"({stale_ct} stale)",
+            f"HARDCODED buy.stripe.com URLs in live code: {len(hardcoded)} ({stale_ct} stale)",
         )
         for h in hardcoded:
             tag = "STALE" if h.stale else "policy"
@@ -437,13 +450,11 @@ def main(argv: list[str] | None = None) -> int:
         if wp_links:
             stale_ct = sum(1 for w in wp_links if w.stale)
             print(
-                f"WORDPRESS buy.stripe.com links: {len(wp_links)} "
-                f"({stale_ct} stale)",
+                f"WORDPRESS buy.stripe.com links: {len(wp_links)} ({stale_ct} stale)",
             )
             for w in wp_links:
                 tag = "STALE" if w.stale else "live"
-                print(f"  [{tag}] {w.post_type}/{w.slug} (id={w.post_id}) "
-                      f"\"{w.title}\" -> {w.url}")
+                print(f'  [{tag}] {w.post_type}/{w.slug} (id={w.post_id}) "{w.title}" -> {w.url}')
             if stale_ct:
                 print(
                     "Stale WordPress links render as clickable buy buttons via "

@@ -1,4 +1,5 @@
 """Buying-signal email route — classifier, gated enrollment, dormant dispatch."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -11,24 +12,34 @@ import backend.outreach.service as outreach_service
 
 
 def _lead(**kw):
-    base = dict(intent_score=None, recommended_action=None, tier=None,
-                company="Acme Plumbing", contact_offered="")
+    base = dict(
+        intent_score=None,
+        recommended_action=None,
+        tier=None,
+        company="Acme Plumbing",
+        contact_offered="",
+    )
     base.update(kw)
     return SimpleNamespace(**base)
 
 
 def _fake_get_settings(
-    *, enabled: bool, threshold: int = 70, website_enabled: bool = False,
+    *,
+    enabled: bool,
+    threshold: int = 70,
+    website_enabled: bool = False,
 ):
     """A get_settings stand-in carrying a no-op ``cache_clear`` — the repo's
     autouse conftest calls ``reload_settings()`` (-> ``get_settings.cache_clear()``)
     in teardown, which would otherwise blow up on a bare lambda."""
+
     def _gs():
         return SimpleNamespace(
             outreach_buying_signal_route_enabled=enabled,
             outreach_buying_signal_intent_threshold=threshold,
             outreach_website_form_warm_enroll_enabled=website_enabled,
         )
+
     _gs.cache_clear = lambda: None
     return _gs
 
@@ -43,8 +54,8 @@ def _stored_lead(**kw):
         monthly_budget="$500-$2000",
         timeline="asap",
         pain_points="Our current SEO is broken, we need a comprehensive audit "
-                    "and fix pass to reclaim the local search rankings we lost "
-                    "over the last quarter.",
+        "and fix pass to reclaim the local search rankings we lost "
+        "over the last quarter.",
     )
     base.update(kw)
     return SimpleNamespace(**base)
@@ -61,6 +72,7 @@ def armed(monkeypatch, tmp_path):
 # ---------------------------------------------------------------------------
 # Classifier
 # ---------------------------------------------------------------------------
+
 
 def test_is_buying_signal_book_call_qualifies_regardless_of_score():
     assert bsr.is_buying_signal(_lead(recommended_action="book_call", intent_score=5))
@@ -97,14 +109,17 @@ def test_is_buying_signal_none_and_bool_score():
 # Website-form enrollment (site-owned funnel warm-lead capture)
 # ---------------------------------------------------------------------------
 
+
 def test_website_form_no_op_when_flag_disabled(monkeypatch, tmp_path):
     monkeypatch.setenv("SAMUS_ARTIFACT_ROOT", str(tmp_path))
     monkeypatch.setattr(
-        config_mod, "get_settings",
+        config_mod,
+        "get_settings",
         _fake_get_settings(enabled=False, website_enabled=False),
     )
     out = bsr.maybe_enroll_buying_signal_from_website_form(
-        stored_lead=_stored_lead(), now_iso="2026-07-03T12:00:00Z",
+        stored_lead=_stored_lead(),
+        now_iso="2026-07-03T12:00:00Z",
     )
     assert out["enrolled"] is False
     assert out["reason"] == "route_disabled"
@@ -115,7 +130,8 @@ def test_website_form_skips_low_signal_leads(monkeypatch, tmp_path):
     """Empty or 'not_sure'-only service_interest -> no enrollment."""
     monkeypatch.setenv("SAMUS_ARTIFACT_ROOT", str(tmp_path))
     monkeypatch.setattr(
-        config_mod, "get_settings",
+        config_mod,
+        "get_settings",
         _fake_get_settings(enabled=False, website_enabled=True),
     )
     out_empty = bsr.maybe_enroll_buying_signal_from_website_form(
@@ -136,7 +152,8 @@ def test_website_form_enrolls_high_intent_and_uses_own_gate(monkeypatch, tmp_pat
     OFF and the enrollment still lands via enabled_override=True."""
     monkeypatch.setenv("SAMUS_ARTIFACT_ROOT", str(tmp_path))
     monkeypatch.setattr(
-        config_mod, "get_settings",
+        config_mod,
+        "get_settings",
         _fake_get_settings(enabled=False, website_enabled=True),
     )
     out = bsr.maybe_enroll_buying_signal_from_website_form(
@@ -160,7 +177,8 @@ def test_enroll_no_op_when_flag_disabled(monkeypatch, tmp_path):
     monkeypatch.setenv("SAMUS_ARTIFACT_ROOT", str(tmp_path))
     monkeypatch.setattr(config_mod, "get_settings", _fake_get_settings(enabled=False))
     out = bsr.maybe_enroll_buying_signal(
-        prospect_id="p1", lead=_lead(recommended_action="book_call"),
+        prospect_id="p1",
+        lead=_lead(recommended_action="book_call"),
         now_iso="2026-06-30T00:00:00Z",
     )
     assert out["enrolled"] is False
@@ -170,7 +188,8 @@ def test_enroll_no_op_when_flag_disabled(monkeypatch, tmp_path):
 
 def test_enroll_skips_non_signal(armed):
     out = bsr.maybe_enroll_buying_signal(
-        prospect_id="p1", lead=_lead(intent_score=10),
+        prospect_id="p1",
+        lead=_lead(intent_score=10),
         now_iso="2026-06-30T00:00:00Z",
     )
     assert out == {"enrolled": False, "reason": "not_a_buying_signal"}
@@ -178,11 +197,14 @@ def test_enroll_skips_non_signal(armed):
 
 
 def test_enroll_writes_record_and_is_idempotent(armed):
-    lead = _lead(recommended_action="book_call", intent_score=80,
-                 contact_offered="owner@acme.com")
+    lead = _lead(recommended_action="book_call", intent_score=80, contact_offered="owner@acme.com")
     first = bsr.maybe_enroll_buying_signal(
-        prospect_id="p1", lead=lead, now_iso="2026-06-30T00:00:00Z",
-        email="owner@acme.com", company="Acme Plumbing", call_id="c1",
+        prospect_id="p1",
+        lead=lead,
+        now_iso="2026-06-30T00:00:00Z",
+        email="owner@acme.com",
+        company="Acme Plumbing",
+        call_id="c1",
     )
     assert first["enrolled"] is True
     recs = bsr._read()
@@ -194,7 +216,9 @@ def test_enroll_writes_record_and_is_idempotent(armed):
 
     # Second call for the same active prospect does not duplicate.
     second = bsr.maybe_enroll_buying_signal(
-        prospect_id="p1", lead=lead, now_iso="2026-06-30T01:00:00Z",
+        prospect_id="p1",
+        lead=lead,
+        now_iso="2026-06-30T01:00:00Z",
     )
     assert second == {"enrolled": False, "reason": "already_enrolled"}
     assert len(bsr._read()) == 1
@@ -204,13 +228,17 @@ def test_enroll_writes_record_and_is_idempotent(armed):
 # Dispatch (dormant + armed)
 # ---------------------------------------------------------------------------
 
+
 def test_dispatch_dry_run_plans_without_sending(armed, monkeypatch):
     sent: list = []
-    monkeypatch.setattr(outreach_service, "send_message",
-                        lambda req: sent.append(req) or {"message_id": "x"})
+    monkeypatch.setattr(
+        outreach_service, "send_message", lambda req: sent.append(req) or {"message_id": "x"}
+    )
     bsr.maybe_enroll_buying_signal(
-        prospect_id="p1", lead=_lead(recommended_action="book_call"),
-        now_iso="2026-06-30T00:00:00Z", email="owner@acme.com",
+        prospect_id="p1",
+        lead=_lead(recommended_action="book_call"),
+        now_iso="2026-06-30T00:00:00Z",
+        email="owner@acme.com",
     )
     res = bsr.dispatch_due_buying_signal(now_iso="2026-06-30T00:00:00Z", dry_run=True)
     assert any(r["action"] == "send" and r.get("planned") for r in res)
@@ -226,14 +254,20 @@ def _composer(message, rec):
 
 def test_dispatch_armed_sends_and_marks(armed, monkeypatch):
     sent: list = []
-    monkeypatch.setattr(outreach_service, "send_message",
-                        lambda req: sent.append(req) or {"message_id": "x", "ts": "t"})
+    monkeypatch.setattr(
+        outreach_service,
+        "send_message",
+        lambda req: sent.append(req) or {"message_id": "x", "ts": "t"},
+    )
     bsr.maybe_enroll_buying_signal(
-        prospect_id="p1", lead=_lead(recommended_action="book_call"),
-        now_iso="2026-06-30T00:00:00Z", email="owner@acme.com",
+        prospect_id="p1",
+        lead=_lead(recommended_action="book_call"),
+        now_iso="2026-06-30T00:00:00Z",
+        email="owner@acme.com",
     )
     res = bsr.dispatch_due_buying_signal(
-        now_iso="2026-06-30T00:00:00Z", dry_run=False, composer=_composer)
+        now_iso="2026-06-30T00:00:00Z", dry_run=False, composer=_composer
+    )
     sends = [r for r in res if r.get("sent")]
     assert len(sends) == 1
     assert len(sent) == 1
@@ -248,11 +282,14 @@ def test_dispatch_armed_sends_and_marks(armed, monkeypatch):
 def test_dispatch_armed_without_composer_fails_closed(armed, monkeypatch):
     """No composer -> never send (would otherwise leak the internal brief)."""
     sent: list = []
-    monkeypatch.setattr(outreach_service, "send_message",
-                        lambda req: sent.append(req) or {"message_id": "x"})
+    monkeypatch.setattr(
+        outreach_service, "send_message", lambda req: sent.append(req) or {"message_id": "x"}
+    )
     bsr.maybe_enroll_buying_signal(
-        prospect_id="p1", lead=_lead(recommended_action="book_call"),
-        now_iso="2026-06-30T00:00:00Z", email="owner@acme.com",
+        prospect_id="p1",
+        lead=_lead(recommended_action="book_call"),
+        now_iso="2026-06-30T00:00:00Z",
+        email="owner@acme.com",
     )
     res = bsr.dispatch_due_buying_signal(now_iso="2026-06-30T00:00:00Z", dry_run=False)
     assert any(r.get("reason") == "no_composer" for r in res)
@@ -280,13 +317,17 @@ def test_flag_binds_from_env_via_bootstrap(monkeypatch):
 
 def test_dispatch_armed_skips_when_no_email(armed, monkeypatch):
     sent: list = []
-    monkeypatch.setattr(outreach_service, "send_message",
-                        lambda req: sent.append(req) or {"message_id": "x"})
+    monkeypatch.setattr(
+        outreach_service, "send_message", lambda req: sent.append(req) or {"message_id": "x"}
+    )
     bsr.maybe_enroll_buying_signal(
-        prospect_id="p1", lead=_lead(recommended_action="book_call"),
-        now_iso="2026-06-30T00:00:00Z", email="",  # no contact captured
+        prospect_id="p1",
+        lead=_lead(recommended_action="book_call"),
+        now_iso="2026-06-30T00:00:00Z",
+        email="",  # no contact captured
     )
     res = bsr.dispatch_due_buying_signal(
-        now_iso="2026-06-30T00:00:00Z", dry_run=False, composer=_composer)
+        now_iso="2026-06-30T00:00:00Z", dry_run=False, composer=_composer
+    )
     assert any(r.get("reason") == "no_email" for r in res)
     assert sent == []

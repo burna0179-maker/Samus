@@ -1,4 +1,5 @@
 """Tests for backend.prospecting.enrichment."""
+
 from __future__ import annotations
 
 import pytest
@@ -18,11 +19,18 @@ from backend.prospecting.enrichment import (
 # extract_owner_signals — empty / no-html paths
 # ---------------------------------------------------------------------------
 
+
 def test_extract_owner_signals_empty_html_returns_all_empty():
     sig = extract_owner_signals("")
     expected_keys = {
-        "owner_name", "owner_email", "owner_title", "owner_linkedin_url",
-        "contact_emails", "social_facebook", "social_instagram", "social_linkedin",
+        "owner_name",
+        "owner_email",
+        "owner_title",
+        "owner_linkedin_url",
+        "contact_emails",
+        "social_facebook",
+        "social_instagram",
+        "social_linkedin",
         "business_description",
     }
     assert set(sig.keys()) == expected_keys
@@ -37,6 +45,7 @@ def test_extract_owner_signals_none_html_returns_all_empty():
 # ---------------------------------------------------------------------------
 # Email extraction
 # ---------------------------------------------------------------------------
+
 
 def test_mailto_link_picked_up():
     html = '<a href="mailto:john@navaccounts.com">Email John</a>'
@@ -104,6 +113,7 @@ def test_emails_deduped():
 # ---------------------------------------------------------------------------
 # Social media extraction
 # ---------------------------------------------------------------------------
+
 
 def test_facebook_profile_extracted():
     html = '<a href="https://www.facebook.com/SutterButtesRealEstate">FB</a>'
@@ -175,6 +185,7 @@ def test_linkedin_company_page_does_not_populate_owner_linkedin():
 # Owner name extraction (high-signal only)
 # ---------------------------------------------------------------------------
 
+
 def test_owner_name_from_jsonld_person():
     html = """
       <script type="application/ld+json">
@@ -212,6 +223,7 @@ def test_owner_name_none_when_neither_signal_present():
 # ---------------------------------------------------------------------------
 # Business description extraction
 # ---------------------------------------------------------------------------
+
 
 def test_business_description_from_og_description():
     html = '<meta property="og:description" content="Family-run HVAC repair serving Yuba City since 1998.">'
@@ -282,6 +294,7 @@ def test_business_description_unescapes_entities():
 # merge_signals
 # ---------------------------------------------------------------------------
 
+
 def test_merge_fills_empty_fields_only():
     primary = {
         "owner_name": "Jane",
@@ -318,8 +331,16 @@ def test_merge_picks_owner_email_from_unioned_emails_when_primary_empty():
     """primary.owner_email empty, fallback only has generic; merge should
     pick the best of the union."""
     primary = dict.fromkeys(
-        ("owner_name", "owner_email", "owner_title", "owner_linkedin_url",
-         "contact_emails", "social_facebook", "social_instagram", "social_linkedin"),
+        (
+            "owner_name",
+            "owner_email",
+            "owner_title",
+            "owner_linkedin_url",
+            "contact_emails",
+            "social_facebook",
+            "social_instagram",
+            "social_linkedin",
+        ),
         "",
     )
     primary["contact_emails"] = "info@biz.com"
@@ -341,12 +362,8 @@ def test_merge_fills_business_description_from_fallback():
 
 
 def test_merge_keeps_primary_business_description():
-    primary = extract_owner_signals(
-        '<meta name="description" content="Homepage blurb wins.">'
-    )
-    fallback = extract_owner_signals(
-        '<meta name="description" content="About-page blurb loses.">'
-    )
+    primary = extract_owner_signals('<meta name="description" content="Homepage blurb wins.">')
+    fallback = extract_owner_signals('<meta name="description" content="About-page blurb loses.">')
     merged = merge_signals(primary, fallback)
     assert merged["business_description"] == "Homepage blurb wins."
 
@@ -354,6 +371,7 @@ def test_merge_keeps_primary_business_description():
 # ---------------------------------------------------------------------------
 # enrich_from_page_with_fallback
 # ---------------------------------------------------------------------------
+
 
 def test_homepage_alone_when_owner_email_present():
     """When homepage yields an owner_email, no secondary fetch fires."""
@@ -364,8 +382,7 @@ def test_homepage_alone_when_owner_email_present():
         fetch_calls.append(base_url)
         return ""
 
-    sig = enrich_from_page_with_fallback(page, "https://biz.com",
-                                         secondary_fetcher=_spy)
+    sig = enrich_from_page_with_fallback(page, "https://biz.com", secondary_fetcher=_spy)
     assert sig["owner_email"] == "jane@biz.com"
     assert fetch_calls == []  # no secondary call
 
@@ -377,8 +394,7 @@ def test_secondary_pages_used_when_homepage_misses_owner_email():
     def _spy(base_url: str) -> str:
         return secondary
 
-    sig = enrich_from_page_with_fallback(page, "https://biz.com",
-                                         secondary_fetcher=_spy)
+    sig = enrich_from_page_with_fallback(page, "https://biz.com", secondary_fetcher=_spy)
     assert sig["owner_email"] == "owner@biz.com"
     assert "owner@biz.com" in sig["contact_emails"]
 
@@ -389,8 +405,7 @@ def test_no_secondary_html_returns_homepage_only():
     def _spy(_base_url: str) -> str:
         return ""
 
-    sig = enrich_from_page_with_fallback(page, "https://biz.com",
-                                         secondary_fetcher=_spy)
+    sig = enrich_from_page_with_fallback(page, "https://biz.com", secondary_fetcher=_spy)
     assert sig["owner_email"] == ""
     assert sig["contact_emails"] == ""
 
@@ -401,8 +416,7 @@ def test_secondary_fetcher_exception_is_swallowed():
     def _boom(_base_url: str) -> str:
         raise RuntimeError("network melted")
 
-    sig = enrich_from_page_with_fallback(page, "https://biz.com",
-                                         secondary_fetcher=_boom)
+    sig = enrich_from_page_with_fallback(page, "https://biz.com", secondary_fetcher=_boom)
     # Returns the homepage-only result without raising.
     assert sig["owner_email"] == ""
 
@@ -411,15 +425,19 @@ def test_secondary_fetcher_exception_is_swallowed():
 # Facebook handle extraction + About URL construction
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("fb_url,expected_handle", [
-    ("https://www.facebook.com/SutterButtesRealEstate", "SutterButtesRealEstate"),
-    ("https://facebook.com/Counihan-Family-Dentistry/", "Counihan-Family-Dentistry"),
-    ("https://m.facebook.com/biz.handle", "biz.handle"),
-    ("https://www.facebook.com/profile.php?id=123456789", "123456789"),
-    ("https://www.facebook.com/pages/Some-Realty/987654321", "987654321"),
-    ("https://www.facebook.com/biz/posts", "biz"),
-    ("https://www.facebook.com/biz/photos", "biz"),
-])
+
+@pytest.mark.parametrize(
+    "fb_url,expected_handle",
+    [
+        ("https://www.facebook.com/SutterButtesRealEstate", "SutterButtesRealEstate"),
+        ("https://facebook.com/Counihan-Family-Dentistry/", "Counihan-Family-Dentistry"),
+        ("https://m.facebook.com/biz.handle", "biz.handle"),
+        ("https://www.facebook.com/profile.php?id=123456789", "123456789"),
+        ("https://www.facebook.com/pages/Some-Realty/987654321", "987654321"),
+        ("https://www.facebook.com/biz/posts", "biz"),
+        ("https://www.facebook.com/biz/photos", "biz"),
+    ],
+)
 def test_facebook_handle_extraction(fb_url, expected_handle):
     assert _facebook_handle(fb_url) == expected_handle
 
@@ -447,6 +465,7 @@ def test_facebook_about_url_returns_empty_for_unparseable_url():
 # ---------------------------------------------------------------------------
 # Facebook login-wall detection
 # ---------------------------------------------------------------------------
+
 
 def test_login_wall_detected_when_multiple_markers_present():
     html = """
@@ -477,6 +496,7 @@ def test_real_about_page_not_treated_as_login_wall():
 # ---------------------------------------------------------------------------
 # extract_facebook_signals
 # ---------------------------------------------------------------------------
+
 
 def test_facebook_signals_extracted_from_about_page():
     html = """
@@ -515,6 +535,7 @@ def test_facebook_signals_returns_empty_for_no_html():
 # Full cascade: homepage → /contact + /about → FB About
 # ---------------------------------------------------------------------------
 
+
 def test_cascade_fb_only_fires_when_homepage_and_secondary_empty():
     """Homepage has no email, secondary has no email, FB has one → use FB."""
     page = {"html": '<a href="https://www.facebook.com/biz">FB</a>', "status_code": 200}
@@ -530,7 +551,8 @@ def test_cascade_fb_only_fires_when_homepage_and_secondary_empty():
         return '<a href="mailto:owner@biz.com">Email us</a>'
 
     sig = enrich_from_page_with_fallback(
-        page, "https://biz.com",
+        page,
+        "https://biz.com",
         secondary_fetcher=_secondary,
         facebook_fetcher=_fb,
     )
@@ -552,7 +574,8 @@ def test_cascade_fb_skipped_when_secondary_yields_email():
         return ""
 
     sig = enrich_from_page_with_fallback(
-        page, "https://biz.com",
+        page,
+        "https://biz.com",
         secondary_fetcher=_secondary,
         facebook_fetcher=_fb,
     )
@@ -573,7 +596,8 @@ def test_cascade_fb_skipped_when_no_facebook_url():
         return ""
 
     sig = enrich_from_page_with_fallback(
-        page, "https://biz.com",
+        page,
+        "https://biz.com",
         secondary_fetcher=_secondary,
         facebook_fetcher=_fb,
     )
@@ -593,7 +617,8 @@ def test_cascade_fb_disabled_via_flag():
         return '<a href="mailto:owner@biz.com">x</a>'
 
     sig = enrich_from_page_with_fallback(
-        page, "https://biz.com",
+        page,
+        "https://biz.com",
         secondary_fetcher=_secondary,
         facebook_fetcher=_fb,
         enable_facebook=False,
@@ -619,7 +644,8 @@ def test_cascade_fb_login_wall_swallowed():
         """
 
     sig = enrich_from_page_with_fallback(
-        page, "https://biz.com",
+        page,
+        "https://biz.com",
         secondary_fetcher=_secondary,
         facebook_fetcher=_fb,
     )
@@ -639,7 +665,8 @@ def test_cascade_fb_fetcher_exception_swallowed():
         raise RuntimeError("FB blocked us")
 
     sig = enrich_from_page_with_fallback(
-        page, "https://biz.com",
+        page,
+        "https://biz.com",
         secondary_fetcher=_secondary,
         facebook_fetcher=_boom,
     )

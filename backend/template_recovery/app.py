@@ -7,6 +7,7 @@ Endpoints:
 The whole workcell is deterministic and consumes ZERO LLM calls — no LLM
 client is imported anywhere in this package.
 """
+
 from __future__ import annotations
 
 import logging

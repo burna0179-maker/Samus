@@ -15,6 +15,7 @@ loop, portfolio_controller) can consume. The score is bounded in [0.0, 1.0]:
 Pure-stdlib + JSON. No new env vars; window/path are caller-supplied with
 sensible defaults aligned to confusion_emitter.
 """
+
 from __future__ import annotations
 
 import json
@@ -58,14 +59,14 @@ _DEFAULT_EVENTS_PATH = state_path("confusion", "events.jsonl")
 class ConfusionScore:
     """Aggregated confusion state over a trailing window."""
 
-    score: float                            # 0.0..1.0
+    score: float  # 0.0..1.0
     event_count: int
-    breach_count: int                       # events with threshold_breach=True
+    breach_count: int  # events with threshold_breach=True
     by_kind: dict[str, int] = field(default_factory=dict)
-    weighted_delta: float = 0.0             # raw cumulative before normalization
+    weighted_delta: float = 0.0  # raw cumulative before normalization
     window_start: datetime | None = None
     window_end: datetime | None = None
-    grade: str = "A"                        # A < 0.2, B < 0.4, C < 0.6, D < 0.8, F >= 0.8
+    grade: str = "A"  # A < 0.2, B < 0.4, C < 0.6, D < 0.8, F >= 0.8
 
     def to_dict(self) -> dict[str, Any]:
         return {

@@ -27,6 +27,7 @@ by Twilio.
 
 Nothing here mutates Samus state — it only calls the Vapi REST API and prints.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -41,8 +42,7 @@ def _client() -> VapiClient:
     """Build a VapiClient from settings, or exit 2 when the key is unset."""
     key = (get_settings().vapi_api_key or "").strip()
     if not key:
-        print("error: VAPI_API_KEY is not set — cannot reach the Vapi REST API.",
-              file=sys.stderr)
+        print("error: VAPI_API_KEY is not set — cannot reach the Vapi REST API.", file=sys.stderr)
         raise SystemExit(2)
     return VapiClient(api_key=key)
 
@@ -58,8 +58,10 @@ def list_dids() -> int:
         print("(no Vapi phone numbers provisioned)")
         return 0
     for pn in numbers:
-        print(f"  {pn.id}  {pn.number or '(pending)':<16}  "
-              f"assistant={pn.assistantId or '(unbound)'}  name={pn.name or ''}")
+        print(
+            f"  {pn.id}  {pn.number or '(pending)':<16}  "
+            f"assistant={pn.assistantId or '(unbound)'}  name={pn.name or ''}"
+        )
     return 0
 
 
@@ -67,7 +69,9 @@ def buy_did(*, assistant_id: str, name: str, area_code: str | None) -> int:
     """Buy a DID, bind it to ``assistant_id``, print the ids to record."""
     try:
         pn = _client().create_phone_number(
-            assistant_id=assistant_id, name=name, area_code=area_code,
+            assistant_id=assistant_id,
+            name=name,
+            area_code=area_code,
         )
     except VapiError as exc:
         print(f"error: vapi create_phone_number failed: {exc}", file=sys.stderr)
@@ -87,8 +91,7 @@ def buy_did(*, assistant_id: str, name: str, area_code: str | None) -> int:
     return 0
 
 
-def import_twilio_did(*, assistant_id: str, number: str, name: str,
-                      sms_enabled: bool) -> int:
+def import_twilio_did(*, assistant_id: str, number: str, name: str, sms_enabled: bool) -> int:
     """Import a number you OWN in Twilio into Vapi as a twilio-provider DID.
 
     This is the migration path off Vapi-bought numbers: Vapi will not port
@@ -122,10 +125,14 @@ def import_twilio_did(*, assistant_id: str, number: str, name: str,
         return 2
     try:
         pn = _client().create_phone_number(
-            assistant_id=assistant_id, name=name, provider="twilio",
-            number=number, twilio_account_sid=sid,
+            assistant_id=assistant_id,
+            name=name,
+            provider="twilio",
+            number=number,
+            twilio_account_sid=sid,
             twilio_auth_token=tok or None,
-            twilio_api_key=api_key or None, twilio_api_secret=api_secret or None,
+            twilio_api_key=api_key or None,
+            twilio_api_secret=api_secret or None,
             sms_enabled=sms_enabled,
         )
     except (VapiError, ValueError) as exc:
@@ -134,7 +141,7 @@ def import_twilio_did(*, assistant_id: str, number: str, name: str,
     print("Imported a Twilio-owned number into Vapi:")
     print(f"  phone number     : {pn.number or number}")
     print(f"  vapi_phone_number_id : {pn.id}")
-    print(f"  provider         : twilio (owned in your Twilio account)")
+    print("  provider         : twilio (owned in your Twilio account)")
     print(f"  bound assistant  : {pn.assistantId or assistant_id}")
     print()
     print("Cut Samus over to this id (the digits stay; only the id changes):")
@@ -150,40 +157,43 @@ def main(argv: list[str] | None = None) -> int:
         prog="python -m backend.voice.provision",
         description="Provision a Vapi inbound DID for an AI Digital Receptionist client.",
     )
-    parser.add_argument("--list", action="store_true",
-                        help="list provisioned Vapi phone numbers and exit")
+    parser.add_argument(
+        "--list", action="store_true", help="list provisioned Vapi phone numbers and exit"
+    )
     sub = parser.add_subparsers(dest="command")
     buy = sub.add_parser("buy", help="buy + bind a new Vapi-managed inbound DID")
-    buy.add_argument("--assistant-id", required=True,
-                     help="Vapi inbound assistant id to bind the DID to")
-    buy.add_argument("--name", default="",
-                     help="operator-facing label for the number")
-    buy.add_argument("--area-code", default=None,
-                     help="preferred NANP area code (best-effort)")
+    buy.add_argument(
+        "--assistant-id", required=True, help="Vapi inbound assistant id to bind the DID to"
+    )
+    buy.add_argument("--name", default="", help="operator-facing label for the number")
+    buy.add_argument("--area-code", default=None, help="preferred NANP area code (best-effort)")
 
     imp = sub.add_parser(
         "import-twilio",
         help="import a number you OWN in Twilio as a Vapi twilio-provider DID",
     )
-    imp.add_argument("--assistant-id", required=True,
-                     help="Vapi assistant id to bind the imported number to")
-    imp.add_argument("--number", required=True,
-                     help="E.164 number you own in Twilio (e.g. +15305551234)")
-    imp.add_argument("--name", default="",
-                     help="operator-facing label for the number")
-    imp.add_argument("--no-sms", action="store_true",
-                     help="do not let Vapi manage the Twilio messaging webhook")
+    imp.add_argument(
+        "--assistant-id", required=True, help="Vapi assistant id to bind the imported number to"
+    )
+    imp.add_argument(
+        "--number", required=True, help="E.164 number you own in Twilio (e.g. +15305551234)"
+    )
+    imp.add_argument("--name", default="", help="operator-facing label for the number")
+    imp.add_argument(
+        "--no-sms", action="store_true", help="do not let Vapi manage the Twilio messaging webhook"
+    )
 
     args = parser.parse_args(argv)
     if args.list:
         return list_dids()
     if args.command == "buy":
-        return buy_did(assistant_id=args.assistant_id, name=args.name,
-                       area_code=args.area_code)
+        return buy_did(assistant_id=args.assistant_id, name=args.name, area_code=args.area_code)
     if args.command == "import-twilio":
         return import_twilio_did(
-            assistant_id=args.assistant_id, number=args.number,
-            name=args.name, sms_enabled=not args.no_sms,
+            assistant_id=args.assistant_id,
+            number=args.number,
+            name=args.name,
+            sms_enabled=not args.no_sms,
         )
     parser.print_help()
     return 1

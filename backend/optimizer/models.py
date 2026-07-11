@@ -1,4 +1,5 @@
 """Pydantic models for the optimizer workcell."""
+
 from __future__ import annotations
 
 from typing import Literal

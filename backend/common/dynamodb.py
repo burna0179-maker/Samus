@@ -1,4 +1,5 @@
 """DynamoDB helpers: task state, suppression, basic CRUD wrappers."""
+
 from __future__ import annotations
 
 import time
@@ -8,11 +9,14 @@ from typing import Any
 try:
     from botocore.exceptions import ClientError
 except ImportError:
+
     class ClientError(Exception):  # type: ignore[no-redef]
         """Stub so module imports succeed without boto3."""
+
         def __init__(self, error_response=None, operation_name=None):
             self.response = error_response or {}
             super().__init__(str(error_response))
+
 
 from .aws import dynamodb_resource, table
 from .settings import get_settings
@@ -88,9 +92,7 @@ def suppress(email: str, reason: str = "manual") -> None:
 _IDEMPOTENCY_TTL_SECONDS = 86_400  # 24 hours
 
 
-def idempotency_claim(
-    workcell: str, key: str
-) -> bool:
+def idempotency_claim(workcell: str, key: str) -> bool:
     """Attempt to claim an idempotency key atomically.
 
     Returns True if this process is the first to claim it (caller should
@@ -201,10 +203,13 @@ def ensure_table(
         waiter = getattr(tbl, "wait_until_exists", None)
         if callable(waiter):
             waiter()
-        return {"table": name, "created": True, "status": "created",
-                "partition_key": partition_key}
+        return {"table": name, "created": True, "status": "created", "partition_key": partition_key}
     except ClientError as exc:
         if exc.response.get("Error", {}).get("Code") == "ResourceInUseException":
-            return {"table": name, "created": False, "status": "exists",
-                    "partition_key": partition_key}
+            return {
+                "table": name,
+                "created": False,
+                "status": "exists",
+                "partition_key": partition_key,
+            }
         raise

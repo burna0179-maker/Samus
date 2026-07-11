@@ -21,6 +21,7 @@ Best-effort by contract: any exception is swallowed by the dispatcher (one bad
 handler must never take down the SSE consumer), and a write failure leaves the
 previously-cached band intact.
 """
+
 from __future__ import annotations
 
 import logging
@@ -89,8 +90,7 @@ def rbl_band_event_handler(event: dict[str, Any]) -> None:
         ts=str(ts) if ts is not None else None,
     )
     if ok:
-        _LOG.info("rbl_band_handler: cached band=%s from major event id=%s",
-                  band, event.get("id"))
+        _LOG.info("rbl_band_handler: cached band=%s from major event id=%s", band, event.get("id"))
 
 
 def register_rbl_band_handler() -> None:

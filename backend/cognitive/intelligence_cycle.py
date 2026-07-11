@@ -24,6 +24,7 @@ The LLM call is injectable (``llm=``) so tests run fully offline. All public
 functions are fail-safe: a degraded data source or an LLM error yields a partial
 report, never an exception that could crash a scheduled job or a cognitive tick.
 """
+
 from __future__ import annotations
 
 import json
@@ -56,6 +57,7 @@ def _business_today_date() -> date:
     designed to degrade rather than raise)."""
     try:
         from backend.common.us_timezones import business_today
+
         return business_today()
     except Exception:  # noqa: BLE001
         return date.today()
@@ -104,6 +106,7 @@ def gather_production_state() -> dict:
         # ledger degrades to an empty observed block, not an exception.
         try:
             from backend.finance.observed_bills import summarize_observed_bills
+
             observed = summarize_observed_bills()
             state["codb"]["observed"] = observed.to_dict()
         except Exception as _obs_exc:  # noqa: BLE001
@@ -122,9 +125,9 @@ def gather_production_state() -> dict:
 
             from backend.common.http_client import signed_post_json_sync
 
-            _fin = _os.environ.get("FINANCE_URL") or (
-                get_settings().gateway_urls or {}
-            ).get("finance")
+            _fin = _os.environ.get("FINANCE_URL") or (get_settings().gateway_urls or {}).get(
+                "finance"
+            )
             if _fin:
                 _resp = signed_post_json_sync(_fin, "/snapshot", {}, timeout=15.0)
                 if _resp.status_code == 200:
@@ -216,8 +219,14 @@ def compose_pre_shift_briefing(state: dict) -> str:
         "## COST BREAKDOWN",
     ]
     for cat in codb.get("by_category", []):
-        pct = (cat["monthly_usd"] / codb["total_monthly_burn"] * 100) if codb.get("total_monthly_burn") else 0
-        lines.append(f"- {cat['category']}: ${cat['monthly_usd']:.2f}/mo ({pct:.0f}%) [{cat['items']} items]")
+        pct = (
+            (cat["monthly_usd"] / codb["total_monthly_burn"] * 100)
+            if codb.get("total_monthly_burn")
+            else 0
+        )
+        lines.append(
+            f"- {cat['category']}: ${cat['monthly_usd']:.2f}/mo ({pct:.0f}%) [{cat['items']} items]"
+        )
 
     # Observed bills — real vendor charges from Gmail, cross-referenced
     # against the registry estimates above. Payment declines land here first.
@@ -228,13 +237,19 @@ def compose_pre_shift_briefing(state: dict) -> str:
             VendorObservation,
             observed_bills_briefing_lines,
         )
+
         # Rebuild dataclass instances from the dict-form embedded in state.
         try:
-            vendors = [VendorObservation(**{
-                **v,
-                "registry_estimate_usd": v.get("registry_estimate_usd"),
-                "variance_usd": v.get("variance_usd"),
-            }) for v in obs.get("vendors", [])]
+            vendors = [
+                VendorObservation(
+                    **{
+                        **v,
+                        "registry_estimate_usd": v.get("registry_estimate_usd"),
+                        "variance_usd": v.get("variance_usd"),
+                    }
+                )
+                for v in obs.get("vendors", [])
+            ]
             reconstructed = ObservedBillsSummary(
                 window_days=obs.get("window_days", 30),
                 signals_scanned=obs.get("signals_scanned", 0),
@@ -280,13 +295,29 @@ def compose_pre_shift_briefing(state: dict) -> str:
 
 # Autonomous behaviors whose arm-state a Framework session needs at day-start.
 _FRAMEWORK_FLAGS = [
-    ("idle-production drive (self-pacing)", "idle_production_drive_enabled", "SAMUS_IDLE_PRODUCTION_DRIVE_ENABLED"),
-    ("governed autonomous dial", "governed_autonomous_dial_enabled", "SAMUS_GOVERNED_AUTONOMOUS_DIAL_ENABLED"),
+    (
+        "idle-production drive (self-pacing)",
+        "idle_production_drive_enabled",
+        "SAMUS_IDLE_PRODUCTION_DRIVE_ENABLED",
+    ),
+    (
+        "governed autonomous dial",
+        "governed_autonomous_dial_enabled",
+        "SAMUS_GOVERNED_AUTONOMOUS_DIAL_ENABLED",
+    ),
     ("auto-stake sweep", "auto_stake_enabled", "SAMUS_AUTO_STAKE_ENABLED"),
     ("cognitive loop", "cognitive_loop_enabled", "SAMUS_COGNITIVE_LOOP_ENABLED"),
     ("CODB reasoner", "codb_reasoner_enabled", "SAMUS_CODB_REASONER_ENABLED"),
-    ("buying-signal route", "outreach_buying_signal_route_enabled", "SAMUS_OUTREACH_BUYING_SIGNAL_ROUTE_ENABLED"),
-    ("open-no-click nudge", "outreach_open_no_click_nudge_enabled", "SAMUS_OUTREACH_OPEN_NO_CLICK_NUDGE_ENABLED"),
+    (
+        "buying-signal route",
+        "outreach_buying_signal_route_enabled",
+        "SAMUS_OUTREACH_BUYING_SIGNAL_ROUTE_ENABLED",
+    ),
+    (
+        "open-no-click nudge",
+        "outreach_open_no_click_nudge_enabled",
+        "SAMUS_OUTREACH_OPEN_NO_CLICK_NUDGE_ENABLED",
+    ),
 ]
 
 
@@ -298,6 +329,7 @@ def _flag_on(settings_attr: str, env_name: str) -> bool:
     except Exception:  # noqa: BLE001
         pass
     import os as _os
+
     return _os.environ.get(env_name, "").strip().lower() in ("1", "true", "yes", "on")
 
 
@@ -309,26 +341,28 @@ def compose_framework_orientation(state: dict) -> str:
     armed, dormant = [], []
     for label, attr, env in _FRAMEWORK_FLAGS:
         (armed if _flag_on(attr, env) else dormant).append(label)
-    return "\n".join([
-        "## FRAMEWORK AGENT ORIENTATION (Claude session primer)",
-        "You are the Framework Agent — audit + augment Samus in live production; don't hand-execute its sales work.",
-        "",
-        "REVIEW SAMUS'S CAPABILITIES BEFORE ACTING (so you can monitor without a re-brief):",
-        "  1. Load the capability map — `reference_samus_capability_map.md` (START HERE for Samus in MEMORY.md).",
-        "  2. Run its fresh-session monitoring checklist: /health, /api/crm/stats, /admin/control-ticks, /snapshot, codex _drafts.",
-        "",
-        f"ARMED today ({len(armed)}): {', '.join(armed) or 'none'}",
-        f"DORMANT today ({len(dormant)}): {', '.join(dormant) or 'none'}",
-        "",
-        "TODAY'S JOB: verify each ARMED autonomous behavior is producing correctly AND within governance + financial",
-        "constraints (min(goal-urgency, affordability)); cross-check the briefing's risks against live ledgers before",
-        "recommending changes. Treat the briefing + guidance below as Samus's view — bring an independent read.",
-        "",
-        "MINIMIZE INTERFERENCE: Samus executes AND self-optimizes (esp. the adaptive outbound campaign) — watch the",
-        "TRENDS, not individual calls; intervene ONLY on systemic / governance / financial issues its own loop won't",
-        "self-correct. Default to non-intervention; feed systemic findings into the EOD triangulation, not live meddling.",
-        "(Full stance: the /samus-pre-shift skill's ADAPTIVE_EXECUTION.md.)",
-    ])
+    return "\n".join(
+        [
+            "## FRAMEWORK AGENT ORIENTATION (Claude session primer)",
+            "You are the Framework Agent — audit + augment Samus in live production; don't hand-execute its sales work.",
+            "",
+            "REVIEW SAMUS'S CAPABILITIES BEFORE ACTING (so you can monitor without a re-brief):",
+            "  1. Load the capability map — `reference_samus_capability_map.md` (START HERE for Samus in MEMORY.md).",
+            "  2. Run its fresh-session monitoring checklist: /health, /api/crm/stats, /admin/control-ticks, /snapshot, codex _drafts.",
+            "",
+            f"ARMED today ({len(armed)}): {', '.join(armed) or 'none'}",
+            f"DORMANT today ({len(dormant)}): {', '.join(dormant) or 'none'}",
+            "",
+            "TODAY'S JOB: verify each ARMED autonomous behavior is producing correctly AND within governance + financial",
+            "constraints (min(goal-urgency, affordability)); cross-check the briefing's risks against live ledgers before",
+            "recommending changes. Treat the briefing + guidance below as Samus's view — bring an independent read.",
+            "",
+            "MINIMIZE INTERFERENCE: Samus executes AND self-optimizes (esp. the adaptive outbound campaign) — watch the",
+            "TRENDS, not individual calls; intervene ONLY on systemic / governance / financial issues its own loop won't",
+            "self-correct. Default to non-intervention; feed systemic findings into the EOD triangulation, not live meddling.",
+            "(Full stance: the /samus-pre-shift skill's ADAPTIVE_EXECUTION.md.)",
+        ]
+    )
 
 
 def compose_end_of_day_review(state: dict, effectiveness: dict) -> str:
@@ -363,7 +397,7 @@ _JSON_SHAPE = (
     "Return ONLY a JSON object (no prose outside it):\n"
     '{ "recommendations": [ { "category": "daily_goal|weekly_goal|monthly_goal|'
     "revenue_acceleration|operational_optimization|autonomy_advancement|"
-    "resource_efficiency|governance_improvement|capability_expansion|risk_reduction\", "
+    'resource_efficiency|governance_improvement|capability_expansion|risk_reduction", '
     '"recommendation": "one concrete action", "rationale": "why now", '
     '"action_steps": ["step 1","step 2"], "feasibility": "low|medium|high", '
     '"expected_impact": "low|medium|high", "risk_level": "low|medium|high", '
@@ -407,8 +441,7 @@ def _review_questions(effectiveness: dict) -> str:
         "Reflect on today's guidance effectiveness and recommend actions for "
         "tomorrow. Effectiveness so far:\n"
         f"{json.dumps(effectiveness)}\n\n"
-        "Provide tomorrow's highest-leverage recommendations.\n\n"
-        + _JSON_SHAPE
+        "Provide tomorrow's highest-leverage recommendations.\n\n" + _JSON_SHAPE
     )
 
 
@@ -547,7 +580,8 @@ def run_end_of_day_review(
             from .codb_reasoner import build_eod_section
 
             out["codb_investment_recommendations"] = build_eod_section(
-                bottleneck_hint="cold-email-reach", ledger=led,
+                bottleneck_hint="cold-email-reach",
+                ledger=led,
             )
     except Exception as exc:  # noqa: BLE001 — EOD must never crash on the reasoner
         log.warning("end_of_day_review: codb reasoner failed: %s", exc)
@@ -569,8 +603,9 @@ def run_end_of_day_review(
     # The auditor + synthesis run on the LOCAL model (zero external cost); OpenAI
     # is only the single advisor call above. Fully fail-soft — never breaks EOD.
     try:
-        _run_triangulation(out, review, state, review_id, led,
-                           auditor_llm=triangulation_llm, claude_llm=claude_llm)
+        _run_triangulation(
+            out, review, state, review_id, led, auditor_llm=triangulation_llm, claude_llm=claude_llm
+        )
     except Exception as exc:  # noqa: BLE001
         log.warning("end_of_day_review: triangulation failed: %s", exc)
         out["triangulation_error"] = f"{type(exc).__name__}: {exc}"
@@ -609,9 +644,15 @@ def _compute_synthesis_reliability(out: dict) -> tuple[str, str]:
         return "partial", _RELIABILITY_REASONS["partial"]
 
 
-def compose_eod_review_markdown(review, reports, tri, state, review_id,
-                                 reliability: str = "partial",
-                                 reliability_reason: str = "") -> str:
+def compose_eod_review_markdown(
+    review,
+    reports,
+    tri,
+    state,
+    review_id,
+    reliability: str = "partial",
+    reliability_reason: str = "",
+) -> str:
     """The full, readable EOD record: the three independent reports (A/B/C), the
     triangulation, and the next-day gameplan — one durable artifact on disk.
 
@@ -641,16 +682,22 @@ def compose_eod_review_markdown(review, reports, tri, state, review_id,
         "## Report B — OpenAI strategic advisor",
         (reports.get("B_openai") or "").strip() or "(not consulted / unavailable)",
         "",
-        ("## Report C — Claude (independent Framework review)" if "C_claude" in reports
-         else "## Report C — Local adversarial auditor (fallback; Claude report absent)"),
+        (
+            "## Report C — Claude (independent Framework review)"
+            if "C_claude" in reports
+            else "## Report C — Local adversarial auditor (fallback; Claude report absent)"
+        ),
         (reports.get("C_claude") or reports.get("C_auditor") or "").strip()
         or "(absent — two-way triangulation)",
         "",
         "## Triangulation",
         "### Corroborated — high-confidence (>=2 reports agree)",
     ]
-    lines += [f"- [T{c.get('tier', '?')}] {c.get('finding', '')} "
-              f"(sources: {','.join(c.get('sources', []))})" for c in corr] or ["- (none)"]
+    lines += [
+        f"- [T{c.get('tier', '?')}] {c.get('finding', '')} "
+        f"(sources: {','.join(c.get('sources', []))})"
+        for c in corr
+    ] or ["- (none)"]
     if not corr:
         lines.append("- (none)")
     lines += ["", "### Divergent — single-source (flagged for review)"]
@@ -663,12 +710,19 @@ def compose_eod_review_markdown(review, reports, tri, state, review_id,
         if items:
             lines.append(f"### {tier.upper()}")
             lines += [f"- {i}" for i in items]
-    lines += ["", "## Today's interactions (compressed signal)", "```json",
-              json.dumps(state.get("interactions", {}), indent=2), "```"]
+    lines += [
+        "",
+        "## Today's interactions (compressed signal)",
+        "```json",
+        json.dumps(state.get("interactions", {}), indent=2),
+        "```",
+    ]
     return "\n".join(lines)
 
 
-def _run_triangulation(out, review, state, review_id, led, *, auditor_llm=None, claude_llm=None) -> None:
+def _run_triangulation(
+    out, review, state, review_id, led, *, auditor_llm=None, claude_llm=None
+) -> None:
     """Leg C (local auditor) + converge A/B/C → gameplan; persist + track it."""
     from .triangulation import (
         build_auditor_report,
@@ -682,7 +736,9 @@ def _run_triangulation(out, review, state, review_id, led, *, auditor_llm=None, 
         "A_samus": review,
         "B_openai": str(out.get("raw_guidance") or ""),
     }
-    day_summary = f"{review}\n\n## Today's interactions\n{json.dumps(state.get('interactions', {}))}"
+    day_summary = (
+        f"{review}\n\n## Today's interactions\n{json.dumps(state.get('interactions', {}))}"
+    )
     # Leg C resolution, in priority order:
     #   1. a Framework Agent report a convened Claude session wrote this day
     #      (on-demand — free + a richer read than one API call);
@@ -717,6 +773,7 @@ def _run_triangulation(out, review, state, review_id, led, *, auditor_llm=None, 
     # Persist the gameplan as a durable, observable artifact.
     try:
         from backend.common import storage
+
         gp_dir = storage.root() / "cognition"
         gp_dir.mkdir(parents=True, exist_ok=True)
         # Fallback uses the same Pacific business date as gather_production_state
@@ -724,19 +781,34 @@ def _run_triangulation(out, review, state, review_id, led, *, auditor_llm=None, 
         # attestation filenames even if state["date"] is somehow missing.
         _fallback_date = _business_today_iso()
         (gp_dir / f"gameplan_{state.get('date', _fallback_date)}.json").write_text(
-            json.dumps({"review_id": review_id, "ts": iso_now(),
-                        "gameplan": out["gameplan"], "triangulation": tri,
-                        "synthesis_reliability": reliability,
-                        "synthesis_reliability_reason": reliability_reason},
-                       indent=2), encoding="utf-8")
+            json.dumps(
+                {
+                    "review_id": review_id,
+                    "ts": iso_now(),
+                    "gameplan": out["gameplan"],
+                    "triangulation": tri,
+                    "synthesis_reliability": reliability,
+                    "synthesis_reliability_reason": reliability_reason,
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
         # The full narrative EOD record (3 reports + triangulation + gameplan),
         # host-visible alongside the gameplan JSON.
         review_md = gp_dir / f"eod_review_{state.get('date', _fallback_date)}.md"
         review_md.write_text(
-            compose_eod_review_markdown(review, reports, tri, state, review_id,
-                                         reliability=reliability,
-                                         reliability_reason=reliability_reason),
-            encoding="utf-8")
+            compose_eod_review_markdown(
+                review,
+                reports,
+                tri,
+                state,
+                review_id,
+                reliability=reliability,
+                reliability_reason=reliability_reason,
+            ),
+            encoding="utf-8",
+        )
         out["eod_review_path"] = str(review_md)
     except Exception as exc:  # noqa: BLE001
         log.warning("gameplan/eod-review persist failed: %s", exc)
@@ -749,21 +821,31 @@ def _run_triangulation(out, review, state, review_id, led, *, auditor_llm=None, 
     # over silently downgrading the tier — that would hide the signal).
     corr = tri.get("corroborated") or []
     if corr:
-        _degraded_tag = ("[synthesis_reliability: degraded] "
-                         if reliability == "degraded" else "")
-        recs = [{
-            "category": "risk_reduction" if int(c.get("tier", 2)) == 1 else "operational_optimization",
-            "recommendation": str(c.get("finding", ""))[:400],
-            "rationale": f"{_degraded_tag}corroborated by {','.join(c.get('sources', []))} "
-                         f"({tri.get('method')})",
-            "action_steps": [], "feasibility": "medium",
-            "expected_impact": "high" if int(c.get("tier", 2)) == 1 else "medium",
-            "risk_level": "medium", "suggested_owner": "gateway", "source_question": "triangulation",
-        } for c in corr if c.get("finding")]
+        _degraded_tag = "[synthesis_reliability: degraded] " if reliability == "degraded" else ""
+        recs = [
+            {
+                "category": "risk_reduction"
+                if int(c.get("tier", 2)) == 1
+                else "operational_optimization",
+                "recommendation": str(c.get("finding", ""))[:400],
+                "rationale": f"{_degraded_tag}corroborated by {','.join(c.get('sources', []))} "
+                f"({tri.get('method')})",
+                "action_steps": [],
+                "feasibility": "medium",
+                "expected_impact": "high" if int(c.get("tier", 2)) == 1 else "medium",
+                "risk_level": "medium",
+                "suggested_owner": "gateway",
+                "source_question": "triangulation",
+            }
+            for c in corr
+            if c.get("finding")
+        ]
         try:
             out["gameplan_ingested"] = len(
-                ingest_guidance(f"{review_id}-gameplan",
-                                json.dumps({"recommendations": recs}), ledger=led))
+                ingest_guidance(
+                    f"{review_id}-gameplan", json.dumps({"recommendations": recs}), ledger=led
+                )
+            )
         except Exception as exc:  # noqa: BLE001
             log.warning("gameplan ingest failed: %s", exc)
 
@@ -807,7 +889,8 @@ def active_guidance_context(
         return _context_cache["text"] if ledger is None else ""
 
     actionable = [
-        r for r in recs
+        r
+        for r in recs
         if r.status in (GuidanceStatus.ACCEPTED.value, GuidanceStatus.IN_PROGRESS.value)
     ]
     actionable.sort(key=lambda r: (r.tier, -len(r.action_plan)))
@@ -888,9 +971,7 @@ def active_precedent_context(
         for d in search_decisions(context, k=k_decisions):
             adr_tag = d.adr_id or "(unnumbered)"
             date_tag = f", {d.date_iso}" if d.date_iso else ""
-            decision_lines.append(
-                f"- [{adr_tag}{date_tag}, {d.source}] {d.title}"
-            )
+            decision_lines.append(f"- [{adr_tag}{date_tag}, {d.source}] {d.title}")
     except Exception as exc:  # noqa: BLE001
         log.warning("active_precedent_context: decision search failed: %s", exc)
 

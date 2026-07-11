@@ -21,6 +21,7 @@ HOTL Tranche 4 (framework Phases 4-5). Three jobs:
 
 Fail-soft throughout: a planning fault never raises to the control tick.
 """
+
 from __future__ import annotations
 
 import datetime as _dt
@@ -61,6 +62,7 @@ _OPERATIONAL_HORIZONS = frozenset({HORIZON_DAY})
 # Kept small + guarded: a metric that can't be computed returns 0.0, which for
 # a ">=" assumption reads as "violated" — a conservative default that triggers
 # a replan rather than silently masking a stalled funnel.
+
 
 def _count_events(event_type: str, window_days: int) -> int:
     from backend.common.business_events import read_events
@@ -144,6 +146,7 @@ def check_assumption(assumption: Assumption) -> tuple[bool, float]:
 # Plan generation
 # ---------------------------------------------------------------------------
 
+
 def _assumptions_for_goal(goal: Goal, econ_leads_per_day: float) -> list[Assumption]:
     """Derive the checkable predicates a daily goal's plan depends on."""
     if goal.target_metric == "leads_created":
@@ -205,52 +208,62 @@ def _steps_for_goal(goal: Goal, posture: str) -> list[PlanStep]:
     # Prospecting always runs — creating leads is the upstream of everything and
     # is a fixed-cost daily job, not discretionary marketing spend.
     if goal.target_metric == "leads_created":
-        steps.append(PlanStep(
-            name="run_discovery",
-            channel="prospecting",
-            action="discover_leads",
-            target_value=target,
-            rationale=f"Create {target:.0f} qualified leads/day to feed the funnel",
-        ))
+        steps.append(
+            PlanStep(
+                name="run_discovery",
+                channel="prospecting",
+                action="discover_leads",
+                target_value=target,
+                rationale=f"Create {target:.0f} qualified leads/day to feed the funnel",
+            )
+        )
 
     # Email is low-cost — allowed at lean and invest.
     if posture in ("lean", "invest"):
-        steps.append(PlanStep(
-            name="email_outreach",
-            channel="email",
-            action="send_outreach",
-            target_value=target,
-            rationale="Low-cost personalised outreach to warm/hot leads",
-        ))
+        steps.append(
+            PlanStep(
+                name="email_outreach",
+                channel="email",
+                action="send_outreach",
+                target_value=target,
+                rationale="Low-cost personalised outreach to warm/hot leads",
+            )
+        )
 
     # Calls carry Vapi cost — full volume only at invest; a conserve/lean posture
     # still generates operator call OPPORTUNITIES (free) but does not commit paid
     # autonomous dialing volume.
     if posture == "invest":
-        steps.append(PlanStep(
-            name="voice_outreach",
-            channel="call",
-            action="place_calls",
-            target_value=target,
-            rationale="Paid dialing volume — affordable this tick (invest posture)",
-        ))
+        steps.append(
+            PlanStep(
+                name="voice_outreach",
+                channel="call",
+                action="place_calls",
+                target_value=target,
+                rationale="Paid dialing volume — affordable this tick (invest posture)",
+            )
+        )
     else:
-        steps.append(PlanStep(
-            name="operator_call_queue",
-            channel="call",
-            action="queue_operator_calls",
-            target_value=target,
-            rationale="Free: surface priority call opportunities for the operator",
-        ))
+        steps.append(
+            PlanStep(
+                name="operator_call_queue",
+                channel="call",
+                action="queue_operator_calls",
+                target_value=target,
+                rationale="Free: surface priority call opportunities for the operator",
+            )
+        )
 
     if goal.target_metric == "tasks_completed":
-        steps.append(PlanStep(
-            name="followup_touches",
-            channel="retention",
-            action="followups_due",
-            target_value=target,
-            rationale="Work the follow-up queue to complete daily outreach tasks",
-        ))
+        steps.append(
+            PlanStep(
+                name="followup_touches",
+                channel="retention",
+                action="followups_due",
+                target_value=target,
+                rationale="Work the follow-up queue to complete daily outreach tasks",
+            )
+        )
     return steps
 
 
@@ -281,7 +294,8 @@ def generate_plan(
             econ_leads_per_day = max(1.0, float(goal.target_value))
         else:
             econ_leads_per_day = max(
-                1.0, econ.leads_for_revenue(float(goal.target_value)) / 7.0,
+                1.0,
+                econ.leads_for_revenue(float(goal.target_value)) / 7.0,
             )
     except Exception:  # noqa: BLE001
         econ_leads_per_day = 1.0
@@ -335,8 +349,7 @@ def generate_plan(
 
 def _plan_step_summary(plan: Plan) -> list[dict[str, Any]]:
     return [
-        {"name": s.name, "channel": s.channel, "action": s.action,
-         "target_value": s.target_value}
+        {"name": s.name, "channel": s.channel, "action": s.action, "target_value": s.target_value}
         for s in plan.steps
     ]
 
@@ -361,17 +374,14 @@ def _record_plan_decision(
 
     is_replan = prior_plan is not None
     why = (
-        f"Replanned '{goal.target_metric}' goal (gen {plan.plan_generation}): "
-        f"{replan_reason}"
+        f"Replanned '{goal.target_metric}' goal (gen {plan.plan_generation}): {replan_reason}"
         if is_replan
-        else f"Generated plan for '{goal.target_metric}' goal "
-        f"(target {goal.target_value:g})"
+        else f"Generated plan for '{goal.target_metric}' goal (target {goal.target_value:g})"
     )
     alternatives: list[Any] = []
     if posture != "invest":
         alternatives.append(
-            f"Full paid dialing volume — held back (posture={posture}, "
-            "cash-constrained)"
+            f"Full paid dialing volume — held back (posture={posture}, cash-constrained)"
         )
     data_used = [
         f"goal={goal.id}",
@@ -419,9 +429,7 @@ def _record_plan_decision(
         workcell="planning",
         alternatives_considered=alternatives,
         data_used=data_used,
-        expected_outcome=(
-            f"Sustain the run-rate toward {goal.label or goal.target_metric}"
-        ),
+        expected_outcome=(f"Sustain the run-rate toward {goal.label or goal.target_metric}"),
         confidence=0.6 if is_replan else 0.7,
         risk_level="normal",
         ev_usd=float(goal.metadata.get("target_value") or 0.0),
@@ -446,8 +454,13 @@ def _consult_precedent_safe(context: str) -> dict[str, Any]:
         return consult_precedent(context)
     except Exception as exc:  # noqa: BLE001 — planner must not depend on cognition
         _LOG.debug("planner: consult_precedent unavailable: %s", exc)
-        return {"mode": "proceed_novel", "beliefs": [], "decisions": [],
-                "leading_belief": None, "rationale": "cognition-unavailable"}
+        return {
+            "mode": "proceed_novel",
+            "beliefs": [],
+            "decisions": [],
+            "leading_belief": None,
+            "rationale": "cognition-unavailable",
+        }
 
 
 def _link_decision_to_beliefs(decision_id: str, beliefs: Any) -> None:
@@ -472,6 +485,7 @@ def _link_decision_to_beliefs(decision_id: str, beliefs: Any) -> None:
 # ---------------------------------------------------------------------------
 # Assumption evaluation + replanning
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class ViolatedAssumption:
@@ -501,9 +515,7 @@ def evaluate_assumptions(
             for assumption in plan.assumptions:
                 holds, observed = check_assumption(assumption)
                 if not holds:
-                    violations.append(
-                        ViolatedAssumption(plan, goal, assumption, observed)
-                    )
+                    violations.append(ViolatedAssumption(plan, goal, assumption, observed))
     except Exception as exc:  # noqa: BLE001
         _LOG.warning("evaluate_assumptions failed: %s", exc)
     return violations
@@ -535,15 +547,20 @@ def _replan_would_breach(goal: Goal, posture: str) -> tuple[bool, str, str]:
     if level in ("high", "critical"):
         return True, level, f"risk tier {level}: {'; '.join(reasons)}"
     if posture == "conserve":
-        return True, "normal", (
-            "budget posture is CONSERVE (at/below cash reserve) — a replan that "
-            "increases spend needs operator approval"
+        return (
+            True,
+            "normal",
+            (
+                "budget posture is CONSERVE (at/below cash reserve) — a replan that "
+                "increases spend needs operator approval"
+            ),
         )
     return False, level, ""
 
 
 def evaluate_and_replan(
-    *, ensure_tree: bool = True,
+    *,
+    ensure_tree: bool = True,
 ) -> dict[str, Any]:
     """The control-tick hook: check assumptions, replan violated plans.
 
@@ -570,9 +587,20 @@ def evaluate_and_replan(
 
         active = store.list_plans(status=PLAN_ACTIVE)
         summary["checked_plans"] = len(
-            [p for p in active if (store.get_goal(p.goal_id) or Goal(
-                id="", horizon="", target_metric="", target_value=0.0,
-            )).horizon in _OPERATIONAL_HORIZONS]
+            [
+                p
+                for p in active
+                if (
+                    store.get_goal(p.goal_id)
+                    or Goal(
+                        id="",
+                        horizon="",
+                        target_metric="",
+                        target_value=0.0,
+                    )
+                ).horizon
+                in _OPERATIONAL_HORIZONS
+            ]
         )
         violations = evaluate_assumptions(active)
         summary["violations"] = len(violations)
@@ -592,14 +620,16 @@ def evaluate_and_replan(
             breach, risk_level, why = _replan_would_breach(v.goal, posture)
             if breach:
                 approval = _escalate_replan(v, posture, reason, risk_level, why)
-                summary["escalated"].append({
-                    "plan_id": v.plan.id,
-                    "goal_id": v.goal.id,
-                    "reason": reason,
-                    "risk_level": risk_level,
-                    "why": why,
-                    "approval_id": approval.get("id") if approval else None,
-                })
+                summary["escalated"].append(
+                    {
+                        "plan_id": v.plan.id,
+                        "goal_id": v.goal.id,
+                        "reason": reason,
+                        "risk_level": risk_level,
+                        "why": why,
+                        "approval_id": approval.get("id") if approval else None,
+                    }
+                )
                 continue
             # Anti-churn guard: a violated assumption whose regenerated plan
             # would be IDENTICAL to the current one (same posture -> same steps)
@@ -609,30 +639,33 @@ def evaluate_and_replan(
             # the operator sees at least one recorded Plan B without a 30-min
             # generation treadmill forever after on a cold stream.
             candidate_steps = _plan_step_summary(
-                Plan(id="", goal_id=v.goal.id,
-                     steps=_steps_for_goal(v.goal, posture))
+                Plan(id="", goal_id=v.goal.id, steps=_steps_for_goal(v.goal, posture))
             )
-            if (
-                v.plan.plan_generation >= 2
-                and candidate_steps == _plan_step_summary(v.plan)
-            ):
-                summary.setdefault("held", []).append({
-                    "plan_id": v.plan.id,
-                    "goal_id": v.goal.id,
-                    "reason": reason,
-                    "why": "plan unchanged under current posture; keep executing",
-                })
+            if v.plan.plan_generation >= 2 and candidate_steps == _plan_step_summary(v.plan):
+                summary.setdefault("held", []).append(
+                    {
+                        "plan_id": v.plan.id,
+                        "goal_id": v.goal.id,
+                        "reason": reason,
+                        "why": "plan unchanged under current posture; keep executing",
+                    }
+                )
                 continue
             new_plan = generate_plan(
-                v.goal, posture=posture, prior_plan=v.plan, replan_reason=reason,
+                v.goal,
+                posture=posture,
+                prior_plan=v.plan,
+                replan_reason=reason,
             )
-            summary["replanned"].append({
-                "goal_id": v.goal.id,
-                "old_plan_id": v.plan.id,
-                "new_plan_id": new_plan.id,
-                "new_generation": new_plan.plan_generation,
-                "reason": reason,
-            })
+            summary["replanned"].append(
+                {
+                    "goal_id": v.goal.id,
+                    "old_plan_id": v.plan.id,
+                    "new_plan_id": new_plan.id,
+                    "new_generation": new_plan.plan_generation,
+                    "reason": reason,
+                }
+            )
     except Exception as exc:  # noqa: BLE001 — the tick must never die here
         _LOG.warning("evaluate_and_replan failed: %s", exc)
         summary["ok"] = False
@@ -660,7 +693,8 @@ def _escalate_replan(
             # A dry proposed Plan B (not persisted) so the operator sees what
             # would change — build steps under the current posture.
             Plan(
-                id="", goal_id=violation.goal.id,
+                id="",
+                goal_id=violation.goal.id,
                 steps=_steps_for_goal(violation.goal, posture),
             )
         )
@@ -749,6 +783,7 @@ def run_planning_cycle() -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Inspection helpers (for GET /autonomy/plan + command center)
 # ---------------------------------------------------------------------------
+
 
 def current_plans_view() -> dict[str, Any]:
     """A read-only snapshot of the goal tree + active plans (never raises)."""

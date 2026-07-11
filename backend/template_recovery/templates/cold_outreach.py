@@ -2,6 +2,7 @@
 
 Pure Python, no I/O, no LLM, constant-time. Same input -> identical output.
 """
+
 from __future__ import annotations
 
 from typing import Any

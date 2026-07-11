@@ -1,4 +1,5 @@
 """Service-tier SKU registry. Stream 4 (catalog/) consumes this to populate the public catalog."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -9,14 +10,14 @@ from typing import Optional
 class ServiceSku:
     sku_id: str
     display_name: str
-    price_usd_cents: Optional[int]   # None => price TBD (operator-configurable)
+    price_usd_cents: Optional[int]  # None => price TBD (operator-configurable)
     sla_hours: int
     description: str
-    delivery_template_path: str      # relative to backend/services/
+    delivery_template_path: str  # relative to backend/services/
     stripe_product_id: Optional[str] = None
     stripe_price_id: Optional[str] = None
-    scope_gates_enforced: bool = False    # only Workflow Rescue runs hard scope gates
-    onboarding_label: str = ""            # label as shown on the public onboarding form
+    scope_gates_enforced: bool = False  # only Workflow Rescue runs hard scope gates
+    onboarding_label: str = ""  # label as shown on the public onboarding form
     tags: tuple[str, ...] = field(default_factory=tuple)
 
 
@@ -67,7 +68,7 @@ SERVICE_SKUS: dict[str, ServiceSku] = {
         # after the scoping conversation. The floor is documented in the
         # description and used in upsell composer messaging.
         price_usd_cents=200000,
-        sla_hours=30 * 24,        # 30 days, multi-phase build
+        sla_hours=30 * 24,  # 30 days, multi-phase build
         description=(
             "One-time engagement to build a standing operations engine: "
             "integrated automations, monitoring, runbooks, and the handoff "
@@ -82,7 +83,7 @@ SERVICE_SKUS: dict[str, ServiceSku] = {
     "service_seo_implementation": ServiceSku(
         sku_id="service_seo_implementation",
         display_name="SEO Implementation",
-        price_usd_cents=None,     # TBD — operator sets per-engagement after audit results land
+        price_usd_cents=None,  # TBD — operator sets per-engagement after audit results land
         sla_hours=7 * 24,
         description=(
             "Apply prioritized fix list from an existing SEO Audit deliverable. "
@@ -92,7 +93,7 @@ SERVICE_SKUS: dict[str, ServiceSku] = {
         ),
         delivery_template_path="seo_implementation/delivery_template.md",
         scope_gates_enforced=False,
-        onboarding_label="SEO Audit & Fix",   # form bundles audit+impl as one option
+        onboarding_label="SEO Audit & Fix",  # form bundles audit+impl as one option
         tags=("seo", "audit_followon", "7d"),
     ),
 }

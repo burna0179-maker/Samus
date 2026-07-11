@@ -1,4 +1,5 @@
 """Small text utilities used across logging, audit, and error reporting."""
+
 from __future__ import annotations
 
 import re

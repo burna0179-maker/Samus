@@ -14,6 +14,7 @@ Endpoints:
   GET  /admin/journey/{prospect_id}  journey_read capability — unified business-event journey
   GET  /api/crm/stats         crm_stats capability — Samus HUD daily roll-up
 """
+
 from __future__ import annotations
 
 import datetime as _dt
@@ -187,42 +188,71 @@ async def _crm_stats_fetch_call_state(today: str) -> dict[str, Any]:
     settings = get_settings()
     crm_base = (settings.gateway_urls.get("crm") or "").strip()
     if not crm_base:
-        return {"calls_today": 0, "booked_today": 0, "followups_today": 0,
-                "error": "crm_url_not_configured"}
+        return {
+            "calls_today": 0,
+            "booked_today": 0,
+            "followups_today": 0,
+            "error": "crm_url_not_configured",
+        }
     crm_path = "/crm/metrics/daily-stats"
     try:
         # Lazy import to keep the gateway boot light and avoid pulling
         # http_client's chain when the route is never hit.
         from backend.common.http_client import _build_signed_get_request
+
         url, headers = _build_signed_get_request(
-            crm_base, crm_path, secret=None,
+            crm_base,
+            crm_path,
+            secret=None,
         )
     except RuntimeError as exc:  # HMAC key unset
         _LOG.warning("crm_stats sign-prep failed: %s", exc)
-        return {"calls_today": 0, "booked_today": 0, "followups_today": 0,
-                "error": f"crm_sign_unconfigured: {exc.__class__.__name__}"}
+        return {
+            "calls_today": 0,
+            "booked_today": 0,
+            "followups_today": 0,
+            "error": f"crm_sign_unconfigured: {exc.__class__.__name__}",
+        }
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(url, headers=headers)
     except (httpx.TimeoutException, httpx.ConnectError) as exc:
         _LOG.warning("crm_stats CRM proxy failed: %s", exc)
-        return {"calls_today": 0, "booked_today": 0, "followups_today": 0,
-                "error": f"crm_unreachable: {exc.__class__.__name__}"}
+        return {
+            "calls_today": 0,
+            "booked_today": 0,
+            "followups_today": 0,
+            "error": f"crm_unreachable: {exc.__class__.__name__}",
+        }
     try:
         check_httpx_size(
-            resp, max_bytes=INTER_WORKCELL_MAX_BYTES, source="crm_stats",
+            resp,
+            max_bytes=INTER_WORKCELL_MAX_BYTES,
+            source="crm_stats",
         )
         body = resp.json()
     except ResponseTooLarge as exc:
         _LOG.warning("crm_stats CRM body over cap: %s", exc)
-        return {"calls_today": 0, "booked_today": 0, "followups_today": 0,
-                "error": "crm_response_too_large"}
+        return {
+            "calls_today": 0,
+            "booked_today": 0,
+            "followups_today": 0,
+            "error": "crm_response_too_large",
+        }
     except ValueError:
-        return {"calls_today": 0, "booked_today": 0, "followups_today": 0,
-                "error": f"crm_bad_response: status={resp.status_code}"}
+        return {
+            "calls_today": 0,
+            "booked_today": 0,
+            "followups_today": 0,
+            "error": f"crm_bad_response: status={resp.status_code}",
+        }
     if not isinstance(body, dict):
-        return {"calls_today": 0, "booked_today": 0, "followups_today": 0,
-                "error": "crm_non_object_response"}
+        return {
+            "calls_today": 0,
+            "booked_today": 0,
+            "followups_today": 0,
+            "error": "crm_non_object_response",
+        }
     err = body.get("ddb_error") or None
     return {
         "calls_today": int(body.get("calls_today") or 0),
@@ -242,8 +272,7 @@ def _crm_stats_count_outreach_today(today: str) -> tuple[int, str]:
     where ``error`` is "" on success / a short tag on failure; a missing
     file is "" (no rows, no error — outreach simply hasn't sent anything).
     """
-    path = Path(os.getenv("SAMUS_OUTREACH_AUDIT_PATH",
-                          _CRM_STATS_OUTREACH_AUDIT_DEFAULT))
+    path = Path(os.getenv("SAMUS_OUTREACH_AUDIT_PATH", _CRM_STATS_OUTREACH_AUDIT_DEFAULT))
     if not path.is_file():
         return 0, ""
     count = 0
@@ -573,6 +602,7 @@ async def _gateway_lifespan(app: FastAPI) -> AsyncIterator[None]:
         from _shared.memory.harness import wire_canonical_memory
         from backend.common.config import get_settings as _cm_settings
         from pathlib import Path as _CMPath
+
         _cm_s = _cm_settings()
         _samus_data = _CMPath(getattr(_cm_s, "samus_data_root", "D:/Hustleforge/Samus/data"))
         app.state.canonical_memory = wire_canonical_memory(
@@ -602,6 +632,7 @@ async def _gateway_lifespan(app: FastAPI) -> AsyncIterator[None]:
         from backend.standard.inter_agent.rbl_band_handler import (
             register_rbl_band_handler,
         )
+
         register_rbl_band_handler()
     except Exception:  # noqa: BLE001 — RBL ingest is advisory; never block boot
         _LOG.exception("samus.gateway.rbl_band_handler.wire_failed")
@@ -628,10 +659,12 @@ def create_app():
 
     # Tranche 3: experiment-registry operator routes (GET/POST /admin/experiments).
     from backend.experiments.routes import register_routes as _register_experiment_routes
+
     _register_experiment_routes(app)
 
     # Deliberation router: value-of-computation depth decision (POST /admin/deliberate).
     from backend.common.deliberation_routes import register_routes as _register_deliberation_routes
+
     _register_deliberation_routes(app)
 
     # Fail fast at startup if required secrets are missing in non-development
@@ -729,7 +762,12 @@ def create_app():
         status, body_out = await gateway_service.dispatch_to_target(
             base_url, target, envelope.model_dump()
         )
-        return {"status": status, "target": target, "task_id": envelope.task_id, "response": body_out}
+        return {
+            "status": status,
+            "target": target,
+            "task_id": envelope.task_id,
+            "response": body_out,
+        }
 
     @app.post("/api/samus/review_opportunity")
     async def review_opportunity(request: Request) -> dict[str, Any]:
@@ -826,7 +864,8 @@ def create_app():
                 except (TypeError, ValueError):
                     max_per_run = None
         result = scan_for_reengagement_triggers(
-            cooldown_days=cooldown_days, max_per_run=max_per_run,
+            cooldown_days=cooldown_days,
+            max_per_run=max_per_run,
         )
         return {
             "scanned": result.scanned,
@@ -947,12 +986,22 @@ def create_app():
             flags = {
                 "cognitive_loop_enabled": bool(getattr(s, "cognitive_loop_enabled", False)),
                 "autonomy_meta_enabled": bool(getattr(s, "autonomy_meta_enabled", False)),
-                "cognitive_act_proposals_enabled": bool(getattr(s, "cognitive_act_proposals_enabled", False)),
-                "cognition_proposal_promotion_enabled": bool(getattr(s, "cognition_proposal_promotion_enabled", False)),
+                "cognitive_act_proposals_enabled": bool(
+                    getattr(s, "cognitive_act_proposals_enabled", False)
+                ),
+                "cognition_proposal_promotion_enabled": bool(
+                    getattr(s, "cognition_proposal_promotion_enabled", False)
+                ),
                 "cognition_cadence_enabled": bool(getattr(s, "cognition_cadence_enabled", False)),
-                "cognition_cadence_interval_seconds": int(getattr(s, "cognition_cadence_interval_seconds", 0)),
-                "cognition_cadence_jitter_seconds": int(getattr(s, "cognition_cadence_jitter_seconds", 0)),
-                "autonomy_reinforcement_enabled": bool(getattr(s, "autonomy_reinforcement_enabled", False)),
+                "cognition_cadence_interval_seconds": int(
+                    getattr(s, "cognition_cadence_interval_seconds", 0)
+                ),
+                "cognition_cadence_jitter_seconds": int(
+                    getattr(s, "cognition_cadence_jitter_seconds", 0)
+                ),
+                "autonomy_reinforcement_enabled": bool(
+                    getattr(s, "autonomy_reinforcement_enabled", False)
+                ),
                 "autonomy_autotuner_enabled": bool(getattr(s, "autonomy_autotuner_enabled", False)),
                 "autonomy_upgrade_enabled": bool(getattr(s, "autonomy_upgrade_enabled", False)),
                 "persona_frame_enabled": bool(getattr(s, "persona_frame_enabled", False)),
@@ -1033,9 +1082,7 @@ def create_app():
         return await run_in_threadpool(_load)
 
     @app.post("/api/samus/cognition/guidance/{recommendation_id}/accept")
-    async def cognition_guidance_accept(
-        recommendation_id: str, request: Request
-    ) -> dict[str, Any]:
+    async def cognition_guidance_accept(recommendation_id: str, request: Request) -> dict[str, Any]:
         """Operator ACCEPT of one guidance rec -> ACCEPTED (deliberate transition).
 
         Capability-gated (``control_tick``) like the sibling cognition routes.
@@ -1058,9 +1105,7 @@ def create_app():
             body = {}
         plan = body.get("action_plan")
         action_plan = (
-            [str(s).strip() for s in plan if str(s).strip()]
-            if isinstance(plan, list)
-            else None
+            [str(s).strip() for s in plan if str(s).strip()] if isinstance(plan, list) else None
         )
 
         def _accept():
@@ -1072,9 +1117,7 @@ def create_app():
         return {"ok": True, "record": rec.to_dict()}
 
     @app.post("/api/samus/cognition/guidance/{recommendation_id}/reject")
-    async def cognition_guidance_reject(
-        recommendation_id: str, request: Request
-    ) -> dict[str, Any]:
+    async def cognition_guidance_reject(recommendation_id: str, request: Request) -> dict[str, Any]:
         """Operator REJECT of one guidance rec -> REJECTED (terminal, no effector).
 
         Capability-gated (``control_tick``) like the sibling cognition routes.
@@ -1247,7 +1290,10 @@ def create_app():
             raise HTTPException(status_code=400, detail=f"unknown_campaign: {campaign_name}")
 
         result = run_monthly_campaign(
-            month=month, year=year, campaign=HUSTLEFORGE_CAMPAIGN, dry_run=dry_run,
+            month=month,
+            year=year,
+            campaign=HUSTLEFORGE_CAMPAIGN,
+            dry_run=dry_run,
         )
         return {
             "ok": result.ok,
@@ -1255,8 +1301,13 @@ def create_app():
             "cycle_month": result.cycle_month,
             "plan_path": result.plan_path,
             "steps": [
-                {"id": s.id, "type": s.type, "status": s.status,
-                 "elapsed_ms": s.elapsed_ms, "detail": s.detail}
+                {
+                    "id": s.id,
+                    "type": s.type,
+                    "status": s.status,
+                    "elapsed_ms": s.elapsed_ms,
+                    "detail": s.detail,
+                }
                 for s in result.steps
             ],
             "summary": result.summary,
@@ -1286,6 +1337,7 @@ def create_app():
 
         try:
             from backend.common import storage
+
             base = storage.root()
         except Exception:  # noqa: BLE001
             base = Path("/opt/samus/data/artifacts")
@@ -1340,11 +1392,14 @@ def create_app():
 
         key = os.environ.get("ANTHROPIC_API_KEY")
         brief = generate_brand_brief(
-            HUSTLEFORGE_CAMPAIGN, anthropic_api_key=key, extra_facts=list(extra_facts),
+            HUSTLEFORGE_CAMPAIGN,
+            anthropic_api_key=key,
+            extra_facts=list(extra_facts),
         )
 
         try:
             from backend.common import storage
+
             base = storage.root()
         except Exception:  # noqa: BLE001
             base = Path("/opt/samus/data/artifacts")
@@ -1396,10 +1451,12 @@ def create_app():
             try:
                 snap = store.snapshot(workcell)
             except Exception as exc:  # noqa: BLE001 - never break this view
-                rows.append({
-                    "workcell": workcell,
-                    "error": f"snapshot_failed: {exc}",
-                })
+                rows.append(
+                    {
+                        "workcell": workcell,
+                        "error": f"snapshot_failed: {exc}",
+                    }
+                )
                 continue
             quota = compute_quota(
                 store.base_token_budget,
@@ -1408,22 +1465,24 @@ def create_app():
                 floor_pct=store.floor_pct,
             )
             remaining = max(0, quota - snap.total_tokens_today)
-            rows.append({
-                "workcell": workcell,
-                "bucket_day": snap.bucket_day,
-                "quota_tokens": quota,
-                "used_tokens": snap.total_tokens_today,
-                "remaining_tokens": remaining,
-                "input_tokens_today": snap.input_tokens_today,
-                "output_tokens_today": snap.output_tokens_today,
-                "call_count_today": snap.call_count_today,
-                "success_count_today": snap.success_count_today,
-                "failure_count_today": snap.failure_count_today,
-                "error_count_today": snap.error_count_today,
-                "efficiency_ema": round(snap.efficiency_ema, 4),
-                "efficiency_call_count": snap.efficiency_call_count,
-                "last_updated": snap.last_updated,
-            })
+            rows.append(
+                {
+                    "workcell": workcell,
+                    "bucket_day": snap.bucket_day,
+                    "quota_tokens": quota,
+                    "used_tokens": snap.total_tokens_today,
+                    "remaining_tokens": remaining,
+                    "input_tokens_today": snap.input_tokens_today,
+                    "output_tokens_today": snap.output_tokens_today,
+                    "call_count_today": snap.call_count_today,
+                    "success_count_today": snap.success_count_today,
+                    "failure_count_today": snap.failure_count_today,
+                    "error_count_today": snap.error_count_today,
+                    "efficiency_ema": round(snap.efficiency_ema, 4),
+                    "efficiency_call_count": snap.efficiency_call_count,
+                    "last_updated": snap.last_updated,
+                }
+            )
         return {
             "base_token_budget": store.base_token_budget,
             "ema_alpha": store.ema_alpha,
@@ -1433,7 +1492,8 @@ def create_app():
 
     @app.get("/admin/tasks")
     async def admin_tasks(
-        status: str | None = "open", limit: int = 50,
+        status: str | None = "open",
+        limit: int = 50,
     ) -> dict[str, Any]:
         """Operator-facing view of the CRM operator-task queue.
 
@@ -1458,18 +1518,24 @@ def create_app():
         crm_base = settings.gateway_urls.get("crm")
         if not crm_base:
             raise HTTPException(
-                status_code=503, detail="crm_url_not_configured",
+                status_code=503,
+                detail="crm_url_not_configured",
             )
         crm_path = "/crm/operator-tasks"
         try:
             from backend.common.http_client import _build_signed_get_request
+
             url, headers = _build_signed_get_request(
-                crm_base, crm_path, secret=None,
+                crm_base,
+                crm_path,
+                secret=None,
             )
         except RuntimeError as exc:  # HMAC key unset
             _LOG.warning("admin_tasks sign-prep failed: %s", exc)
             return {
-                "tasks": [], "count": 0, "scan_truncated": False,
+                "tasks": [],
+                "count": 0,
+                "scan_truncated": False,
                 "ddb_error": f"crm_sign_unconfigured: {exc.__class__.__name__}",
             }
         try:
@@ -1478,7 +1544,9 @@ def create_app():
         except (httpx.TimeoutException, httpx.ConnectError) as exc:
             _LOG.warning("admin_tasks upstream failed: %s", exc)
             return {
-                "tasks": [], "count": 0, "scan_truncated": False,
+                "tasks": [],
+                "count": 0,
+                "scan_truncated": False,
                 "ddb_error": f"crm_unreachable: {exc.__class__.__name__}",
             }
         # S3: post-hoc bound the upstream body so a misbehaving CRM workcell
@@ -1486,23 +1554,31 @@ def create_app():
         # otherwise decoded with resp.json() exactly as before.
         try:
             check_httpx_size(
-                resp, max_bytes=INTER_WORKCELL_MAX_BYTES, source="crm_tasks",
+                resp,
+                max_bytes=INTER_WORKCELL_MAX_BYTES,
+                source="crm_tasks",
             )
             body = resp.json()
         except ResponseTooLarge as exc:
             _LOG.warning("admin_tasks upstream over cap: %s", exc)
             return {
-                "tasks": [], "count": 0, "scan_truncated": False,
+                "tasks": [],
+                "count": 0,
+                "scan_truncated": False,
                 "ddb_error": "crm_response_too_large",
             }
         except ValueError:
             return {
-                "tasks": [], "count": 0, "scan_truncated": False,
+                "tasks": [],
+                "count": 0,
+                "scan_truncated": False,
                 "ddb_error": f"crm_bad_response: status={resp.status_code}",
             }
         if not isinstance(body, dict):
             return {
-                "tasks": [], "count": 0, "scan_truncated": False,
+                "tasks": [],
+                "count": 0,
+                "scan_truncated": False,
                 "ddb_error": "crm_non_object_response",
             }
         return body
@@ -1531,19 +1607,26 @@ def create_app():
         crm_base = settings.gateway_urls.get("crm")
         if not crm_base:
             raise HTTPException(
-                status_code=503, detail="crm_url_not_configured",
+                status_code=503,
+                detail="crm_url_not_configured",
             )
         crm_path = "/crm/metrics/funnel"
         try:
             from backend.common.http_client import _build_signed_get_request
+
             url, headers = _build_signed_get_request(
-                crm_base, crm_path, secret=None,
+                crm_base,
+                crm_path,
+                secret=None,
             )
         except RuntimeError as exc:  # HMAC key unset
             _LOG.warning("admin_conversion_funnel sign-prep failed: %s", exc)
             return {
-                "stages": {}, "stage_order": [], "transitions": [],
-                "overall_conversion_rate": 0.0, "total_events": 0,
+                "stages": {},
+                "stage_order": [],
+                "transitions": [],
+                "overall_conversion_rate": 0.0,
+                "total_events": 0,
                 "error": f"crm_sign_unconfigured: {exc.__class__.__name__}",
             }
         try:
@@ -1552,33 +1635,47 @@ def create_app():
         except (httpx.TimeoutException, httpx.ConnectError) as exc:
             _LOG.warning("admin_conversion_funnel upstream failed: %s", exc)
             return {
-                "stages": {}, "stage_order": [], "transitions": [],
-                "overall_conversion_rate": 0.0, "total_events": 0,
+                "stages": {},
+                "stage_order": [],
+                "transitions": [],
+                "overall_conversion_rate": 0.0,
+                "total_events": 0,
                 "error": f"crm_unreachable: {exc.__class__.__name__}",
             }
         # S3: post-hoc bound the upstream body (see /admin/tasks).
         try:
             check_httpx_size(
-                resp, max_bytes=INTER_WORKCELL_MAX_BYTES, source="crm_funnel",
+                resp,
+                max_bytes=INTER_WORKCELL_MAX_BYTES,
+                source="crm_funnel",
             )
             body = resp.json()
         except ResponseTooLarge as exc:
             _LOG.warning("admin_conversion_funnel upstream over cap: %s", exc)
             return {
-                "stages": {}, "stage_order": [], "transitions": [],
-                "overall_conversion_rate": 0.0, "total_events": 0,
+                "stages": {},
+                "stage_order": [],
+                "transitions": [],
+                "overall_conversion_rate": 0.0,
+                "total_events": 0,
                 "error": "crm_response_too_large",
             }
         except ValueError:
             return {
-                "stages": {}, "stage_order": [], "transitions": [],
-                "overall_conversion_rate": 0.0, "total_events": 0,
+                "stages": {},
+                "stage_order": [],
+                "transitions": [],
+                "overall_conversion_rate": 0.0,
+                "total_events": 0,
                 "error": f"crm_bad_response: status={resp.status_code}",
             }
         if not isinstance(body, dict):
             return {
-                "stages": {}, "stage_order": [], "transitions": [],
-                "overall_conversion_rate": 0.0, "total_events": 0,
+                "stages": {},
+                "stage_order": [],
+                "transitions": [],
+                "overall_conversion_rate": 0.0,
+                "total_events": 0,
                 "error": "crm_non_object_response",
             }
         return body
@@ -1599,6 +1696,7 @@ def create_app():
         """
         check_capability("gateway", "journey_read")
         from backend.common.business_events import read_events
+
         events_out = read_events(prospect_id=prospect_id, limit=limit)
         return {
             "prospect_id": prospect_id,
@@ -1649,11 +1747,13 @@ def create_app():
             raise HTTPException(status_code=422, detail="task_id_must_be_string")
         if entropy_inputs is not None and not isinstance(entropy_inputs, dict):
             raise HTTPException(
-                status_code=422, detail="entropy_inputs_must_be_object",
+                status_code=422,
+                detail="entropy_inputs_must_be_object",
             )
         if workcells is not None and not isinstance(workcells, list):
             raise HTTPException(
-                status_code=422, detail="workcells_must_be_list",
+                status_code=422,
+                detail="workcells_must_be_list",
             )
 
         return control_tick_mod.run_control_tick(
@@ -1676,16 +1776,21 @@ def create_app():
         return control_tick_ledger.recent_ticks(limit=limit)
 
     # Economics surfaces (HOTL Tranche 2): GET /admin/roi + GET /admin/arbitration.
-    __import__("backend.finance.roi", fromlist=["register_economics_admin_routes"]).register_economics_admin_routes(app)
+    __import__(
+        "backend.finance.roi", fromlist=["register_economics_admin_routes"]
+    ).register_economics_admin_routes(app)
 
     # Planning + explainability + command-center surfaces (HOTL Tranche 4):
     # GET /autonomy/plan (inspect), GET /admin/decisions[/{id}],
     # GET/POST /admin/approvals[/decide], GET /admin/command_center.
     from backend.planning.routes import register_planning_routes
+
     register_planning_routes(app)
 
     # Reputation surface (HOTL Tranche 5): GET /admin/reputation.
-    __import__("backend.common.reputation", fromlist=["register_reputation_admin_routes"]).register_reputation_admin_routes(app)
+    __import__(
+        "backend.common.reputation", fromlist=["register_reputation_admin_routes"]
+    ).register_reputation_admin_routes(app)
 
     @app.get("/api/crm/stats")
     async def crm_stats() -> dict[str, Any]:
@@ -1721,9 +1826,13 @@ def create_app():
         # compute the SAME day independently; keeping this in lock-step with the
         # crm route's default is what makes the range line up. See daily_stats_route.
         if os.getenv("SAMUS_CRM_STATS_BUSINESS_TZ", "").strip().lower() in (
-            "1", "true", "yes", "on",
+            "1",
+            "true",
+            "yes",
+            "on",
         ):
             from backend.common.dates import business_today  # noqa: PLC0415
+
             today = business_today()
         else:
             today = _dt.datetime.utcnow().date().isoformat()
@@ -1732,10 +1841,8 @@ def create_app():
         if cached is not None:
             return cached
 
-        calls_goal = _stats_goal("SAMUS_CRM_CALLS_GOAL",
-                                 _CRM_STATS_CALLS_GOAL_DEFAULT)
-        emails_goal = _stats_goal("SAMUS_CRM_EMAILS_GOAL",
-                                  _CRM_STATS_EMAILS_GOAL_DEFAULT)
+        calls_goal = _stats_goal("SAMUS_CRM_CALLS_GOAL", _CRM_STATS_CALLS_GOAL_DEFAULT)
+        emails_goal = _stats_goal("SAMUS_CRM_EMAILS_GOAL", _CRM_STATS_EMAILS_GOAL_DEFAULT)
 
         crm_part = await _crm_stats_fetch_call_state(today)
         emails_today, outreach_error = _crm_stats_count_outreach_today(today)
@@ -1746,9 +1853,7 @@ def create_app():
         calls = int(crm_part.get("calls_today") or 0)
         booked = int(crm_part.get("booked_today") or 0)
         followups = int(crm_part.get("followups_today") or 0)
-        connect_rate = (
-            f"{round(booked / calls * 100)}%" if calls else "0%"
-        )
+        connect_rate = f"{round(booked / calls * 100)}%" if calls else "0%"
 
         # Soft-no re-engagement counter — how many prospects the sweep
         # successfully requeued today (backend/crm/reengagement_sweep.py).
@@ -1756,6 +1861,7 @@ def create_app():
         # missing ledger so the HUD never 500s when the feature is dormant.
         try:
             from backend.crm.reengagement_sweep import count_queued_today
+
             reengagement_queued_today = count_queued_today(today=today)
         except Exception as exc:  # noqa: BLE001 — never break the HUD on this
             _LOG.warning("crm_stats: reengagement counter failed: %s", exc)
@@ -1797,6 +1903,7 @@ def create_app():
     # A failure here aborts boot loudly -- silent skip would mask the
     # console being absent from a service that advertises it.
     import importlib  # noqa: PLC0415 -- deferred until after route block
+
     _pack_module = importlib.import_module("backend.packs.operator_console")
     _pack_register = getattr(_pack_module, "register", None)
     if _pack_register is None:

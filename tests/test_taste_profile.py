@@ -1,4 +1,5 @@
 """Tests for backend.taste.profile (brief inference + dial resolution)."""
+
 from __future__ import annotations
 
 from backend.taste.models import TasteDials, TasteProfile

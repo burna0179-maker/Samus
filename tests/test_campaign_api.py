@@ -1,7 +1,7 @@
 """Campaign API surface tests — status/timeline/artifacts/metrics/audit (§11)."""
+
 from __future__ import annotations
 
-from pathlib import Path
 
 import pytest
 import yaml
@@ -43,10 +43,20 @@ def wired(tmp_path, monkeypatch):
         "required_inputs": ["client_id"],
         "kpis": [{"key": "page_views"}],
         "nodes": [
-            {"id": "audit", "type": "seo_audit", "target_workcell": "seo",
-             "capability": "audit_and_report", "approval_required": "none"},
-            {"id": "collect", "type": "metrics_collection", "target_workcell": "campaigns",
-             "capability": "update_kpis", "approval_required": "none"},
+            {
+                "id": "audit",
+                "type": "seo_audit",
+                "target_workcell": "seo",
+                "capability": "audit_and_report",
+                "approval_required": "none",
+            },
+            {
+                "id": "collect",
+                "type": "metrics_collection",
+                "target_workcell": "campaigns",
+                "capability": "update_kpis",
+                "approval_required": "none",
+            },
         ],
         "edges": [{"from": "audit", "to": "collect"}],
     }

@@ -4,6 +4,7 @@ Covers ``set_quota_override`` (TTL-expiring, clamped to [0.25x, 2.0x] base)
 and ``freeze_nonessential`` (stack-wide TTL freeze that essential workcells
 survive). Same tmp-JSON-backend pattern as tests/test_llm_budget.py.
 """
+
 from __future__ import annotations
 
 from backend.common import llm_budget as mod
@@ -37,6 +38,7 @@ def _store(tmp_path, clock: _Clock | None = None, **overrides) -> LlmBudgetStore
 # ---------------------------------------------------------------------------
 # set_quota_override
 # ---------------------------------------------------------------------------
+
 
 def test_override_supersedes_adaptive_quota(tmp_path):
     clock = _Clock()
@@ -109,6 +111,7 @@ def test_override_ttl_clamped_to_24h(tmp_path):
 # freeze_nonessential
 # ---------------------------------------------------------------------------
 
+
 def test_freeze_denies_nonessential_workcell(tmp_path):
     clock = _Clock()
     s = _store(tmp_path, clock)
@@ -153,6 +156,7 @@ def test_unfrozen_store_reports_none(tmp_path):
 # module-level wrappers hit the process store
 # ---------------------------------------------------------------------------
 
+
 def test_module_level_wrappers(tmp_path, monkeypatch):
     clock = _Clock()
     s = _store(tmp_path, clock)
@@ -168,13 +172,18 @@ def test_legacy_row_without_new_fields_loads(tmp_path):
     import json
 
     path = tmp_path / "budget.json"
-    path.write_text(json.dumps({
-        "prospecting": {
-            "bucket_day": "2020-01-01",
-            "total_tokens_today": 5,
-            "efficiency_ema": 0.9,
-        }
-    }), encoding="utf-8")
+    path.write_text(
+        json.dumps(
+            {
+                "prospecting": {
+                    "bucket_day": "2020-01-01",
+                    "total_tokens_today": 5,
+                    "efficiency_ema": 0.9,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
     s = _store(tmp_path, _Clock())
     b = s.snapshot("prospecting")
     assert b.quota_override == 0

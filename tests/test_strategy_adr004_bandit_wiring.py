@@ -6,6 +6,7 @@ is set, it instead credits compute_reward (the ADR-004 opportunity-level
 reward). These tests pin: (1) off-by-default = legacy behaviour, (2) on =
 ADR-004 reward, (3) fail-open fallbacks so the learn path never breaks.
 """
+
 from __future__ import annotations
 
 import types
@@ -31,6 +32,7 @@ def captured_bandit(monkeypatch):
 # ---------------------------------------------------------------------------
 # Flag gate on record_outcome
 # ---------------------------------------------------------------------------
+
 
 def test_disabled_by_default_uses_scalar_credit(captured_bandit, monkeypatch):
     monkeypatch.delenv("SAMUS_REWARD_ADR004_BANDIT_ENABLED", raising=False)
@@ -62,16 +64,19 @@ def test_enabled_but_reward_unavailable_falls_back_to_scalar(captured_bandit, mo
 # _adr004_reward_for_prospect — lookup + fail-open
 # ---------------------------------------------------------------------------
 
+
 def test_reward_helper_returns_compute_reward(monkeypatch):
     from backend.crm import service as crm_service
     from backend.strategy import reward_density
 
     monkeypatch.setattr(
-        crm_service, "get_opportunity_for_prospect",
+        crm_service,
+        "get_opportunity_for_prospect",
         lambda pid: types.SimpleNamespace(opportunity_id="op-1"),
     )
     monkeypatch.setattr(
-        reward_density, "compute_reward",
+        reward_density,
+        "compute_reward",
         lambda opp_id, **_kw: types.SimpleNamespace(reward=7.5),
     )
     assert pm._adr004_reward_for_prospect("p1") == 7.5
@@ -79,8 +84,11 @@ def test_reward_helper_returns_compute_reward(monkeypatch):
 
 def test_reward_helper_none_when_no_opportunity(monkeypatch):
     from backend.crm import service as crm_service
+
     monkeypatch.setattr(
-        crm_service, "get_opportunity_for_prospect", lambda pid: None,
+        crm_service,
+        "get_opportunity_for_prospect",
+        lambda pid: None,
     )
     assert pm._adr004_reward_for_prospect("p1") is None
 
@@ -90,7 +98,8 @@ def test_reward_helper_fail_open_on_compute_error(monkeypatch):
     from backend.strategy import reward_density
 
     monkeypatch.setattr(
-        crm_service, "get_opportunity_for_prospect",
+        crm_service,
+        "get_opportunity_for_prospect",
         lambda pid: types.SimpleNamespace(opportunity_id="op-1"),
     )
 

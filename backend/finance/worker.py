@@ -11,6 +11,7 @@ scheduled snapshots from Cloud Scheduler), wire it the same way as
 ``handle(envelope)`` routing by ``envelope.action``, plus a ``main()`` that
 calls ``serve_worker(FinanceWorker(AwsRuntime(settings)))``.
 """
+
 from __future__ import annotations
 
 import logging

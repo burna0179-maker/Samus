@@ -1,4 +1,5 @@
 """CRM service — reads + lead conversion."""
+
 from __future__ import annotations
 
 import json
@@ -42,9 +43,12 @@ class _FakeTable:
             target_attr = names.get("#f")
             target_val = vals.get(":v")
             if target_attr is not None:
-                out = [it for it in out
-                       if str(it.get(target_attr, "")).strip().lower() ==
-                          str(target_val or "").strip().lower()]
+                out = [
+                    it
+                    for it in out
+                    if str(it.get(target_attr, "")).strip().lower()
+                    == str(target_val or "").strip().lower()
+                ]
         limit = kwargs.get("Limit", 50)
         return {"Items": out[:limit]}
 
@@ -52,14 +56,15 @@ class _FakeTable:
 def _patch_tables(monkeypatch):
     """Replace all CRM table accessors with fresh _FakeTable shims."""
     import backend.crm.persistence as p
+
     tables = {
-        "_prospects_table":       _FakeTable(),
-        "_contacts_table":        _FakeTable(),
-        "_conversations_table":   _FakeTable(),
-        "_call_state_table":      _FakeTable(),
-        "_opportunities_table":   _FakeTable(),
-        "_operator_tasks_table":  _FakeTable(),
-        "_artifacts_table":       _FakeTable(),
+        "_prospects_table": _FakeTable(),
+        "_contacts_table": _FakeTable(),
+        "_conversations_table": _FakeTable(),
+        "_call_state_table": _FakeTable(),
+        "_opportunities_table": _FakeTable(),
+        "_operator_tasks_table": _FakeTable(),
+        "_artifacts_table": _FakeTable(),
         "_onboarding_leads_table": _FakeTable(),
     }
     tables["_prospects_table"].pk_attr = "prospect_id"
@@ -85,6 +90,7 @@ def _disable_close_cap(monkeypatch):
     size (the cap is active by default at $1000). Mirrors an operator who
     explicitly wants no ceiling (SAMUS_CRM_MAX_CLOSE_AMOUNT_USD <= 0)."""
     from backend.common.settings import reload_settings
+
     monkeypatch.setenv("SAMUS_CRM_MAX_CLOSE_AMOUNT_USD", "0")
     reload_settings()
 
@@ -107,10 +113,12 @@ def _seed_lead(tables, lead_id="lead_x"):
 # Reads
 # ---------------------------------------------------------------------------
 
+
 def test_get_prospect_returns_none_when_missing(tmp_path, monkeypatch):
     _audit_to_tmp(monkeypatch, tmp_path)
     _patch_tables(monkeypatch)
     from backend.crm.service import get_prospect
+
     assert get_prospect("pr_does_not_exist") is None
 
 
@@ -118,10 +126,13 @@ def test_get_contact_returns_typed_row(tmp_path, monkeypatch):
     _audit_to_tmp(monkeypatch, tmp_path)
     tables = _patch_tables(monkeypatch)
     tables["_contacts_table"].items[("contact_id", "co_a")] = {
-        "contact_id": "co_a", "name": "Alice",
-        "email": "alice@x.com", "preferred_channel": "phone",
+        "contact_id": "co_a",
+        "name": "Alice",
+        "email": "alice@x.com",
+        "preferred_channel": "phone",
     }
     from backend.crm.service import get_contact
+
     c = get_contact("co_a")
     assert c is not None
     assert c.name == "Alice"
@@ -132,15 +143,22 @@ def test_list_contacts_filtered_by_prospect_id(tmp_path, monkeypatch):
     _audit_to_tmp(monkeypatch, tmp_path)
     tables = _patch_tables(monkeypatch)
     tables["_contacts_table"].items[("contact_id", "co_a")] = {
-        "contact_id": "co_a", "prospect_id": "pr_acme", "name": "Alice",
+        "contact_id": "co_a",
+        "prospect_id": "pr_acme",
+        "name": "Alice",
     }
     tables["_contacts_table"].items[("contact_id", "co_b")] = {
-        "contact_id": "co_b", "prospect_id": "pr_acme", "name": "Bob",
+        "contact_id": "co_b",
+        "prospect_id": "pr_acme",
+        "name": "Bob",
     }
     tables["_contacts_table"].items[("contact_id", "co_c")] = {
-        "contact_id": "co_c", "prospect_id": "pr_other", "name": "Carol",
+        "contact_id": "co_c",
+        "prospect_id": "pr_other",
+        "name": "Carol",
     }
     from backend.crm.service import list_contacts
+
     out = list_contacts(prospect_id="pr_acme")
     assert out.count == 2
     assert {c.name for c in out.contacts} == {"Alice", "Bob"}
@@ -150,10 +168,17 @@ def test_list_operator_tasks_filtered_by_status_open(tmp_path, monkeypatch):
     _audit_to_tmp(monkeypatch, tmp_path)
     tables = _patch_tables(monkeypatch)
     tables["_operator_tasks_table"].items[("operator_task_id", "ot_1")] = {
-        "operator_task_id": "ot_1", "status": "open", "title": "Call back"}
+        "operator_task_id": "ot_1",
+        "status": "open",
+        "title": "Call back",
+    }
     tables["_operator_tasks_table"].items[("operator_task_id", "ot_2")] = {
-        "operator_task_id": "ot_2", "status": "done", "title": "Sent contract"}
+        "operator_task_id": "ot_2",
+        "status": "done",
+        "title": "Sent contract",
+    }
     from backend.crm.service import list_operator_tasks
+
     out = list_operator_tasks(status="open")
     assert out.count == 1
     assert out.tasks[0].title == "Call back"
@@ -163,6 +188,7 @@ def test_list_operator_tasks_filtered_by_status_open(tmp_path, monkeypatch):
 # Conversion: lead -> Prospect + Contact
 # ---------------------------------------------------------------------------
 
+
 def test_convert_lead_creates_prospect_and_contact(tmp_path, monkeypatch):
     _audit_to_tmp(monkeypatch, tmp_path)
     tables = _patch_tables(monkeypatch)
@@ -170,6 +196,7 @@ def test_convert_lead_creates_prospect_and_contact(tmp_path, monkeypatch):
 
     from backend.crm.service import convert_lead_to_prospect
     from backend.crm.models import ConvertLeadRequest
+
     result = convert_lead_to_prospect(ConvertLeadRequest(lead_id="lead_x"))
 
     assert result.status == "created"
@@ -194,6 +221,7 @@ def test_convert_lead_idempotent_when_contact_email_exists(tmp_path, monkeypatch
 
     from backend.crm.service import convert_lead_to_prospect
     from backend.crm.models import ConvertLeadRequest
+
     result = convert_lead_to_prospect(ConvertLeadRequest(lead_id="lead_x"))
 
     assert result.status == "existing"
@@ -218,13 +246,14 @@ def test_convert_lead_attaches_to_existing_prospect_by_website(tmp_path, monkeyp
 
     from backend.crm.service import convert_lead_to_prospect
     from backend.crm.models import ConvertLeadRequest
+
     result = convert_lead_to_prospect(ConvertLeadRequest(lead_id="lead_x"))
 
     assert result.status == "created"
-    assert result.prospect_id == "pr_existing_acme"        # reused
-    assert result.contact_id.startswith("co_")              # new
-    assert len(tables["_prospects_table"].items) == 1      # no new prospect
-    assert len(tables["_contacts_table"].items) == 1       # new contact
+    assert result.prospect_id == "pr_existing_acme"  # reused
+    assert result.contact_id.startswith("co_")  # new
+    assert len(tables["_prospects_table"].items) == 1  # no new prospect
+    assert len(tables["_contacts_table"].items) == 1  # new contact
 
 
 def test_convert_lead_fails_when_lead_not_found(tmp_path, monkeypatch):
@@ -232,6 +261,7 @@ def test_convert_lead_fails_when_lead_not_found(tmp_path, monkeypatch):
     _patch_tables(monkeypatch)  # no lead seeded
     from backend.crm.service import convert_lead_to_prospect
     from backend.crm.models import ConvertLeadRequest
+
     result = convert_lead_to_prospect(ConvertLeadRequest(lead_id="lead_missing"))
     assert result.status == "failed"
     assert result.error == "lead_not_found"
@@ -244,6 +274,7 @@ def test_convert_lead_fails_when_ddb_put_fails(tmp_path, monkeypatch):
     tables["_prospects_table"].fail_put = True
     from backend.crm.service import convert_lead_to_prospect
     from backend.crm.models import ConvertLeadRequest
+
     result = convert_lead_to_prospect(ConvertLeadRequest(lead_id="lead_x"))
     assert result.status == "failed"
     assert "ddb_put_failed" in (result.error or "")
@@ -253,12 +284,14 @@ def test_convert_lead_fails_when_ddb_put_fails(tmp_path, monkeypatch):
 # Phase 3: create_opportunity + advance_opportunity
 # ---------------------------------------------------------------------------
 
+
 def test_create_opportunity_happy_path_with_scoring(tmp_path, monkeypatch):
     _audit_to_tmp(monkeypatch, tmp_path)
     tables = _patch_tables(monkeypatch)
 
     from backend.crm.service import create_opportunity, get_opportunity
     from backend.crm.models import CreateOpportunityRequest
+
     req = CreateOpportunityRequest(
         prospect_id="pr_acme",
         contact_id="co_jane",
@@ -292,6 +325,7 @@ def test_create_opportunity_without_signals_uses_stage_baseline(tmp_path, monkey
 
     from backend.crm.service import create_opportunity, get_opportunity
     from backend.crm.models import CreateOpportunityRequest
+
     req = CreateOpportunityRequest(prospect_id="pr_x")
     result = create_opportunity(req)
 
@@ -310,6 +344,7 @@ def test_create_opportunity_fails_on_ddb_put_fail(tmp_path, monkeypatch):
 
     from backend.crm.service import create_opportunity
     from backend.crm.models import CreateOpportunityRequest
+
     result = create_opportunity(CreateOpportunityRequest(prospect_id="pr_x"))
     assert result.status == "failed"
     assert result.opportunity_id == ""
@@ -337,9 +372,13 @@ def test_advance_opportunity_legal_transition_new_to_qualified(tmp_path, monkeyp
 
     from backend.crm.service import advance_opportunity, get_opportunity
     from backend.crm.models import AdvanceOpportunityRequest
-    result = advance_opportunity(AdvanceOpportunityRequest(
-        opportunity_id="op_a", target_stage="qualified",
-    ))
+
+    result = advance_opportunity(
+        AdvanceOpportunityRequest(
+            opportunity_id="op_a",
+            target_stage="qualified",
+        )
+    )
     assert result.status == "advanced"
     assert result.prior_stage == "new"
     assert result.new_stage == "qualified"
@@ -353,20 +392,24 @@ def test_advance_opportunity_legal_transition_new_to_qualified(tmp_path, monkeyp
 
 
 def test_advance_opportunity_terminal_closed_won_sets_actual_close_and_won_amount(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ):
     _audit_to_tmp(monkeypatch, tmp_path)
     _disable_close_cap(monkeypatch)  # 22.5k is a legit large deal here
     tables = _patch_tables(monkeypatch)
-    _seed_opportunity(tables, op_id="op_w", stage="negotiation",
-                      deal_size_usd=20000.0)
+    _seed_opportunity(tables, op_id="op_w", stage="negotiation", deal_size_usd=20000.0)
 
     from backend.crm.service import advance_opportunity, get_opportunity
     from backend.crm.models import AdvanceOpportunityRequest
-    result = advance_opportunity(AdvanceOpportunityRequest(
-        opportunity_id="op_w", target_stage="closed_won",
-        won_amount_usd=22500.0,
-    ))
+
+    result = advance_opportunity(
+        AdvanceOpportunityRequest(
+            opportunity_id="op_w",
+            target_stage="closed_won",
+            won_amount_usd=22500.0,
+        )
+    )
     assert result.status == "advanced"
     op = get_opportunity("op_w")
     assert op is not None
@@ -377,19 +420,23 @@ def test_advance_opportunity_terminal_closed_won_sets_actual_close_and_won_amoun
 
 
 def test_advance_opportunity_closed_won_defaults_won_amount_to_deal_size(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ):
     _audit_to_tmp(monkeypatch, tmp_path)
     _disable_close_cap(monkeypatch)  # 12k default-fallback is a legit deal here
     tables = _patch_tables(monkeypatch)
-    _seed_opportunity(tables, op_id="op_w2", stage="proposal",
-                      deal_size_usd=12000.0)
+    _seed_opportunity(tables, op_id="op_w2", stage="proposal", deal_size_usd=12000.0)
 
     from backend.crm.service import advance_opportunity, get_opportunity
     from backend.crm.models import AdvanceOpportunityRequest
-    advance_opportunity(AdvanceOpportunityRequest(
-        opportunity_id="op_w2", target_stage="closed_won",
-    ))
+
+    advance_opportunity(
+        AdvanceOpportunityRequest(
+            opportunity_id="op_w2",
+            target_stage="closed_won",
+        )
+    )
     op = get_opportunity("op_w2")
     assert op is not None
     assert op.won_amount_usd == 12000.0  # fell back to deal_size_usd
@@ -403,14 +450,19 @@ def test_advance_opportunity_into_closed_won_retainer(tmp_path, monkeypatch):
     _audit_to_tmp(monkeypatch, tmp_path)
     _disable_close_cap(monkeypatch)
     tables = _patch_tables(monkeypatch)
-    _seed_opportunity(tables, op_id="op_r", stage="negotiation",
-                      deal_size_usd=6000.0, won_amount_usd=6000.0)
+    _seed_opportunity(
+        tables, op_id="op_r", stage="negotiation", deal_size_usd=6000.0, won_amount_usd=6000.0
+    )
 
     from backend.crm.service import advance_opportunity, get_opportunity
     from backend.crm.models import AdvanceOpportunityRequest
-    result = advance_opportunity(AdvanceOpportunityRequest(
-        opportunity_id="op_r", target_stage="closed_won_retainer",
-    ))
+
+    result = advance_opportunity(
+        AdvanceOpportunityRequest(
+            opportunity_id="op_r",
+            target_stage="closed_won_retainer",
+        )
+    )
     assert result.status == "advanced"
     assert result.new_stage == "closed_won_retainer"
 
@@ -430,9 +482,13 @@ def test_advance_skip_into_retainer_from_new_is_illegal(tmp_path, monkeypatch):
 
     from backend.crm.service import advance_opportunity
     from backend.crm.models import AdvanceOpportunityRequest
-    result = advance_opportunity(AdvanceOpportunityRequest(
-        opportunity_id="op_r2", target_stage="closed_won_retainer",
-    ))
+
+    result = advance_opportunity(
+        AdvanceOpportunityRequest(
+            opportunity_id="op_r2",
+            target_stage="closed_won_retainer",
+        )
+    )
     assert result.status == "invalid_transition"
     assert result.error and "illegal_transition" in result.error
 
@@ -445,12 +501,14 @@ def test_advance_does_not_project_to_hivemind_when_flag_off(tmp_path, monkeypatc
     _audit_to_tmp(monkeypatch, tmp_path)
     monkeypatch.setenv("SAMUS_CRM_HIVEMIND_PROJECTION_ENABLED", "false")
     from backend.common.settings import reload_settings
+
     reload_settings()
     tables = _patch_tables(monkeypatch)
     _seed_opportunity(tables, op_id="op_np", stage="new")
 
     # Sentinel: if the projection ran it would call get_client(); blow up if so.
     import backend.crm.hivemind_projection as hpmod
+
     called = {"n": 0}
 
     def _boom():
@@ -461,9 +519,13 @@ def test_advance_does_not_project_to_hivemind_when_flag_off(tmp_path, monkeypatc
 
     from backend.crm.service import advance_opportunity
     from backend.crm.models import AdvanceOpportunityRequest
-    result = advance_opportunity(AdvanceOpportunityRequest(
-        opportunity_id="op_np", target_stage="qualified",
-    ))
+
+    result = advance_opportunity(
+        AdvanceOpportunityRequest(
+            opportunity_id="op_np",
+            target_stage="qualified",
+        )
+    )
     assert result.status == "advanced"
     assert called["n"] == 0
     reload_settings()
@@ -493,14 +555,14 @@ def test_retainer_close_is_graded_as_win_to_strategy(monkeypatch):
     monkeypatch.setattr(svc, "signed_post_json_sync", _fake_post)
 
     svc._dispatch_outcome_to_strategy(
-        Opportunity(opportunity_id="op_z", prospect_id="pr_z",
-                    stage="closed_won_retainer")
+        Opportunity(opportunity_id="op_z", prospect_id="pr_z", stage="closed_won_retainer")
     )
     assert captured["payload"]["won"] is True
     assert captured["payload"]["outcome"] == 1.0
 
 
 # --- FIN-10: hard closed-won amount cap (fail-closed) -----------------------
+
 
 def test_advance_closed_won_over_cap_is_blocked(tmp_path, monkeypatch):
     """A close above SAMUS_CRM_MAX_CLOSE_AMOUNT_USD (default $1000) must NOT
@@ -510,16 +572,19 @@ def test_advance_closed_won_over_cap_is_blocked(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_CRM_AUDIT_PATH", str(audit_path))
     # Cap active out of the box at the default $1000 (no env override).
     tables = _patch_tables(monkeypatch)
-    _seed_opportunity(tables, op_id="op_cap", stage="negotiation",
-                      deal_size_usd=500.0)
+    _seed_opportunity(tables, op_id="op_cap", stage="negotiation", deal_size_usd=500.0)
 
     from backend.crm.service import advance_opportunity, get_opportunity
     from backend.crm.models import AdvanceOpportunityRequest
-    result = advance_opportunity(AdvanceOpportunityRequest(
-        opportunity_id="op_cap", target_stage="closed_won",
-        won_amount_usd=50000.0,  # crafted-large amount, over the $1000 cap
-        notes="payment_ref=evt_attacker",
-    ))
+
+    result = advance_opportunity(
+        AdvanceOpportunityRequest(
+            opportunity_id="op_cap",
+            target_stage="closed_won",
+            won_amount_usd=50000.0,  # crafted-large amount, over the $1000 cap
+            notes="payment_ref=evt_attacker",
+        )
+    )
     # Fail-closed: structured blocked result, NOT an exception.
     assert result.status == "blocked_over_cap"
     assert result.new_stage == "negotiation"  # stage unchanged
@@ -532,8 +597,10 @@ def test_advance_closed_won_over_cap_is_blocked(tmp_path, monkeypatch):
     # Loud anomaly evidence event landed in the ledger.
     assert audit_path.exists()
     import json as _json
-    lines = [_json.loads(l) for l in
-             audit_path.read_text(encoding="utf-8").splitlines() if l.strip()]
+
+    lines = [
+        _json.loads(l) for l in audit_path.read_text(encoding="utf-8").splitlines() if l.strip()
+    ]
     rejected = [r for r in lines if r.get("status") == "rejected"]
     assert rejected
     assert rejected[-1]["action"] == "advance_opportunity"
@@ -543,15 +610,18 @@ def test_advance_closed_won_at_cap_advances(tmp_path, monkeypatch):
     """A close exactly at the cap is legitimate and advances normally."""
     _audit_to_tmp(monkeypatch, tmp_path)
     tables = _patch_tables(monkeypatch)
-    _seed_opportunity(tables, op_id="op_atcap", stage="negotiation",
-                      deal_size_usd=500.0)
+    _seed_opportunity(tables, op_id="op_atcap", stage="negotiation", deal_size_usd=500.0)
 
     from backend.crm.service import advance_opportunity, get_opportunity
     from backend.crm.models import AdvanceOpportunityRequest
-    result = advance_opportunity(AdvanceOpportunityRequest(
-        opportunity_id="op_atcap", target_stage="closed_won",
-        won_amount_usd=1000.0,  # exactly at the default cap
-    ))
+
+    result = advance_opportunity(
+        AdvanceOpportunityRequest(
+            opportunity_id="op_atcap",
+            target_stage="closed_won",
+            won_amount_usd=1000.0,  # exactly at the default cap
+        )
+    )
     assert result.status == "advanced"
     op = get_opportunity("op_atcap")
     assert op is not None
@@ -564,15 +634,18 @@ def test_advance_closed_won_cap_disabled_allows_large_close(tmp_path, monkeypatc
     _audit_to_tmp(monkeypatch, tmp_path)
     _disable_close_cap(monkeypatch)
     tables = _patch_tables(monkeypatch)
-    _seed_opportunity(tables, op_id="op_nocap", stage="negotiation",
-                      deal_size_usd=500.0)
+    _seed_opportunity(tables, op_id="op_nocap", stage="negotiation", deal_size_usd=500.0)
 
     from backend.crm.service import advance_opportunity, get_opportunity
     from backend.crm.models import AdvanceOpportunityRequest
-    result = advance_opportunity(AdvanceOpportunityRequest(
-        opportunity_id="op_nocap", target_stage="closed_won",
-        won_amount_usd=999999.0,
-    ))
+
+    result = advance_opportunity(
+        AdvanceOpportunityRequest(
+            opportunity_id="op_nocap",
+            target_stage="closed_won",
+            won_amount_usd=999999.0,
+        )
+    )
     assert result.status == "advanced"
     op = get_opportunity("op_nocap")
     assert op is not None
@@ -586,13 +659,16 @@ def test_close_opportunity_from_payment_over_cap_is_blocked(tmp_path, monkeypatc
     _audit_to_tmp(monkeypatch, tmp_path)
     tables = _patch_tables(monkeypatch)
     tables["_opportunities_table"].items[("opportunity_id", "op_pay_cap")] = {
-        "opportunity_id": "op_pay_cap", "prospect_id": "pr_pay",
-        "stage": "negotiation", "deal_size_usd": 500.0,
+        "opportunity_id": "op_pay_cap",
+        "prospect_id": "pr_pay",
+        "stage": "negotiation",
+        "deal_size_usd": 500.0,
         "close_probability": 0.6,
         "created_at": "2026-05-01T00:00:00Z",
         "updated_at": "2026-05-10T00:00:00Z",
     }
     from backend.crm.service import close_opportunity_from_payment, get_opportunity
+
     result = close_opportunity_from_payment(
         opportunity_id="op_pay_cap",
         won_amount_usd=100000.0,  # crafted-large Stripe amount_total
@@ -605,7 +681,8 @@ def test_close_opportunity_from_payment_over_cap_is_blocked(tmp_path, monkeypatc
 
 
 def test_advance_opportunity_terminal_closed_lost_sets_actual_close_and_reason(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ):
     _audit_to_tmp(monkeypatch, tmp_path)
     tables = _patch_tables(monkeypatch)
@@ -613,10 +690,14 @@ def test_advance_opportunity_terminal_closed_lost_sets_actual_close_and_reason(
 
     from backend.crm.service import advance_opportunity, get_opportunity
     from backend.crm.models import AdvanceOpportunityRequest
-    result = advance_opportunity(AdvanceOpportunityRequest(
-        opportunity_id="op_l", target_stage="closed_lost",
-        lost_reason="budget_too_tight",
-    ))
+
+    result = advance_opportunity(
+        AdvanceOpportunityRequest(
+            opportunity_id="op_l",
+            target_stage="closed_lost",
+            lost_reason="budget_too_tight",
+        )
+    )
     assert result.status == "advanced"
     op = get_opportunity("op_l")
     assert op is not None
@@ -633,10 +714,14 @@ def test_advance_opportunity_illegal_transition_returns_invalid(tmp_path, monkey
 
     from backend.crm.service import advance_opportunity, get_opportunity
     from backend.crm.models import AdvanceOpportunityRequest
+
     # new -> closed_won is not in the allowed set
-    result = advance_opportunity(AdvanceOpportunityRequest(
-        opportunity_id="op_x", target_stage="closed_won",
-    ))
+    result = advance_opportunity(
+        AdvanceOpportunityRequest(
+            opportunity_id="op_x",
+            target_stage="closed_won",
+        )
+    )
     assert result.status == "invalid_transition"
     assert result.prior_stage == "new"
     assert result.new_stage == "new"  # unchanged
@@ -654,9 +739,13 @@ def test_advance_opportunity_from_terminal_rejected(tmp_path, monkeypatch):
 
     from backend.crm.service import advance_opportunity
     from backend.crm.models import AdvanceOpportunityRequest
-    result = advance_opportunity(AdvanceOpportunityRequest(
-        opportunity_id="op_dead", target_stage="qualified",
-    ))
+
+    result = advance_opportunity(
+        AdvanceOpportunityRequest(
+            opportunity_id="op_dead",
+            target_stage="qualified",
+        )
+    )
     assert result.status == "invalid_transition"
     assert "terminal_stage" in (result.error or "")
 
@@ -666,9 +755,13 @@ def test_advance_opportunity_not_found_returns_not_found(tmp_path, monkeypatch):
     _patch_tables(monkeypatch)
     from backend.crm.service import advance_opportunity
     from backend.crm.models import AdvanceOpportunityRequest
-    result = advance_opportunity(AdvanceOpportunityRequest(
-        opportunity_id="op_nope", target_stage="qualified",
-    ))
+
+    result = advance_opportunity(
+        AdvanceOpportunityRequest(
+            opportunity_id="op_nope",
+            target_stage="qualified",
+        )
+    )
     assert result.status == "not_found"
     assert result.error == "opportunity_not_found"
 
@@ -681,9 +774,13 @@ def test_advance_opportunity_ddb_put_failure_returns_failed(tmp_path, monkeypatc
 
     from backend.crm.service import advance_opportunity
     from backend.crm.models import AdvanceOpportunityRequest
-    result = advance_opportunity(AdvanceOpportunityRequest(
-        opportunity_id="op_p", target_stage="qualified",
-    ))
+
+    result = advance_opportunity(
+        AdvanceOpportunityRequest(
+            opportunity_id="op_p",
+            target_stage="qualified",
+        )
+    )
     assert result.status == "failed"
     assert "ddb_put_failed" in (result.error or "")
 
@@ -696,11 +793,17 @@ def test_advance_opportunity_audit_records_invalid_transition(tmp_path, monkeypa
 
     from backend.crm.service import advance_opportunity
     from backend.crm.models import AdvanceOpportunityRequest
-    advance_opportunity(AdvanceOpportunityRequest(
-        opportunity_id="op_audit", target_stage="closed_won",
-    ))
+
+    advance_opportunity(
+        AdvanceOpportunityRequest(
+            opportunity_id="op_audit",
+            target_stage="closed_won",
+        )
+    )
     assert audit_path.exists()
-    lines = [json.loads(l) for l in audit_path.read_text(encoding="utf-8").splitlines() if l.strip()]
+    lines = [
+        json.loads(l) for l in audit_path.read_text(encoding="utf-8").splitlines() if l.strip()
+    ]
     rejected = [r for r in lines if r.get("status") == "rejected"]
     assert rejected
     assert rejected[0]["action"] == "advance_opportunity"
@@ -713,13 +816,13 @@ def test_audit_ledger_captures_conversion(tmp_path, monkeypatch):
     _seed_lead(tables)
     from backend.crm.service import convert_lead_to_prospect
     from backend.crm.models import ConvertLeadRequest
-    convert_lead_to_prospect(ConvertLeadRequest(lead_id="lead_x",
-                                                 assigned_to="ops@hf.tech"))
+
+    convert_lead_to_prospect(ConvertLeadRequest(lead_id="lead_x", assigned_to="ops@hf.tech"))
     assert audit_path.exists()
-    lines = [json.loads(l) for l in audit_path.read_text(encoding="utf-8").splitlines() if l.strip()]
-    assert any(rec.get("service") == "crm"
-               and rec.get("action") == "convert_lead"
-               for rec in lines)
+    lines = [
+        json.loads(l) for l in audit_path.read_text(encoding="utf-8").splitlines() if l.strip()
+    ]
+    assert any(rec.get("service") == "crm" and rec.get("action") == "convert_lead" for rec in lines)
     # PII redaction: full email NOT in audit body (email_tail only)
     text = audit_path.read_text(encoding="utf-8")
     assert "jane@acme.com" not in text
@@ -730,11 +833,13 @@ def test_audit_ledger_captures_conversion(tmp_path, monkeypatch):
 # Phase 4: operator-task create / update / lifecycle auto-generators
 # ---------------------------------------------------------------------------
 
+
 def test_create_operator_task_happy_path(tmp_path, monkeypatch):
     _audit_to_tmp(monkeypatch, tmp_path)
     tables = _patch_tables(monkeypatch)
     from backend.crm.service import create_operator_task
     from backend.crm.models import CreateOperatorTaskRequest
+
     req = CreateOperatorTaskRequest(
         kind="review",
         title="Review new lead",
@@ -762,9 +867,13 @@ def test_create_operator_task_fails_on_ddb_put(tmp_path, monkeypatch):
     tables["_operator_tasks_table"].fail_put = True
     from backend.crm.service import create_operator_task
     from backend.crm.models import CreateOperatorTaskRequest
-    result = create_operator_task(CreateOperatorTaskRequest(
-        kind="follow_up", title="t",
-    ))
+
+    result = create_operator_task(
+        CreateOperatorTaskRequest(
+            kind="follow_up",
+            title="t",
+        )
+    )
     assert result.status == "failed"
     assert "ddb_put_failed" in (result.error or "")
     assert result.operator_task_id == ""
@@ -774,36 +883,53 @@ def test_update_operator_task_open_to_in_progress(tmp_path, monkeypatch):
     _audit_to_tmp(monkeypatch, tmp_path)
     tables = _patch_tables(monkeypatch)
     tables["_operator_tasks_table"].items[("operator_task_id", "ot_1")] = {
-        "operator_task_id": "ot_1", "kind": "review", "title": "x",
-        "status": "open", "description": "",
+        "operator_task_id": "ot_1",
+        "kind": "review",
+        "title": "x",
+        "status": "open",
+        "description": "",
     }
     from backend.crm.service import update_operator_task
     from backend.crm.models import UpdateOperatorTaskRequest
-    result = update_operator_task(UpdateOperatorTaskRequest(
-        operator_task_id="ot_1", status="in_progress",
-    ))
+
+    result = update_operator_task(
+        UpdateOperatorTaskRequest(
+            operator_task_id="ot_1",
+            status="in_progress",
+        )
+    )
     assert result.status == "updated"
     assert result.prior_status == "open"
     assert result.new_status == "in_progress"
-    assert tables["_operator_tasks_table"].items[
-        ("operator_task_id", "ot_1")
-    ]["status"] == "in_progress"
+    assert (
+        tables["_operator_tasks_table"].items[("operator_task_id", "ot_1")]["status"]
+        == "in_progress"
+    )
 
 
 def test_update_operator_task_in_progress_to_done_sets_completed_at(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ):
     _audit_to_tmp(monkeypatch, tmp_path)
     tables = _patch_tables(monkeypatch)
     tables["_operator_tasks_table"].items[("operator_task_id", "ot_1")] = {
-        "operator_task_id": "ot_1", "kind": "call", "title": "x",
-        "status": "in_progress", "description": "",
+        "operator_task_id": "ot_1",
+        "kind": "call",
+        "title": "x",
+        "status": "in_progress",
+        "description": "",
     }
     from backend.crm.service import update_operator_task
     from backend.crm.models import UpdateOperatorTaskRequest
-    result = update_operator_task(UpdateOperatorTaskRequest(
-        operator_task_id="ot_1", status="done", notes="Spoke with owner.",
-    ))
+
+    result = update_operator_task(
+        UpdateOperatorTaskRequest(
+            operator_task_id="ot_1",
+            status="done",
+            notes="Spoke with owner.",
+        )
+    )
     assert result.status == "updated"
     row = tables["_operator_tasks_table"].items[("operator_task_id", "ot_1")]
     assert row["status"] == "done"
@@ -816,14 +942,21 @@ def test_update_operator_task_done_to_open_rejected(tmp_path, monkeypatch):
     _audit_to_tmp(monkeypatch, tmp_path)
     tables = _patch_tables(monkeypatch)
     tables["_operator_tasks_table"].items[("operator_task_id", "ot_1")] = {
-        "operator_task_id": "ot_1", "kind": "review", "title": "x",
-        "status": "done", "description": "",
+        "operator_task_id": "ot_1",
+        "kind": "review",
+        "title": "x",
+        "status": "done",
+        "description": "",
     }
     from backend.crm.service import update_operator_task
     from backend.crm.models import UpdateOperatorTaskRequest
-    result = update_operator_task(UpdateOperatorTaskRequest(
-        operator_task_id="ot_1", status="open",
-    ))
+
+    result = update_operator_task(
+        UpdateOperatorTaskRequest(
+            operator_task_id="ot_1",
+            status="open",
+        )
+    )
     assert result.status == "invalid_transition"
     assert result.prior_status == "done"
     assert result.new_status == "done"  # unchanged
@@ -834,14 +967,20 @@ def test_update_operator_task_open_to_open_rejected_as_noop(tmp_path, monkeypatc
     _audit_to_tmp(monkeypatch, tmp_path)
     tables = _patch_tables(monkeypatch)
     tables["_operator_tasks_table"].items[("operator_task_id", "ot_1")] = {
-        "operator_task_id": "ot_1", "kind": "review", "title": "x",
+        "operator_task_id": "ot_1",
+        "kind": "review",
+        "title": "x",
         "status": "open",
     }
     from backend.crm.service import update_operator_task
     from backend.crm.models import UpdateOperatorTaskRequest
-    result = update_operator_task(UpdateOperatorTaskRequest(
-        operator_task_id="ot_1", status="open",
-    ))
+
+    result = update_operator_task(
+        UpdateOperatorTaskRequest(
+            operator_task_id="ot_1",
+            status="open",
+        )
+    )
     assert result.status == "invalid_transition"
     assert "noop_same_status" in (result.error or "")
 
@@ -851,9 +990,13 @@ def test_update_operator_task_not_found(tmp_path, monkeypatch):
     _patch_tables(monkeypatch)
     from backend.crm.service import update_operator_task
     from backend.crm.models import UpdateOperatorTaskRequest
-    result = update_operator_task(UpdateOperatorTaskRequest(
-        operator_task_id="ot_missing", status="in_progress",
-    ))
+
+    result = update_operator_task(
+        UpdateOperatorTaskRequest(
+            operator_task_id="ot_missing",
+            status="in_progress",
+        )
+    )
     assert result.status == "not_found"
     assert result.error == "operator_task_not_found"
 
@@ -862,21 +1005,28 @@ def test_update_operator_task_ddb_put_failure(tmp_path, monkeypatch):
     _audit_to_tmp(monkeypatch, tmp_path)
     tables = _patch_tables(monkeypatch)
     tables["_operator_tasks_table"].items[("operator_task_id", "ot_1")] = {
-        "operator_task_id": "ot_1", "kind": "review", "title": "x",
+        "operator_task_id": "ot_1",
+        "kind": "review",
+        "title": "x",
         "status": "open",
     }
     tables["_operator_tasks_table"].fail_put = True
     from backend.crm.service import update_operator_task
     from backend.crm.models import UpdateOperatorTaskRequest
-    result = update_operator_task(UpdateOperatorTaskRequest(
-        operator_task_id="ot_1", status="in_progress",
-    ))
+
+    result = update_operator_task(
+        UpdateOperatorTaskRequest(
+            operator_task_id="ot_1",
+            status="in_progress",
+        )
+    )
     assert result.status == "failed"
     assert "ddb_put_failed" in (result.error or "")
 
 
 def test_generate_task_from_lead_shape():
     from backend.crm.service import generate_task_from_lead
+
     task = generate_task_from_lead(
         lead_id="lead_abc",
         name="Jane Smith",
@@ -894,14 +1044,18 @@ def test_generate_task_from_lead_shape():
     assert task["due_at"]  # 24h from now
     # Round-trips through the request model.
     from backend.crm.models import CreateOperatorTaskRequest
+
     req = CreateOperatorTaskRequest(**task)
     assert req.kind == "review"
 
 
 def test_generate_task_for_stalled_opportunity_shape():
     from backend.crm.service import generate_task_for_stalled_opportunity
+
     task = generate_task_for_stalled_opportunity(
-        opportunity_id="op_xyz", prospect_id="pr_acme", days_in_stage=7,
+        opportunity_id="op_xyz",
+        prospect_id="pr_acme",
+        days_in_stage=7,
     )
     assert task["kind"] == "follow_up"
     assert "op_xyz" in task["title"]
@@ -913,6 +1067,7 @@ def test_generate_task_for_stalled_opportunity_shape():
     assert task["source_ref"] == "op_xyz"
     assert task["due_at"]
     from backend.crm.models import CreateOperatorTaskRequest
+
     req = CreateOperatorTaskRequest(**task)
     assert req.kind == "follow_up"
 
@@ -920,6 +1075,7 @@ def test_generate_task_for_stalled_opportunity_shape():
 # ---------------------------------------------------------------------------
 # Phase 2 — upsert_conversation + upsert_call_state (voice end-of-call writes)
 # ---------------------------------------------------------------------------
+
 
 def test_upsert_conversation_persists_row(tmp_path, monkeypatch):
     _audit_to_tmp(monkeypatch, tmp_path)
@@ -939,9 +1095,7 @@ def test_upsert_conversation_persists_row(tmp_path, monkeypatch):
     )
     ok = upsert_conversation(conv)
     assert ok is True
-    stored = tables["_conversations_table"].items[
-        ("conversation_id", "cv_vapi_call_abc")
-    ]
+    stored = tables["_conversations_table"].items[("conversation_id", "cv_vapi_call_abc")]
     assert stored["prospect_id"] == "pr_acme"
     assert stored["source"] == "vapi"
     assert stored["source_ref"] == "call_abc"
@@ -984,6 +1138,7 @@ def test_conversation_model_rejects_invalid_channel(tmp_path, monkeypatch):
     from backend.crm.models import Conversation
     from pydantic import ValidationError
     import pytest as _pytest
+
     with _pytest.raises(ValidationError):
         Conversation(conversation_id="cv_x", channel="carrier_pigeon")
 
@@ -994,11 +1149,18 @@ def test_upsert_conversation_writes_audit_entry(tmp_path, monkeypatch):
     _patch_tables(monkeypatch)
     from backend.crm.service import upsert_conversation
     from backend.crm.models import Conversation
-    upsert_conversation(Conversation(
-        conversation_id="cv_audited", source="vapi", source_ref="call_z",
-    ))
+
+    upsert_conversation(
+        Conversation(
+            conversation_id="cv_audited",
+            source="vapi",
+            source_ref="call_z",
+        )
+    )
     assert audit_path.exists()
-    lines = [json.loads(l) for l in audit_path.read_text(encoding="utf-8").splitlines() if l.strip()]
+    lines = [
+        json.loads(l) for l in audit_path.read_text(encoding="utf-8").splitlines() if l.strip()
+    ]
     assert any(rec.get("action") == "upsert_conversation" for rec in lines)
 
 
@@ -1055,6 +1217,7 @@ def test_call_state_model_rejects_invalid_state(tmp_path, monkeypatch):
     from backend.crm.models import CallState
     from pydantic import ValidationError
     import pytest as _pytest
+
     with _pytest.raises(ValidationError):
         CallState(prospect_id="pr_x", state="loitering")
 
@@ -1065,11 +1228,18 @@ def test_upsert_call_state_writes_audit_entry(tmp_path, monkeypatch):
     _patch_tables(monkeypatch)
     from backend.crm.service import upsert_call_state
     from backend.crm.models import CallState
-    upsert_call_state(CallState(
-        prospect_id="pr_audited", state="completed", last_call_id="call_audit",
-    ))
+
+    upsert_call_state(
+        CallState(
+            prospect_id="pr_audited",
+            state="completed",
+            last_call_id="call_audit",
+        )
+    )
     assert audit_path.exists()
-    lines = [json.loads(l) for l in audit_path.read_text(encoding="utf-8").splitlines() if l.strip()]
+    lines = [
+        json.loads(l) for l in audit_path.read_text(encoding="utf-8").splitlines() if l.strip()
+    ]
     assert any(rec.get("action") == "upsert_call_state" for rec in lines)
 
 
@@ -1077,11 +1247,13 @@ def test_upsert_call_state_writes_audit_entry(tmp_path, monkeypatch):
 # Phase 5 — artifact lifecycle + close-the-loop helpers
 # ---------------------------------------------------------------------------
 
+
 def test_create_artifact_happy_path(tmp_path, monkeypatch):
     _audit_to_tmp(monkeypatch, tmp_path)
     tables = _patch_tables(monkeypatch)
     from backend.crm.service import create_artifact, get_artifact
     from backend.crm.models import CreateArtifactRequest
+
     req = CreateArtifactRequest(
         kind="seo_audit",
         owner_entity_kind="prospect",
@@ -1110,11 +1282,14 @@ def test_create_artifact_fails_on_ddb_put_fail(tmp_path, monkeypatch):
     tables["_artifacts_table"].fail_put = True
     from backend.crm.service import create_artifact
     from backend.crm.models import CreateArtifactRequest
-    result = create_artifact(CreateArtifactRequest(
-        kind="proposal",
-        owner_entity_kind="opportunity",
-        owner_entity_id="op_x",
-    ))
+
+    result = create_artifact(
+        CreateArtifactRequest(
+            kind="proposal",
+            owner_entity_kind="opportunity",
+            owner_entity_id="op_x",
+        )
+    )
     assert result.status == "failed"
     assert result.artifact_id == ""
     assert "ddb_put_failed" in (result.error or "")
@@ -1125,16 +1300,20 @@ def test_find_opportunity_for_email_happy(tmp_path, monkeypatch):
     _audit_to_tmp(monkeypatch, tmp_path)
     tables = _patch_tables(monkeypatch)
     tables["_contacts_table"].items[("contact_id", "co_jane")] = {
-        "contact_id": "co_jane", "prospect_id": "pr_acme",
+        "contact_id": "co_jane",
+        "prospect_id": "pr_acme",
         "email": "jane@acme.com",
     }
     tables["_opportunities_table"].items[("opportunity_id", "op_open")] = {
-        "opportunity_id": "op_open", "prospect_id": "pr_acme",
-        "stage": "qualified", "deal_size_usd": 1500.0,
+        "opportunity_id": "op_open",
+        "prospect_id": "pr_acme",
+        "stage": "qualified",
+        "deal_size_usd": 1500.0,
         "created_at": "2026-05-15T00:00:00Z",
         "updated_at": "2026-05-15T00:00:00Z",
     }
     from backend.crm.service import find_opportunity_for_email
+
     assert find_opportunity_for_email("jane@acme.com") == "op_open"
 
 
@@ -1142,6 +1321,7 @@ def test_find_opportunity_for_email_no_contact(tmp_path, monkeypatch):
     _audit_to_tmp(monkeypatch, tmp_path)
     _patch_tables(monkeypatch)
     from backend.crm.service import find_opportunity_for_email
+
     assert find_opportunity_for_email("nobody@unknown.com") is None
 
 
@@ -1150,18 +1330,22 @@ def test_find_opportunity_for_email_no_open_opp(tmp_path, monkeypatch):
     _audit_to_tmp(monkeypatch, tmp_path)
     tables = _patch_tables(monkeypatch)
     tables["_contacts_table"].items[("contact_id", "co_dead")] = {
-        "contact_id": "co_dead", "prospect_id": "pr_dead",
+        "contact_id": "co_dead",
+        "prospect_id": "pr_dead",
         "email": "dead@acme.com",
     }
     tables["_opportunities_table"].items[("opportunity_id", "op_won")] = {
-        "opportunity_id": "op_won", "prospect_id": "pr_dead",
+        "opportunity_id": "op_won",
+        "prospect_id": "pr_dead",
         "stage": "closed_won",
     }
     tables["_opportunities_table"].items[("opportunity_id", "op_lost")] = {
-        "opportunity_id": "op_lost", "prospect_id": "pr_dead",
+        "opportunity_id": "op_lost",
+        "prospect_id": "pr_dead",
         "stage": "closed_lost",
     }
     from backend.crm.service import find_opportunity_for_email
+
     assert find_opportunity_for_email("dead@acme.com") is None
 
 
@@ -1169,6 +1353,7 @@ def test_find_opportunity_for_email_empty_string(tmp_path, monkeypatch):
     _audit_to_tmp(monkeypatch, tmp_path)
     _patch_tables(monkeypatch)
     from backend.crm.service import find_opportunity_for_email
+
     assert find_opportunity_for_email("") is None
     assert find_opportunity_for_email("   ") is None
 
@@ -1178,21 +1363,26 @@ def test_find_opportunity_for_email_picks_most_recent_open(tmp_path, monkeypatch
     _audit_to_tmp(monkeypatch, tmp_path)
     tables = _patch_tables(monkeypatch)
     tables["_contacts_table"].items[("contact_id", "co_x")] = {
-        "contact_id": "co_x", "prospect_id": "pr_x", "email": "x@x.com",
+        "contact_id": "co_x",
+        "prospect_id": "pr_x",
+        "email": "x@x.com",
     }
     tables["_opportunities_table"].items[("opportunity_id", "op_old")] = {
-        "opportunity_id": "op_old", "prospect_id": "pr_x",
+        "opportunity_id": "op_old",
+        "prospect_id": "pr_x",
         "stage": "qualified",
         "created_at": "2026-01-01T00:00:00Z",
         "updated_at": "2026-01-02T00:00:00Z",
     }
     tables["_opportunities_table"].items[("opportunity_id", "op_new")] = {
-        "opportunity_id": "op_new", "prospect_id": "pr_x",
+        "opportunity_id": "op_new",
+        "prospect_id": "pr_x",
         "stage": "proposal",
         "created_at": "2026-05-01T00:00:00Z",
         "updated_at": "2026-05-10T00:00:00Z",
     }
     from backend.crm.service import find_opportunity_for_email
+
     assert find_opportunity_for_email("x@x.com") == "op_new"
 
 
@@ -1200,13 +1390,16 @@ def test_close_opportunity_from_payment_advances_to_won(tmp_path, monkeypatch):
     _audit_to_tmp(monkeypatch, tmp_path)
     tables = _patch_tables(monkeypatch)
     tables["_opportunities_table"].items[("opportunity_id", "op_pay")] = {
-        "opportunity_id": "op_pay", "prospect_id": "pr_pay",
-        "stage": "negotiation", "deal_size_usd": 5000.0,
+        "opportunity_id": "op_pay",
+        "prospect_id": "pr_pay",
+        "stage": "negotiation",
+        "deal_size_usd": 5000.0,
         "close_probability": 0.6,
         "created_at": "2026-05-01T00:00:00Z",
         "updated_at": "2026-05-10T00:00:00Z",
     }
     from backend.crm.service import close_opportunity_from_payment, get_opportunity
+
     result = close_opportunity_from_payment(
         opportunity_id="op_pay",
         won_amount_usd=999.0,  # under the FIN-10 cap; this test is about the flow
@@ -1222,17 +1415,21 @@ def test_close_opportunity_from_payment_advances_to_won(tmp_path, monkeypatch):
 
 
 def test_close_opportunity_from_payment_propagates_invalid_transition(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ):
     """If the opp is already closed the wrapper surfaces invalid_transition."""
     _audit_to_tmp(monkeypatch, tmp_path)
     tables = _patch_tables(monkeypatch)
     tables["_opportunities_table"].items[("opportunity_id", "op_dead")] = {
-        "opportunity_id": "op_dead", "stage": "closed_won",
+        "opportunity_id": "op_dead",
+        "stage": "closed_won",
     }
     from backend.crm.service import close_opportunity_from_payment
+
     result = close_opportunity_from_payment(
-        opportunity_id="op_dead", won_amount_usd=100.0,
+        opportunity_id="op_dead",
+        won_amount_usd=100.0,
         payment_ref="evt_x",
     )
     assert result.status == "invalid_transition"
@@ -1244,12 +1441,15 @@ def test_close_opportunity_from_payment_payment_ref_in_audit(tmp_path, monkeypat
     monkeypatch.setenv("SAMUS_CRM_AUDIT_PATH", str(audit_path))
     tables = _patch_tables(monkeypatch)
     tables["_opportunities_table"].items[("opportunity_id", "op_aud")] = {
-        "opportunity_id": "op_aud", "stage": "proposal",
+        "opportunity_id": "op_aud",
+        "stage": "proposal",
         "deal_size_usd": 750.0,
     }
     from backend.crm.service import close_opportunity_from_payment
+
     close_opportunity_from_payment(
-        opportunity_id="op_aud", won_amount_usd=750.0,
+        opportunity_id="op_aud",
+        won_amount_usd=750.0,
         payment_ref="evt_audit_ref_42",
     )
     assert audit_path.exists()
@@ -1257,7 +1457,9 @@ def test_close_opportunity_from_payment_payment_ref_in_audit(tmp_path, monkeypat
     assert "evt_audit_ref_42" not in text  # input_payload is hashed
     # But the action + status should be captured.
     lines = [json.loads(l) for l in text.splitlines() if l.strip()]
-    advanced = [r for r in lines
-                if r.get("action") == "advance_opportunity"
-                and r.get("status") == "completed"]
+    advanced = [
+        r
+        for r in lines
+        if r.get("action") == "advance_opportunity" and r.get("status") == "completed"
+    ]
     assert advanced

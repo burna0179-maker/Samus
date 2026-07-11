@@ -1,4 +1,5 @@
 """Tests for backend.scaffold.templates."""
+
 from __future__ import annotations
 
 import pytest
@@ -32,12 +33,15 @@ def sample_payload():
     }
 
 
-@pytest.mark.parametrize("asset_type,header", [
-    ("proposal_pack", "Proposal Pack"),
-    ("implementation_plan", "Implementation Plan"),
-    ("operating_brief", "Operating Brief"),
-    ("campaign_brief", "Campaign Brief"),
-])
+@pytest.mark.parametrize(
+    "asset_type,header",
+    [
+        ("proposal_pack", "Proposal Pack"),
+        ("implementation_plan", "Implementation Plan"),
+        ("operating_brief", "Operating Brief"),
+        ("campaign_brief", "Campaign Brief"),
+    ],
+)
 def test_render_template_known_types(sample_payload, asset_type, header):
     from backend.scaffold.templates import render_template
 

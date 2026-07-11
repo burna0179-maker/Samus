@@ -20,6 +20,7 @@ Dormant + keyless-safe: ``deploy_site`` does nothing without
 ``_headers`` are pure and unit-tested; the live ``wrangler`` call needs a real
 token to verify end-to-end.
 """
+
 from __future__ import annotations
 
 import logging
@@ -43,13 +44,15 @@ _PAGES_URL_RE = re.compile(r"https://[\w.-]+\.pages\.dev\S*")
 # for the Tailwind Play CDN + Google Fonts the generator uses; tighten it once
 # the build compiles Tailwind locally (then drop 'unsafe-eval').
 _SECURITY_HEADERS: list[tuple[str, str]] = [
-    ("Content-Security-Policy",
-     "default-src 'self'; "
-     "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com; "
-     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-     "font-src https://fonts.gstatic.com; img-src 'self' https: data:; "
-     "frame-src https://docs.google.com https://forms.gle; "
-     "frame-ancestors 'self'"),
+    (
+        "Content-Security-Policy",
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src https://fonts.gstatic.com; img-src 'self' https: data:; "
+        "frame-src https://docs.google.com https://forms.gle; "
+        "frame-ancestors 'self'",
+    ),
     ("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload"),
     ("X-Frame-Options", "SAMEORIGIN"),
     ("X-Content-Type-Options", "nosniff"),
@@ -67,8 +70,13 @@ class DeployResult:
     error: str = ""
 
     def to_dict(self) -> dict[str, Any]:
-        return {"ok": self.ok, "url": self.url, "project": self.project,
-                "log": self.log[-800:], "error": self.error}
+        return {
+            "ok": self.ok,
+            "url": self.url,
+            "project": self.project,
+            "log": self.log[-800:],
+            "error": self.error,
+        }
 
 
 def build_security_headers() -> str:
@@ -79,7 +87,9 @@ def build_security_headers() -> str:
     return "\n".join(lines) + "\n"
 
 
-def prepare_build_dir(site: GeneratedSite, *, out_dir: str | Path, security_headers: bool = True) -> Path:
+def prepare_build_dir(
+    site: GeneratedSite, *, out_dir: str | Path, security_headers: bool = True
+) -> Path:
     """Write the generated site + a _headers file into a build directory."""
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -97,14 +107,23 @@ def prepare_build_dir(site: GeneratedSite, *, out_dir: str | Path, security_head
     return out
 
 
-def create_project(*, account_id: str, api_token: str, project: str,
-                   production_branch: str = "main", timeout: float = 30.0) -> dict[str, Any]:
+def create_project(
+    *,
+    account_id: str,
+    api_token: str,
+    project: str,
+    production_branch: str = "main",
+    timeout: float = 30.0,
+) -> dict[str, Any]:
     """Best-effort create the Pages project (POST /pages/projects). 409 == exists."""
     url = f"{_CF_API}/accounts/{account_id}/pages/projects"
     try:
         with httpx.Client(timeout=timeout) as client:
-            r = client.post(url, headers={"Authorization": f"Bearer {api_token}"},
-                            json={"name": project, "production_branch": production_branch})
+            r = client.post(
+                url,
+                headers={"Authorization": f"Bearer {api_token}"},
+                json={"name": project, "production_branch": production_branch},
+            )
         return {"status": r.status_code, "body": (r.json() if r.content else {})}
     except httpx.HTTPError as exc:
         return {"status": None, "error": str(exc)}
@@ -113,13 +132,25 @@ def create_project(*, account_id: str, api_token: str, project: str,
 def _run(cmd: list[str], *, env: dict[str, str], timeout: float):
     """subprocess wrapper (monkeypatched in tests). utf-8 so wrangler's emoji
     output doesn't trip the host's default (cp1252) decoder."""
-    return subprocess.run(cmd, env=env, capture_output=True, text=True,
-                          encoding="utf-8", errors="replace", timeout=timeout)
+    return subprocess.run(
+        cmd,
+        env=env,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=timeout,
+    )
 
 
 def deploy_via_wrangler(
-    build_dir: str | Path, *, project: str, api_token: str, account_id: str,
-    branch: str = "main", timeout: float = 300.0,
+    build_dir: str | Path,
+    *,
+    project: str,
+    api_token: str,
+    account_id: str,
+    branch: str = "main",
+    timeout: float = 300.0,
 ) -> DeployResult:
     """Deploy a build dir to Cloudflare Pages via ``wrangler pages deploy``."""
     env = os.environ.copy()
@@ -128,22 +159,35 @@ def deploy_via_wrangler(
     # Resolve npx to its full path so Windows finds npx.cmd (subprocess without
     # shell won't apply PATHEXT). On Linux/Docker this is just /usr/bin/npx.
     npx = shutil.which("npx") or "npx"
-    cmd = [npx, "wrangler", "pages", "deploy", str(build_dir),
-           f"--project-name={project}", f"--branch={branch}"]
+    cmd = [
+        npx,
+        "wrangler",
+        "pages",
+        "deploy",
+        str(build_dir),
+        f"--project-name={project}",
+        f"--branch={branch}",
+    ]
     try:
         proc = _run(cmd, env=env, timeout=timeout)
     except FileNotFoundError:
-        return DeployResult(False, project=project, error="wrangler/npx not found (node runtime required)")
+        return DeployResult(
+            False, project=project, error="wrangler/npx not found (node runtime required)"
+        )
     except subprocess.TimeoutExpired:
         return DeployResult(False, project=project, error=f"deploy timed out after {timeout}s")
     out = (getattr(proc, "stdout", "") or "") + (getattr(proc, "stderr", "") or "")
     if getattr(proc, "returncode", 1) != 0:
-        return DeployResult(False, project=project, log=out, error=f"wrangler exit {proc.returncode}")
+        return DeployResult(
+            False, project=project, log=out, error=f"wrangler exit {proc.returncode}"
+        )
     m = _PAGES_URL_RE.search(out)
     return DeployResult(True, url=m.group(0) if m else "", project=project, log=out)
 
 
-def deploy_site(site: GeneratedSite, *, settings: Any, out_dir: str | Path | None = None) -> DeployResult:
+def deploy_site(
+    site: GeneratedSite, *, settings: Any, out_dir: str | Path | None = None
+) -> DeployResult:
     """Dormant orchestrator: prepare the build dir + deploy. Fail-closed."""
     if not getattr(settings, "website_deploy_enabled", False):
         return DeployResult(False, error="disabled")
@@ -158,6 +202,7 @@ def deploy_site(site: GeneratedSite, *, settings: Any, out_dir: str | Path | Non
 
     if out_dir is None:
         from backend.common.state_paths import state_path
+
         out_dir = state_path("website", "build")
     build_dir = prepare_build_dir(site, out_dir=out_dir)
     create_project(account_id=account, api_token=token, project=project)  # best-effort
@@ -165,6 +210,10 @@ def deploy_site(site: GeneratedSite, *, settings: Any, out_dir: str | Path | Non
 
 
 __all__ = [
-    "DeployResult", "build_security_headers", "prepare_build_dir",
-    "create_project", "deploy_via_wrangler", "deploy_site",
+    "DeployResult",
+    "build_security_headers",
+    "prepare_build_dir",
+    "create_project",
+    "deploy_via_wrangler",
+    "deploy_site",
 ]

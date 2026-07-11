@@ -1,4 +1,5 @@
 """Timestamp helpers per doc §3.17."""
+
 from __future__ import annotations
 
 import logging
@@ -40,11 +41,13 @@ def _business_tzinfo() -> timezone | object:
     old UTC-day behavior rather than raising."""
     try:
         from zoneinfo import ZoneInfo  # noqa: PLC0415
+
         return ZoneInfo(_BUSINESS_TZ_NAME)
     except Exception as exc:  # noqa: BLE001 — tzdata missing / bad name
         _LOG.warning(
-            "business tz %r unavailable (%s); falling back to UTC for the "
-            "business day", _BUSINESS_TZ_NAME, exc,
+            "business tz %r unavailable (%s); falling back to UTC for the business day",
+            _BUSINESS_TZ_NAME,
+            exc,
         )
         return timezone.utc
 

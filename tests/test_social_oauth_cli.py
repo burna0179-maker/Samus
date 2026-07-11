@@ -4,6 +4,7 @@ No network: authorize_url is pure string building; the exchange path is tested
 by patching exchange_code at the CLI module level. Secrets are injected via an
 env mapping so nothing touches the real environment.
 """
+
 from __future__ import annotations
 
 import json
@@ -21,7 +22,9 @@ _ENV = {
 
 def test_authorize_url_builds_consent_url_with_generated_state():
     url, state = cli.authorize_url(
-        "linkedin", "https://localhost/cb", env=_ENV,
+        "linkedin",
+        "https://localhost/cb",
+        env=_ENV,
     )
     assert url.startswith("https://www.linkedin.com/oauth/v2/authorization?")
     assert "client_id=cid-123" in url
@@ -30,7 +33,10 @@ def test_authorize_url_builds_consent_url_with_generated_state():
 
 def test_authorize_url_honours_supplied_state():
     url, state = cli.authorize_url(
-        "linkedin", "https://localhost/cb", state="fixed-state", env=_ENV,
+        "linkedin",
+        "https://localhost/cb",
+        state="fixed-state",
+        env=_ENV,
     )
     assert state == "fixed-state"
     assert "state=fixed-state" in url
@@ -60,7 +66,9 @@ def test_exchange_delegates_with_env_secrets(monkeypatch):
 def test_exchange_missing_secret_raises():
     with pytest.raises(ValueError, match="SAMUS_LINKEDIN_CLIENT_SECRET"):
         cli.exchange(
-            "linkedin", "code", "https://localhost/cb",
+            "linkedin",
+            "code",
+            "https://localhost/cb",
             env={"SAMUS_LINKEDIN_CLIENT_ID": "cid"},
         )
 
@@ -70,7 +78,9 @@ def test_exchange_missing_secret_raises():
 
 def test_main_url_prints_state_and_url(monkeypatch, capsys):
     monkeypatch.setattr(
-        cli, "authorize_url", lambda *a, **k: ("https://consent/url", "st8"),
+        cli,
+        "authorize_url",
+        lambda *a, **k: ("https://consent/url", "st8"),
     )
     rc = cli.main(["url", "--platform", "linkedin", "--redirect-uri", "https://localhost/cb"])
     out = capsys.readouterr().out
@@ -81,10 +91,17 @@ def test_main_url_prints_state_and_url(monkeypatch, capsys):
 
 def test_main_exchange_prints_token_json(monkeypatch, capsys):
     monkeypatch.setattr(cli, "exchange", lambda *a, **k: {"access_token": "tok"})
-    rc = cli.main([
-        "exchange", "--platform", "linkedin",
-        "--code", "c", "--redirect-uri", "https://localhost/cb",
-    ])
+    rc = cli.main(
+        [
+            "exchange",
+            "--platform",
+            "linkedin",
+            "--code",
+            "c",
+            "--redirect-uri",
+            "https://localhost/cb",
+        ]
+    )
     out = capsys.readouterr().out
     assert rc == 0
     assert json.loads(out)["access_token"] == "tok"

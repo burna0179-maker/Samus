@@ -4,6 +4,7 @@ The prior shell stored a CloudEvents-1.0 envelope in cloudevents.py with differe
 field shape. This module now defines the doc's QueueEnvelope directly. The
 cloudevents.py module is being deprecated.
 """
+
 from __future__ import annotations
 
 from typing import Any

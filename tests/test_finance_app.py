@@ -1,13 +1,16 @@
 """Finance workcell FastAPI endpoint tests."""
+
 from __future__ import annotations
 
 
 def _reset_idempotency(monkeypatch):
     from backend.common.idempotency import IdempotencyStore
     import backend.common.idempotency as idem_mod
+
     fresh = IdempotencyStore()
     monkeypatch.setattr(idem_mod, "GLOBAL_IDEMPOTENCY_STORE", fresh)
     import backend.finance.service as svc_mod
+
     monkeypatch.setattr(svc_mod, "GLOBAL_IDEMPOTENCY_STORE", fresh)
 
 
@@ -18,6 +21,7 @@ def _override_settings(monkeypatch, *, stripe_api_key: str = ""):
     settings = _S()
     settings.stripe_api_key = stripe_api_key
     import backend.finance.service as svc_mod
+
     monkeypatch.setattr(svc_mod, "get_settings", lambda: settings)
 
 
@@ -46,6 +50,7 @@ def test_get_snapshot_endpoint_works_without_stripe_key(tmp_path, monkeypatch):
     _seed_codb(monkeypatch, tmp_path)
     from fastapi.testclient import TestClient
     from backend.finance.app import app
+
     client = TestClient(app)
     r = client.get("/snapshot")
     assert r.status_code == 200, r.text
@@ -63,6 +68,7 @@ def test_post_snapshot_endpoint_accepts_limits(tmp_path, monkeypatch):
     _seed_codb(monkeypatch, tmp_path)
     from fastapi.testclient import TestClient
     from backend.finance.app import app
+
     client = TestClient(app)
     r = client.post("/snapshot", json={"charges_limit": 5, "payouts_limit": 3})
     assert r.status_code == 200, r.text
@@ -73,6 +79,7 @@ def test_codb_summary_endpoint(tmp_path, monkeypatch):
     _seed_codb(monkeypatch, tmp_path)
     from fastapi.testclient import TestClient
     from backend.finance.app import app
+
     client = TestClient(app)
     r = client.get("/codb_summary")
     assert r.status_code == 200, r.text
@@ -87,6 +94,7 @@ def test_runway_endpoint_with_override(tmp_path, monkeypatch):
     _seed_codb(monkeypatch, tmp_path)
     from fastapi.testclient import TestClient
     from backend.finance.app import app
+
     client = TestClient(app)
     r = client.post("/runway", json={"override_balance_usd": 60.0})
     assert r.status_code == 200, r.text
@@ -103,6 +111,7 @@ def test_runway_get_endpoint_uses_zero_when_no_stripe(tmp_path, monkeypatch):
     _seed_codb(monkeypatch, tmp_path)
     from fastapi.testclient import TestClient
     from backend.finance.app import app
+
     client = TestClient(app)
     r = client.get("/runway")
     assert r.status_code == 200, r.text
@@ -117,12 +126,16 @@ def test_work_endpoint_routes_by_metadata_action(tmp_path, monkeypatch):
     _seed_codb(monkeypatch, tmp_path)
     from fastapi.testclient import TestClient
     from backend.finance.app import app
+
     client = TestClient(app)
-    r = client.post("/work", json={
-        "task_id": "t-1",
-        "payload": {},
-        "metadata": {"action": "codb_summary"},
-    })
+    r = client.post(
+        "/work",
+        json={
+            "task_id": "t-1",
+            "payload": {},
+            "metadata": {"action": "codb_summary"},
+        },
+    )
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["total_monthly_burn_usd"] == 30
@@ -134,12 +147,16 @@ def test_work_endpoint_runway_action(tmp_path, monkeypatch):
     _seed_codb(monkeypatch, tmp_path)
     from fastapi.testclient import TestClient
     from backend.finance.app import app
+
     client = TestClient(app)
-    r = client.post("/work", json={
-        "task_id": "t-r",
-        "payload": {"override_balance_usd": 30},
-        "metadata": {"action": "runway"},
-    })
+    r = client.post(
+        "/work",
+        json={
+            "task_id": "t-r",
+            "payload": {"override_balance_usd": 30},
+            "metadata": {"action": "runway"},
+        },
+    )
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["available_balance_usd"] == 30
@@ -152,12 +169,16 @@ def test_work_endpoint_unknown_action_400(tmp_path, monkeypatch):
     _seed_codb(monkeypatch, tmp_path)
     from fastapi.testclient import TestClient
     from backend.finance.app import app
+
     client = TestClient(app)
-    r = client.post("/work", json={
-        "task_id": "t-x",
-        "payload": {},
-        "metadata": {"action": "bogus"},
-    })
+    r = client.post(
+        "/work",
+        json={
+            "task_id": "t-x",
+            "payload": {},
+            "metadata": {"action": "bogus"},
+        },
+    )
     assert r.status_code == 400
     assert "unknown_action" in r.text
 
@@ -166,6 +187,7 @@ def test_liabilities_endpoint_returns_summary(tmp_path, monkeypatch):
     _reset_idempotency(monkeypatch)
     from fastapi.testclient import TestClient
     from backend.finance.app import app
+
     client = TestClient(app)
     r = client.get("/liabilities")
     assert r.status_code == 200, r.text
@@ -179,6 +201,7 @@ def test_declines_endpoint_default_window(tmp_path, monkeypatch):
     _reset_idempotency(monkeypatch)
     from fastapi.testclient import TestClient
     from backend.finance.app import app
+
     client = TestClient(app)
     r = client.get("/declines")
     assert r.status_code == 200, r.text
@@ -192,6 +215,7 @@ def test_declines_endpoint_custom_window(tmp_path, monkeypatch):
     _reset_idempotency(monkeypatch)
     from fastapi.testclient import TestClient
     from backend.finance.app import app
+
     client = TestClient(app)
     r = client.get("/declines?window_days=7")
     assert r.status_code == 200, r.text
@@ -202,12 +226,16 @@ def test_work_endpoint_liabilities_action(tmp_path, monkeypatch):
     _reset_idempotency(monkeypatch)
     from fastapi.testclient import TestClient
     from backend.finance.app import app
+
     client = TestClient(app)
-    r = client.post("/work", json={
-        "task_id": "t-liab",
-        "payload": {},
-        "metadata": {"action": "liabilities"},
-    })
+    r = client.post(
+        "/work",
+        json={
+            "task_id": "t-liab",
+            "payload": {},
+            "metadata": {"action": "liabilities"},
+        },
+    )
     assert r.status_code == 200, r.text
     assert r.json()["total_outstanding_usd"] == 1642.0
 
@@ -216,12 +244,16 @@ def test_work_endpoint_declines_action(tmp_path, monkeypatch):
     _reset_idempotency(monkeypatch)
     from fastapi.testclient import TestClient
     from backend.finance.app import app
+
     client = TestClient(app)
-    r = client.post("/work", json={
-        "task_id": "t-decl",
-        "payload": {"window_days": 365},
-        "metadata": {"action": "declines"},
-    })
+    r = client.post(
+        "/work",
+        json={
+            "task_id": "t-decl",
+            "payload": {"window_days": 365},
+            "metadata": {"action": "declines"},
+        },
+    )
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["window_days"] == 365
@@ -240,6 +272,7 @@ def test_debts_endpoint_empty_when_no_registry(tmp_path, monkeypatch):
     _isolate_phase3_to_empty(monkeypatch, tmp_path)
     from fastapi.testclient import TestClient
     from backend.finance.app import app
+
     client = TestClient(app)
     r = client.get("/debts")
     assert r.status_code == 200, r.text
@@ -253,6 +286,7 @@ def test_actions_endpoint_empty_when_no_registry(tmp_path, monkeypatch):
     _isolate_phase3_to_empty(monkeypatch, tmp_path)
     from fastapi.testclient import TestClient
     from backend.finance.app import app
+
     client = TestClient(app)
     r = client.get("/actions")
     assert r.status_code == 200, r.text
@@ -266,6 +300,7 @@ def test_info_gaps_endpoint_empty_when_no_registry(tmp_path, monkeypatch):
     _isolate_phase3_to_empty(monkeypatch, tmp_path)
     from fastapi.testclient import TestClient
     from backend.finance.app import app
+
     client = TestClient(app)
     r = client.get("/info_gaps")
     assert r.status_code == 200, r.text
@@ -279,6 +314,7 @@ def test_hardship_endpoint_empty_when_no_registry(tmp_path, monkeypatch):
     _isolate_phase3_to_empty(monkeypatch, tmp_path)
     from fastapi.testclient import TestClient
     from backend.finance.app import app
+
     client = TestClient(app)
     r = client.get("/hardship")
     assert r.status_code == 200, r.text
@@ -292,11 +328,15 @@ def test_work_endpoint_all_phase3_actions(tmp_path, monkeypatch):
     _isolate_phase3_to_empty(monkeypatch, tmp_path)
     from fastapi.testclient import TestClient
     from backend.finance.app import app
+
     client = TestClient(app)
     for action in ("debts", "actions", "info_gaps", "hardship"):
-        r = client.post("/work", json={
-            "task_id": f"t-{action}",
-            "payload": {},
-            "metadata": {"action": action},
-        })
+        r = client.post(
+            "/work",
+            json={
+                "task_id": f"t-{action}",
+                "payload": {},
+                "metadata": {"action": action},
+            },
+        )
         assert r.status_code == 200, f"{action}: {r.text}"

@@ -16,6 +16,7 @@ Usage::
     missing = schema.validate({"query": "...", "location": "..."})   # -> []
     missing = schema.validate({"query": "..."})                      # -> ["location"]
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

@@ -5,6 +5,7 @@ outbound keeps producing must surface a CRITICAL outbound/inbound asymmetry.
 Every check is exercised through its injectable seams so the suite never touches
 live settings, the Windows Task Scheduler, or a real mailbox.
 """
+
 from __future__ import annotations
 
 import json
@@ -16,6 +17,7 @@ from backend.observability.production_health import HealthStatus
 # ---------------------------------------------------------------------------
 # OAuth token check
 # ---------------------------------------------------------------------------
+
 
 def _write_token(tmp_path, expires_at):
     f = tmp_path / "gmail_oauth_token.json"
@@ -78,10 +80,12 @@ def test_oauth_token_inbox_not_configured_is_info(tmp_path):
 # Scheduled-task check (parse layer, platform-independent via monkeypatch)
 # ---------------------------------------------------------------------------
 
+
 def test_scheduled_task_nonzero_result_is_fail(monkeypatch):
     monkeypatch.setattr(ph, "_on_windows", lambda: True)
     monkeypatch.setattr(
-        ph, "_query_scheduled_task",
+        ph,
+        "_query_scheduled_task",
         lambda name: {"last_result": "1", "last_run": "7/6/2026 8:40 AM", "status": "Ready"},
     )
     checks = ph.check_scheduled_tasks(task_names=("Samus Inbox Poll",))
@@ -93,7 +97,8 @@ def test_scheduled_task_nonzero_result_is_fail(monkeypatch):
 def test_scheduled_task_zero_result_is_ok(monkeypatch):
     monkeypatch.setattr(ph, "_on_windows", lambda: True)
     monkeypatch.setattr(
-        ph, "_query_scheduled_task",
+        ph,
+        "_query_scheduled_task",
         lambda name: {"last_result": "0", "last_run": "7/6/2026 8:40 AM", "status": "Ready"},
     )
     checks = ph.check_scheduled_tasks(task_names=("Samus Inbox Poll",))
@@ -111,6 +116,7 @@ def test_scheduled_task_non_windows_is_unknown(monkeypatch):
 # Outbound activity + asymmetry
 # ---------------------------------------------------------------------------
 
+
 class _FakeObs:
     def __init__(self, ts):
         self.last_activity_ts = ts
@@ -125,7 +131,9 @@ def test_outbound_recent_activity(monkeypatch):
 
 def test_outbound_stale_activity_not_recent():
     now = 1_000_000.0
-    check, produced = ph.check_outbound_activity(now_ts=now, observer=lambda: _FakeObs(now - 5 * 24 * 3600))
+    check, produced = ph.check_outbound_activity(
+        now_ts=now, observer=lambda: _FakeObs(now - 5 * 24 * 3600)
+    )
     assert produced is False
 
 
@@ -148,20 +156,24 @@ def test_asymmetry_none_when_no_outbound():
 # Orchestrator - the incident reproduction
 # ---------------------------------------------------------------------------
 
+
 def test_report_reproduces_incident(monkeypatch):
     """Expired token + live outbound => CRITICAL asymmetry surfaces."""
     now = 1_000_000.0
     monkeypatch.setattr(
-        ph, "check_oauth_token",
+        ph,
+        "check_oauth_token",
         lambda **kw: ph.HealthCheck("oauth_token", HealthStatus.FAIL, "expired 94h ago"),
     )
     monkeypatch.setattr(ph, "check_scheduled_tasks", lambda **kw: [])
     monkeypatch.setattr(
-        ph, "check_inbound_freshness",
+        ph,
+        "check_inbound_freshness",
         lambda **kw: ph.HealthCheck("inbound_freshness", HealthStatus.INFO, "stale"),
     )
     monkeypatch.setattr(
-        ph, "check_outbound_activity",
+        ph,
+        "check_outbound_activity",
         lambda **kw: (ph.HealthCheck("outbound_activity", HealthStatus.INFO, "1h ago"), True),
     )
     report = ph.check_production_health(now_ts=now)
@@ -176,19 +188,23 @@ def test_report_reproduces_incident(monkeypatch):
 def test_report_clean_when_healthy(monkeypatch):
     now = 1_000_000.0
     monkeypatch.setattr(
-        ph, "check_oauth_token",
+        ph,
+        "check_oauth_token",
         lambda **kw: ph.HealthCheck("oauth_token", HealthStatus.OK, "valid 120h"),
     )
     monkeypatch.setattr(
-        ph, "check_scheduled_tasks",
+        ph,
+        "check_scheduled_tasks",
         lambda **kw: [ph.HealthCheck("task:Samus Inbox Poll", HealthStatus.OK, "ok")],
     )
     monkeypatch.setattr(
-        ph, "check_inbound_freshness",
+        ph,
+        "check_inbound_freshness",
         lambda **kw: ph.HealthCheck("inbound_freshness", HealthStatus.INFO, "0.2h ago"),
     )
     monkeypatch.setattr(
-        ph, "check_outbound_activity",
+        ph,
+        "check_outbound_activity",
         lambda **kw: (ph.HealthCheck("outbound_activity", HealthStatus.INFO, "1h ago"), True),
     )
     report = ph.check_production_health(now_ts=now)

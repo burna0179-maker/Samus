@@ -1,13 +1,13 @@
 """Tests for backend.intake.calendar_poller — two-way sync."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from backend.intake.calendar_poller import (
-    PollPassResult,
     _client_id_for_event,
     _is_samus_created,
     _parse_calendar_dt,
@@ -74,6 +74,7 @@ def _stub_settings(monkeypatch):
 
 def _client_factory(events, scope_ok=True):
     """Build a factory returning a mock CalendarApiClient context manager."""
+
     def _factory():
         c = MagicMock()
         if not scope_ok:
@@ -81,17 +82,18 @@ def _client_factory(events, scope_ok=True):
                 RuntimeError("cannot enter — should not happen in these tests"),
             )
         c.check_scope_or_raise = MagicMock(
-            side_effect=None if scope_ok
-            else RuntimeError("calendar_scope_missing"),
+            side_effect=None if scope_ok else RuntimeError("calendar_scope_missing"),
         )
         c.list_events_range = MagicMock(return_value=events)
         c.__enter__ = MagicMock(return_value=c)
         c.__exit__ = MagicMock(return_value=None)
         return c
+
     return _factory
 
 
 # --- pure helpers ---------------------------------------------------------
+
 
 def test_parse_dt_utc_z():
     got = _parse_calendar_dt({"dateTime": "2026-07-12T15:30:00Z"})
@@ -130,6 +132,7 @@ def test_is_samus_created_false_when_source_is_other():
 
 def test_client_id_matched_from_summary(monkeypatch):
     from backend.crm.client_directory import KnownClient
+
     kc = KnownClient(
         email="<client-email>@example.com",
         client_id="sample_school",
@@ -152,6 +155,7 @@ def test_client_id_matched_from_summary(monkeypatch):
 
 def test_client_id_matched_from_attendee(monkeypatch):
     from backend.crm.client_directory import KnownClient
+
     kc = KnownClient(
         email="<client-email>@example.com",
         client_id="sample_school",
@@ -160,7 +164,8 @@ def test_client_id_matched_from_attendee(monkeypatch):
         role="approval_contact",
     )
     monkeypatch.setattr(
-        "backend.crm.client_directory.all_known_clients", lambda: [kc],
+        "backend.crm.client_directory.all_known_clients",
+        lambda: [kc],
     )
     monkeypatch.setattr(
         "backend.crm.client_directory.lookup_client",
@@ -175,10 +180,12 @@ def test_client_id_matched_from_attendee(monkeypatch):
 
 def test_client_id_empty_when_no_match(monkeypatch):
     monkeypatch.setattr(
-        "backend.crm.client_directory.all_known_clients", lambda: [],
+        "backend.crm.client_directory.all_known_clients",
+        lambda: [],
     )
     monkeypatch.setattr(
-        "backend.crm.client_directory.lookup_client", lambda e: None,
+        "backend.crm.client_directory.lookup_client",
+        lambda e: None,
     )
     ev = _mk_event(summary="Just a solo work block")
     assert _client_id_for_event(ev) == ""
@@ -186,13 +193,15 @@ def test_client_id_empty_when_no_match(monkeypatch):
 
 # --- poll_calendar_once orchestration ------------------------------------
 
+
 def test_poll_disabled_when_settings_missing(_isolated_ledger, monkeypatch):
     fake = MagicMock()
     fake.gmail_inbox_email = ""
     fake.gmail_oauth_client_id = ""
     fake.gmail_oauth_client_secret = ""
     monkeypatch.setattr(
-        "backend.intake.calendar_poller.get_settings", lambda: fake,
+        "backend.intake.calendar_poller.get_settings",
+        lambda: fake,
     )
     out = poll_calendar_once()
     assert out.enabled is False
@@ -300,12 +309,14 @@ def test_second_pass_does_not_re_ingest_or_re_emit(_isolated_ledger, _stub_setti
     )
     # First pass: ingests.
     first = poll_calendar_once(
-        client_factory=_client_factory([event]), now=_NOW,
+        client_factory=_client_factory([event]),
+        now=_NOW,
     )
     assert first.ingested == 1
     # Second pass same event, same _NOW: already-seen path.
     second = poll_calendar_once(
-        client_factory=_client_factory([event]), now=_NOW,
+        client_factory=_client_factory([event]),
+        now=_NOW,
     )
     assert second.ingested == 0
     assert second.already_seen == 1
@@ -325,7 +336,8 @@ def test_completion_fires_on_delayed_second_pass(_isolated_ledger, _stub_setting
         lambda ev, cid: "ar_delayed",
     )
     monkeypatch.setattr(
-        "backend.intake.calendar_poller._emit_scheduled", MagicMock(),
+        "backend.intake.calendar_poller._emit_scheduled",
+        MagicMock(),
     )
     completed_calls: list = []
     monkeypatch.setattr(

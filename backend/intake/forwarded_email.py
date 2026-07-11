@@ -24,6 +24,7 @@ regular classification).
 
 No LLM, no network. Two compiled regexes + a header scan.
 """
+
 from __future__ import annotations
 
 import html
@@ -79,8 +80,8 @@ _BLANKLINES_RE = re.compile(r"\n\s*\n")
 # Real HTML has closing tags, self-closing tags, entities, or common
 # block-level tag names. A bare "<addr@dom>" email header is NOT HTML.
 _HTML_INDICATOR_RE = re.compile(
-    r"</\w+>"                          # closing tag
-    r"|<[a-z]+[^@>]*/>"               # self-closing (no @ inside)
+    r"</\w+>"  # closing tag
+    r"|<[a-z]+[^@>]*/>"  # self-closing (no @ inside)
     r"|<(div|span|html|body|head|table|tr|td|th|tbody|thead|p|br|a\s|img\s|"
     r"script|style|em|strong|b|i|u|ul|ol|li|h[1-6]|meta|link|form|input)\b"
     r"|&(amp|nbsp|lt|gt|quot|#\d+|rsquo|lsquo|rdquo|ldquo|mdash|ndash);",
@@ -124,6 +125,7 @@ def strip_html(text: str) -> str:
     except Exception:  # noqa: BLE001
         return text
 
+
 # Address extractor: matches "Name <addr@dom>" OR bare "addr@dom".
 _ADDR_RE = re.compile(r"[\w.+\-]+@[\w\-]+(?:\.[\w\-]+)+")
 
@@ -133,8 +135,8 @@ class ForwardedHeaders:
     """Original headers recovered from a forwarded email body."""
 
     from_addr: str = ""
-    to_addr: str = ""             # FIRST recipient (backward compat)
-    all_to_addrs: tuple[str, ...] = ()   # ALL recipients found in To: line
+    to_addr: str = ""  # FIRST recipient (backward compat)
+    all_to_addrs: tuple[str, ...] = ()  # ALL recipients found in To: line
     subject: str = ""
     date: str = ""
 
@@ -162,7 +164,7 @@ def parse_forwarded_body(body_text: str) -> ForwardedHeaders | None:
     if not m:
         return None
 
-    tail = text[m.end():]
+    tail = text[m.end() :]
 
     def _pluck(regex: re.Pattern) -> str:
         hit = regex.search(tail)

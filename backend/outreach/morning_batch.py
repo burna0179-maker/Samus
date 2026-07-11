@@ -29,6 +29,7 @@ Compliance + safety contract (identical to run_campaign):
 The host wrapper ``scripts/Run-MorningOutreach.ps1`` seeds SendGrid / LLM
 secrets from DPAPI and pins ``SAMUS_ARTIFACT_ROOT`` + ``EMAIL_BACKEND=sendgrid``.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -123,8 +124,11 @@ def _stake_sentence(row: dict[str, str]) -> str:
     # contain internal outcome labels) — continuity, not a data dump.
     if (row.get("recycled") or "").strip().lower() == "true":
         prior_when = (row.get("last_contact_at") or "").strip()[:10]
-        when_clause = f" since we last reached out on {prior_when}" if prior_when else \
-            " since we last reached out"
+        when_clause = (
+            f" since we last reached out on {prior_when}"
+            if prior_when
+            else " since we last reached out"
+        )
         sentence = (
             f"Alex asked me to follow up with {company} — a fair amount has "
             f"changed{when_clause}, and the gap we flagged then is still open."
@@ -145,10 +149,7 @@ def _stake_sentence(row: dict[str, str]) -> str:
             f"signal is hard to keep up with by hand"
         )
     else:
-        reason = (
-            f"the online demand{where} is outrunning what any owner can "
-            f"chase by hand"
-        )
+        reason = f"the online demand{where} is outrunning what any owner can chase by hand"
     sentence = f"Alex flagged {company} because {reason}."
     # Defensive clamp to the guard's hard ceiling; the guard also enforces this
     # but we prefer a clean truncation to a guard rejection at compose time.
@@ -237,9 +238,7 @@ def _tailor_subjects(
     sender + repetition BEFORE the recipient opens). Deterministic; no LLM cost;
     every subject names the company so VR-G8 warmth still clears.
     """
-    row_by_email = {
-        (r.get("owner_email") or "").strip().lower(): r for r in rows
-    }
+    row_by_email = {(r.get("owner_email") or "").strip().lower(): r for r in rows}
     matched: list[tuple[OutreachMessageRequest, dict[str, str]]] = []
     for msg in messages:
         row = row_by_email.get((msg.to or "").strip().lower())
@@ -262,9 +261,12 @@ def _tailor_subjects(
         msg.subject = subject
     top_share = (max(counts.values()) if counts else 0) / n
     _LOG.info(
-        "tailored %d subject(s); %d distinct template(s), top-share=%.0f%% "
-        "(cap=%d of %d matched)",
-        len(matched), len(counts), top_share * 100, cap, n,
+        "tailored %d subject(s); %d distinct template(s), top-share=%.0f%% (cap=%d of %d matched)",
+        len(matched),
+        len(counts),
+        top_share * 100,
+        cap,
+        n,
     )
 
 
@@ -346,15 +348,16 @@ def _config(subject: str, max_send: int) -> campaign.CampaignConfig:
         subject=subject,
         from_name=os.getenv("SAMUS_OUTREACH_FROM_NAME", "Samus"),
         sender_postal_address=os.getenv(
-            "SAMUS_OUTREACH_POSTAL_ADDRESS", _DEFAULT_POSTAL_ADDRESS,
+            "SAMUS_OUTREACH_POSTAL_ADDRESS",
+            _DEFAULT_POSTAL_ADDRESS,
         ),
         unsubscribe_url=os.getenv(
-            "SAMUS_OUTREACH_UNSUBSCRIBE_URL", _DEFAULT_UNSUBSCRIBE_URL,
+            "SAMUS_OUTREACH_UNSUBSCRIBE_URL",
+            _DEFAULT_UNSUBSCRIBE_URL,
         ),
         max_send=max_send,
         require_verified_email=True,
-        use_llm=os.getenv("SAMUS_OUTREACH_USE_LLM", "").strip().lower()
-        in {"1", "true", "yes"},
+        use_llm=os.getenv("SAMUS_OUTREACH_USE_LLM", "").strip().lower() in {"1", "true", "yes"},
     )
 
 
@@ -401,9 +404,7 @@ def _attach_flyers(
     # default per-prospect matched add-on.
     featured_sku = (os.getenv("SAMUS_OUTREACH_FEATURED_SKU") or "").strip() or None
 
-    row_by_email = {
-        (r.get("owner_email") or "").strip().lower(): r for r in rows
-    }
+    row_by_email = {(r.get("owner_email") or "").strip().lower(): r for r in rows}
     saved_templates: set[str] = set()
     attached = 0
     for msg in messages:
@@ -421,6 +422,7 @@ def _attach_flyers(
                 saved_templates.add(tid)
                 try:
                     from .flyer_templates import save_template
+
                     save_template(offer, sample_company=msg.company)
                 except Exception:  # noqa: BLE001 — template save never blocks a send
                     pass
@@ -482,14 +484,17 @@ def _send_all(
 
     try:
         from backend.common.audit_ledger import get_default_ledger
+
         audit = get_default_ledger()
     except Exception as exc:  # noqa: BLE001 — audit must not block a send outright
         _LOG.warning("audit ledger unavailable (%s); continuing without it", exc)
         audit = None
 
     sent = failed = 0
-    with open(ledger_path, "a", encoding="utf-8") as ledger, \
-            open(suppression_path, "a", encoding="utf-8") as supp:
+    with (
+        open(ledger_path, "a", encoding="utf-8") as ledger,
+        open(suppression_path, "a", encoding="utf-8") as supp,
+    ):
         for req in messages:
             try:
                 result = send_email(
@@ -503,39 +508,51 @@ def _send_all(
                 sent += 1
                 ts = str(result.get("ts") or iso_now())
                 message_id = result.get("message_id", "")
-                ledger.write(json.dumps({
-                    "ts": ts,
-                    "prospect_id": req.prospect_id,
-                    "email": req.to,
-                    "company": req.company,
-                    "template_id": req.template_id,
-                    "message_id": message_id,
-                    "backend": "email_backend",
-                    "source": "morning_batch",
-                    "status": "sent",
-                }, ensure_ascii=False) + "\n")
-                supp.write((req.to or "") + "\n")
-                supp.flush()
-                if audit is not None:
-                    try:
-                        audit.record("outreach.morning_batch.sent", {
+                ledger.write(
+                    json.dumps(
+                        {
+                            "ts": ts,
                             "prospect_id": req.prospect_id,
                             "email": req.to,
                             "company": req.company,
                             "template_id": req.template_id,
                             "message_id": message_id,
+                            "backend": "email_backend",
                             "source": "morning_batch",
-                        })
+                            "status": "sent",
+                        },
+                        ensure_ascii=False,
+                    )
+                    + "\n"
+                )
+                supp.write((req.to or "") + "\n")
+                supp.flush()
+                if audit is not None:
+                    try:
+                        audit.record(
+                            "outreach.morning_batch.sent",
+                            {
+                                "prospect_id": req.prospect_id,
+                                "email": req.to,
+                                "company": req.company,
+                                "template_id": req.template_id,
+                                "message_id": message_id,
+                                "source": "morning_batch",
+                            },
+                        )
                     except Exception as exc:  # noqa: BLE001 — ledger write is best-effort
                         _LOG.warning(
                             "audit ledger record failed prospect=%s: %s",
-                            req.prospect_id, exc,
+                            req.prospect_id,
+                            exc,
                         )
             except Exception as exc:  # noqa: BLE001 — one bad send must not abort the run
                 failed += 1
                 _LOG.warning(
                     "send failed prospect=%s to=%s: %s",
-                    req.prospect_id, req.to, exc,
+                    req.prospect_id,
+                    req.to,
+                    exc,
                 )
     return sent, failed
 
@@ -546,23 +563,30 @@ def main(argv: list[str] | None = None) -> int:
         description="Controlled morning outreach batch from the call-list CSV.",
     )
     parser.add_argument(
-        "--csv", required=True,
+        "--csv",
+        required=True,
         help="Path to the daily call_list CSV (owner_email + lead_score columns).",
     )
     parser.add_argument(
-        "--max-send", type=int, default=10,
+        "--max-send",
+        type=int,
+        default=10,
         help="Hard cap on emails sent this run (default 10).",
     )
     parser.add_argument(
-        "--min-score", type=int, default=70,
+        "--min-score",
+        type=int,
+        default=70,
         help="Minimum lead_score to include a row (default 70).",
     )
     parser.add_argument(
-        "--subject", default=_DEFAULT_SUBJECT,
+        "--subject",
+        default=_DEFAULT_SUBJECT,
         help="Subject template; {company} is filled per recipient.",
     )
     parser.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="Compose + print every email but send nothing / write nothing.",
     )
     args = parser.parse_args(argv)
@@ -575,6 +599,7 @@ def main(argv: list[str] | None = None) -> int:
     # Codex Validation Layer must be loaded before compose_body — the compose
     # gate fails closed (CodexUnavailable) otherwise. Mirrors run_campaign.main.
     from backend.common.app_factory import _ensure_codex_loaded
+
     _ensure_codex_loaded("outreach")
 
     if not os.path.exists(args.csv):
@@ -584,7 +609,9 @@ def main(argv: list[str] | None = None) -> int:
     rows = load_hot_rows(args.csv, min_score=args.min_score)
     _LOG.info(
         "morning_batch loaded %d hot row(s) (owner_email + lead_score>=%d) from %s",
-        len(rows), args.min_score, args.csv,
+        len(rows),
+        args.min_score,
+        args.csv,
     )
 
     cfg = _config(args.subject, args.max_send)
@@ -597,11 +624,13 @@ def main(argv: list[str] | None = None) -> int:
     sg_suppressed: set[str] = set()
     try:
         from .sendgrid_suppression_sync import sync as _sg_sync
+
         _r = _sg_sync(path=suppression_path, dry_run=args.dry_run)
         sg_suppressed = _r.emails
         _LOG.info(
             "sendgrid suppression sync: fetched=%d added_to_file=%d (%s)",
-            _r.fetched, _r.added,
+            _r.fetched,
+            _r.added,
             ", ".join(f"{k}={v}" for k, v in sorted(_r.by_reason.items())) or "none",
         )
     except Exception as exc:  # noqa: BLE001 — never block the batch on a sync error

@@ -1,4 +1,5 @@
 """Token substitution + bracket sanitiser (Samus STANDARD)."""
+
 from __future__ import annotations
 
 import pytest
@@ -42,7 +43,9 @@ def test_sanitise_preserves_benign_brackets():
 
 def test_render_and_sanitise_chains():
     r = EnrichmentResolver()
-    assert r.render_and_sanitise("[SYSTEM] hi {user_name}", {"user_name": "alex"}).strip() == "hi alex"
+    assert (
+        r.render_and_sanitise("[SYSTEM] hi {user_name}", {"user_name": "alex"}).strip() == "hi alex"
+    )
 
 
 def test_strip_inner_braces_opt_out():

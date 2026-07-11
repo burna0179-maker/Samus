@@ -22,6 +22,7 @@ The convenience readers (:func:`estimate_voice_cost_usd`,
 :func:`bandit_trials_for`) do guarded I/O and degrade to zero — the math
 itself stays injectable/pure for hand-computed test fixtures.
 """
+
 from __future__ import annotations
 
 import datetime as _dt
@@ -45,6 +46,7 @@ Tier = Literal["low", "warm", "hot", "priority"]
 #   70-89 ........ hot      (priority queue — same-day follow-up)
 #   >=90 ......... priority (interrupt; book a call now)
 
+
 def classify_tier(intent_score: int) -> Tier:
     """Map a 0-100 intent_score to one of four operator-facing tiers."""
     s = int(intent_score or 0)
@@ -64,9 +66,9 @@ def tier_close_probability(tier: Tier) -> float:
     STAGE_PROBABILITIES take over once a deal advances past ``new``.
     """
     return {
-        "low":      0.05,
-        "warm":     0.15,
-        "hot":      0.35,
+        "low": 0.05,
+        "warm": 0.15,
+        "hot": 0.35,
         "priority": 0.55,
     }[tier]
 
@@ -79,12 +81,12 @@ def tier_close_probability(tier: Tier) -> float:
 # a conservative anchor (we'd rather under-promise pipeline value).
 
 _BUDGET_MIDPOINTS_USD: dict[str, float] = {
-    "":           0.0,
+    "": 0.0,
     "under_$150": 100.0,
-    "$150-$500":  325.0,
+    "$150-$500": 325.0,
     "$500-$2000": 1250.0,
     "$2000-$5000": 3500.0,
-    "$5000+":     7500.0,
+    "$5000+": 7500.0,
 }
 
 
@@ -127,6 +129,7 @@ def effective_deal_size_usd(deal_size_usd: float) -> float:
 # Composite scorer (used by service.create_opportunity)
 # ---------------------------------------------------------------------------
 
+
 def score_opportunity_from_lead(lead_summary: dict) -> tuple[str, float, float]:
     """Return ``(tier, close_probability, deal_size_usd)`` from a lead dict.
 
@@ -153,13 +156,13 @@ def score_opportunity_from_lead(lead_summary: dict) -> tuple[str, float, float]:
 # stage, the urgency multiplier has decayed to 0.5. Later stages decay faster
 # (a stalled negotiation goes cold quicker than a stalled fresh lead).
 STAGE_URGENCY_HALF_LIFE_DAYS: dict[str, float] = {
-    "new":                 14.0,
-    "qualified":           14.0,
-    "proposal":            10.0,
-    "negotiation":         7.0,
-    "closed_won":          14.0,   # terminal — urgency is moot but defined
+    "new": 14.0,
+    "qualified": 14.0,
+    "proposal": 10.0,
+    "negotiation": 7.0,
+    "closed_won": 14.0,  # terminal — urgency is moot but defined
     "closed_won_retainer": 14.0,
-    "closed_lost":         14.0,
+    "closed_lost": 14.0,
 }
 DEFAULT_URGENCY_HALF_LIFE_DAYS: float = 14.0
 
@@ -177,13 +180,13 @@ PRIORITY_COST_FLOOR_USD: float = 0.01
 
 # Rough operator/agent time per stage-appropriate next action, hours.
 STAGE_TIME_ESTIMATE_HRS: dict[str, float] = {
-    "new":                 0.5,
-    "qualified":           1.0,
-    "proposal":            3.0,
-    "negotiation":         2.0,
-    "closed_won":          1.0,
+    "new": 0.5,
+    "qualified": 1.0,
+    "proposal": 3.0,
+    "negotiation": 2.0,
+    "closed_won": 1.0,
     "closed_won_retainer": 1.0,
-    "closed_lost":         0.5,
+    "closed_lost": 0.5,
 }
 DEFAULT_TIME_ESTIMATE_HRS: float = 1.0
 
@@ -202,8 +205,11 @@ def urgency_multiplier(
     ``half_life_days`` overrides the per-stage default. Clamped to
     [URGENCY_FLOOR, 1.0]; negative ages are treated as zero. Pure.
     """
-    hl = half_life_days if half_life_days is not None else \
-        STAGE_URGENCY_HALF_LIFE_DAYS.get(stage, DEFAULT_URGENCY_HALF_LIFE_DAYS)
+    hl = (
+        half_life_days
+        if half_life_days is not None
+        else STAGE_URGENCY_HALF_LIFE_DAYS.get(stage, DEFAULT_URGENCY_HALF_LIFE_DAYS)
+    )
     if hl <= 0:
         return 1.0
     days = max(0.0, float(days_in_stage or 0.0))
@@ -211,7 +217,9 @@ def urgency_multiplier(
 
 
 def confidence_from_trials(
-    trials: int, *, prior: float = CONFIDENCE_PRIOR_TRIALS,
+    trials: int,
+    *,
+    prior: float = CONFIDENCE_PRIOR_TRIALS,
 ) -> float:
     """Sample-size credibility in [0, 1): ``trials / (trials + prior)``.
 
@@ -239,6 +247,7 @@ def full_cost_usd(
 
 # -- guarded convenience readers (I/O; degrade to zero) ----------------------
 
+
 def estimate_voice_cost_usd(attempt_count: int) -> float:
     """Estimate voice spend for a prospect: avg Vapi cost/call x attempts.
 
@@ -250,6 +259,7 @@ def estimate_voice_cost_usd(attempt_count: int) -> float:
         return 0.0
     try:
         from backend.voice.voice_cost_tracker import aggregate_vapi_costs
+
         avg = float(aggregate_vapi_costs(days=30).avg_cost_per_call or 0.0)
     except Exception:  # noqa: BLE001 — voice data is optional input
         return 0.0
@@ -271,6 +281,7 @@ def bandit_trials_for(industry: str, policy_family: str = "") -> int:
             HIERARCHICAL_ARM_SEP,
             get_policy_bandit_stats,
         )
+
         stats = get_policy_bandit_stats(industry)
     except Exception:  # noqa: BLE001 — bandit is optional input
         return 0
@@ -282,6 +293,7 @@ def bandit_trials_for(industry: str, policy_family: str = "") -> int:
 
 
 # -- priority ----------------------------------------------------------------
+
 
 @dataclass
 class PriorityScore:
@@ -323,9 +335,11 @@ def compute_priority(
     """The bare priority formula. Pure; shared by scoring + the arbiter."""
     hours = max(0.1, float(time_estimate_hrs or 0.0))
     cost = max(float(cost_floor_usd), float(cost_usd or 0.0))
-    numerator = max(0.0, float(ev_usd or 0.0)) \
-        * max(0.0, min(1.0, float(probability or 0.0))) \
+    numerator = (
+        max(0.0, float(ev_usd or 0.0))
+        * max(0.0, min(1.0, float(probability or 0.0)))
         * max(0.0, min(1.0, float(urgency or 0.0)))
+    )
     return round(numerator / (hours * cost), 6)
 
 
@@ -384,7 +398,9 @@ def priority_score(
             int(opportunity.get("voice_attempt_count") or 0),
         )
     cost = full_cost_usd(
-        opportunity, voice_cost_usd=voice_cost_usd, email_sends=email_sends,
+        opportunity,
+        voice_cost_usd=voice_cost_usd,
+        email_sends=email_sends,
     )
 
     if bandit_trials is None:
@@ -394,8 +410,11 @@ def priority_score(
         )
     confidence = confidence_from_trials(bandit_trials)
 
-    hours = time_estimate_hrs if time_estimate_hrs is not None else \
-        STAGE_TIME_ESTIMATE_HRS.get(stage, DEFAULT_TIME_ESTIMATE_HRS)
+    hours = (
+        time_estimate_hrs
+        if time_estimate_hrs is not None
+        else STAGE_TIME_ESTIMATE_HRS.get(stage, DEFAULT_TIME_ESTIMATE_HRS)
+    )
 
     priority = compute_priority(
         ev_usd=ev,

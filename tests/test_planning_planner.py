@@ -6,15 +6,15 @@ Isolation: tmp goals/plans/approvals/business-events paths per test. Budget
 posture is injected by monkeypatching affordability.assess_affordability so we
 can drive the conserve/lean/invest branches deterministically.
 """
+
 from __future__ import annotations
 
-import datetime as _dt
 
 import pytest
 
 from backend.common import approvals, business_events
 from backend.common.decision_record import list_decisions
-from backend.planning import goal_tree, planner, store
+from backend.planning import planner, store
 from backend.planning.models import (
     HORIZON_DAY,
     PLAN_ACTIVE,
@@ -58,10 +58,12 @@ def _daily_leads_goal(target=8.0):
 
 # --- assumption metrics ----------------------------------------------------
 
+
 def test_leads_per_day_metric_counts_stream(iso_env):
     for _ in range(14):
         business_events.emit_business_event(
-            business_events.LEAD_CREATED, workcell="intake",
+            business_events.LEAD_CREATED,
+            workcell="intake",
         )
     # 14 leads over a 7-day window => 2/day
     assert planner.compute_metric("leads_per_day", 7) == pytest.approx(2.0)
@@ -70,11 +72,13 @@ def test_leads_per_day_metric_counts_stream(iso_env):
 def test_connect_rate_metric(iso_env):
     for _ in range(10):
         business_events.emit_business_event(
-            business_events.CALL_PLACED, workcell="voice",
+            business_events.CALL_PLACED,
+            workcell="voice",
         )
     for _ in range(3):
         business_events.emit_business_event(
-            business_events.CALL_ANSWERED, workcell="voice",
+            business_events.CALL_ANSWERED,
+            workcell="voice",
         )
     assert planner.compute_metric("connect_rate", 7) == pytest.approx(0.3)
 
@@ -90,23 +94,27 @@ def test_unknown_metric_returns_zero(iso_env):
 def test_check_assumption_holds_and_violates(iso_env):
     for _ in range(21):
         business_events.emit_business_event(
-            business_events.LEAD_CREATED, workcell="intake",
+            business_events.LEAD_CREATED,
+            workcell="intake",
         )
     # 21/7 = 3 leads/day
-    a_ok = Assumption(id="a", description="", metric="leads_per_day", op=">=",
-                      threshold=2.0, window_days=7)
+    a_ok = Assumption(
+        id="a", description="", metric="leads_per_day", op=">=", threshold=2.0, window_days=7
+    )
     holds, observed = planner.check_assumption(a_ok)
     assert holds is True
     assert observed == pytest.approx(3.0)
 
-    a_bad = Assumption(id="b", description="", metric="leads_per_day", op=">=",
-                       threshold=8.0, window_days=7)
+    a_bad = Assumption(
+        id="b", description="", metric="leads_per_day", op=">=", threshold=8.0, window_days=7
+    )
     holds2, observed2 = planner.check_assumption(a_bad)
     assert holds2 is False
     assert observed2 == pytest.approx(3.0)
 
 
 # --- plan generation -------------------------------------------------------
+
 
 def test_generate_plan_persists_with_assumptions_and_steps(iso_env, monkeypatch):
     _set_posture(monkeypatch, "invest")
@@ -143,12 +151,12 @@ def test_generate_plan_posture_gates_channels(iso_env, monkeypatch):
 
     lean_plan = planner.generate_plan(goal, posture="lean")
     lean_actions = {s.action for s in lean_plan.steps}
-    assert "send_outreach" in lean_actions   # email allowed at lean
+    assert "send_outreach" in lean_actions  # email allowed at lean
     assert "place_calls" not in lean_actions  # paid dialing still gated
 
     invest_plan = planner.generate_plan(goal, posture="invest")
     invest_actions = {s.action for s in invest_plan.steps}
-    assert "place_calls" in invest_actions   # paid dialing allowed at invest
+    assert "place_calls" in invest_actions  # paid dialing allowed at invest
 
 
 def test_generate_plan_replan_supersedes_prior(iso_env, monkeypatch):
@@ -175,6 +183,7 @@ def test_generate_plan_mints_decision_record(iso_env, monkeypatch):
 
 
 # --- evaluate + replan -----------------------------------------------------
+
 
 def test_evaluate_assumptions_flags_violations(iso_env, monkeypatch):
     _set_posture(monkeypatch, "invest")
@@ -251,7 +260,7 @@ def test_evaluate_and_replan_escalates_on_conserve_posture(iso_env, monkeypatch)
     summary = planner.evaluate_and_replan(ensure_tree=False)
     assert summary["ok"] is True
     assert summary["violations"] >= 1
-    assert summary["replanned"] == []      # NOT auto-swapped
+    assert summary["replanned"] == []  # NOT auto-swapped
     assert len(summary["escalated"]) >= 1
     esc = summary["escalated"][0]
     assert esc["approval_id"]
@@ -305,8 +314,7 @@ def test_ensure_operational_plans_is_idempotent(iso_env, monkeypatch):
     store.save_goal(goal)
     planner._ensure_operational_plans()
     planner._ensure_operational_plans()  # second call must not add a duplicate
-    active_plans = [p for p in store.list_plans(goal_id=goal.id)
-                    if p.status == PLAN_ACTIVE]
+    active_plans = [p for p in store.list_plans(goal_id=goal.id) if p.status == PLAN_ACTIVE]
     assert len(active_plans) == 1
 
 
@@ -325,7 +333,9 @@ def test_current_plans_view_shape(iso_env, monkeypatch):
 def test_replan_would_breach_high_risk(iso_env, monkeypatch):
     # A goal whose intent classifies high/critical must escalate even at invest.
     goal = Goal(
-        id="g-danger", horizon=HORIZON_DAY, target_metric="leads_created",
+        id="g-danger",
+        horizon=HORIZON_DAY,
+        target_metric="leads_created",
         target_value=8.0,
         label="bulk outbound messaging blast",  # matches a HIGH risk term
     )
@@ -335,6 +345,7 @@ def test_replan_would_breach_high_risk(iso_env, monkeypatch):
 
 
 # --- autonomy.run_cycle Plan persistence extension -------------------------
+
 
 def test_run_cycle_persists_a_plan(iso_env):
     from backend.common import autonomy
@@ -373,6 +384,7 @@ def test_run_cycle_persist_replans_supersede(iso_env):
 
 # --- Concept 1 + Concept 5 wiring: planner -> consult_precedent + link_decision
 
+
 def test_generate_plan_links_belief_precedents_to_decision(iso_env, monkeypatch, tmp_path):
     """Wiring test: when a belief precedent matches the plan situation, the
     resulting decision's id is linked back onto the belief's depended_by so a
@@ -392,9 +404,7 @@ def test_generate_plan_links_belief_precedents_to_decision(iso_env, monkeypatch,
         "invest posture on leads_created plans yields best conversion",
         belief_id="plan_belief_A",
         supporting=[_ev("s1"), _ev("s2"), _ev("s3")],
-        situation_key=bl.situation_key_for(
-            "plan leads_created posture=invest initial"
-        ),
+        situation_key=bl.situation_key_for("plan leads_created posture=invest initial"),
     )
     assert b.depended_by == []  # baseline
 
@@ -434,12 +444,11 @@ def test_generate_plan_survives_cognition_import_error(iso_env, monkeypatch):
     """Wiring test: a cognition-layer import fault must not break planning.
     Simulate it by patching consult_precedent to raise.
     """
+
     def _boom(*_a, **_k):
         raise RuntimeError("cognition offline")
 
-    monkeypatch.setattr(
-        "backend.cognitive.intelligence_cycle.consult_precedent", _boom
-    )
+    monkeypatch.setattr("backend.cognitive.intelligence_cycle.consult_precedent", _boom)
     _set_posture(monkeypatch, "invest")
     goal = _daily_leads_goal(8.0)
     store.save_goal(goal)

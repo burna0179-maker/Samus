@@ -14,6 +14,7 @@ Coverage:
     behave identically to the in-memory bandit when reading their own writes;
   - the DDB backend issues an atomic ADD update (the concurrency contract).
 """
+
 from __future__ import annotations
 
 import pytest
@@ -32,12 +33,13 @@ from backend.strategy.bandit_store import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _json_store(tmp_path, **overrides) -> BanditStore:
     """Build a store backed only by a tmp JSON file (DDB disabled)."""
     kwargs = dict(
-        ddb_table="",                       # explicit disable -> JSON only
+        ddb_table="",  # explicit disable -> JSON only
         json_path=str(tmp_path / "bandit.json"),
-        cache_ttl_sec=0.0,                  # no caching -> deterministic reads
+        cache_ttl_sec=0.0,  # no caching -> deterministic reads
     )
     kwargs.update(overrides)
     return BanditStore(**kwargs)
@@ -46,6 +48,7 @@ def _json_store(tmp_path, **overrides) -> BanditStore:
 # ---------------------------------------------------------------------------
 # BanditArm serialization
 # ---------------------------------------------------------------------------
+
 
 def test_bandit_arm_round_trips_through_item():
     """to_item / from_item preserve arm_id, wins, trials."""
@@ -67,6 +70,7 @@ def test_bandit_arm_from_item_tolerates_missing_counters():
 # ---------------------------------------------------------------------------
 # JSON backend — persistence round-trips
 # ---------------------------------------------------------------------------
+
 
 def test_store_starts_empty(tmp_path):
     s = _json_store(tmp_path)
@@ -130,6 +134,7 @@ def test_clear_truncates_the_store(tmp_path):
 # Cross-process scenario — write via one store, read via a fresh one
 # ---------------------------------------------------------------------------
 
+
 def test_cross_process_write_then_fresh_read(tmp_path):
     """A second BanditStore on the same path sees the first store's writes.
 
@@ -167,11 +172,12 @@ def test_cross_process_interleaved_writers(tmp_path):
 # In-memory cache vs store-of-truth
 # ---------------------------------------------------------------------------
 
+
 def test_cache_is_invalidated_by_a_write(tmp_path):
     """A write invalidates the cache so the next read reflects it."""
     s = _json_store(tmp_path, cache_ttl_sec=300.0)  # long TTL
     s.add("hvac", wins_delta=1.0, trials_delta=1)
-    assert s.read_all()["hvac"].trials == 1   # populates cache
+    assert s.read_all()["hvac"].trials == 1  # populates cache
     s.add("hvac", wins_delta=1.0, trials_delta=1)
     # Even with a 5-minute TTL the post-write read must show trials == 2.
     assert s.read_all()["hvac"].trials == 2
@@ -190,6 +196,7 @@ def test_read_returns_independent_copies(tmp_path):
 # ---------------------------------------------------------------------------
 # Graceful degradation — a store failure must not raise
 # ---------------------------------------------------------------------------
+
 
 def test_read_all_degrades_to_empty_on_json_failure(tmp_path, monkeypatch):
     """A JSON backend that raises on read degrades to {} — never propagates."""
@@ -236,6 +243,7 @@ def test_json_backend_recovers_from_corrupt_file(tmp_path):
 # ---------------------------------------------------------------------------
 # DDB backend — atomic ADD contract (no real DDB; the table is a fake)
 # ---------------------------------------------------------------------------
+
 
 class _FakeTable:
     """Minimal stand-in capturing the update_item call shape."""
@@ -300,11 +308,15 @@ def test_store_falls_back_to_json_when_ddb_scan_fails(tmp_path, monkeypatch):
     json_path = str(tmp_path / "fallback.json")
     # Seed the JSON file via a JSON-only store.
     BanditStore(ddb_table="", json_path=json_path).add(
-        "hvac", wins_delta=2.0, trials_delta=1,
+        "hvac",
+        wins_delta=2.0,
+        trials_delta=1,
     )
     # Now a DDB-configured store whose DDB scan fails must still see the row.
     s = BanditStore(
-        ddb_table="samus_strategy_bandit", json_path=json_path, cache_ttl_sec=0.0,
+        ddb_table="samus_strategy_bandit",
+        json_path=json_path,
+        cache_ttl_sec=0.0,
     )
     monkeypatch.setattr(s._ddb_backend, "read_all", lambda: None)
     arms = s.read_all()

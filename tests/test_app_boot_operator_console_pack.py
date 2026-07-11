@@ -13,9 +13,9 @@ gateway-specific shape: pack lives at ``backend.packs.operator_console``,
 the gateway is the only workcell that mounts it, and the SPA shell +
 ``/api/console/*`` JSON endpoints come up through the gateway port.
 """
+
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import pytest
@@ -72,6 +72,7 @@ def gateway_client(tmp_path: Path, monkeypatch):
 
     # Force a fresh settings load so the env mutations above are picked up.
     from backend.common.settings import reload_settings
+
     reload_settings()
 
     from backend.gateway.app import create_app

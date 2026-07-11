@@ -25,6 +25,7 @@ GRACEFUL DEGRADATION (non-negotiable): ``record_learning_update`` NEVER raises
 and NEVER changes the learning outcome it instruments -- it mirrors
 ``emit_business_event`` / ``record_decision``.
 """
+
 from __future__ import annotations
 
 import logging
@@ -39,7 +40,7 @@ from .persistence import open_ledger
 _LOG = logging.getLogger("samus.common.learning_telemetry")
 
 # --- Kind taxonomy ------------------------------------------------------
-KIND_BANDIT: Final[str] = "bandit"    # strategy policy/channel/flat arm
+KIND_BANDIT: Final[str] = "bandit"  # strategy policy/channel/flat arm
 KIND_VARIANT: Final[str] = "variant"  # attribution email-variant arm
 
 # --- Ledger plumbing ----------------------------------------------------
@@ -55,7 +56,8 @@ def _ledger_path() -> str:
 
 def _ledger():
     return open_ledger(
-        jsonl_path=_ledger_path(), collection=_FIRESTORE_COLLECTION,
+        jsonl_path=_ledger_path(),
+        collection=_FIRESTORE_COLLECTION,
     )
 
 
@@ -65,7 +67,8 @@ def _inc_counter(*, kind: str, persisted: bool) -> None:
         from . import metrics as _metrics
 
         _metrics.SAMUS_LEARNING_UPDATES_TOTAL.labels(
-            kind=kind or "", persisted="true" if persisted else "false",
+            kind=kind or "",
+            persisted="true" if persisted else "false",
         ).inc()
     except Exception as exc:  # noqa: BLE001 -- telemetry must never break callers
         _LOG.debug("learning_telemetry counter publish skipped: %s", exc)
@@ -121,13 +124,19 @@ def record_learning_update(
             # ledger + counter carry it; the store logs its own fault).
             _LOG.info(
                 "learning update NOT persisted (cache-only) kind=%s arm=%s reward=%.4f",
-                kind, arm_id, record["reward"],
+                kind,
+                arm_id,
+                record["reward"],
             )
         else:
             _LOG.debug(
                 "learning update kind=%s arm=%s outcome=%.4f reward=%.4f wins=%.3f trials=%d",
-                kind, arm_id, record["outcome"], record["reward"],
-                record["wins"], record["trials"],
+                kind,
+                arm_id,
+                record["outcome"],
+                record["reward"],
+                record["wins"],
+                record["trials"],
             )
     except Exception:  # noqa: BLE001 -- a logging fault must not break callers
         pass

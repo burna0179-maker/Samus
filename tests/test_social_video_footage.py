@@ -3,6 +3,7 @@
 All paid calls (media_gen + MediaBudgetStore) are monkeypatched; no network and
 no real spend. Footage files are written to a tmp dir.
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -52,7 +53,10 @@ class _FakeBudget:
 
 
 def _segments(n=3, is_video=False):
-    return [ReelSegment(narration=f"line {i}", visual_prompt=f"shot {i}", is_video=is_video) for i in range(n)]
+    return [
+        ReelSegment(narration=f"line {i}", visual_prompt=f"shot {i}", is_video=is_video)
+        for i in range(n)
+    ]
 
 
 def _patch(monkeypatch, *, image_ok=True):
@@ -68,7 +72,9 @@ def _patch(monkeypatch, *, image_ok=True):
 
 def test_no_api_key_spends_nothing(monkeypatch, tmp_path):
     paths, report = generate_segment_footage(
-        _segments(), settings=_settings(gemini_api_key=""), out_dir=tmp_path,
+        _segments(),
+        settings=_settings(gemini_api_key=""),
+        out_dir=tmp_path,
     )
     assert paths == []
     assert report["status"] == "no_api_key"
@@ -87,7 +93,9 @@ def test_generates_one_still_per_segment(monkeypatch, tmp_path):
 def test_budget_cap_zero_denies_all(monkeypatch, tmp_path):
     _patch(monkeypatch)
     paths, report = generate_segment_footage(
-        _segments(3), settings=_settings(media_daily_dollar_cap=0.0), out_dir=tmp_path,
+        _segments(3),
+        settings=_settings(media_daily_dollar_cap=0.0),
+        out_dir=tmp_path,
     )
     assert paths == []
     assert report["spent_usd"] == 0.0
@@ -98,7 +106,9 @@ def test_budget_partial_exhaustion_skips_overflow(monkeypatch, tmp_path):
     _patch(monkeypatch)
     # Cap of 0.05 allows exactly one $0.04 still; the rest are skipped.
     paths, report = generate_segment_footage(
-        _segments(3), settings=_settings(media_daily_dollar_cap=0.05), out_dir=tmp_path,
+        _segments(3),
+        settings=_settings(media_daily_dollar_cap=0.05),
+        out_dir=tmp_path,
     )
     assert len(paths) == 1
     assert any("daily_media_cap_exceeded" in s for s in report["skipped"])
@@ -107,8 +117,9 @@ def test_budget_partial_exhaustion_skips_overflow(monkeypatch, tmp_path):
 def test_video_segment_degrades_to_still_without_approval(monkeypatch, tmp_path):
     _patch(monkeypatch)
     s = _settings(social_reel_footage_mode="video", social_reel_video_enabled=True)
-    paths, report = generate_segment_footage(_segments(1, is_video=True), settings=s, out_dir=tmp_path,
-                                             video_approved=False)
+    paths, report = generate_segment_footage(
+        _segments(1, is_video=True), settings=s, out_dir=tmp_path, video_approved=False
+    )
     # Degraded to a still (image cost), and a note recorded.
     assert len(paths) == 1
     assert paths[0].endswith(".png")

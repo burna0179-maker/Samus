@@ -21,6 +21,7 @@ so leak detectors stay quiet. Each (timeout, http2, follow_redirects)
 profile gets its own cached client because ``httpx`` does not allow per-
 request override of these once the client is constructed.
 """
+
 from __future__ import annotations
 
 import atexit
@@ -46,7 +47,10 @@ def _timeout_key(timeout: Any) -> Any:
     if isinstance(timeout, httpx.Timeout):
         return (
             "httpx.Timeout",
-            timeout.connect, timeout.read, timeout.write, timeout.pool,
+            timeout.connect,
+            timeout.read,
+            timeout.write,
+            timeout.pool,
         )
     return timeout
 
@@ -60,7 +64,10 @@ def _key(
     max_redirects: int | None,
 ) -> tuple[Any, ...]:
     return (
-        _timeout_key(timeout), http2, follow_redirects, headers_frozen,
+        _timeout_key(timeout),
+        http2,
+        follow_redirects,
+        headers_frozen,
         max_redirects,
     )
 

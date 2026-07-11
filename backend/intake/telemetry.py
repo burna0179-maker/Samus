@@ -16,6 +16,7 @@ the intake audit uses. There is deliberately NO DDB backend here yet: this
 is bounded write volume, JSONL is durable, and the operator can iterate on
 the analysis without pre-committing to a Dynamo schema.
 """
+
 from __future__ import annotations
 
 import logging

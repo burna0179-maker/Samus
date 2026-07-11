@@ -6,6 +6,7 @@ Endpoints:
 
 Service name: ``entropy``. Capability: ``plan_execution``. Zero LLM calls.
 """
+
 from __future__ import annotations
 
 import logging

@@ -10,11 +10,9 @@ The cache is keyed on ``events._deterministic_hash`` of the request payload —
 the SAME ``input_hash`` recorded in ``seo_audit.jsonl`` — so a cache key lines
 up 1:1 with the ledger evidence that surfaced the duplication.
 """
+
 from __future__ import annotations
 
-import time
-
-import pytest
 
 from backend.common.settings import reload_settings
 
@@ -22,9 +20,7 @@ from backend.common.settings import reload_settings
 def _enable_cache(monkeypatch, tmp_path, ttl_seconds: int | None = None):
     """Turn the flag on for THIS test + point the sidecar at a tmp file."""
     monkeypatch.setenv("SAMUS_AUDIT_CACHE_ENABLED", "true")
-    monkeypatch.setenv(
-        "SAMUS_SEO_AUDIT_CACHE_PATH", str(tmp_path / "seo_audit_cache.jsonl")
-    )
+    monkeypatch.setenv("SAMUS_SEO_AUDIT_CACHE_PATH", str(tmp_path / "seo_audit_cache.jsonl"))
     if ttl_seconds is not None:
         monkeypatch.setenv("SAMUS_AUDIT_CACHE_TTL_SECONDS", str(ttl_seconds))
     reload_settings()  # rebind seo_audit_cache_enabled from the env we just set
@@ -43,9 +39,7 @@ def test_flag_off_always_computes_and_never_touches_disk(tmp_path, monkeypatch):
     # Explicitly ensure the flag is off (conftest already reloads, but be
     # defensive against ambient env).
     monkeypatch.delenv("SAMUS_AUDIT_CACHE_ENABLED", raising=False)
-    monkeypatch.setenv(
-        "SAMUS_SEO_AUDIT_CACHE_PATH", str(tmp_path / "seo_audit_cache.jsonl")
-    )
+    monkeypatch.setenv("SAMUS_SEO_AUDIT_CACHE_PATH", str(tmp_path / "seo_audit_cache.jsonl"))
     reload_settings()
 
     calls = {"n": 0}
@@ -136,9 +130,7 @@ def test_force_refresh_bypasses_cache(tmp_path, monkeypatch):
     assert calls["n"] == 1
 
     # force_refresh -> ignore the fresh entry, recompute, and re-warm.
-    r2, from_cache2 = audit_cache.cached_or_compute(
-        payload, _compute, force_refresh=True
-    )
+    r2, from_cache2 = audit_cache.cached_or_compute(payload, _compute, force_refresh=True)
     assert from_cache2 is False
     assert calls["n"] == 2
     assert r2 == {"run": 2}
@@ -162,9 +154,7 @@ def test_different_input_hash_is_a_miss(tmp_path, monkeypatch):
 
     audit_cache.cached_or_compute({"url": "https://a.example.com"}, _compute)
     # Different payload -> different input_hash -> MISS -> recompute.
-    _, from_cache = audit_cache.cached_or_compute(
-        {"url": "https://b.example.com"}, _compute
-    )
+    _, from_cache = audit_cache.cached_or_compute({"url": "https://b.example.com"}, _compute)
     assert from_cache is False
     assert calls["n"] == 2
 
@@ -197,9 +187,7 @@ def test_input_hash_matches_ledger_deterministic_hash(monkeypatch):
     from backend.common import events
 
     payload = {"url": "https://acme.example.com", "keywords": ["a", "b"]}
-    assert audit_cache.compute_input_hash(payload) == events._deterministic_hash(
-        payload
-    )
+    assert audit_cache.compute_input_hash(payload) == events._deterministic_hash(payload)
 
 
 # --------------------------------------------------------------------------
@@ -231,9 +219,7 @@ class _AuditClient:
 
     def get(self, url, headers=None):
         _AuditClient.calls += 1
-        return _Resp(
-            "<html><head><title>x</title></head><body><h1>x</h1></body></html>"
-        )
+        return _Resp("<html><head><title>x</title></head><body><h1>x</h1></body></html>")
 
 
 def _patch_audit_fetch(monkeypatch):

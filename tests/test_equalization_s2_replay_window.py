@@ -6,6 +6,7 @@ the replay window of a captured request. The fix rejects:
   * stale > ``hmac_window_seconds`` (unchanged), AND
   * future > ``_FUTURE_SKEW_SECONDS`` (new).
 """
+
 from __future__ import annotations
 
 import time
@@ -56,7 +57,13 @@ def _client(monkeypatch) -> TestClient:
 def _signed_headers(ts: int, *, caller: str = "leadgen", nonce: str = "n-1") -> dict:
     body = b'{"x":1}'
     sig = security.sign_request(
-        _SECRET, "POST", "/work", str(ts), nonce, body, caller=caller,
+        _SECRET,
+        "POST",
+        "/work",
+        str(ts),
+        nonce,
+        body,
+        caller=caller,
     )
     return {
         "X-Samus-Timestamp": str(ts),

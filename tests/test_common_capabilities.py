@@ -1,4 +1,5 @@
 """SERVICE_CAPABILITIES registry + check_capability behavior."""
+
 from __future__ import annotations
 
 import pytest
@@ -7,17 +8,20 @@ from fastapi import HTTPException
 
 def test_capabilities_registry_includes_prospecting():
     from backend.common.capabilities import SERVICE_CAPABILITIES
+
     assert "prospecting" in SERVICE_CAPABILITIES
     assert {"discover", "build_call_sheet"} <= SERVICE_CAPABILITIES["prospecting"]
 
 
 def test_check_capability_passes_for_registered():
     from backend.common.capabilities import check_capability
+
     check_capability("prospecting", "discover")  # no raise
 
 
 def test_check_capability_denies_unregistered_capability():
     from backend.common.capabilities import check_capability
+
     with pytest.raises(HTTPException) as exc:
         check_capability("prospecting", "delete_all")
     assert exc.value.status_code == 403
@@ -26,6 +30,7 @@ def test_check_capability_denies_unregistered_capability():
 
 def test_check_capability_denies_unknown_service():
     from backend.common.capabilities import check_capability
+
     with pytest.raises(HTTPException) as exc:
         check_capability("nonexistent_service", "discover")
     assert exc.value.status_code == 403

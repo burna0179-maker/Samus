@@ -26,6 +26,7 @@ arg so they don't leak into shell history):
 Live posting stays governed elsewhere (social_adapter); this only completes the
 token handshake an operator explicitly chooses to run.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -102,7 +103,10 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "url":
             url, state = authorize_url(
-                args.platform, args.redirect_uri, scope=args.scope, state=args.state,
+                args.platform,
+                args.redirect_uri,
+                scope=args.scope,
+                state=args.state,
             )
             print(f"state: {state}")
             print(url)

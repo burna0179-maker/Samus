@@ -1,4 +1,5 @@
 """Tests for backend.common.graph_schema — pure validation logic."""
+
 from __future__ import annotations
 
 import pytest
@@ -7,6 +8,7 @@ from backend.common import graph_schema
 
 
 # --- validate_node ---------------------------------------------------------
+
 
 def test_validate_node_accepts_known_label_with_pk():
     graph_schema.validate_node("Account", {"account_id": "A-1", "name": "Acme"})
@@ -56,6 +58,7 @@ def test_primary_key_raises_for_unknown_label():
 
 # --- validate_relationship -------------------------------------------------
 
+
 def test_validate_relationship_accepts_allowed_triple():
     graph_schema.validate_relationship("Account", "HAS_CONTACT", "Contact")
     graph_schema.validate_relationship("Task", "EMITTED", "AuditEvent")
@@ -72,6 +75,7 @@ def test_validate_relationship_rejects_disallowed_triple():
 
 
 # --- allowed_query ---------------------------------------------------------
+
 
 def test_allowed_query_returns_cypher_for_known_name():
     cypher = graph_schema.allowed_query("account_by_id")
@@ -96,6 +100,7 @@ def test_allowlist_covers_documented_queries():
 
 
 # --- structural invariants -------------------------------------------------
+
 
 def test_every_indexed_label_is_a_known_label():
     for label, _prop in graph_schema.INDEXES:

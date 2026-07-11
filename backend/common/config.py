@@ -6,6 +6,7 @@ for tests + secret-rotation tooling.
 
 ``bootstrap_settings()`` (in ``settings.py``) is the .env-loading constructor.
 """
+
 from __future__ import annotations
 
 from functools import lru_cache
@@ -650,10 +651,10 @@ class Settings(BaseModel):
     # adapter writes a `_headers` file (CSP/HSTS/etc.) so the deployed site
     # reaches security grade A — the headers Wix-subdomain hosting can't set.
     website_deploy_enabled: bool = False
-    website_deploy_host: str = "cloudflare"     # cloudflare (others later)
-    cloudflare_api_token: str = ""              # CLOUDFLARE_API_TOKEN (Pages:Edit)
-    cloudflare_account_id: str = ""            # CLOUDFLARE_ACCOUNT_ID
-    cloudflare_pages_project: str = ""        # CLOUDFLARE_PAGES_PROJECT
+    website_deploy_host: str = "cloudflare"  # cloudflare (others later)
+    cloudflare_api_token: str = ""  # CLOUDFLARE_API_TOKEN (Pages:Edit)
+    cloudflare_account_id: str = ""  # CLOUDFLARE_ACCOUNT_ID
+    cloudflare_pages_project: str = ""  # CLOUDFLARE_PAGES_PROJECT
     website_seo_enrich_enabled: bool = True
     website_seo_gate: str = "enforce"
     website_security_gate: str = "enforce"
@@ -714,14 +715,14 @@ class Settings(BaseModel):
     # no gemini_api_key or website_media_gen_enabled off, the generator returns
     # nothing and never spends. Veo video is gated again behind its own flag +
     # per-video operator approval because it is the expensive part.
-    gemini_api_key: str = ""                 # GEMINI_API_KEY
+    gemini_api_key: str = ""  # GEMINI_API_KEY
     # 21st.dev Magic key — design-time component/icon MCP, not a Samus runtime
     # dependency; stored for /show-config visibility + the editing workflow.
-    twentyfirst_api_key: str = ""            # TWENTYFIRST_API_KEY
+    twentyfirst_api_key: str = ""  # TWENTYFIRST_API_KEY
     website_media_gen_enabled: bool = False
     # Image model: gemini-2.5-flash-image (cheap) | gemini-3-pro-image (studio).
     website_media_image_model: str = "gemini-2.5-flash-image"
-    website_media_image_size: str = "2K"     # 512 | 1K | 2K | 4K
+    website_media_image_size: str = "2K"  # 512 | 1K | 2K | 4K
     # Full-motion video (Veo). Extra-gated: needs this flag AND, per video,
     # operator approval when media_video_requires_approval is True.
     website_media_video_enabled: bool = False
@@ -730,8 +731,8 @@ class Settings(BaseModel):
     # veo-3.1-generate-preview (standard) | veo-3.1-fast-generate-preview |
     # veo-3.1-lite-generate-preview | veo-3.0-generate-001.
     website_media_video_model: str = "veo-3.1-fast-generate-preview"
-    website_media_video_resolution: str = "720p"   # 720p | 1080p
-    website_media_video_seconds: str = "8"          # 4 | 6 | 8
+    website_media_video_resolution: str = "720p"  # 720p | 1080p
+    website_media_video_seconds: str = "8"  # 4 | 6 | 8
     media_video_requires_approval: bool = True
     # Paid-media daily USD ceiling across all media generation (fail-closed).
     media_daily_dollar_cap: float = 2.0
@@ -772,7 +773,7 @@ class Settings(BaseModel):
     # operator approval (reuses media_video_requires_approval). A full multi-
     # shot reel of Veo clips can exceed the daily cap, so this stays off.
     social_reel_video_enabled: bool = False
-    social_reel_aspect: str = "9:16"            # 9:16 vertical | 16:9 | 1:1
+    social_reel_aspect: str = "9:16"  # 9:16 vertical | 16:9 | 1:1
     # Max narration shots per reel — caps both LLM script size and paid footage.
     social_reel_max_segments: int = 5
     # Optional operator-supplied royalty-free music directory. Empty = no music
@@ -786,24 +787,24 @@ class Settings(BaseModel):
     # its OWN Stripe account = the `products` revenue stream. Dormant + keyless-
     # safe: with the flag off or no base_url/token the client is a no-op.
     commerce_medusa_enabled: bool = False
-    medusa_base_url: str = ""                  # e.g. https://store.hustleforge.tech
-    medusa_admin_token: str = ""               # x-medusa-access-token
+    medusa_base_url: str = ""  # e.g. https://store.hustleforge.tech
+    medusa_admin_token: str = ""  # x-medusa-access-token
 
     # --- TikTok Shop (research + campaigns now; selling dormant) ----------
     # Trending-product research via a PLUGGABLE provider (the official TikTok
     # Research API forbids commercial use, so we never use it to drive selling).
     # Content posting + the Shop Seller API are dormant + dry-run by default and
     # require operator-approved TikTok apps before they can transact.
-    tiktok_research_provider: str = "none"     # none | netrows | echotik | custom
+    tiktok_research_provider: str = "none"  # none | netrows | echotik | custom
     tiktok_research_api_key: str = ""
-    tiktok_research_base_url: str = ""         # for the `custom` provider
+    tiktok_research_base_url: str = ""  # for the `custom` provider
     tiktok_content_posting_enabled: bool = False
     tiktok_content_access_token: str = ""
-    tiktok_shop_enabled: bool = False          # Seller API (needs approved seller app)
+    tiktok_shop_enabled: bool = False  # Seller API (needs approved seller app)
     tiktok_shop_app_key: str = ""
     tiktok_shop_app_secret: str = ""
     tiktok_shop_access_token: str = ""
-    tiktok_dry_run: bool = True                # belt+braces: never posts/sells live by default
+    tiktok_dry_run: bool = True  # belt+braces: never posts/sells live by default
 
     # --- n8n workflow generation (workflow-automation deliverables) --------
     # Compiles the scope_planner TaskPlan into a deployable n8n workflow JSON +
@@ -813,11 +814,11 @@ class Settings(BaseModel):
     # n8n; we do not vendor/redistribute n8n (fair-code). Live REST deploy + the
     # optional LLM parameter-enrichment pass are dormant by default.
     workflow_n8n_deliverable_enabled: bool = True
-    workflow_n8n_llm_enrich: bool = False         # budget-gated param enrichment
-    workflow_n8n_deploy_enabled: bool = False     # live POST to an n8n instance
-    workflow_n8n_dry_run: bool = True             # deploy dry-run gate (belt+braces)
-    n8n_base_url: str = ""                         # e.g. https://n8n.example.com
-    n8n_api_key: str = ""                          # X-N8N-API-KEY
+    workflow_n8n_llm_enrich: bool = False  # budget-gated param enrichment
+    workflow_n8n_deploy_enabled: bool = False  # live POST to an n8n instance
+    workflow_n8n_dry_run: bool = True  # deploy dry-run gate (belt+braces)
+    n8n_base_url: str = ""  # e.g. https://n8n.example.com
+    n8n_api_key: str = ""  # X-N8N-API-KEY
 
     # --- AWS ---------------------------------------------------------------
     aws_region: str = "us-west-1"
@@ -941,13 +942,13 @@ class Settings(BaseModel):
     # unchanged until an operator arms a stream with its own key. "One LLC now,
     # split later": set a stream's key + entity to promote it to its own legal
     # entity with NO code change. See backend/finance/revenue_streams.py.
-    stripe_api_key_products: str = ""        # STRIPE_API_KEY_PRODUCTS
-    stripe_api_key_tiktok: str = ""          # STRIPE_API_KEY_TIKTOK
+    stripe_api_key_products: str = ""  # STRIPE_API_KEY_PRODUCTS
+    stripe_api_key_tiktok: str = ""  # STRIPE_API_KEY_TIKTOK
     stripe_webhook_secret_products: str = ""
     stripe_webhook_secret_tiktok: str = ""
     revenue_entity_default: str = "HustleForge LLC"
-    revenue_entity_products: str = ""        # override -> promotes products to its own entity
-    revenue_entity_tiktok: str = ""          # override -> promotes tiktok to its own entity
+    revenue_entity_products: str = ""  # override -> promotes products to its own entity
+    revenue_entity_tiktok: str = ""  # override -> promotes tiktok to its own entity
     vapi_api_key: str = ""
     vapi_webhook_secret: str = ""
     # Vapi outbound dialer requires the operator's assistant + phone number IDs
@@ -1072,9 +1073,9 @@ class Settings(BaseModel):
     # (read + mark as read; no send, no delete).
     # Empty inbox_email OR empty client credentials disable the poller
     # (drain function returns early).
-    gmail_inbox_email: str = ""                    # SAMUS_GMAIL_INBOX_EMAIL
-    gmail_oauth_client_id: str = ""                # SAMUS_GMAIL_OAUTH_CLIENT_ID
-    gmail_oauth_client_secret: str = ""            # SAMUS_GMAIL_OAUTH_CLIENT_SECRET
+    gmail_inbox_email: str = ""  # SAMUS_GMAIL_INBOX_EMAIL
+    gmail_oauth_client_id: str = ""  # SAMUS_GMAIL_OAUTH_CLIENT_ID
+    gmail_oauth_client_secret: str = ""  # SAMUS_GMAIL_OAUTH_CLIENT_SECRET
     # Path to the JSON file persisting the refresh + access tokens. Written
     # by the one-time consent flow (backend.intake.gmail_oauth) and read by
     # every drain pass. SAMUS_GMAIL_OAUTH_TOKEN_PATH overrides.
@@ -1118,7 +1119,7 @@ class Settings(BaseModel):
     # Dynamic cap scaler: when SAMUS_LLM_DYNAMIC_CAP=true (auto-enabled on
     # OpenAI backend), the daily cap tracks MRR via llm_budget_scaler.
     # These are the knobs; env vars override (see llm_budget_scaler.py).
-    llm_reinvest_pct: float = 0.05     # fraction of MRR allocated to LLM
+    llm_reinvest_pct: float = 0.05  # fraction of MRR allocated to LLM
     llm_daily_floor_usd: float = 0.50  # minimum daily cap regardless of MRR
     llm_daily_ceiling_usd: float = 25.0  # hard max daily cap
     # Control B: model floor regex. Any model id that doesn't match this
@@ -1208,9 +1209,7 @@ class Settings(BaseModel):
     intake_captcha_secret: str = ""
     # Turnstile siteverify endpoint. Overridable for tests / self-hosted
     # verification proxies. SAMUS_INTAKE_CAPTCHA_VERIFY_URL.
-    intake_captcha_verify_url: str = (
-        "https://challenges.cloudflare.com/turnstile/v0/siteverify"
-    )
+    intake_captcha_verify_url: str = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
 
     # --- trusted-proxy X-Forwarded-For hop count --------------------------
     # Number of trusted proxy hops that append to X-Forwarded-For in front
@@ -1386,6 +1385,7 @@ class Settings(BaseModel):
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     from .settings import bootstrap_settings
+
     return bootstrap_settings()
 
 

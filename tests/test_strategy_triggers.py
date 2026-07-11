@@ -5,6 +5,7 @@ ordering + operator rate-limit + audit ledger + JSON-fallback snapshot
 persistence. LLM calls are stubbed via the ``propose_fn`` injection point —
 no real ``anthropic_messages`` traffic.
 """
+
 from __future__ import annotations
 
 import json
@@ -22,6 +23,7 @@ from backend.strategy.portfolio_manager import AllocationDecision
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_decision(parse_error: bool = False) -> AllocationDecision:
     """Build a non-empty AllocationDecision so budget_denied stays False."""
     return AllocationDecision(
@@ -35,9 +37,11 @@ def _make_decision(parse_error: bool = False) -> AllocationDecision:
 
 def _stub_propose(call_log: list[tuple]) -> "callable":
     """Return a propose_allocation stub that records each call."""
+
     def _propose(state, market_signals, *, api_key=None):
         call_log.append((state, market_signals, api_key))
         return _make_decision()
+
     return _propose
 
 
@@ -74,10 +78,12 @@ def _isolate_module_state(tmp_path, monkeypatch):
     trig._MANUAL_RATE_LIMITER.reset()
     trig.set_default_store(None)
     monkeypatch.setenv(
-        "SAMUS_PORTFOLIO_TRIGGER_LEDGER", str(tmp_path / "triggers.jsonl"),
+        "SAMUS_PORTFOLIO_TRIGGER_LEDGER",
+        str(tmp_path / "triggers.jsonl"),
     )
     monkeypatch.setenv(
-        "SAMUS_PORTFOLIO_SNAPSHOT_PATH", str(tmp_path / "snapshots.json"),
+        "SAMUS_PORTFOLIO_SNAPSHOT_PATH",
+        str(tmp_path / "snapshots.json"),
     )
     yield
     trig._MANUAL_SIGNAL.clear()
@@ -89,21 +95,37 @@ def _isolate_module_state(tmp_path, monkeypatch):
 # 1. pipeline_ev_step — fires + does not fire
 # ---------------------------------------------------------------------------
 
+
 def test_pipeline_ev_step_fires_on_large_delta(tmp_path):
     store = _store(tmp_path)
     # Seed prev snapshot with EV 1000
     prev = trig.PortfolioSnapshot(
-        bucket_day="2026-05-19", ts="2026-05-19T00:00:00Z",
-        ev_total=1000.0, prospect_count=1, pipeline_median_score=50.0,
+        bucket_day="2026-05-19",
+        ts="2026-05-19T00:00:00Z",
+        ev_total=1000.0,
+        prospect_count=1,
+        pipeline_median_score=50.0,
     )
     store.save(prev)
     log: list[tuple] = []
     # 20% jump (>= 15% threshold)
-    ctx = _ctx(prospects=[{"prospect_id": "p1", "lead_score": 100.0, "seo_score": 50.0, "conversion_signals": ["email_open"]}])
+    ctx = _ctx(
+        prospects=[
+            {
+                "prospect_id": "p1",
+                "lead_score": 100.0,
+                "seo_score": 50.0,
+                "conversion_signals": ["email_open"],
+            }
+        ]
+    )
     # _score_opportunity: 100*0.6 + 1*5 + (100-50)*0.2 = 60+5+10 = 75
     # That's a -92.5% drop from 1000 to 75 -> well above 15% threshold (absolute delta).
     event = trig.check_and_fire(
-        ctx, store=store, min_signal_change=0.15, propose_fn=_stub_propose(log),
+        ctx,
+        store=store,
+        min_signal_change=0.15,
+        propose_fn=_stub_propose(log),
     )
     assert event is not None
     assert event.name == "pipeline_ev_step"
@@ -115,18 +137,31 @@ def test_pipeline_ev_step_does_not_fire_on_small_delta(tmp_path):
     # Seed prev snapshot with EV that closely matches the next one
     # _score_opportunity for {"lead":100,"seo":50,"sig":[email_open]} = 75
     prev = trig.PortfolioSnapshot(
-        bucket_day="2026-05-19", ts="2026-05-19T00:00:00Z",
-        ev_total=80.0, prospect_count=1, pipeline_median_score=100.0,
+        bucket_day="2026-05-19",
+        ts="2026-05-19T00:00:00Z",
+        ev_total=80.0,
+        prospect_count=1,
+        pipeline_median_score=100.0,
         prospect_ids=["p1"],  # same prospect -> no new_cohort
     )
     store.save(prev)
     log: list[tuple] = []
-    ctx = _ctx(prospects=[
-        {"prospect_id": "p1", "lead_score": 100.0, "seo_score": 50.0, "conversion_signals": ["email_open"]},
-    ])
+    ctx = _ctx(
+        prospects=[
+            {
+                "prospect_id": "p1",
+                "lead_score": 100.0,
+                "seo_score": 50.0,
+                "conversion_signals": ["email_open"],
+            },
+        ]
+    )
     # cur EV = 75, prev = 80, delta = 5 -> 6.25% < 15%, does not fire
     event = trig.check_and_fire(
-        ctx, store=store, min_signal_change=0.15, propose_fn=_stub_propose(log),
+        ctx,
+        store=store,
+        min_signal_change=0.15,
+        propose_fn=_stub_propose(log),
     )
     assert event is None
     assert log == []
@@ -136,19 +171,25 @@ def test_pipeline_ev_step_does_not_fire_on_small_delta(tmp_path):
 # 2. bandit_divergence — fires + does not fire
 # ---------------------------------------------------------------------------
 
+
 def test_bandit_divergence_fires_when_top_arm_changes(tmp_path):
     store = _store(tmp_path)
     # Seed prev with one top-arm; current stats have a different winner.
     prev = trig.PortfolioSnapshot(
-        bucket_day="2026-05-19", ts="2026-05-19T00:00:00Z",
-        ev_total=100.0, prospect_count=1, pipeline_median_score=50.0,
+        bucket_day="2026-05-19",
+        ts="2026-05-19T00:00:00Z",
+        ev_total=100.0,
+        prospect_count=1,
+        pipeline_median_score=50.0,
         bandit_top_arms={"_default": "accelerate"},
         prospect_ids=["p1"],
     )
     store.save(prev)
     log: list[tuple] = []
     ctx = _ctx(
-        prospects=[{"prospect_id": "p1", "lead_score": 80.0, "seo_score": 70.0, "conversion_signals": []}],
+        prospects=[
+            {"prospect_id": "p1", "lead_score": 80.0, "seo_score": 70.0, "conversion_signals": []}
+        ],
         bandit_stats={
             "accelerate": {"wins": 1.0, "trials": 10},
             "defer": {"wins": 9.0, "trials": 10},  # higher mean -> new top
@@ -158,15 +199,21 @@ def test_bandit_divergence_fires_when_top_arm_changes(tmp_path):
     # cur EV = 80*0.6 + 0 + (100-70)*0.2 = 48+6 = 54; prev = 100; delta 46 = 46% (>15%) -> fires first!
     # So we need to pick prev_ev close to cur ev.
     prev2 = trig.PortfolioSnapshot(
-        bucket_day="2026-05-19", ts="2026-05-19T00:00:00Z",
-        ev_total=55.0, prospect_count=1, pipeline_median_score=50.0,
+        bucket_day="2026-05-19",
+        ts="2026-05-19T00:00:00Z",
+        ev_total=55.0,
+        prospect_count=1,
+        pipeline_median_score=50.0,
         bandit_top_arms={"_default": "accelerate"},
         prospect_ids=["p1"],
     )
     store.save(prev2)
 
     event = trig.check_and_fire(
-        ctx, store=store, min_signal_change=0.15, propose_fn=_stub_propose(log),
+        ctx,
+        store=store,
+        min_signal_change=0.15,
+        propose_fn=_stub_propose(log),
     )
     assert event is not None
     assert event.name == "bandit_divergence"
@@ -178,15 +225,20 @@ def test_bandit_divergence_fires_when_top_arm_changes(tmp_path):
 def test_bandit_divergence_does_not_fire_when_top_arm_stable(tmp_path):
     store = _store(tmp_path)
     prev = trig.PortfolioSnapshot(
-        bucket_day="2026-05-19", ts="2026-05-19T00:00:00Z",
-        ev_total=55.0, prospect_count=1, pipeline_median_score=50.0,
+        bucket_day="2026-05-19",
+        ts="2026-05-19T00:00:00Z",
+        ev_total=55.0,
+        prospect_count=1,
+        pipeline_median_score=50.0,
         bandit_top_arms={"_default": "accelerate"},
         prospect_ids=["p1"],
     )
     store.save(prev)
     log: list[tuple] = []
     ctx = _ctx(
-        prospects=[{"prospect_id": "p1", "lead_score": 80.0, "seo_score": 70.0, "conversion_signals": []}],
+        prospects=[
+            {"prospect_id": "p1", "lead_score": 80.0, "seo_score": 70.0, "conversion_signals": []}
+        ],
         bandit_stats={
             "accelerate": {"wins": 9.0, "trials": 10},
             "defer": {"wins": 1.0, "trials": 10},  # accelerate still wins
@@ -194,7 +246,10 @@ def test_bandit_divergence_does_not_fire_when_top_arm_stable(tmp_path):
     )
     # ev: cur = 54, prev = 55 -> ~2% < 15% threshold
     event = trig.check_and_fire(
-        ctx, store=store, min_signal_change=0.15, propose_fn=_stub_propose(log),
+        ctx,
+        store=store,
+        min_signal_change=0.15,
+        propose_fn=_stub_propose(log),
     )
     assert event is None
     assert log == []
@@ -204,6 +259,7 @@ def test_bandit_divergence_does_not_fire_when_top_arm_stable(tmp_path):
 # 3. new_cohort — fires + does not fire
 # ---------------------------------------------------------------------------
 
+
 def test_new_cohort_fires_when_new_prospects_exceed_median(tmp_path):
     store = _store(tmp_path)
     # Seed prev EV close to cur so pipeline_ev_step doesn't pre-empt.
@@ -211,8 +267,11 @@ def test_new_cohort_fires_when_new_prospects_exceed_median(tmp_path):
     # plus new p2 (lead=90, seo=70, sigs=[]) -> 60 EV. total = 114
     # Need prev_ev ~ 114 too (within 15%).
     prev = trig.PortfolioSnapshot(
-        bucket_day="2026-05-19", ts="2026-05-19T00:00:00Z",
-        ev_total=110.0, prospect_count=1, pipeline_median_score=80.0,
+        bucket_day="2026-05-19",
+        ts="2026-05-19T00:00:00Z",
+        ev_total=110.0,
+        prospect_count=1,
+        pipeline_median_score=80.0,
         bandit_top_arms={},
         prospect_ids=["p1"],
     )
@@ -225,7 +284,10 @@ def test_new_cohort_fires_when_new_prospects_exceed_median(tmp_path):
         ],
     )
     event = trig.check_and_fire(
-        ctx, store=store, min_signal_change=0.15, propose_fn=_stub_propose(log),
+        ctx,
+        store=store,
+        min_signal_change=0.15,
+        propose_fn=_stub_propose(log),
     )
     assert event is not None
     assert event.name == "new_cohort"
@@ -236,8 +298,11 @@ def test_new_cohort_fires_when_new_prospects_exceed_median(tmp_path):
 def test_new_cohort_does_not_fire_when_no_new_prospects(tmp_path):
     store = _store(tmp_path)
     prev = trig.PortfolioSnapshot(
-        bucket_day="2026-05-19", ts="2026-05-19T00:00:00Z",
-        ev_total=55.0, prospect_count=1, pipeline_median_score=80.0,
+        bucket_day="2026-05-19",
+        ts="2026-05-19T00:00:00Z",
+        ev_total=55.0,
+        prospect_count=1,
+        pipeline_median_score=80.0,
         bandit_top_arms={},
         prospect_ids=["p1"],
     )
@@ -249,7 +314,10 @@ def test_new_cohort_does_not_fire_when_no_new_prospects(tmp_path):
         ],
     )
     event = trig.check_and_fire(
-        ctx, store=store, min_signal_change=0.15, propose_fn=_stub_propose(log),
+        ctx,
+        store=store,
+        min_signal_change=0.15,
+        propose_fn=_stub_propose(log),
     )
     assert event is None
     assert log == []
@@ -259,11 +327,15 @@ def test_new_cohort_does_not_fire_when_no_new_prospects(tmp_path):
 # 4. operator_manual — fires + does not fire (rate limit)
 # ---------------------------------------------------------------------------
 
+
 def test_operator_manual_fires_on_signal(tmp_path):
     store = _store(tmp_path)
     prev = trig.PortfolioSnapshot(
-        bucket_day="2026-05-19", ts="2026-05-19T00:00:00Z",
-        ev_total=55.0, prospect_count=1, pipeline_median_score=80.0,
+        bucket_day="2026-05-19",
+        ts="2026-05-19T00:00:00Z",
+        ev_total=55.0,
+        prospect_count=1,
+        pipeline_median_score=80.0,
         bandit_top_arms={},
         prospect_ids=["p1"],
     )
@@ -276,7 +348,10 @@ def test_operator_manual_fires_on_signal(tmp_path):
         ],
     )
     event = trig.check_and_fire(
-        ctx, store=store, min_signal_change=0.15, propose_fn=_stub_propose(log),
+        ctx,
+        store=store,
+        min_signal_change=0.15,
+        propose_fn=_stub_propose(log),
     )
     assert event is not None
     assert event.name == "operator_manual"
@@ -286,8 +361,11 @@ def test_operator_manual_fires_on_signal(tmp_path):
 def test_operator_manual_does_not_fire_without_signal(tmp_path):
     store = _store(tmp_path)
     prev = trig.PortfolioSnapshot(
-        bucket_day="2026-05-19", ts="2026-05-19T00:00:00Z",
-        ev_total=55.0, prospect_count=1, pipeline_median_score=80.0,
+        bucket_day="2026-05-19",
+        ts="2026-05-19T00:00:00Z",
+        ev_total=55.0,
+        prospect_count=1,
+        pipeline_median_score=80.0,
         bandit_top_arms={},
         prospect_ids=["p1"],
     )
@@ -300,7 +378,10 @@ def test_operator_manual_does_not_fire_without_signal(tmp_path):
     )
     # No manual_signal() call here.
     event = trig.check_and_fire(
-        ctx, store=store, min_signal_change=0.15, propose_fn=_stub_propose(log),
+        ctx,
+        store=store,
+        min_signal_change=0.15,
+        propose_fn=_stub_propose(log),
     )
     assert event is None
     assert log == []
@@ -310,11 +391,15 @@ def test_operator_manual_does_not_fire_without_signal(tmp_path):
 # 5. budget_recovery — fires + does not fire
 # ---------------------------------------------------------------------------
 
+
 def test_budget_recovery_fires_on_low_efficiency(tmp_path):
     store = _store(tmp_path)
     prev = trig.PortfolioSnapshot(
-        bucket_day="2026-05-19", ts="2026-05-19T00:00:00Z",
-        ev_total=55.0, prospect_count=1, pipeline_median_score=80.0,
+        bucket_day="2026-05-19",
+        ts="2026-05-19T00:00:00Z",
+        ev_total=55.0,
+        prospect_count=1,
+        pipeline_median_score=80.0,
         bandit_top_arms={},
         prospect_ids=["p1"],
     )
@@ -327,7 +412,10 @@ def test_budget_recovery_fires_on_low_efficiency(tmp_path):
         efficiency_ema_by_workcell={"prospecting": 0.25, "seo": 0.8},
     )
     event = trig.check_and_fire(
-        ctx, store=store, min_signal_change=0.15, propose_fn=_stub_propose(log),
+        ctx,
+        store=store,
+        min_signal_change=0.15,
+        propose_fn=_stub_propose(log),
     )
     assert event is not None
     assert event.name == "budget_recovery"
@@ -338,8 +426,11 @@ def test_budget_recovery_fires_on_low_efficiency(tmp_path):
 def test_budget_recovery_does_not_fire_on_healthy_efficiency(tmp_path):
     store = _store(tmp_path)
     prev = trig.PortfolioSnapshot(
-        bucket_day="2026-05-19", ts="2026-05-19T00:00:00Z",
-        ev_total=55.0, prospect_count=1, pipeline_median_score=80.0,
+        bucket_day="2026-05-19",
+        ts="2026-05-19T00:00:00Z",
+        ev_total=55.0,
+        prospect_count=1,
+        pipeline_median_score=80.0,
         bandit_top_arms={},
         prospect_ids=["p1"],
     )
@@ -352,7 +443,10 @@ def test_budget_recovery_does_not_fire_on_healthy_efficiency(tmp_path):
         efficiency_ema_by_workcell={"prospecting": 0.9, "seo": 0.85},
     )
     event = trig.check_and_fire(
-        ctx, store=store, min_signal_change=0.15, propose_fn=_stub_propose(log),
+        ctx,
+        store=store,
+        min_signal_change=0.15,
+        propose_fn=_stub_propose(log),
     )
     assert event is None
     assert log == []
@@ -361,6 +455,7 @@ def test_budget_recovery_does_not_fire_on_healthy_efficiency(tmp_path):
 # ---------------------------------------------------------------------------
 # Short-circuit ordering — first true trigger wins, rest aren't evaluated
 # ---------------------------------------------------------------------------
+
 
 def test_check_and_fire_short_circuits_on_first_true(tmp_path):
     """If pipeline_ev_step fires, bandit_divergence + downstream don't run.
@@ -372,8 +467,11 @@ def test_check_and_fire_short_circuits_on_first_true(tmp_path):
     store = _store(tmp_path)
     # Prev: huge EV, single prospect, accelerate-top, prospecting healthy
     prev = trig.PortfolioSnapshot(
-        bucket_day="2026-05-19", ts="2026-05-19T00:00:00Z",
-        ev_total=10_000.0, prospect_count=1, pipeline_median_score=50.0,
+        bucket_day="2026-05-19",
+        ts="2026-05-19T00:00:00Z",
+        ev_total=10_000.0,
+        prospect_count=1,
+        pipeline_median_score=50.0,
         bandit_top_arms={"_default": "accelerate"},
         prospect_ids=["p1"],
     )
@@ -394,7 +492,10 @@ def test_check_and_fire_short_circuits_on_first_true(tmp_path):
     )
 
     event = trig.check_and_fire(
-        ctx, store=store, min_signal_change=0.15, propose_fn=_stub_propose(log),
+        ctx,
+        store=store,
+        min_signal_change=0.15,
+        propose_fn=_stub_propose(log),
     )
 
     assert event is not None
@@ -412,13 +513,17 @@ def test_check_and_fire_short_circuits_on_first_true(tmp_path):
 # Operator-manual rate-limit holds to 1/hour
 # ---------------------------------------------------------------------------
 
+
 def test_operator_manual_rate_limit_holds_one_per_hour(tmp_path):
     """Two manual_signal() calls within an hour -> exactly one fire."""
     store = _store(tmp_path)
     # Seed prev so no other trigger fires.
     prev = trig.PortfolioSnapshot(
-        bucket_day="2026-05-19", ts="2026-05-19T00:00:00Z",
-        ev_total=55.0, prospect_count=1, pipeline_median_score=80.0,
+        bucket_day="2026-05-19",
+        ts="2026-05-19T00:00:00Z",
+        ev_total=55.0,
+        prospect_count=1,
+        pipeline_median_score=80.0,
         bandit_top_arms={},
         prospect_ids=["p1"],
     )
@@ -464,11 +569,15 @@ def test_operator_manual_rate_limit_holds_one_per_hour(tmp_path):
 # Audit ledger persists fire events
 # ---------------------------------------------------------------------------
 
+
 def test_check_and_fire_records_event_to_audit_ledger(tmp_path):
     store = _store(tmp_path)
     prev = trig.PortfolioSnapshot(
-        bucket_day="2026-05-19", ts="2026-05-19T00:00:00Z",
-        ev_total=55.0, prospect_count=1, pipeline_median_score=80.0,
+        bucket_day="2026-05-19",
+        ts="2026-05-19T00:00:00Z",
+        ev_total=55.0,
+        prospect_count=1,
+        pipeline_median_score=80.0,
         bandit_top_arms={},
         prospect_ids=["p1"],
     )
@@ -500,6 +609,7 @@ def test_check_and_fire_records_event_to_audit_ledger(tmp_path):
 # JSON-fallback snapshot persistence works without boto3 / DDB
 # ---------------------------------------------------------------------------
 
+
 def test_json_fallback_snapshot_round_trip_without_ddb(tmp_path, monkeypatch):
     """Snapshot save + load_latest must work with DDB disabled (empty table name).
 
@@ -517,8 +627,11 @@ def test_json_fallback_snapshot_round_trip_without_ddb(tmp_path, monkeypatch):
     assert store._ddb_backend is None
 
     snap = trig.PortfolioSnapshot(
-        bucket_day="2026-05-19", ts="2026-05-19T00:00:00Z",
-        ev_total=123.45, prospect_count=7, pipeline_median_score=42.0,
+        bucket_day="2026-05-19",
+        ts="2026-05-19T00:00:00Z",
+        ev_total=123.45,
+        prospect_count=7,
+        pipeline_median_score=42.0,
         bandit_top_arms={"_default": "accelerate"},
         efficiency_ema_by_workcell={"prospecting": 0.7, "seo": 0.8},
         prospect_ids=["a", "b", "c"],
@@ -547,12 +660,14 @@ def test_json_fallback_snapshot_round_trip_without_ddb(tmp_path, monkeypatch):
 # Settings binding — env vars propagate to Settings
 # ---------------------------------------------------------------------------
 
+
 def test_settings_pick_up_portfolio_env_vars(monkeypatch):
     monkeypatch.setenv("SAMUS_PORTFOLIO_DOLLAR_CAP", "0.35")
     monkeypatch.setenv("SAMUS_PORTFOLIO_MIN_SIGNAL_CHANGE", "0.22")
     monkeypatch.setenv("SAMUS_PORTFOLIO_TICK_INTERVAL_SEC", "600")
 
     from backend.common.settings import reload_settings
+
     s = reload_settings()
     assert s.portfolio_workcell_dollar_cap == 0.35
     assert s.portfolio_min_signal_change == 0.22
@@ -563,6 +678,7 @@ def test_settings_pick_up_portfolio_env_vars(monkeypatch):
 # Tick loop wiring — handle stops cleanly without firing
 # ---------------------------------------------------------------------------
 
+
 def test_start_tick_loop_returns_handle_and_stop_cancels(tmp_path):
     """Smoke: handle is created with a long interval, .stop() cancels cleanly."""
     store = _store(tmp_path)
@@ -570,7 +686,14 @@ def test_start_tick_loop_returns_handle_and_stop_cancels(tmp_path):
 
     def _provider() -> trig.TriggerContext:
         return _ctx(
-            prospects=[{"prospect_id": "p1", "lead_score": 80.0, "seo_score": 70.0, "conversion_signals": []}],
+            prospects=[
+                {
+                    "prospect_id": "p1",
+                    "lead_score": 80.0,
+                    "seo_score": 70.0,
+                    "conversion_signals": [],
+                }
+            ],
         )
 
     # Long interval; we cancel before it fires.

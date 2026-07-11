@@ -1,4 +1,5 @@
 """FastAPI application for the path-optimizer workcell."""
+
 from __future__ import annotations
 
 import logging
@@ -37,9 +38,7 @@ def create_app() -> object:
         Supported action: ``select_path`` (also the default when none given).
         """
         action = (
-            envelope.metadata.get("action")
-            or envelope.payload.get("action")
-            or _DEFAULT_ACTION
+            envelope.metadata.get("action") or envelope.payload.get("action") or _DEFAULT_ACTION
         )
         payload = dict(envelope.payload or {})
         payload.pop("action", None)

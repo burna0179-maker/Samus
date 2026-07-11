@@ -13,6 +13,7 @@ record whose ``payload`` carries exactly the fields deliverable §7 requires:
 No raw secrets, no unnecessary PII: request/response payloads are reduced to
 SHA-256 hashes (:func:`hash_payload`) and only artifact *references* are kept.
 """
+
 from __future__ import annotations
 
 import hashlib

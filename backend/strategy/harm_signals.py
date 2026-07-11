@@ -17,6 +17,7 @@ transient DDB hiccup must not block a reward computation. The caller
 fail-CLOSED behaviour when ALL three collectors error simultaneously —
 that pattern (every read down at once) is itself the safety failure.
 """
+
 from __future__ import annotations
 
 import logging
@@ -72,21 +73,25 @@ class DefaultHarmSignalStore:
 
     def artifacts_for_opportunity(self, opportunity_id: str) -> list[dict[str, Any]]:
         from backend.crm import service as crm_service
+
         result = crm_service.list_artifacts(owner_entity_id=opportunity_id, limit=500)
         return [a.model_dump() for a in result.artifacts]
 
     def conversations_for_prospect(self, prospect_id: str) -> list[dict[str, Any]]:
         from backend.crm import service as crm_service
+
         result = crm_service.list_conversations(prospect_id=prospect_id, limit=500)
         return [c.model_dump() for c in result.conversations]
 
     def contacts_for_prospect(self, prospect_id: str) -> list[dict[str, Any]]:
         from backend.crm import service as crm_service
+
         result = crm_service.list_contacts(prospect_id=prospect_id, limit=500)
         return [c.model_dump() for c in result.contacts]
 
     def opportunity(self, opportunity_id: str) -> dict[str, Any] | None:
         from backend.crm import service as crm_service
+
         opp = crm_service.get_opportunity(opportunity_id)
         return opp.model_dump() if opp is not None else None
 
@@ -99,6 +104,7 @@ class DefaultHarmSignalStore:
         # surfaced it.
         from backend.common import aws
         from backend.common.settings import get_settings
+
         settings = get_settings()
         table = aws.table(settings.ddb_feedback_table, settings.aws_region)
         out: list[str] = []
@@ -126,7 +132,9 @@ def _matches_retraction(row: dict[str, Any]) -> bool:
 
 
 def retracted_claims_for(
-    opportunity_id: str, *, store: HarmSignalStore | None = None,
+    opportunity_id: str,
+    *,
+    store: HarmSignalStore | None = None,
 ) -> int:
     """Count artifacts on this opportunity that mark a retraction.
 
@@ -138,14 +146,18 @@ def retracted_claims_for(
         rows = s.artifacts_for_opportunity(opportunity_id)
     except Exception as exc:  # noqa: BLE001 — fail-OPEN
         _LOG.warning(
-            "retracted_claims_for lookup failed opp=%s: %s", opportunity_id, exc,
+            "retracted_claims_for lookup failed opp=%s: %s",
+            opportunity_id,
+            exc,
         )
         return 0
     return sum(1 for row in rows if _matches_retraction(row))
 
 
 def unsubscribes_for(
-    opportunity_id: str, *, store: HarmSignalStore | None = None,
+    opportunity_id: str,
+    *,
+    store: HarmSignalStore | None = None,
 ) -> int:
     """Count outreach conversations marked ``unsubscribe`` for this prospect.
 
@@ -163,17 +175,18 @@ def unsubscribes_for(
         rows = s.conversations_for_prospect(prospect_id)
     except Exception as exc:  # noqa: BLE001 — fail-OPEN
         _LOG.warning(
-            "unsubscribes_for lookup failed opp=%s: %s", opportunity_id, exc,
+            "unsubscribes_for lookup failed opp=%s: %s",
+            opportunity_id,
+            exc,
         )
         return 0
-    return sum(
-        1 for row in rows
-        if (row.get("outcome") or "").strip().lower() == "unsubscribe"
-    )
+    return sum(1 for row in rows if (row.get("outcome") or "").strip().lower() == "unsubscribe")
 
 
 def complaints_for(
-    opportunity_id: str, *, store: HarmSignalStore | None = None,
+    opportunity_id: str,
+    *,
+    store: HarmSignalStore | None = None,
 ) -> int:
     """Count SES complaint events overlapping any Contact email on this prospect.
 
@@ -200,7 +213,9 @@ def complaints_for(
         complainants = s.complaint_recipients()
     except Exception as exc:  # noqa: BLE001 — fail-OPEN
         _LOG.warning(
-            "complaints_for lookup failed opp=%s: %s", opportunity_id, exc,
+            "complaints_for lookup failed opp=%s: %s",
+            opportunity_id,
+            exc,
         )
         return 0
     return sum(1 for addr in complainants if addr in prospect_emails)

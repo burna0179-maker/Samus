@@ -16,6 +16,7 @@ Keeping this declarative and centralized means the executor stays mechanical:
 it asks the registry "is this legal / high-risk / where does it default" and
 never hard-codes a workcell name.
 """
+
 from __future__ import annotations
 
 import os
@@ -48,23 +49,23 @@ class NodeTypeSpec:
 # resolves to ``none``.
 NODE_TYPE_SPECS: dict[str, NodeTypeSpec] = {
     # --- inward / reversible work: safe to auto-run ---
-    "artifact_ingest":    NodeTypeSpec(False, AuditSeverity.INFO, ApprovalLevel.NONE),
-    "seo_audit":          NodeTypeSpec(False, AuditSeverity.INFO, ApprovalLevel.NONE),
+    "artifact_ingest": NodeTypeSpec(False, AuditSeverity.INFO, ApprovalLevel.NONE),
+    "seo_audit": NodeTypeSpec(False, AuditSeverity.INFO, ApprovalLevel.NONE),
     "audience_discovery": NodeTypeSpec(False, AuditSeverity.INFO, ApprovalLevel.NONE),
-    "funnel_plan":        NodeTypeSpec(False, AuditSeverity.NOTICE, ApprovalLevel.OPERATOR),
+    "funnel_plan": NodeTypeSpec(False, AuditSeverity.NOTICE, ApprovalLevel.OPERATOR),
     "content_generation": NodeTypeSpec(False, AuditSeverity.NOTICE, ApprovalLevel.OPERATOR),
-    "seo_geo_content":    NodeTypeSpec(False, AuditSeverity.NOTICE, ApprovalLevel.OPERATOR),
+    "seo_geo_content": NodeTypeSpec(False, AuditSeverity.NOTICE, ApprovalLevel.OPERATOR),
     "metrics_collection": NodeTypeSpec(False, AuditSeverity.INFO, ApprovalLevel.NONE),
     # --- outward / hard-to-reverse: high-risk, approval required ---
-    "public_action":      NodeTypeSpec(True, AuditSeverity.CRITICAL, ApprovalLevel.CLIENT),
-    "external_outreach":  NodeTypeSpec(True, AuditSeverity.CRITICAL, ApprovalLevel.OPERATOR),
-    "paid_ads":           NodeTypeSpec(True, AuditSeverity.CRITICAL, ApprovalLevel.OPERATOR),
-    "backlink":           NodeTypeSpec(True, AuditSeverity.CRITICAL, ApprovalLevel.GOVERNANCE),
-    "website_edit":       NodeTypeSpec(True, AuditSeverity.HIGH, ApprovalLevel.OPERATOR),
-    "mass_message":       NodeTypeSpec(True, AuditSeverity.CRITICAL, ApprovalLevel.CLIENT),
-    "review_request":     NodeTypeSpec(True, AuditSeverity.HIGH, ApprovalLevel.OPERATOR),
+    "public_action": NodeTypeSpec(True, AuditSeverity.CRITICAL, ApprovalLevel.CLIENT),
+    "external_outreach": NodeTypeSpec(True, AuditSeverity.CRITICAL, ApprovalLevel.OPERATOR),
+    "paid_ads": NodeTypeSpec(True, AuditSeverity.CRITICAL, ApprovalLevel.OPERATOR),
+    "backlink": NodeTypeSpec(True, AuditSeverity.CRITICAL, ApprovalLevel.GOVERNANCE),
+    "website_edit": NodeTypeSpec(True, AuditSeverity.HIGH, ApprovalLevel.OPERATOR),
+    "mass_message": NodeTypeSpec(True, AuditSeverity.CRITICAL, ApprovalLevel.CLIENT),
+    "review_request": NodeTypeSpec(True, AuditSeverity.HIGH, ApprovalLevel.OPERATOR),
     # client-facing report — reversible but seen by the client, so gated.
-    "reporting":          NodeTypeSpec(False, AuditSeverity.NOTICE, ApprovalLevel.OPERATOR),
+    "reporting": NodeTypeSpec(False, AuditSeverity.NOTICE, ApprovalLevel.OPERATOR),
 }
 
 # Fallback for an unrecognized node type: treat as high-risk (fail-closed —
@@ -98,9 +99,7 @@ class InvalidRoutingError(ValueError):
 def assert_routable(node_id: str, target_workcell: str, capability: str) -> None:
     """Raise :class:`InvalidRoutingError` if the node's routing is illegal."""
     if not known_workcell(target_workcell):
-        raise InvalidRoutingError(
-            f"node {node_id!r}: unknown target workcell {target_workcell!r}"
-        )
+        raise InvalidRoutingError(f"node {node_id!r}: unknown target workcell {target_workcell!r}")
     if not is_valid_pair(target_workcell, capability):
         raise InvalidRoutingError(
             f"node {node_id!r}: workcell {target_workcell!r} does not expose "

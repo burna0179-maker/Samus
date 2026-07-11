@@ -4,6 +4,7 @@ A recovery request describes a failed LLM-driven step; a recovery response
 carries the deterministic scaffold that lets the workflow continue without
 spending more tokens.
 """
+
 from __future__ import annotations
 
 from typing import Any

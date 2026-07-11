@@ -8,6 +8,7 @@ backstop the entire warmth claim.
 
 Pure read: never writes. Fail-OPEN — any persistence error returns None.
 """
+
 from __future__ import annotations
 
 import json
@@ -32,6 +33,7 @@ def _scan_onboarding_leads(email: str) -> dict[str, Any] | None:
     try:
         from backend.common.config import get_settings
         from backend.crm import persistence as crm_persistence
+
         s = get_settings()
         table_name = getattr(s, "ddb_onboarding_leads_table", "") or ""
         if not table_name:
@@ -40,7 +42,7 @@ def _scan_onboarding_leads(email: str) -> dict[str, Any] | None:
         if table is None:
             return None
         resp = table.scan(Limit=200)
-        for item in (resp.get("Items") or []):
+        for item in resp.get("Items") or []:
             row_email = str(item.get("email") or "").strip().lower()
             if row_email == email:
                 return {

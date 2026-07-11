@@ -5,6 +5,7 @@ States: open -> pitch -> engage -> {handle_objection | close_attempt}
 
 Pure functions — no module-level state, no side effects.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -13,8 +14,13 @@ from .models import OutreachIntel
 
 
 STATES: tuple[str, ...] = (
-    "open", "pitch", "engage", "handle_objection",
-    "close_attempt", "fallback", "exit",
+    "open",
+    "pitch",
+    "engage",
+    "handle_objection",
+    "close_attempt",
+    "fallback",
+    "exit",
 )
 
 

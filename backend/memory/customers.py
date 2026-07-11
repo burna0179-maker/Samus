@@ -6,6 +6,7 @@ event is the current state. Neo4j-down behavior mirrors the graph_client
 graceful-degradation pattern — create/advance raise CustomerStoreUnavailableError,
 reads return None / [].
 """
+
 from __future__ import annotations
 
 import json
@@ -124,6 +125,7 @@ def _validate_state(state: str) -> None:
 
 
 # --- store ------------------------------------------------------------------
+
 
 class CustomerStore:
     """Customer + state-event persistence on Neo4j."""

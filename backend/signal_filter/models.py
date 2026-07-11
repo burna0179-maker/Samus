@@ -3,6 +3,7 @@
 All models forbid extra fields (``ConfigDict(extra="forbid")``) so a
 malformed payload fails fast with a 422 rather than silently dropping data.
 """
+
 from __future__ import annotations
 
 from typing import Any

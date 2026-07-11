@@ -1,4 +1,5 @@
 """Tests for the _shared.autonomy contract wiring + the identity boot step."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -10,6 +11,7 @@ from backend.identity import boot as identity_boot
 
 
 # --- autonomy layer (ECO-ADR-0001 shared contract) ------------------------
+
 
 def test_layer_disabled_by_default():
     assert al.layer_enabled({}) is False
@@ -25,20 +27,24 @@ def test_resolve_mode_away_is_shadow():
 
 def test_resolve_mode_present_unarmed_is_shadow():
     """Present but authority NOT armed -> SHADOW (the band double-gate)."""
-    mode = al.resolve_samus_mode(env={
-        "SN_AUTONOMY_LAYER_MODE_SAMUS": "active",
-    })
+    mode = al.resolve_samus_mode(
+        env={
+            "SN_AUTONOMY_LAYER_MODE_SAMUS": "active",
+        }
+    )
     # Present-active requested but authority unarmed clamps to SHADOW.
     assert mode.value in ("shadow", "dormant")
 
 
 def test_resolve_mode_present_armed_is_active():
     """Present + authority armed -> ACTIVE (still no live actuator wired)."""
-    mode = al.resolve_samus_mode(env={
-        "SN_AUTONOMY_LAYER_MODE_SAMUS": "active",
-        "SN_AUTONOMY_LAYER_AUTHORITY_SAMUS": "1",
-        # explicit-present override path: posture passed via mode override.
-    })
+    mode = al.resolve_samus_mode(
+        env={
+            "SN_AUTONOMY_LAYER_MODE_SAMUS": "active",
+            "SN_AUTONOMY_LAYER_AUTHORITY_SAMUS": "1",
+            # explicit-present override path: posture passed via mode override.
+        }
+    )
     # With no posture file the base posture is 'away', which clamps overrides
     # to <= SHADOW. So this proves the away-clamp invariant holds.
     assert mode.value in ("shadow", "dormant", "active")
@@ -51,9 +57,13 @@ def test_build_contract_shadow_mode():
     if contract is None:
         pytest.skip("shared autonomy contract unavailable in this environment")
     # Drive it: a SHADOW/DORMANT drive must not raise and must not actuate.
-    result = contract.drive({
-        "task_id": "t1", "objective": "qualify a lead", "inputs": {},
-    })
+    result = contract.drive(
+        {
+            "task_id": "t1",
+            "objective": "qualify a lead",
+            "inputs": {},
+        }
+    )
     assert result is not None
 
 
@@ -64,6 +74,7 @@ def test_run_adapter_invokes_domain_cycle():
 
 
 # --- identity boot step ---------------------------------------------------
+
 
 def test_boot_is_fail_safe_and_dormant_by_default():
     """Default env: gate armed to enforce (HOTL T1) but no abort outside prod.
@@ -86,9 +97,7 @@ def test_boot_is_fail_safe_and_dormant_by_default():
 
 def test_boot_audit_mode_reports_no_abort():
     app = SimpleNamespace(state=SimpleNamespace())
-    report = identity_boot.run_identity_boot(
-        app, env={"SAMUS_IMMUTABLE_GATE_MODE": "audit"}
-    )
+    report = identity_boot.run_identity_boot(app, env={"SAMUS_IMMUTABLE_GATE_MODE": "audit"})
     assert report["immutable_gate"]["mode"] == "audit"
     # The shipped baseline matches the shipped source -> clean verify.
     assert report["immutable_gate"]["verify"]["ok"] is True
@@ -111,6 +120,7 @@ def test_boot_enforce_drift_in_production_aborts(monkeypatch):
     class _Drift:
         ok = False
         drift = [("backend/common/security.py", "expected", "actual")]
+
         def to_dict(self):
             return {"ok": False, "drift": [{"path": "x", "expected": "a", "actual": "b"}]}
 
@@ -118,6 +128,7 @@ def test_boot_enforce_drift_in_production_aborts(monkeypatch):
         tamper = False
         production_ready = False
         detail = "unsigned"
+
         def to_dict(self):
             return {"production_ready": False, "tamper": False}
 
@@ -133,9 +144,7 @@ def test_boot_enforce_drift_in_production_aborts(monkeypatch):
 
 def test_boot_autonomy_enabled_builds_contract():
     app = SimpleNamespace(state=SimpleNamespace())
-    report = identity_boot.run_identity_boot(
-        app, env={"SAMUS_AUTONOMY_LAYER_ENABLED": "1"}
-    )
+    report = identity_boot.run_identity_boot(app, env={"SAMUS_AUTONOMY_LAYER_ENABLED": "1"})
     assert report["autonomy"]["enabled"] is True
     # Mode resolves to a shadow/dormant value in the default (away) posture.
     assert report["autonomy"]["mode"] in ("shadow", "dormant", "active", None)

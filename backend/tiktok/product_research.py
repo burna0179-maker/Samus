@@ -12,6 +12,7 @@ calls it for sourcing. Instead the provider is operator-selected:
 
 The thin ``_http_get`` wrapper is the test monkeypatch point. Never raises.
 """
+
 from __future__ import annotations
 
 import logging
@@ -49,7 +50,10 @@ def find_trending(query: str, *, settings: Any, limit: int = 20) -> list[Trendin
     if provider == "none":
         return []
 
-    base = _PROVIDER_BASE.get(provider) or (getattr(settings, "tiktok_research_base_url", "") or "").strip()
+    base = (
+        _PROVIDER_BASE.get(provider)
+        or (getattr(settings, "tiktok_research_base_url", "") or "").strip()
+    )
     if not base:
         _LOG.info("tiktok research: provider %s has no base url", provider)
         return []
@@ -81,9 +85,11 @@ def find_trending(query: str, *, settings: Any, limit: int = 20) -> list[Trendin
 
 def rank_by_opportunity(products: list[TrendingProduct]) -> list[TrendingProduct]:
     """Deterministic sourcing rank: high sales + rating, sane price. Pure/$0."""
+
     def score(p: TrendingProduct) -> float:
         price_fit = 1.0 if 8.0 <= p.price_usd <= 60.0 else 0.5
         return (p.sales * 1.0) + (p.rating * 200.0) * price_fit
+
     return sorted(products, key=score, reverse=True)
 
 

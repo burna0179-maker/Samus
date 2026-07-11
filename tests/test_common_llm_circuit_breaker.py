@@ -4,6 +4,7 @@ Tests the new ``consecutive_errors`` + ``circuit_open_until`` fields on
 ``WorkcellBudget`` and the deny path in ``can_spend``. Deterministic
 time via the ``now_func`` injection on ``LlmBudgetStore``.
 """
+
 from __future__ import annotations
 
 import calendar
@@ -24,8 +25,7 @@ def _fixed_now(ts: float):
     return _n
 
 
-def _store(tmp_path, *, threshold: int = 10, cooldown: int = 300,
-           now=None) -> LlmBudgetStore:
+def _store(tmp_path, *, threshold: int = 10, cooldown: int = 300, now=None) -> LlmBudgetStore:
     return LlmBudgetStore(
         base_token_budget=100_000,
         ema_alpha=0.5,
@@ -41,6 +41,7 @@ def _store(tmp_path, *, threshold: int = 10, cooldown: int = 300,
 # ---------------------------------------------------------------------------
 # Field defaults — backwards compat with pre-hardening DDB rows
 # ---------------------------------------------------------------------------
+
 
 def test_workcell_budget_defaults_zero_consecutive_errors():
     b = WorkcellBudget(workcell="prospecting")
@@ -67,6 +68,7 @@ def test_workcell_budget_from_item_missing_fields_defaults():
 # ---------------------------------------------------------------------------
 # Trip mechanics
 # ---------------------------------------------------------------------------
+
 
 def test_below_threshold_does_not_trip(tmp_path):
     s = _store(tmp_path, threshold=3)
@@ -114,6 +116,7 @@ def test_cooldown_lapse_re_allows(tmp_path):
 # Reset on success / failure
 # ---------------------------------------------------------------------------
 
+
 def test_success_resets_consecutive_errors(tmp_path):
     s = _store(tmp_path, threshold=10)
     for _ in range(5):
@@ -158,6 +161,7 @@ def test_success_after_trip_closes_breaker(tmp_path):
 # Per-workcell isolation
 # ---------------------------------------------------------------------------
 
+
 def test_workcells_have_independent_breakers(tmp_path):
     """Tripping workcell A must not affect workcell B."""
     now = _fixed_now(1_700_000_000.0)
@@ -172,12 +176,15 @@ def test_workcells_have_independent_breakers(tmp_path):
 # Constructor + edge cases
 # ---------------------------------------------------------------------------
 
+
 def test_constructor_rejects_zero_threshold(tmp_path):
     with pytest.raises(ValueError):
         LlmBudgetStore(
             base_token_budget=1_000,
-            ema_alpha=0.5, floor_pct=0.10,
-            ddb_table=None, json_path=str(tmp_path / "b.json"),
+            ema_alpha=0.5,
+            floor_pct=0.10,
+            ddb_table=None,
+            json_path=str(tmp_path / "b.json"),
             circuit_breaker_threshold=0,
         )
 
@@ -186,8 +193,10 @@ def test_constructor_rejects_negative_cooldown(tmp_path):
     with pytest.raises(ValueError):
         LlmBudgetStore(
             base_token_budget=1_000,
-            ema_alpha=0.5, floor_pct=0.10,
-            ddb_table=None, json_path=str(tmp_path / "b.json"),
+            ema_alpha=0.5,
+            floor_pct=0.10,
+            ddb_table=None,
+            json_path=str(tmp_path / "b.json"),
             circuit_breaker_cooldown_sec=-1,
         )
 

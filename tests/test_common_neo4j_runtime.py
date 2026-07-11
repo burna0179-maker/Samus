@@ -1,4 +1,5 @@
 """Tests for backend.common.neo4j_runtime — exercise write_task_lineage."""
+
 from __future__ import annotations
 
 from typing import Any

@@ -21,6 +21,7 @@ ban, AI-tell scan, middle-dot ration, and duplicate-CTA check all apply to
 prose. The frontend-specific checks (eyebrow, h-screen, scroll listener)
 no-op gracefully when the markup doesn't contain them.
 """
+
 from __future__ import annotations
 
 import math
@@ -61,19 +62,23 @@ def _clamp01(x: float) -> float:
 def _check_em_dash(text: str, out: list[TasteViolation]) -> None:
     hits = rules.EM_DASH_RE.findall(text)
     if hits:
-        out.append(TasteViolation(
-            check_id="em_dash_ban",
-            severity=SEVERITY_FAIL,
-            message=(
-                f"{len(hits)} banned dash char(s) (em/en dash) present. The em-dash "
-                "is the single most-tested AI tell; only regular hyphens are allowed."
-            ),
-            evidence=_truncate("".join(hits[:10])),
-            weight=0.5,
-        ))
+        out.append(
+            TasteViolation(
+                check_id="em_dash_ban",
+                severity=SEVERITY_FAIL,
+                message=(
+                    f"{len(hits)} banned dash char(s) (em/en dash) present. The em-dash "
+                    "is the single most-tested AI tell; only regular hyphens are allowed."
+                ),
+                evidence=_truncate("".join(hits[:10])),
+                weight=0.5,
+            )
+        )
 
 
-def _check_banned_palette(text: str, colors: Iterable[str] | None, out: list[TasteViolation]) -> None:
+def _check_banned_palette(
+    text: str, colors: Iterable[str] | None, out: list[TasteViolation]
+) -> None:
     found: set[str] = set()
     for hx in _HEX_RE.findall(text):
         if hx.lower() in rules.BANNED_HEX_ALL:
@@ -83,16 +88,18 @@ def _check_banned_palette(text: str, colors: Iterable[str] | None, out: list[Tas
         if h in rules.BANNED_HEX_ALL:
             found.add(h)
     if found:
-        out.append(TasteViolation(
-            check_id="banned_palette",
-            severity=SEVERITY_FAIL,
-            message=(
-                "AI-default premium-consumer palette family (beige/cream + brass/"
-                "clay/oxblood + espresso) present. Rotate a distinct palette."
-            ),
-            evidence=_truncate(", ".join(sorted(found))),
-            weight=0.4,
-        ))
+        out.append(
+            TasteViolation(
+                check_id="banned_palette",
+                severity=SEVERITY_FAIL,
+                message=(
+                    "AI-default premium-consumer palette family (beige/cream + brass/"
+                    "clay/oxblood + espresso) present. Rotate a distinct palette."
+                ),
+                evidence=_truncate(", ".join(sorted(found))),
+                weight=0.4,
+            )
+        )
 
 
 def _check_fonts(text: str, fonts: Iterable[str] | None, out: list[TasteViolation]) -> None:
@@ -101,80 +108,98 @@ def _check_fonts(text: str, fonts: Iterable[str] | None, out: list[TasteViolatio
     haystack = low + " " + " ".join(names)
     for banned in rules.BANNED_FONTS:
         if banned in haystack:
-            out.append(TasteViolation(
-                check_id="font_discipline",
-                severity=SEVERITY_FAIL,
-                message=f"Banned default display serif present: {banned}.",
-                evidence=banned,
-                weight=0.3,
-            ))
+            out.append(
+                TasteViolation(
+                    check_id="font_discipline",
+                    severity=SEVERITY_FAIL,
+                    message=f"Banned default display serif present: {banned}.",
+                    evidence=banned,
+                    weight=0.3,
+                )
+            )
     for discouraged in rules.DISCOURAGED_DEFAULT_FONTS:
         if re.search(rf"\b{re.escape(discouraged)}\b", haystack):
-            out.append(TasteViolation(
-                check_id="font_default_discouraged",
-                severity=SEVERITY_WARN,
-                message=f'"{discouraged}" is discouraged as the default font; reach for a display family first.',
-                evidence=discouraged,
-                weight=0.07,
-            ))
+            out.append(
+                TasteViolation(
+                    check_id="font_default_discouraged",
+                    severity=SEVERITY_WARN,
+                    message=f'"{discouraged}" is discouraged as the default font; reach for a display family first.',
+                    evidence=discouraged,
+                    weight=0.07,
+                )
+            )
 
 
-def _check_eyebrow_restraint(text: str, section_count: int | None, out: list[TasteViolation]) -> None:
+def _check_eyebrow_restraint(
+    text: str, section_count: int | None, out: list[TasteViolation]
+) -> None:
     eyebrows = len(rules.EYEBROW_RE.findall(text))
     if eyebrows == 0:
         return
     # Estimate section count from <section> tags when not supplied.
-    sections = section_count if section_count and section_count > 0 else len(_SECTION_TAG_RE.findall(text))
+    sections = (
+        section_count if section_count and section_count > 0 else len(_SECTION_TAG_RE.findall(text))
+    )
     if sections <= 0:
         # Can't apply the ratio mechanically; flag only egregious counts.
         if eyebrows >= 4:
-            out.append(TasteViolation(
-                check_id="eyebrow_restraint",
-                severity=SEVERITY_WARN,
-                message=f"{eyebrows} uppercase-tracking eyebrows; section count unknown — verify <= 1 per 3 sections.",
-                evidence=f"{eyebrows} eyebrows",
-                weight=0.1,
-            ))
+            out.append(
+                TasteViolation(
+                    check_id="eyebrow_restraint",
+                    severity=SEVERITY_WARN,
+                    message=f"{eyebrows} uppercase-tracking eyebrows; section count unknown — verify <= 1 per 3 sections.",
+                    evidence=f"{eyebrows} eyebrows",
+                    weight=0.1,
+                )
+            )
         return
     allowed = math.ceil(sections / 3)
     if eyebrows > allowed:
-        out.append(TasteViolation(
-            check_id="eyebrow_restraint",
-            severity=SEVERITY_WARN,
-            message=(
-                f"{eyebrows} eyebrows across {sections} sections exceeds the "
-                f"max of {allowed} (1 per 3 sections, hero counts as 1)."
-            ),
-            evidence=f"{eyebrows} > {allowed}",
-            weight=0.12,
-        ))
+        out.append(
+            TasteViolation(
+                check_id="eyebrow_restraint",
+                severity=SEVERITY_WARN,
+                message=(
+                    f"{eyebrows} eyebrows across {sections} sections exceeds the "
+                    f"max of {allowed} (1 per 3 sections, hero counts as 1)."
+                ),
+                evidence=f"{eyebrows} > {allowed}",
+                weight=0.12,
+            )
+        )
 
 
 def _check_forbidden_animation(text: str, out: list[TasteViolation]) -> None:
     if rules.SCROLL_LISTENER_RE.search(text):
-        out.append(TasteViolation(
-            check_id="scroll_listener_ban",
-            severity=SEVERITY_FAIL,
-            message='window.addEventListener("scroll", …) is banned (jank). Use ScrollTrigger / useScroll / IntersectionObserver.',
-            evidence="addEventListener('scroll')",
-            weight=0.25,
-        ))
+        out.append(
+            TasteViolation(
+                check_id="scroll_listener_ban",
+                severity=SEVERITY_FAIL,
+                message='window.addEventListener("scroll", …) is banned (jank). Use ScrollTrigger / useScroll / IntersectionObserver.',
+                evidence="addEventListener('scroll')",
+                weight=0.25,
+            )
+        )
     if rules.SCROLLY_STATE_RE.search(text):
-        out.append(TasteViolation(
-            check_id="scrolly_state_warn",
-            severity=SEVERITY_WARN,
-            message="window.scrollY read (likely per-frame React state) — prefer useMotionValue/useTransform.",
-            evidence="window.scrollY",
-            weight=0.08,
-        ))
+        out.append(
+            TasteViolation(
+                check_id="scrolly_state_warn",
+                severity=SEVERITY_WARN,
+                message="window.scrollY read (likely per-frame React state) — prefer useMotionValue/useTransform.",
+                evidence="window.scrollY",
+                weight=0.08,
+            )
+        )
     if rules.H_SCREEN_RE.search(text):
-        out.append(TasteViolation(
-            check_id="viewport_stability",
-            severity=SEVERITY_WARN,
-            message="h-screen used; prefer min-h-[100dvh] for mobile viewport stability.",
-            evidence="h-screen",
-            weight=0.05,
-        ))
+        out.append(
+            TasteViolation(
+                check_id="viewport_stability",
+                severity=SEVERITY_WARN,
+                message="h-screen used; prefer min-h-[100dvh] for mobile viewport stability.",
+                evidence="h-screen",
+                weight=0.05,
+            )
+        )
 
 
 def _check_middle_dot_ration(text: str, out: list[TasteViolation]) -> None:
@@ -183,51 +208,59 @@ def _check_middle_dot_ration(text: str, out: list[TasteViolation]) -> None:
         if line.count(rules.MIDDLE_DOT) > 1:
             over += 1
     if over:
-        out.append(TasteViolation(
-            check_id="middle_dot_ration",
-            severity=SEVERITY_WARN,
-            message=f"{over} line(s) use more than one middle-dot (·); ration to max 1 per line.",
-            evidence=f"{over} line(s)",
-            weight=0.05,
-        ))
+        out.append(
+            TasteViolation(
+                check_id="middle_dot_ration",
+                severity=SEVERITY_WARN,
+                message=f"{over} line(s) use more than one middle-dot (·); ration to max 1 per line.",
+                evidence=f"{over} line(s)",
+                weight=0.05,
+            )
+        )
 
 
 def _check_duplicate_cta_intent(text: str, out: list[TasteViolation]) -> None:
     low = text.lower()
     present = [label for label in rules.CONTACT_CTA_LABELS if label in low]
     if len(set(present)) >= 2:
-        out.append(TasteViolation(
-            check_id="duplicate_cta_intent",
-            severity=SEVERITY_WARN,
-            message="Multiple contact-intent CTA labels present; pick ONE label everywhere.",
-            evidence=_truncate(", ".join(sorted(set(present)))),
-            weight=0.08,
-        ))
+        out.append(
+            TasteViolation(
+                check_id="duplicate_cta_intent",
+                severity=SEVERITY_WARN,
+                message="Multiple contact-intent CTA labels present; pick ONE label everywhere.",
+                evidence=_truncate(", ".join(sorted(set(present)))),
+                weight=0.08,
+            )
+        )
 
 
 def _check_marquee_max_one(text: str, out: list[TasteViolation]) -> None:
     count = len(re.findall(r"\bmarquee\b", text, re.IGNORECASE))
     if count > 1:
-        out.append(TasteViolation(
-            check_id="marquee_max_one",
-            severity=SEVERITY_WARN,
-            message=f"{count} marquees on one page; max one per page.",
-            evidence=f"{count} marquees",
-            weight=0.06,
-        ))
+        out.append(
+            TasteViolation(
+                check_id="marquee_max_one",
+                severity=SEVERITY_WARN,
+                message=f"{count} marquees on one page; max one per page.",
+                evidence=f"{count} marquees",
+                weight=0.06,
+            )
+        )
 
 
 def _check_ai_tells(text: str, out: list[TasteViolation]) -> None:
     for check_id, pattern, severity, message in rules.AI_TELL_PATTERNS:
         m = pattern.search(text)
         if m:
-            out.append(TasteViolation(
-                check_id=check_id,
-                severity=severity,
-                message=message,
-                evidence=_truncate(m.group(0)),
-                weight=0.07 if severity == SEVERITY_WARN else 0.2,
-            ))
+            out.append(
+                TasteViolation(
+                    check_id=check_id,
+                    severity=severity,
+                    message=message,
+                    evidence=_truncate(m.group(0)),
+                    weight=0.07 if severity == SEVERITY_WARN else 0.2,
+                )
+            )
 
 
 _ALL_CHECK_IDS: tuple[str, ...] = (
@@ -280,14 +313,10 @@ def audit_text(
     else:
         fails = [v for v in violations if v.severity == SEVERITY_FAIL]
         if fails:
-            rationale.append(
-                "Hard fail(s): " + ", ".join(sorted({v.check_id for v in fails}))
-            )
+            rationale.append("Hard fail(s): " + ", ".join(sorted({v.check_id for v in fails})))
         warns = [v for v in violations if v.severity == SEVERITY_WARN]
         if warns:
-            rationale.append(
-                "Soft signal(s): " + ", ".join(sorted({v.check_id for v in warns}))
-            )
+            rationale.append("Soft signal(s): " + ", ".join(sorted({v.check_id for v in warns})))
 
     return TasteAuditResult(
         score=score,

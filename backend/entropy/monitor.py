@@ -4,6 +4,7 @@ Assembles :class:`EntropyInputs` from supplied data, computes the entropy
 score, derives countermeasures, and returns a structured stability report.
 Pure deterministic logic — no I/O, no LLM.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

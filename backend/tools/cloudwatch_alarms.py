@@ -1,4 +1,5 @@
 """Create CloudWatch alarms on key SQS metrics."""
+
 from __future__ import annotations
 
 import json
@@ -9,6 +10,7 @@ from ..common.settings import bootstrap_settings
 def run() -> dict:
     s = bootstrap_settings()
     import boto3
+
     cw = boto3.client("cloudwatch", region_name=s.aws_region)
     results = []
     for service, url in s.sqs_queues.items():
@@ -21,8 +23,10 @@ def run() -> dict:
                 MetricName="ApproximateNumberOfMessagesVisible",
                 Namespace="AWS/SQS",
                 Statistic="Average",
-                Period=300, EvaluationPeriods=2,
-                Threshold=50.0, ComparisonOperator="GreaterThanThreshold",
+                Period=300,
+                EvaluationPeriods=2,
+                Threshold=50.0,
+                ComparisonOperator="GreaterThanThreshold",
                 Dimensions=[{"Name": "QueueName", "Value": queue_name}],
             )
             results.append({"service": service, "ok": True})

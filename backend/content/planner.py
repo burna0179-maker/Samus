@@ -16,11 +16,11 @@ theme for the requested month. Each topic carries:
 Reuses backend.social.models shapes: MonthlyPlan, PlannedPost.
 No LLM calls. No new dependencies. ASCII-only output.
 """
+
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass
 
 from backend.common.dates import iso_now
 from backend.seo.models import AuditResult
@@ -42,25 +42,27 @@ _LOG = logging.getLogger("samus.content.planner")
 @dataclass
 class BlogTopic:
     """A single planned blog topic with full content brief."""
+
     target_keyword: str
-    title: str                              # question-formatted H1
-    summary: str                            # 1-2 sentence brief
-    faq_questions: list[str]               # 6 suggested FAQ questions
-    social_slots: list[PlannedPost]         # repurposing calendar entries
-    outreach_trigger: str                   # nurture sequence label
-    publish_week: int                       # week number within the month (1-4)
+    title: str  # question-formatted H1
+    summary: str  # 1-2 sentence brief
+    faq_questions: list[str]  # 6 suggested FAQ questions
+    social_slots: list[PlannedPost]  # repurposing calendar entries
+    outreach_trigger: str  # nurture sequence label
+    publish_week: int  # week number within the month (1-4)
 
 
 @dataclass
 class ContentPlan:
     """A month of coordinated blog + social + outreach content."""
+
     customer_id: str
-    month: int                              # 1-12
+    month: int  # 1-12
     year: int
     primary_keywords: list[str]
-    blog_topics: list[BlogTopic]            # 2-4 topics
-    social_plan: MonthlyPlan | None         # matched social calendar month
-    seo_issues_addressed: list[str]         # issue ids from AuditResult
+    blog_topics: list[BlogTopic]  # 2-4 topics
+    social_plan: MonthlyPlan | None  # matched social calendar month
+    seo_issues_addressed: list[str]  # issue ids from AuditResult
     ts: str = ""
 
 
@@ -79,10 +81,10 @@ _NURTURE_TRIGGERS: dict[int, str] = {
 
 # Blog topic count per month theme (authority months get more content)
 _TOPICS_PER_THEME: dict[int, int] = {
-    1: 2,   # Foundation -- build awareness, 2 topics
-    2: 4,   # Authority -- showcase methodology, 4 topics
-    3: 3,   # Proof -- case studies + data, 3 topics
-    4: 2,   # Convert -- offer-focused, 2 topics
+    1: 2,  # Foundation -- build awareness, 2 topics
+    2: 4,  # Authority -- showcase methodology, 4 topics
+    3: 3,  # Proof -- case studies + data, 3 topics
+    4: 2,  # Convert -- offer-focused, 2 topics
 }
 
 # Social formats to assign to each blog repurposing slot
@@ -149,16 +151,18 @@ def _social_slots_for(
             f"Repurpose blog '{topic_title}' as {fmt} post. "
             f"Focus on '{keyword}'. Theme: {theme_name}."
         )
-        slots.append(PlannedPost(
-            week=week,
-            day=day,
-            platform=platform,
-            fmt=fmt,
-            pipeline_fn=fn,
-            theme=theme_name,
-            cluster=keyword,
-            brief=brief,
-        ))
+        slots.append(
+            PlannedPost(
+                week=week,
+                day=day,
+                platform=platform,
+                fmt=fmt,
+                pipeline_fn=fn,
+                theme=theme_name,
+                cluster=keyword,
+                brief=brief,
+            )
+        )
     return slots
 
 
@@ -201,6 +205,7 @@ def _get_social_monthly_plan(month_index: int) -> MonthlyPlan | None:
     """
     try:
         from backend.social.calendar import build_monthly_plan
+
         return build_monthly_plan(month_index)
     except Exception as exc:  # noqa: BLE001
         _LOG.debug("social monthly plan unavailable for month %d: %s", month_index, exc)
@@ -271,18 +276,20 @@ def plan_content_month(
 
         slots = _social_slots_for(title, kw, week, month, theme_name)
 
-        blog_topics.append(BlogTopic(
-            target_keyword=kw,
-            title=title,
-            summary=(
-                f"A question-answering article on '{kw}' structured for AI citation. "
-                f"Targets '{industry or 'local service'}' prospects in month {month}."
-            ),
-            faq_questions=faqs,
-            social_slots=slots,
-            outreach_trigger=nurture,
-            publish_week=week,
-        ))
+        blog_topics.append(
+            BlogTopic(
+                target_keyword=kw,
+                title=title,
+                summary=(
+                    f"A question-answering article on '{kw}' structured for AI citation. "
+                    f"Targets '{industry or 'local service'}' prospects in month {month}."
+                ),
+                faq_questions=faqs,
+                social_slots=slots,
+                outreach_trigger=nurture,
+                publish_week=week,
+            )
+        )
 
     # Collect addressed SEO issues
     if seo_findings:

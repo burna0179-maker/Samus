@@ -41,6 +41,7 @@ partial/empty perception and NEVER raises):
 DORMANCY: this module has NO live importer. It is wired to a caller only by
 the (later, operator-gated) Phase-F entry point.
 """
+
 from __future__ import annotations
 
 import logging
@@ -375,10 +376,7 @@ def render_perception_context(perception: dict) -> str:
             days = runway.get("days_of_runway")
             alert = bool(runway.get("alert_triggered"))
             if days is not None or alert:
-                lines.append(
-                    f"- Runway: {days} days"
-                    + (" [ALERT]" if alert else "")
-                )
+                lines.append(f"- Runway: {days} days" + (" [ALERT]" if alert else ""))
         distress = perception.get("cash_distress") or {}
         if isinstance(distress, dict):
             cd = distress.get("cash_distress")
@@ -460,8 +458,8 @@ def build_proposal(
     return {
         "ts": iso_now(),
         "kind": "cognition_proposal",
-        "status": "proposed",          # never "approved"/"actioned"
-        "actioned": False,             # load-bearing: ACT records, never acts
+        "status": "proposed",  # never "approved"/"actioned"
+        "actioned": False,  # load-bearing: ACT records, never acts
         "plan_token": plan_token or "",
         "channel": channel or "",
         "intent": intent,
@@ -573,7 +571,9 @@ def _summarise_perception(perception: dict) -> dict:
         "cash_distress": (perception.get("cash_distress") or {}).get("cash_distress"),
         # Carry the surfaced top-item prospect_ids into the proposal record so
         # the audit trail ties the proposal back to the concrete deal/call.
-        "top_pending_stake_prospect_id": (perception.get("top_pending_stake") or {}).get("prospect_id"),
+        "top_pending_stake_prospect_id": (perception.get("top_pending_stake") or {}).get(
+            "prospect_id"
+        ),
         "top_follow_up_prospect_id": (perception.get("top_follow_up") or {}).get("prospect_id"),
     }
 

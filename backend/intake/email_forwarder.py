@@ -35,9 +35,9 @@ trash; the CRM record already exists as the source of truth. The
 forwarder MUST never break the drain: any exception in this module is
 caught upstream in the poller loop.
 """
+
 from __future__ import annotations
 
-import base64
 import logging
 import os
 from dataclasses import dataclass
@@ -90,24 +90,25 @@ def is_configured() -> bool:
 
 # --- categorization -> subject prefix -------------------------------------
 
+
 @dataclass(frozen=True)
 class ForwardCategory:
     """Resolved bucket for one processed message."""
 
-    prefix: str          # e.g. "[CLIENT/COUNTER]" or "[URGENT/UNCLASSIFIED]"
-    is_urgent: bool      # true for the training queue
+    prefix: str  # e.g. "[CLIENT/COUNTER]" or "[URGENT/UNCLASSIFIED]"
+    is_urgent: bool  # true for the training queue
 
 
 _CATEGORY_LABELS: dict[str, str] = {
-    "bill":                   "BILL",
-    "account":                "ACCOUNT",
-    "calendar":               "CALENDAR",
-    "developer":              "DEVELOPER",
-    "social":                 "SOCIAL",
-    "business":               "BUSINESS",
-    "marketing":              "MARKETING",
-    "client_correspondence":  "CLIENT",
-    "other":                  "UNCLASSIFIED",
+    "bill": "BILL",
+    "account": "ACCOUNT",
+    "calendar": "CALENDAR",
+    "developer": "DEVELOPER",
+    "social": "SOCIAL",
+    "business": "BUSINESS",
+    "marketing": "MARKETING",
+    "client_correspondence": "CLIENT",
+    "other": "UNCLASSIFIED",
 }
 
 
@@ -158,17 +159,17 @@ def choose_category(
 # --- MIME building ---------------------------------------------------------
 
 _URGENCY_FROM_PREFIX: dict[str, str] = {
-    "[CS/ESCALATION]":   "URGENT",
-    "[CS/SERVICE]":      "URGENT",
-    "[CLIENT/AGREED]":   "HIGH",
-    "[CLIENT/MEETING]":  "HIGH",
-    "[CLIENT/COUNTER]":  "NORMAL",
+    "[CS/ESCALATION]": "URGENT",
+    "[CS/SERVICE]": "URGENT",
+    "[CLIENT/AGREED]": "HIGH",
+    "[CLIENT/MEETING]": "HIGH",
+    "[CLIENT/COUNTER]": "NORMAL",
     "[CLIENT/OBJECTION]": "NORMAL",
     "[CLIENT/HESITATION]": "NORMAL",
-    "[CLIENT/INFO]":     "NORMAL",
+    "[CLIENT/INFO]": "NORMAL",
     "[CLIENT/QUESTION]": "NORMAL",
-    "[CLIENT/ACK]":      "LOW",
-    "[CLIENT/CLOSED]":   "LOW",
+    "[CLIENT/ACK]": "LOW",
+    "[CLIENT/CLOSED]": "LOW",
 }
 
 
@@ -185,6 +186,7 @@ def _clean_body_for_forward(body_text: str) -> str:
     saw — no information lost from the operator's perspective.
     """
     from backend.intake.forwarded_email import _looks_like_html, strip_html
+
     if not body_text:
         return "(no body)"
     if _looks_like_html(body_text):
@@ -282,7 +284,9 @@ def build_forward_mime(
         # Rich client-expectation block.
         lines.extend(
             _client_expectation_block(
-                classification=cls, intent=intent, category=category,
+                classification=cls,
+                intent=intent,
+                category=category,
             )
         )
     else:
@@ -307,6 +311,7 @@ def build_forward_mime(
 
 
 # --- orchestration ---------------------------------------------------------
+
 
 @dataclass
 class ForwardResult:
@@ -353,10 +358,7 @@ def forward_and_cleanup(
     # SHORT-CIRCUIT: outbound client mail (Alex's own archives) skips the
     # the operator forward. Alex already has these in his sent folder.
     cls = classification or {}
-    if (
-        cls.get("category") == "client_correspondence"
-        and cls.get("direction") == "outbound"
-    ):
+    if cls.get("category") == "client_correspondence" and cls.get("direction") == "outbound":
         result.error = "skipped_outbound_client_archive"
         return result
 
@@ -404,7 +406,9 @@ def forward_and_cleanup(
     except Exception as exc:  # noqa: BLE001
         _LOG.warning(
             "forward: send failed for %s (prefix=%s): %s",
-            original_gmail_id, category.prefix, exc,
+            original_gmail_id,
+            category.prefix,
+            exc,
         )
         result.error = f"send_failed: {exc}"
         return result
@@ -416,13 +420,17 @@ def forward_and_cleanup(
         except Exception as exc:  # noqa: BLE001
             _LOG.warning(
                 "forward: trash failed for %s (send OK): %s",
-                original_gmail_id, exc,
+                original_gmail_id,
+                exc,
             )
             # Not fatal — CRM record + forward already succeeded.
 
     _LOG.info(
         "forward: %s -> %s prefix=%s trashed=%s",
-        original_gmail_id, sent_id, category.prefix, result.trashed,
+        original_gmail_id,
+        sent_id,
+        category.prefix,
+        result.trashed,
     )
     return result
 

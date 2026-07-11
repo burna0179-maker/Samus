@@ -1,4 +1,5 @@
 """Gap Report stake_sentence header renders when provided, omitted when not."""
+
 from __future__ import annotations
 
 from backend.seo.models import AuditResult, OptimizeResult
@@ -32,7 +33,9 @@ def _optimize() -> OptimizeResult:
 
 def test_report_with_stake_renders_header_block():
     body = render_seo_report_markdown(
-        _audit(), _optimize(), None,
+        _audit(),
+        _optimize(),
+        None,
         customer_label="Acme",
         stake_sentence=_VALID,
     )
@@ -48,7 +51,10 @@ def test_report_with_stake_renders_header_block():
 
 def test_report_without_stake_omits_block():
     body = render_seo_report_markdown(
-        _audit(), _optimize(), None, customer_label="Acme",
+        _audit(),
+        _optimize(),
+        None,
+        customer_label="Acme",
     )
     assert not body.startswith("> ")
     assert body.lstrip().startswith("# SEO Audit & Fix Report")
@@ -56,7 +62,9 @@ def test_report_without_stake_omits_block():
 
 def test_report_empty_stake_omits_block():
     body = render_seo_report_markdown(
-        _audit(), _optimize(), None,
+        _audit(),
+        _optimize(),
+        None,
         customer_label="Acme",
         stake_sentence="   ",
     )

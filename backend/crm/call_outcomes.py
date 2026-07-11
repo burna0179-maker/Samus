@@ -37,6 +37,7 @@ History: this map lived privately inside ``log_call.py`` — operator-only by
 construction — and was promoted here 2026-05-21 so the Vapi agent path records
 into the same taxonomy.
 """
+
 from __future__ import annotations
 
 # Call outcome -> CallState.state. The state values are the

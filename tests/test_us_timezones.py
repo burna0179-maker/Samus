@@ -1,9 +1,9 @@
 """US state -> tz map + TCPA hours gate."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
 
-import pytest
 
 from backend.common.us_timezones import (
     DEFAULT_CALL_HOURS,

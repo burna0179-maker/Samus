@@ -19,12 +19,12 @@ Fail-open: a per-call error logs + skips, never aborts the sweep. Emits one JSON
 line matching ``reconcile_cli``'s output shape ({scanned, reclassified, details})
 so it can feed the same Drain-CallOutcomes bridge.
 """
+
 from __future__ import annotations
 
 import json
 import logging
 import sys
-from datetime import date
 from typing import Any, Callable
 
 from backend.common.dates import iso_now
@@ -107,7 +107,8 @@ def reclassify_recent_calls(
 
         try:
             is_human, reason = detect_human_engagement(
-                transcript, ended_reason=ended_reason,
+                transcript,
+                ended_reason=ended_reason,
             )
         except Exception as exc:  # noqa: BLE001 — fail-open per call
             _LOG.debug("reclassify: detect skipped for %s: %s", cid, exc)
@@ -136,18 +137,23 @@ def reclassify_recent_calls(
         }
         append_event(corrected)
         summary["reclassified"] += 1
-        summary["details"].append({
-            "call_id": cid,
-            "prospect_id": prospect_id,
-            "company": company,
-            "phone": phone,
-            "outcome": "gatekeeper",
-            "reclassified_gatekeeper": True,
-            "reason": reason,
-        })
+        summary["details"].append(
+            {
+                "call_id": cid,
+                "prospect_id": prospect_id,
+                "company": company,
+                "phone": phone,
+                "outcome": "gatekeeper",
+                "reclassified_gatekeeper": True,
+                "reason": reason,
+            }
+        )
         _LOG.info(
             "reclassify: %s (%s) %s->gatekeeper: %s",
-            company or cid, cid, eoc.get("outcome"), reason,
+            company or cid,
+            cid,
+            eoc.get("outcome"),
+            reason,
         )
 
     return summary

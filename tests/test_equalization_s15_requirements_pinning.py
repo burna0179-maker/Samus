@@ -6,6 +6,7 @@ change Ed25519/HKDF/HMAC behaviour (cryptography), reintroduce a template
 autoescape/sandbox regression (jinja2), or change the audit-trail log-record
 shape (structlog).
 """
+
 from __future__ import annotations
 
 import re
@@ -49,6 +50,4 @@ def test_no_security_critical_dep_uses_floating_range() -> None:
     for dep in _SECURITY_CRITICAL:
         line = specs.get(dep, "")
         for floaty in (">=", "<=", "~=", ">", "<", "*"):
-            assert floaty not in line, (
-                f"{dep} uses a floating spec {floaty!r}: {line!r}"
-            )
+            assert floaty not in line, f"{dep} uses a floating spec {floaty!r}: {line!r}"

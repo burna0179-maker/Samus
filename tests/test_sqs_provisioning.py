@@ -1,4 +1,5 @@
 """ensure_queue_with_dlq — queue + DLQ + redrive policy provisioning."""
+
 from __future__ import annotations
 
 import json
@@ -11,6 +12,7 @@ from backend.common import sqs
 @pytest.fixture
 def fake_sqs():
     """A boto3-SQS-shaped fake recording create/get/set calls."""
+
     class _Fake:
         def __init__(self):
             self.created: list[str] = []
@@ -32,7 +34,9 @@ def fake_sqs():
 
 def test_creates_dlq_then_main_and_wires_redrive(fake_sqs):
     out = sqs.ensure_queue_with_dlq(
-        "samus-cash-engine-jobs", max_receive_count=5, client=fake_sqs,
+        "samus-cash-engine-jobs",
+        max_receive_count=5,
+        client=fake_sqs,
     )
     # DLQ created BEFORE the main queue (its ARN feeds the redrive policy).
     assert fake_sqs.created == ["samus-cash-engine-jobs-dlq", "samus-cash-engine-jobs"]
@@ -49,7 +53,9 @@ def test_creates_dlq_then_main_and_wires_redrive(fake_sqs):
 
 def test_main_queue_gets_redrive_and_visibility(fake_sqs):
     sqs.ensure_queue_with_dlq(
-        "samus-cash-engine-jobs", visibility_timeout=90, client=fake_sqs,
+        "samus-cash-engine-jobs",
+        visibility_timeout=90,
+        client=fake_sqs,
     )
     # The set_queue_attributes targeting the MAIN queue carries the redrive
     # policy + visibility timeout.
@@ -63,7 +69,9 @@ def test_main_queue_gets_redrive_and_visibility(fake_sqs):
 
 def test_custom_max_receive_count_is_honored(fake_sqs):
     out = sqs.ensure_queue_with_dlq(
-        "samus-cash-engine-jobs", max_receive_count=3, client=fake_sqs,
+        "samus-cash-engine-jobs",
+        max_receive_count=3,
+        client=fake_sqs,
     )
     assert json.loads(out["redrive_policy"])["maxReceiveCount"] == 3
     assert out["max_receive_count"] == "3"

@@ -17,6 +17,7 @@ the wrapper runs a write fault never breaks a cycle.
 DORMANCY: constructed no-arg; no live importer; inert unless the (dormant)
 ``MetaCognitionEngine`` constructs and calls it.
 """
+
 from __future__ import annotations
 
 import json

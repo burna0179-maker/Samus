@@ -3,6 +3,7 @@
 Pure dataclasses, no I/O. The persistence layer (``store.py``) serialises
 these to/from the DDB + JSON stores; the planner (``planner.py``) builds them.
 """
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
@@ -16,7 +17,11 @@ HORIZON_WEEK = "week"
 HORIZON_DAY = "day"
 
 HORIZONS: tuple[str, ...] = (
-    HORIZON_YEAR, HORIZON_90D, HORIZON_30D, HORIZON_WEEK, HORIZON_DAY,
+    HORIZON_YEAR,
+    HORIZON_90D,
+    HORIZON_30D,
+    HORIZON_WEEK,
+    HORIZON_DAY,
 )
 
 # --- statuses --------------------------------------------------------------
@@ -47,8 +52,8 @@ class Goal:
     parent_id: str = ""
     status: str = GOAL_ACTIVE
     label: str = ""
-    period_start: str = ""      # ISO date the horizon window opens (optional)
-    period_end: str = ""        # ISO date the horizon window closes (optional)
+    period_start: str = ""  # ISO date the horizon window opens (optional)
+    period_end: str = ""  # ISO date the horizon window closes (optional)
     created_at: str = ""
     updated_at: str = ""
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -113,7 +118,7 @@ class PlanStep:
     executes the concrete work; the plan records intent + rationale)."""
 
     name: str
-    channel: str = ""          # call | email | seo | retention | ""
+    channel: str = ""  # call | email | seo | retention | ""
     action: str = ""
     target_value: float = 0.0  # e.g. sends/day, calls/day this step commits to
     rationale: str = ""
@@ -155,7 +160,7 @@ class Plan:
     rationale: str = ""
     created_at: str = ""
     updated_at: str = ""
-    decision_id: str = ""       # the DecisionRecord minted at generation time
+    decision_id: str = ""  # the DecisionRecord minted at generation time
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -171,13 +176,11 @@ class Plan:
             status=str(row.get("status") or PLAN_ACTIVE),
             strategy=str(row.get("strategy") or "revenue-decomposition"),
             assumptions=[
-                Assumption.from_dict(a) for a in (row.get("assumptions") or [])
+                Assumption.from_dict(a)
+                for a in (row.get("assumptions") or [])
                 if isinstance(a, dict)
             ],
-            steps=[
-                PlanStep.from_dict(s) for s in (row.get("steps") or [])
-                if isinstance(s, dict)
-            ],
+            steps=[PlanStep.from_dict(s) for s in (row.get("steps") or []) if isinstance(s, dict)],
             rationale=str(row.get("rationale") or ""),
             created_at=str(row.get("created_at") or ""),
             updated_at=str(row.get("updated_at") or ""),
@@ -187,9 +190,21 @@ class Plan:
 
 
 __all__ = [
-    "HORIZON_YEAR", "HORIZON_90D", "HORIZON_30D", "HORIZON_WEEK", "HORIZON_DAY",
+    "HORIZON_YEAR",
+    "HORIZON_90D",
+    "HORIZON_30D",
+    "HORIZON_WEEK",
+    "HORIZON_DAY",
     "HORIZONS",
-    "GOAL_ACTIVE", "GOAL_MET", "GOAL_MISSED", "GOAL_ARCHIVED",
-    "PLAN_ACTIVE", "PLAN_SUPERSEDED", "PLAN_ARCHIVED",
-    "Goal", "Assumption", "PlanStep", "Plan",
+    "GOAL_ACTIVE",
+    "GOAL_MET",
+    "GOAL_MISSED",
+    "GOAL_ARCHIVED",
+    "PLAN_ACTIVE",
+    "PLAN_SUPERSEDED",
+    "PLAN_ARCHIVED",
+    "Goal",
+    "Assumption",
+    "PlanStep",
+    "Plan",
 ]

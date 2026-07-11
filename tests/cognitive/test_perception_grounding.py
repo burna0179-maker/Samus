@@ -16,6 +16,7 @@ Covers the perception-grounding enhancement to the Samus cognitive loop:
 All collaborators are STUBS — importing this module touches no backend, no
 LM Studio, no CRM/finance/Stripe. The loop stays propose-only and dormant.
 """
+
 from __future__ import annotations
 
 import asyncio

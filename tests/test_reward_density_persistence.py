@@ -1,5 +1,6 @@
 """G7 — reward computations are persisted to JSONL; write failure is
 fail-CLOSED (raises :class:`RewardPersistenceError`)."""
+
 from __future__ import annotations
 
 import json
@@ -64,9 +65,17 @@ def test_reward_persisted_to_jsonl(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     # Per-row components must round-trip every named term so an operator
     # replaying the ledger can reconstruct the formula.
     for required in (
-        "stage_advanced", "stage_term", "llm_cost_cents", "llm_cost_term",
-        "harm_count", "harm_term", "terminal_term", "raw_reward",
-        "clipped_to_zero", "stage_weight", "harm_k",
+        "stage_advanced",
+        "stage_term",
+        "llm_cost_cents",
+        "llm_cost_term",
+        "harm_count",
+        "harm_term",
+        "terminal_term",
+        "raw_reward",
+        "clipped_to_zero",
+        "stage_weight",
+        "harm_k",
     ):
         assert required in rows[0]["components"], f"missing component {required}"
 
@@ -82,7 +91,8 @@ def test_reward_persist_failure_raises(tmp_path: Path, monkeypatch: pytest.Monke
     """Write failure must raise RewardPersistenceError, never silently
     drop the audit row."""
     monkeypatch.setenv(
-        "SAMUS_REWARD_PERSIST_PATH", str(tmp_path / "reward.jsonl"),
+        "SAMUS_REWARD_PERSIST_PATH",
+        str(tmp_path / "reward.jsonl"),
     )
 
     def _boom(_comp: rd.RewardComputation) -> None:
@@ -95,7 +105,8 @@ def test_reward_persist_failure_raises(tmp_path: Path, monkeypatch: pytest.Monke
 
 
 def test_reward_persist_open_failure_raises(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ):
     """A real OSError in the write path bubbles up as RewardPersistenceError."""
     # Point the path at the tmp_path *directory itself* — opening a

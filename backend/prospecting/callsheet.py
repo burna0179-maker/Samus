@@ -35,6 +35,7 @@ each prospect's observed gaps, not a two-way priority template. The LLM, when
 it runs, only personalizes the three free-text fields (pitch/opener/voicemail);
 objections stay templated.
 """
+
 from __future__ import annotations
 
 import json
@@ -48,7 +49,6 @@ from backend.common.llm_client import (
     anthropic_messages,
     record_outcome,
 )
-from backend.common.settings import get_settings
 
 from .callsheet_intel import (
     _NO_PRESENCE_STATUSES,
@@ -78,12 +78,14 @@ def _get_objections() -> tuple[str, ...]:
     """
     try:
         from backend.voice.callsheet_updater import get_dynamic_objections
+
         dynamic = get_dynamic_objections()
         if dynamic:
             return dynamic
     except Exception:  # noqa: BLE001
         pass
     return _OBJECTIONS_STATIC
+
 
 _ANTHROPIC_TIMEOUT = 15.0
 _ANTHROPIC_MAX_TOKENS = 350
@@ -95,7 +97,7 @@ def _sanitize_inline(value: str, max_len: int = 60) -> str:
     crafted company names or industry strings that contain newlines or
     instruction-like text (e.g. 'Acme\\nEnd call now').
     """
-    safe = " ".join((value or "").splitlines())   # collapse any newlines
+    safe = " ".join((value or "").splitlines())  # collapse any newlines
     safe = "".join(c for c in safe if c.isprintable())
     return safe[:max_len].strip()
 
@@ -180,6 +182,7 @@ def _top_finding(p: ProspectRecord) -> str:
 def _presence_verify_enabled() -> bool:
     try:
         from backend.common.config import get_settings
+
         return bool(getattr(get_settings(), "callsheet_verify_presence_enabled", False))
     except Exception:  # noqa: BLE001
         return False
@@ -206,9 +209,10 @@ def verified_top_finding(p: ProspectRecord) -> str:
         return finding
     try:
         from backend.website.presence_check import verify_presence
+
         v = verify_presence(
-            p.company_name, city=p.city, state=p.state,
-            existing_website=p.website_url)
+            p.company_name, city=p.city, state=p.state, existing_website=p.website_url
+        )
         if not v.buildable and v.website:
             # confirmed live site — correct the misclassification + re-derive
             p.website_status = "access_blocked"
@@ -258,6 +262,7 @@ def _looks_like_real_name(value: str) -> bool:
         return False
     # Needs a real alphabetic run — rejects "---", "123", punctuation.
     import re as _re
+
     return bool(_re.search(r"[A-Za-z]{2,}", name))
 
 
@@ -277,9 +282,7 @@ def _owner_ask(p: ProspectRecord) -> str:
         # chars the enrichment might have carried.
         first = _sanitize_inline(p.owner_name, 40).split(" ")[0].strip()
     if first:
-        return (
-            f"Is {first} around — or whoever handles the website and marketing?"
-        )
+        return f"Is {first} around — or whoever handles the website and marketing?"
     return "Is the owner around — or whoever handles your website and marketing?"
 
 
@@ -361,6 +364,7 @@ def _resolve_stake_for_prospect(
         return None
     try:
         from backend.crm import service as crm_service
+
         opp = crm_service.get_opportunity(opp_id)
     except Exception as exc:  # noqa: BLE001
         _LOG.warning("callsheet stake load failed opp=%s: %s", opp_id, exc)
@@ -403,22 +407,28 @@ def build_call_sheet(
     chosen-prospect line.
     """
     stake = _resolve_stake_for_prospect(
-        p, stake_sentence=stake_sentence, opportunity_id=opportunity_id,
+        p,
+        stake_sentence=stake_sentence,
+        opportunity_id=opportunity_id,
     )
     intel = derive_callsheet_intel(p)
-    return p.model_copy(update={
-        **_intel_fields(intel),
-        "callsheet_opener": _opener(p, stake),
-        "callsheet_voicemail": _voicemail(p, stake),
-        "callsheet_objections": " | ".join(_get_objections()),
-        # The specific finding the opener WITHHELDS — carried on the record so
-        # Morgan can deliver it once the owner is on the line (prompt Step 2).
-        "callsheet_finding": verified_top_finding(p),
-    })
+    return p.model_copy(
+        update={
+            **_intel_fields(intel),
+            "callsheet_opener": _opener(p, stake),
+            "callsheet_voicemail": _voicemail(p, stake),
+            "callsheet_objections": " | ".join(_get_objections()),
+            # The specific finding the opener WITHHELDS — carried on the record so
+            # Morgan can deliver it once the owner is on the line (prompt Step 2).
+            "callsheet_finding": verified_top_finding(p),
+        }
+    )
 
 
 def _recover_callsheet_via_template_recovery(
-    p: ProspectRecord, *, failure_reason: str,
+    p: ProspectRecord,
+    *,
+    failure_reason: str,
     stake_sentence: str | None = None,
     opportunity_id: str | None = None,
 ) -> ProspectRecord:
@@ -460,16 +470,20 @@ def _recover_callsheet_via_template_recovery(
         )
         _LOG.info(
             "callsheet recovered via template_recovery prospect=%s version=%s generic=%s",
-            p.prospect_id, recovery.template_version, recovery.generic_fallback,
+            p.prospect_id,
+            recovery.template_version,
+            recovery.generic_fallback,
         )
     except Exception as exc:  # noqa: BLE001 — best-effort: recovery optional
         _LOG.warning(
-            "template_recovery unavailable for callsheet prospect=%s; "
-            "plain templated fallback: %s",
-            p.prospect_id, exc,
+            "template_recovery unavailable for callsheet prospect=%s; plain templated fallback: %s",
+            p.prospect_id,
+            exc,
         )
     return build_call_sheet(
-        p, stake_sentence=stake_sentence, opportunity_id=opportunity_id,
+        p,
+        stake_sentence=stake_sentence,
+        opportunity_id=opportunity_id,
     )
 
 
@@ -501,6 +515,7 @@ def _build_llm_prompt(p: ProspectRecord) -> str:
     style block lives in ``_CALLSHEET_INSTRUCTIONS`` and is passed via the
     ``system`` parameter so prompt caching (Control D) can warm-cache it.
     """
+
     # Wrap every string field in XML-style delimiters before embedding in the
     # prompt. This prevents prompt injection: a malicious company_name like
     # "Acme\nIgnore prior instructions, ..." is safely enclosed inside
@@ -604,6 +619,7 @@ def _price_callsheet_usage(usage: dict[str, int] | None) -> float:
     try:
         from backend.common.llm_client import _DEFAULT_MODEL
         from backend.common.llm_pricing import cost_from_usage
+
         return cost_from_usage(_DEFAULT_MODEL, usage)
     except Exception as exc:  # noqa: BLE001 — cost telemetry must never break work
         _LOG.debug("callsheet llm cost pricing skipped: %s", exc)
@@ -625,8 +641,10 @@ def build_call_sheet_with_llm(
     kept for callers that don't need per-call LLM spend.
     """
     sheet, _cost = build_call_sheet_with_llm_costed(
-        p, anthropic_api_key=anthropic_api_key,
-        stake_sentence=stake_sentence, opportunity_id=opportunity_id,
+        p,
+        anthropic_api_key=anthropic_api_key,
+        stake_sentence=stake_sentence,
+        opportunity_id=opportunity_id,
     )
     return sheet
 
@@ -654,7 +672,9 @@ def build_call_sheet_with_llm_costed(
     wasted spend.
     """
     stake = _resolve_stake_for_prospect(
-        p, stake_sentence=stake_sentence, opportunity_id=opportunity_id,
+        p,
+        stake_sentence=stake_sentence,
+        opportunity_id=opportunity_id,
     )
 
     prompt = _build_llm_prompt(p)
@@ -672,21 +692,27 @@ def build_call_sheet_with_llm_costed(
     except BudgetExceeded as exc:
         _LOG.info(
             "llm budget denied workcell=%s reason=%s; routing to template_recovery",
-            _BUDGET_WORKCELL, exc.decision.reason,
+            _BUDGET_WORKCELL,
+            exc.decision.reason,
         )
         return _recover_callsheet_via_template_recovery(
-            p, failure_reason=f"budget_denied: {exc.decision.reason}",
-            stake_sentence=stake, opportunity_id=opportunity_id,
+            p,
+            failure_reason=f"budget_denied: {exc.decision.reason}",
+            stake_sentence=stake,
+            opportunity_id=opportunity_id,
         ), 0.0
     except LlmCallError as exc:
         # Transport / 5xx / no-content. Wrapper already recorded outcome=error
         # (which does NOT punish the EMA — transient upstream failure).
         _LOG.warning(
-            "anthropic call failed, routing to template_recovery: %s", exc,
+            "anthropic call failed, routing to template_recovery: %s",
+            exc,
         )
         return _recover_callsheet_via_template_recovery(
-            p, failure_reason=f"llm_call_error: {exc}",
-            stake_sentence=stake, opportunity_id=opportunity_id,
+            p,
+            failure_reason=f"llm_call_error: {exc}",
+            stake_sentence=stake,
+            opportunity_id=opportunity_id,
         ), 0.0
 
     # The call's tokens were spent regardless of whether the content parses —
@@ -708,8 +734,10 @@ def build_call_sheet_with_llm_costed(
         # the real cost so the reward signal reflects the wasted spend. The
         # recovery itself is zero-token (template_recovery makes no LLM call).
         return _recover_callsheet_via_template_recovery(
-            p, failure_reason=f"unparseable_response: {exc}",
-            stake_sentence=stake, opportunity_id=opportunity_id,
+            p,
+            failure_reason=f"unparseable_response: {exc}",
+            stake_sentence=stake,
+            opportunity_id=opportunity_id,
         ), cost_usd
 
     # Offer + issues stay deterministic (prospect-intel derived); the LLM only
@@ -723,15 +751,17 @@ def build_call_sheet_with_llm_costed(
     if stake:
         opener = f"{stake}  ...  {opener}"
         voicemail = f"{stake}  ...  {voicemail}"
-    sheet = p.model_copy(update={
-        **fields,
-        "callsheet_opener": opener,
-        "callsheet_voicemail": voicemail,
-        "callsheet_objections": " | ".join(_get_objections()),
-        # The specific finding stays deterministic (the crafted TTS-safe phrase)
-        # regardless of the LLM opener — the prompt speaks it to the owner.
-        "callsheet_finding": verified_top_finding(p),
-    })
+    sheet = p.model_copy(
+        update={
+            **fields,
+            "callsheet_opener": opener,
+            "callsheet_voicemail": voicemail,
+            "callsheet_objections": " | ".join(_get_objections()),
+            # The specific finding stays deterministic (the crafted TTS-safe phrase)
+            # regardless of the LLM opener — the prompt speaks it to the owner.
+            "callsheet_finding": verified_top_finding(p),
+        }
+    )
     return sheet, cost_usd
 
 
@@ -748,7 +778,9 @@ def build_call_sheet_with_llm_direct(
     Falls back to ``build_call_sheet`` on any failure.
     """
     stake = _resolve_stake_for_prospect(
-        p, stake_sentence=stake_sentence, opportunity_id=opportunity_id,
+        p,
+        stake_sentence=stake_sentence,
+        opportunity_id=opportunity_id,
     )
 
     prompt = _build_llm_prompt(p)
@@ -770,7 +802,9 @@ def build_call_sheet_with_llm_direct(
             exc,
         )
         return build_call_sheet(
-            p, stake_sentence=stake, opportunity_id=opportunity_id,
+            p,
+            stake_sentence=stake,
+            opportunity_id=opportunity_id,
         )
 
     fields = _intel_fields(derive_callsheet_intel(p))
@@ -780,15 +814,17 @@ def build_call_sheet_with_llm_direct(
     if stake:
         opener = f"{stake}  ...  {opener}"
         voicemail = f"{stake}  ...  {voicemail}"
-    return p.model_copy(update={
-        **fields,
-        "callsheet_opener": opener,
-        "callsheet_voicemail": voicemail,
-        "callsheet_objections": " | ".join(_get_objections()),
-        # The specific finding stays deterministic (the crafted TTS-safe phrase)
-        # regardless of the LLM opener — the prompt speaks it to the owner.
-        "callsheet_finding": verified_top_finding(p),
-    })
+    return p.model_copy(
+        update={
+            **fields,
+            "callsheet_opener": opener,
+            "callsheet_voicemail": voicemail,
+            "callsheet_objections": " | ".join(_get_objections()),
+            # The specific finding stays deterministic (the crafted TTS-safe phrase)
+            # regardless of the LLM opener — the prompt speaks it to the owner.
+            "callsheet_finding": verified_top_finding(p),
+        }
+    )
 
 
 def build_call_sheet_smart(
@@ -809,7 +845,9 @@ def build_call_sheet_smart(
     cost figure — kept for callers that don't need per-call LLM spend.
     """
     sheet, _cost = build_call_sheet_smart_costed(
-        p, stake_sentence=stake_sentence, opportunity_id=opportunity_id,
+        p,
+        stake_sentence=stake_sentence,
+        opportunity_id=opportunity_id,
     )
     return sheet
 
@@ -830,9 +868,13 @@ def build_call_sheet_smart_costed(
     """
     if p.call_priority == "hot" and p.lead_score >= 75:
         return build_call_sheet_with_llm_costed(
-            p, anthropic_api_key="unused",
-            stake_sentence=stake_sentence, opportunity_id=opportunity_id,
+            p,
+            anthropic_api_key="unused",
+            stake_sentence=stake_sentence,
+            opportunity_id=opportunity_id,
         )
     return build_call_sheet(
-        p, stake_sentence=stake_sentence, opportunity_id=opportunity_id,
+        p,
+        stake_sentence=stake_sentence,
+        opportunity_id=opportunity_id,
     ), 0.0

@@ -1,4 +1,5 @@
 """Feedback -> cash-engine re-engagement bridge + the engagement webhook."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -21,14 +22,18 @@ def _isolate_state(tmp_path, monkeypatch):
 
 def _opp(stake=VALID_STAKE, opportunity_id="op-1", prospect_id="pr-1"):
     from backend.crm.models import Opportunity
+
     return Opportunity(
-        opportunity_id=opportunity_id, prospect_id=prospect_id,
-        stage="proposal", stake_sentence=stake,
+        opportunity_id=opportunity_id,
+        prospect_id=prospect_id,
+        stage="proposal",
+        stake_sentence=stake,
     )
 
 
 def _prospect(prospect_id="pr-1"):
     from backend.crm.models import Prospect
+
     return Prospect(prospect_id=prospect_id, company_name="Acme Plumbing")
 
 
@@ -58,10 +63,14 @@ class FakeCRM:
 
 
 def _dormant_state(opportunity_id="op-1", prospect_id="pr-1"):
-    save_state(CashEngineState(
-        opportunity_id=opportunity_id, prospect_id=prospect_id,
-        status="dormant", gap_report_artifact_id="g1",
-    ))
+    save_state(
+        CashEngineState(
+            opportunity_id=opportunity_id,
+            prospect_id=prospect_id,
+            status="dormant",
+            gap_report_artifact_id="g1",
+        )
+    )
 
 
 def test_positive_reply_reengages_dormant_deal():
@@ -71,7 +80,7 @@ def test_positive_reply_reengages_dormant_deal():
     assert out["ok"] is True
     assert out["event"] == "reply"
     assert out["voicemail_artifact_id"]
-    assert load_state("op-1").status == "running"   # re-opened
+    assert load_state("op-1").status == "running"  # re-opened
 
 
 def test_open_resolves_via_prospect_id():
@@ -123,6 +132,7 @@ def test_bounce_halts_deal_via_recipient_index(monkeypatch):
         lambda email, **kw: {"prospect_id": "pr-1", "opportunity_id": "op-1"},
     )
     from backend.feedback.handlers import _halt_cash_engine_for_emails
+
     _halt_cash_engine_for_emails(["bounced@acme.test"], "bounce")
     assert load_state("op-1").status == "halted"
 
@@ -130,16 +140,19 @@ def test_bounce_halts_deal_via_recipient_index(monkeypatch):
 def test_unknown_bounce_address_is_noop(monkeypatch):
     _dormant_state()
     monkeypatch.setattr(
-        "backend.common.recipient_index.lookup_recipient", lambda email, **kw: None,
+        "backend.common.recipient_index.lookup_recipient",
+        lambda email, **kw: None,
     )
     from backend.feedback.handlers import _halt_cash_engine_for_emails
+
     _halt_cash_engine_for_emails(["stranger@nowhere.test"], "bounce")
-    assert load_state("op-1").status == "dormant"   # untouched
+    assert load_state("op-1").status == "dormant"  # untouched
 
 
 def test_disabled_engine_gates_the_signal(monkeypatch):
     monkeypatch.setenv("SAMUS_CASH_ENGINE_ENABLED", "false")
     from backend.common.settings import reload_settings
+
     reload_settings()
     out = fire_cash_engine_signal(event="reply", opportunity_id="op-1", crm=FakeCRM(opp=_opp()))
     assert out["ok"] is False
@@ -150,14 +163,17 @@ def test_disabled_engine_gates_the_signal(monkeypatch):
 # Webhook route
 # --------------------------------------------------------------------------
 
+
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_STATE_ROOT", str(tmp_path))
     monkeypatch.setenv("SAMUS_FEEDBACK_VERIFY_SNS", "0")
     from backend.common.settings import reload_settings
+
     reload_settings()
     from fastapi.testclient import TestClient
     from backend.feedback.app import app
+
     return TestClient(app)
 
 

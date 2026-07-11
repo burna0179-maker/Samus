@@ -1,4 +1,5 @@
 """Belief ledger — durable belief tracking + contradiction/staleness (backend/cognitive/belief_ledger.py)."""
+
 from __future__ import annotations
 
 import pytest
@@ -17,8 +18,7 @@ def _ev(source, weight=1.0):
 
 
 def test_record_belief_computes_confidence_from_support():
-    b = bl.record_belief("new opener lifts close rate",
-                         supporting=[_ev("a"), _ev("b")])
+    b = bl.record_belief("new opener lifts close rate", supporting=[_ev("a"), _ev("b")])
     # Laplace: (1+2)/(2+2) = 0.75
     assert b.confidence == 0.75
     assert b.status == bl.STATUS_ACTIVE
@@ -34,21 +34,29 @@ def test_upsert_merges_evidence_and_strengthens():
 
 
 def test_counter_evidence_flips_to_contradicted():
-    b = bl.record_belief("shaky claim", belief_id="sc",
-                         supporting=[_ev("a")],
-                         counter=[_ev("x"), _ev("y"), _ev("z")])
+    b = bl.record_belief(
+        "shaky claim", belief_id="sc", supporting=[_ev("a")], counter=[_ev("x"), _ev("y"), _ev("z")]
+    )
     # (1+1)/(2+1+3) = 0.333 < 0.5 -> contradicted
     assert b.confidence < bl.CONTRADICTION_CONFIDENCE
     assert b.status == bl.STATUS_CONTRADICTED
 
 
 def test_contradictions_ranked_by_economic_impact():
-    bl.record_belief("cheap wrong", belief_id="c1",
-                     supporting=[_ev("a")], counter=[_ev("x"), _ev("y")],
-                     economic_impact=50.0)
-    bl.record_belief("expensive wrong", belief_id="c2",
-                     supporting=[_ev("a")], counter=[_ev("x"), _ev("y")],
-                     economic_impact=5000.0)
+    bl.record_belief(
+        "cheap wrong",
+        belief_id="c1",
+        supporting=[_ev("a")],
+        counter=[_ev("x"), _ev("y")],
+        economic_impact=50.0,
+    )
+    bl.record_belief(
+        "expensive wrong",
+        belief_id="c2",
+        supporting=[_ev("a")],
+        counter=[_ev("x"), _ev("y")],
+        economic_impact=5000.0,
+    )
     out = bl.contradictions()
     assert [b.belief_id for b in out] == ["c2", "c1"]  # costliest first
 
@@ -203,8 +211,7 @@ def test_query_precedent_respects_k_cap():
 
 
 def test_belief_depended_by_defaults_to_empty_list():
-    b = bl.record_belief("a claim", belief_id="dbe",
-                         supporting=[_ev("a")])
+    b = bl.record_belief("a claim", belief_id="dbe", supporting=[_ev("a")])
     assert b.depended_by == []
 
 
@@ -303,18 +310,19 @@ def test_active_to_contradicted_with_no_deps_emits_event_no_approval(monkeypatch
 
     calls: list[dict] = []
     monkeypatch.setattr(
-        approvals, "create_approval",
-        lambda kind, payload=None, **kw: calls.append(
-            {"kind": kind, "payload": payload, **kw}) or {"id": "x"},
+        approvals,
+        "create_approval",
+        lambda kind, payload=None, **kw: (
+            calls.append({"kind": kind, "payload": payload, **kw}) or {"id": "x"}
+        ),
     )
     # Seed active belief.
-    bl.record_belief("no deps flip", belief_id="ndf",
-                     supporting=[_ev("a"), _ev("b")])
+    bl.record_belief("no deps flip", belief_id="ndf", supporting=[_ev("a"), _ev("b")])
     assert bl.get_belief("ndf").status == bl.STATUS_ACTIVE
     # Flip via update: overwhelming counter-evidence.
-    bl.record_belief("no deps flip", belief_id="ndf",
-                     counter=[_ev("x"), _ev("y"), _ev("z"),
-                              _ev("w"), _ev("v")])
+    bl.record_belief(
+        "no deps flip", belief_id="ndf", counter=[_ev("x"), _ev("y"), _ev("z"), _ev("w"), _ev("v")]
+    )
     assert bl.get_belief("ndf").status == bl.STATUS_CONTRADICTED
     assert calls == []  # no depended_by -> no approval
 
@@ -324,17 +332,18 @@ def test_active_to_contradicted_with_deps_fires_approval(monkeypatch):
 
     calls: list[dict] = []
     monkeypatch.setattr(
-        approvals, "create_approval",
-        lambda kind, payload=None, **kw: calls.append(
-            {"kind": kind, "payload": payload, **kw}) or {"id": "x"},
+        approvals,
+        "create_approval",
+        lambda kind, payload=None, **kw: (
+            calls.append({"kind": kind, "payload": payload, **kw}) or {"id": "x"}
+        ),
     )
-    bl.record_belief("deps flip", belief_id="df",
-                     supporting=[_ev("a"), _ev("b")])
+    bl.record_belief("deps flip", belief_id="df", supporting=[_ev("a"), _ev("b")])
     bl.link_decision("df", "dec_downstream")
     # Flip.
-    bl.record_belief("deps flip", belief_id="df",
-                     counter=[_ev("x"), _ev("y"), _ev("z"),
-                              _ev("w"), _ev("v")])
+    bl.record_belief(
+        "deps flip", belief_id="df", counter=[_ev("x"), _ev("y"), _ev("z"), _ev("w"), _ev("v")]
+    )
     assert len(calls) == 1
     call = calls[0]
     assert call["kind"] == "recheck_decisions"
@@ -348,18 +357,22 @@ def test_contradiction_emergency_severity_at_impact_threshold(monkeypatch):
 
     calls: list[dict] = []
     monkeypatch.setattr(
-        approvals, "create_approval",
-        lambda kind, payload=None, **kw: calls.append(
-            {"kind": kind, "payload": payload, **kw}) or {"id": "x"},
+        approvals,
+        "create_approval",
+        lambda kind, payload=None, **kw: (
+            calls.append({"kind": kind, "payload": payload, **kw}) or {"id": "x"}
+        ),
     )
-    bl.record_belief("expensive flip", belief_id="ef",
-                     supporting=[_ev("a"), _ev("b")],
-                     economic_impact=500.0)
+    bl.record_belief(
+        "expensive flip", belief_id="ef", supporting=[_ev("a"), _ev("b")], economic_impact=500.0
+    )
     bl.link_decision("ef", "dec_costly")
-    bl.record_belief("expensive flip", belief_id="ef",
-                     counter=[_ev("x"), _ev("y"), _ev("z"),
-                              _ev("w"), _ev("v")],
-                     economic_impact=500.0)
+    bl.record_belief(
+        "expensive flip",
+        belief_id="ef",
+        counter=[_ev("x"), _ev("y"), _ev("z"), _ev("w"), _ev("v")],
+        economic_impact=500.0,
+    )
     assert len(calls) == 1
     assert calls[0]["risk_level"] == "high"
     assert calls[0]["ev_usd"] == 500.0
@@ -371,18 +384,22 @@ def test_contradiction_routine_severity_below_threshold(monkeypatch):
 
     calls: list[dict] = []
     monkeypatch.setattr(
-        approvals, "create_approval",
-        lambda kind, payload=None, **kw: calls.append(
-            {"kind": kind, "payload": payload, **kw}) or {"id": "x"},
+        approvals,
+        "create_approval",
+        lambda kind, payload=None, **kw: (
+            calls.append({"kind": kind, "payload": payload, **kw}) or {"id": "x"}
+        ),
     )
-    bl.record_belief("cheap flip", belief_id="cf",
-                     supporting=[_ev("a"), _ev("b")],
-                     economic_impact=25.0)
+    bl.record_belief(
+        "cheap flip", belief_id="cf", supporting=[_ev("a"), _ev("b")], economic_impact=25.0
+    )
     bl.link_decision("cf", "dec_cheap")
-    bl.record_belief("cheap flip", belief_id="cf",
-                     counter=[_ev("x"), _ev("y"), _ev("z"),
-                              _ev("w"), _ev("v")],
-                     economic_impact=25.0)
+    bl.record_belief(
+        "cheap flip",
+        belief_id="cf",
+        counter=[_ev("x"), _ev("y"), _ev("z"), _ev("w"), _ev("v")],
+        economic_impact=25.0,
+    )
     assert len(calls) == 1
     assert calls[0]["risk_level"] == "normal"
 
@@ -393,20 +410,19 @@ def test_second_update_on_contradicted_belief_does_not_re_fire(monkeypatch):
 
     calls: list[dict] = []
     monkeypatch.setattr(
-        approvals, "create_approval",
-        lambda kind, payload=None, **kw: calls.append(
-            {"kind": kind, "payload": payload, **kw}) or {"id": "x"},
+        approvals,
+        "create_approval",
+        lambda kind, payload=None, **kw: (
+            calls.append({"kind": kind, "payload": payload, **kw}) or {"id": "x"}
+        ),
     )
-    bl.record_belief("once", belief_id="on",
-                     supporting=[_ev("a")])
+    bl.record_belief("once", belief_id="on", supporting=[_ev("a")])
     bl.link_decision("on", "dec_once")
     # First flip.
-    bl.record_belief("once", belief_id="on",
-                     counter=[_ev("x"), _ev("y"), _ev("z")])
+    bl.record_belief("once", belief_id="on", counter=[_ev("x"), _ev("y"), _ev("z")])
     assert len(calls) == 1
     # Extra counter — still contradicted, no fresh edge.
-    bl.record_belief("once", belief_id="on",
-                     counter=[_ev("q")])
+    bl.record_belief("once", belief_id="on", counter=[_ev("q")])
     assert len(calls) == 1
 
 
@@ -415,9 +431,11 @@ def test_active_stays_active_does_not_fire_contradiction(monkeypatch):
 
     calls: list[dict] = []
     monkeypatch.setattr(
-        approvals, "create_approval",
-        lambda kind, payload=None, **kw: calls.append(
-            {"kind": kind, "payload": payload, **kw}) or {"id": "x"},
+        approvals,
+        "create_approval",
+        lambda kind, payload=None, **kw: (
+            calls.append({"kind": kind, "payload": payload, **kw}) or {"id": "x"}
+        ),
     )
     bl.record_belief("stays", belief_id="st", supporting=[_ev("a")])
     bl.link_decision("st", "d")
@@ -434,13 +452,18 @@ def test_new_belief_born_contradicted_still_fires_when_deps_exist(monkeypatch):
 
     calls: list[dict] = []
     monkeypatch.setattr(
-        approvals, "create_approval",
-        lambda kind, payload=None, **kw: calls.append(
-            {"kind": kind, "payload": payload, **kw}) or {"id": "x"},
+        approvals,
+        "create_approval",
+        lambda kind, payload=None, **kw: (
+            calls.append({"kind": kind, "payload": payload, **kw}) or {"id": "x"}
+        ),
     )
-    b = bl.record_belief("born flipped", belief_id="bf",
-                         supporting=[_ev("a")],
-                         counter=[_ev("x"), _ev("y"), _ev("z")])
+    b = bl.record_belief(
+        "born flipped",
+        belief_id="bf",
+        supporting=[_ev("a")],
+        counter=[_ev("x"), _ev("y"), _ev("z")],
+    )
     assert b.status == bl.STATUS_CONTRADICTED
     assert calls == []  # nothing depended on it — correctly quiet
 
@@ -464,16 +487,17 @@ def test_contradiction_approval_survives_business_event_emit_failure(monkeypatch
     calls: list[dict] = []
     monkeypatch.setattr(business_events, "emit_business_event", boom)
     monkeypatch.setattr(
-        approvals, "create_approval",
-        lambda kind, payload=None, **kw: calls.append(
-            {"kind": kind, "payload": payload, **kw}) or {"id": "x"},
+        approvals,
+        "create_approval",
+        lambda kind, payload=None, **kw: (
+            calls.append({"kind": kind, "payload": payload, **kw}) or {"id": "x"}
+        ),
     )
-    bl.record_belief("resilient", belief_id="rs",
-                     supporting=[_ev("a"), _ev("b")])
+    bl.record_belief("resilient", belief_id="rs", supporting=[_ev("a"), _ev("b")])
     bl.link_decision("rs", "dec_r")
-    bl.record_belief("resilient", belief_id="rs",
-                     counter=[_ev("x"), _ev("y"), _ev("z"),
-                              _ev("w"), _ev("v")])
+    bl.record_belief(
+        "resilient", belief_id="rs", counter=[_ev("x"), _ev("y"), _ev("z"), _ev("w"), _ev("v")]
+    )
     # Approval must still have fired despite the event-emit blow-up.
     assert len(calls) == 1
     assert calls[0]["kind"] == "recheck_decisions"

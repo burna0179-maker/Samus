@@ -6,6 +6,7 @@ into the SAME directory :func:`backend.voice.ingest_pipeline.run_ingest_pipeline
 reads, so the existing pipeline analyzes them and flows reward to the bandit. No
 network — a fake client injects the calls; no LLM — the analyzer is never run here.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
@@ -20,6 +21,7 @@ from backend.voice.transcript_ingest import parse_transcript_file
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _call(
     *,
@@ -64,6 +66,7 @@ _NOW = datetime(2026, 7, 7, 16, 0, 0, tzinfo=timezone.utc)
 # Staging + filename round-trip
 # ---------------------------------------------------------------------------
 
+
 def test_stages_completed_call_and_filename_round_trips(_art_root):
     client = _FakeVapiClient([_call(call_id="call_1")])
 
@@ -105,6 +108,7 @@ def test_missing_customer_name_falls_back_to_parseable_filename(_art_root):
 # Dedup by call_id
 # ---------------------------------------------------------------------------
 
+
 def test_second_pull_dedups_by_call_id(_art_root):
     client = _FakeVapiClient([_call(call_id="call_1")])
 
@@ -124,13 +128,16 @@ def test_second_pull_dedups_by_call_id(_art_root):
 # Skip rules
 # ---------------------------------------------------------------------------
 
+
 def test_skips_not_ended_no_transcript_and_no_phone(_art_root):
-    client = _FakeVapiClient([
-        _call(call_id="live", status="in-progress"),
-        _call(call_id="silent", transcript="   "),
-        _call(call_id="nonum", number=None, name=None),
-        _call(call_id="good"),
-    ])
+    client = _FakeVapiClient(
+        [
+            _call(call_id="live", status="in-progress"),
+            _call(call_id="silent", transcript="   "),
+            _call(call_id="nonum", number=None, name=None),
+            _call(call_id="good"),
+        ]
+    )
 
     summary = vti.pull_and_stage_recent(client=client, now=_NOW)
 
@@ -154,6 +161,7 @@ def test_skips_calls_outside_lookback(_art_root):
 # Manifest freshness (the acceptance freshness signal)
 # ---------------------------------------------------------------------------
 
+
 def test_freshens_manifest_every_pass(_art_root):
     client = _FakeVapiClient([_call(call_id="call_1")])
 
@@ -162,6 +170,7 @@ def test_freshens_manifest_every_pass(_art_root):
     manifest = _art_root / "voice" / "transcript_manifest.json"
     assert manifest.exists()
     import json
+
     data = json.loads(manifest.read_text(encoding="utf-8"))
     assert data["source"] == "vapi_in_container_ingest"
     assert data["staged"] == 1
@@ -178,10 +187,12 @@ def test_manifest_freshened_even_on_empty_pull(_art_root):
 # Graceful degradation
 # ---------------------------------------------------------------------------
 
+
 def test_no_vapi_key_is_a_clean_no_op(_art_root, monkeypatch):
     # No injected client and no VAPI_API_KEY -> _build_client returns None.
     monkeypatch.delenv("VAPI_API_KEY", raising=False)
     from backend.common.settings import reload_settings
+
     reload_settings()
 
     summary = vti.pull_and_stage_recent(client=None, now=_NOW)

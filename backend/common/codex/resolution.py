@@ -16,6 +16,7 @@ Numbering is computed across both `08_decisions_log.md` (parsed by the
 registry) AND any unmerged drafts already promoted into `_resolved/`,
 so two concurrent draft promotions don't collide.
 """
+
 from __future__ import annotations
 
 import json
@@ -76,6 +77,7 @@ def _drafts_dir(codex_dir: Path | None = None) -> Path:
     # Mirror adr_drafter._default_drafts_dir resolution so the console +
     # drafter agree on where drafts live in container mode.
     from .adr_drafter import _default_drafts_dir as _drafter_default
+
     return _drafter_default()
 
 
@@ -156,7 +158,8 @@ def _log_rejection(draft_path: Path, rationale: str, operator: str | None) -> No
     except OSError as exc:
         _LOG.error(
             "samus.codex.resolution.ledger_write_failed: path=%s err=%s",
-            ledger, exc,
+            ledger,
+            exc,
         )
 
 
@@ -188,14 +191,18 @@ def resolve_draft(
             raise RuntimeError(f"failed to delete draft {draft_path}: {exc}") from exc
         _LOG.info(
             "samus.codex.resolution.rejected: name=%s operator=%s",
-            draft_path.name, operator,
+            draft_path.name,
+            operator,
         )
         return draft_path
 
     # allow path
     body = draft_path.read_text(encoding="utf-8")
     updated = _append_resolution_block(
-        body, decision="ALLOW", operator=operator, rationale=rationale,
+        body,
+        decision="ALLOW",
+        operator=operator,
+        rationale=rationale,
     )
     resolved_dir = _resolved_dir(codex_dir)
     new_name = draft_path.name.replace(".draft.md", ".resolved.md")
@@ -219,7 +226,9 @@ def resolve_draft(
         raise RuntimeError(f"failed to remove draft {draft_path}: {exc}") from exc
     _LOG.info(
         "samus.codex.resolution.allowed: name=%s -> %s operator=%s",
-        draft_path.name, target.name, operator,
+        draft_path.name,
+        target.name,
+        operator,
     )
     return target
 
@@ -250,6 +259,7 @@ def promote_to_decisions_log(
     """
     if registry is None:
         from .registry import REGISTRY as _R  # local to dodge cycles
+
         registry = _R
     log_path = decisions_log or (_default_codex_dir() / "08_decisions_log.md")
     if not log_path.is_file():
@@ -279,18 +289,16 @@ def promote_to_decisions_log(
     # don't double-stack headers; what we keep is the substantive content.
     stripped_body = _strip_leading_heading(body)
 
-    insertion = (
-        canonical_header
-        + stripped_body.rstrip()
-        + "\n\n---\n\n"
-    )
+    insertion = canonical_header + stripped_body.rstrip() + "\n\n---\n\n"
     new_log = log_text[:marker_idx] + insertion + log_text[marker_idx:]
     # write_bytes, not write_text: keep LF on Windows so promotion doesn't flip
     # the entire LF-normalized 08_decisions_log.md to CRLF (whole-file git diff).
     log_path.write_bytes(new_log.encode("utf-8"))
     _LOG.info(
         "samus.codex.resolution.promoted: %s -> %s in %s",
-        resolved_path.name, new_id, log_path.name,
+        resolved_path.name,
+        new_id,
+        log_path.name,
     )
     return new_id
 

@@ -23,6 +23,7 @@ Two base URLs, on purpose:
 Read-only public calls stay on ``_BASE``; everything that sends ``_auth_header``
 uses ``_AUTH_BASE``.
 """
+
 from __future__ import annotations
 
 import base64
@@ -53,6 +54,7 @@ def _auth_header() -> dict[str, str]:
 
 
 # ─── Diagnostics ────────────────────────────────────────────────────────────
+
 
 def whoami() -> dict[str, Any]:
     """Return the authenticated user WordPress sees for the current credential.
@@ -97,6 +99,7 @@ def whoami() -> dict[str, Any]:
 
 
 # ─── Read ─────────────────────────────────────────────────────────────────────
+
 
 def get_published_pages() -> list[dict[str, Any]]:
     """Return all published WP pages (id, slug, title, excerpt, content)."""
@@ -235,19 +238,17 @@ def update_page_content(page_id: int, content: str) -> dict[str, Any]:
         )
         r.raise_for_status()
         page = r.json()
-        _LOG.info("wordpress page content updated: id=%s slug=%s",
-                  page.get("id"), page.get("slug"))
+        _LOG.info("wordpress page content updated: id=%s slug=%s", page.get("id"), page.get("slug"))
         return page
     except httpx.HTTPStatusError as exc:
         body = exc.response.text[:400]
-        raise RuntimeError(
-            f"WordPress update error {exc.response.status_code}: {body}"
-        ) from exc
+        raise RuntimeError(f"WordPress update error {exc.response.status_code}: {body}") from exc
     except Exception as exc:
         raise RuntimeError(f"WordPress update failed: {exc}") from exc
 
 
 # ─── Write ────────────────────────────────────────────────────────────────────
+
 
 def create_draft_page(
     title: str,
@@ -288,9 +289,7 @@ def create_draft_page(
         return page
     except httpx.HTTPStatusError as exc:
         body = exc.response.text[:400]
-        raise RuntimeError(
-            f"WordPress API error {exc.response.status_code}: {body}"
-        ) from exc
+        raise RuntimeError(f"WordPress API error {exc.response.status_code}: {body}") from exc
     except Exception as exc:
         raise RuntimeError(f"WordPress request failed: {exc}") from exc
 
@@ -322,8 +321,6 @@ def update_draft_page(
         return r.json()
     except httpx.HTTPStatusError as exc:
         body = exc.response.text[:400]
-        raise RuntimeError(
-            f"WordPress update error {exc.response.status_code}: {body}"
-        ) from exc
+        raise RuntimeError(f"WordPress update error {exc.response.status_code}: {body}") from exc
     except Exception as exc:
         raise RuntimeError(f"WordPress update failed: {exc}") from exc

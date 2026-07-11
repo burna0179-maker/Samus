@@ -15,6 +15,7 @@ this, the queue path dropped every intelligence action with a ValueError
 while the HTTP path served it. Wraps ``backend.common.worker_base`` in
 try/except so the module imports cleanly even if the base class is unavailable.
 """
+
 from __future__ import annotations
 
 import logging
@@ -35,7 +36,8 @@ def _analyze_business(payload: dict[str, Any]) -> dict[str, Any]:
     scores = intelligence.score_opportunity(signals)
     products = intelligence.map_products(scores)
     angle = intelligence.determine_pitch_angle(
-        signals, scores,
+        signals,
+        scores,
         learned_performance=feedback_store.get_angle_performance(),
     )
     return {
@@ -73,6 +75,7 @@ def _generate_dynamic_script_with_pivot(payload: dict[str, Any]) -> dict[str, An
     if not isinstance(intel, dict):
         raise ValueError("missing_required_field: intel")
     return dynamic_script.generate_script_with_pivot(company_name, intel)
+
 
 _IMPORT_ERROR: Exception | None = None
 try:
@@ -122,9 +125,7 @@ except Exception as exc:  # pragma: no cover
 
 def main() -> None:
     if _IMPORT_ERROR is not None or serve_worker is None:
-        raise NotImplementedError(
-            f"worker_base unavailable; import failed: {_IMPORT_ERROR!r}"
-        )
+        raise NotImplementedError(f"worker_base unavailable; import failed: {_IMPORT_ERROR!r}")
     settings = AwsWorkerSettings.from_env("prospecting", "SQS_PROSPECTING_QUEUE_URL")  # type: ignore[union-attr]
     serve_worker(ProspectingWorker(AwsRuntime(settings)))  # type: ignore[misc]
 

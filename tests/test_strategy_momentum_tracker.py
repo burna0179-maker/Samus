@@ -2,6 +2,7 @@
 
 Exact-formula tests + boundary cases (empty / single-point series).
 """
+
 from __future__ import annotations
 
 import pytest

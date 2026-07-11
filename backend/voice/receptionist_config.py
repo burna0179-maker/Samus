@@ -11,6 +11,7 @@ per Vapi end-of-call webhook), so the active-config list is cached for
 ``_CACHE_TTL_S`` — short enough that an operator editing a config sees it
 take effect within seconds, long enough that a burst of calls is one sweep.
 """
+
 from __future__ import annotations
 
 import logging
@@ -60,7 +61,8 @@ StripeCustomerValidator = Callable[[ReceptionistConfig, str], "tuple[bool, str]"
 
 
 def _default_stripe_customer_validator(
-    config: ReceptionistConfig, stripe_customer_id: str,
+    config: ReceptionistConfig,
+    stripe_customer_id: str,
 ) -> tuple[bool, str]:
     """Confirm ``stripe_customer_id`` with the finance workcell, fail-closed.
 
@@ -94,12 +96,15 @@ def _default_stripe_customer_validator(
         return False, "shared_hmac_key_unset"
     try:
         resp = signed_post_json_sync(
-            finance_url, "/customer-exists",
-            {"stripe_customer_id": cid}, retries=1,
+            finance_url,
+            "/customer-exists",
+            {"stripe_customer_id": cid},
+            retries=1,
         )
     except Exception as exc:  # noqa: BLE001 — network / circuit / 5xx
-        _LOG.warning("stripe customer validation dispatch failed for %s: %s",
-                     config.customer_slug, exc)
+        _LOG.warning(
+            "stripe customer validation dispatch failed for %s: %s", config.customer_slug, exc
+        )
         return False, f"validation_dispatch_error: {exc}"
     if resp.status_code >= 400:
         return False, f"validation_http_{resp.status_code}"
@@ -142,19 +147,23 @@ def _validate_and_gate_metering(config: ReceptionistConfig) -> ReceptionistConfi
     try:
         ok, reason = _stripe_customer_validator(config, cid)
     except Exception as exc:  # noqa: BLE001 — a raising validator fails closed
-        _LOG.warning("stripe customer validator raised for %s: %s",
-                     config.customer_slug, exc)
+        _LOG.warning("stripe customer validator raised for %s: %s", config.customer_slug, exc)
         ok, reason = False, f"validator_error: {exc}"
     if not ok:
         _LOG.warning(
-            "metering DISABLED for %s — stripe_customer_id %r failed "
-            "validation: %s", config.customer_slug, cid, reason or "invalid",
+            "metering DISABLED for %s — stripe_customer_id %r failed validation: %s",
+            config.customer_slug,
+            cid,
+            reason or "invalid",
         )
-        return config.model_copy(update={
-            "metering_disabled": True,
-            "metering_disabled_reason": reason or "invalid_stripe_customer_id",
-        })
+        return config.model_copy(
+            update={
+                "metering_disabled": True,
+                "metering_disabled_reason": reason or "invalid_stripe_customer_id",
+            }
+        )
     return config
+
 
 # TTL for the list_active_configs cache. resolve_customer_for_number scans
 # every client config per inbound call; this bounds that to one filesystem

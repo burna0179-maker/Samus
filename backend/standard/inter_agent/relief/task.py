@@ -16,12 +16,12 @@ Fully dormant until ``samus_agora_relief_forward_enabled`` (default False) AND
 Anita's ``sn_agora_relief_intake_enabled`` are both flipped. Best-effort; never
 blocks or aborts the gateway lifespan.
 """
+
 # AXIOM-2a: boundary defender — periodic outward mirror of stale operator-pending deals.
 from __future__ import annotations
 
 import asyncio
 import logging
-import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -121,7 +121,9 @@ async def start_relief_forwarder(app: Any, settings: Any) -> Optional[asyncio.Ta
     existing = getattr(app.state, "relief_forwarder_task", None)
     if existing is not None and not existing.done():
         return existing
-    interval = float(getattr(settings, "samus_agora_relief_forward_interval_sec", _DEFAULT_INTERVAL_SEC))
+    interval = float(
+        getattr(settings, "samus_agora_relief_forward_interval_sec", _DEFAULT_INTERVAL_SEC)
+    )
     task = asyncio.create_task(_relief_loop(settings, interval), name="samus.relief_forwarder")
     app.state.relief_forwarder_task = task
     _LOG.info("relief forwarder task started (interval=%.0fs)", interval)
@@ -142,4 +144,9 @@ async def stop_relief_forwarder(app: Any) -> None:
     _LOG.info("relief forwarder task stopped")
 
 
-__all__ = ["pending_stake_items", "build_forwarder", "start_relief_forwarder", "stop_relief_forwarder"]
+__all__ = [
+    "pending_stake_items",
+    "build_forwarder",
+    "start_relief_forwarder",
+    "stop_relief_forwarder",
+]

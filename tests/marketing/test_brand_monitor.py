@@ -1,10 +1,10 @@
 """Tests for backend.marketing.brand_monitor."""
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-import pytest
 
 from backend.marketing.brand_monitor import (
     detect_ai_referrer,
@@ -16,6 +16,7 @@ from backend.marketing.brand_monitor import (
 # ---------------------------------------------------------------------------
 # detect_ai_referrer
 # ---------------------------------------------------------------------------
+
 
 class TestDetectAiReferrer:
     def test_perplexity(self):
@@ -63,11 +64,19 @@ class TestDetectAiReferrer:
 # log_ai_referral + get_mention_stats
 # ---------------------------------------------------------------------------
 
+
 class TestLogAndStats:
     def test_round_trip(self, tmp_path: Path):
         ledger = tmp_path / "ai_mentions.jsonl"
-        log_ai_referral("perplexity", "AI tools for business", "https://hustleforge.tech/blog/ai", ledger_path=ledger)
-        log_ai_referral("chatgpt", "automate small business", "https://hustleforge.tech/", ledger_path=ledger)
+        log_ai_referral(
+            "perplexity",
+            "AI tools for business",
+            "https://hustleforge.tech/blog/ai",
+            ledger_path=ledger,
+        )
+        log_ai_referral(
+            "chatgpt", "automate small business", "https://hustleforge.tech/", ledger_path=ledger
+        )
 
         lines = ledger.read_text(encoding="utf-8").strip().splitlines()
         assert len(lines) == 2
@@ -125,7 +134,12 @@ class TestLogAndStats:
         """Events with timestamps older than the window should not be counted."""
         ledger = tmp_path / "old.jsonl"
         # Write a record with an ancient timestamp manually.
-        old_record = {"source": "perplexity", "query": "q", "url": "https://hustleforge.tech", "ts": "2020-01-01T00:00:00Z"}
+        old_record = {
+            "source": "perplexity",
+            "query": "q",
+            "url": "https://hustleforge.tech",
+            "ts": "2020-01-01T00:00:00Z",
+        }
         ledger.write_text(json.dumps(old_record) + "\n", encoding="utf-8")
         stats = get_mention_stats(days=30, ledger_path=ledger)
         assert stats["total"] == 0

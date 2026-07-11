@@ -1,4 +1,5 @@
 """Open-no-click nudge watcher — register, tick, close, fire-on-dwell."""
+
 from __future__ import annotations
 
 import json
@@ -17,6 +18,7 @@ def _fake_get_settings(*, nudge_enabled: bool, dwell_h: int = 24):
             outreach_open_no_click_nudge_enabled=nudge_enabled,
             outreach_open_no_click_dwell_hours=dwell_h,
         )
+
     _gs.cache_clear = lambda: None
     return _gs
 
@@ -28,8 +30,7 @@ def isolated(monkeypatch, tmp_path):
     eng = tmp_path / "engagement"
     eng.mkdir()
     monkeypatch.setenv("SAMUS_ENGAGEMENT_DIR", str(eng))
-    monkeypatch.setattr(config_mod, "get_settings",
-                        _fake_get_settings(nudge_enabled=False))
+    monkeypatch.setattr(config_mod, "get_settings", _fake_get_settings(nudge_enabled=False))
     return SimpleNamespace(root=tmp_path, engagement_dir=eng)
 
 
@@ -57,6 +58,7 @@ def _register_kelly(sent="2026-06-30T17:14:47Z"):
 # register
 # ---------------------------------------------------------------------------
 
+
 def test_register_writes_record(isolated):
     out = _register_kelly()
     assert out["registered"] is True
@@ -82,6 +84,7 @@ def test_register_is_idempotent(isolated):
 # tick — signal classification
 # ---------------------------------------------------------------------------
 
+
 def test_tick_no_engagement_yields_no_open(isolated):
     _register_kelly()
     out = watch.tick(now_iso="2026-07-01T17:14:47Z")  # +24h, no events
@@ -90,12 +93,24 @@ def test_tick_no_engagement_yields_no_open(isolated):
 
 def test_tick_click_closes_record_without_nudge(isolated):
     _register_kelly()
-    _write_engagement(isolated.engagement_dir, "2026-06-30", [
-        {"ts": "2026-06-30T18:00:00Z", "prospect_id": "pr_kelly",
-         "signal": "opened", "source": "sendgrid_webhook"},
-        {"ts": "2026-06-30T18:02:00Z", "prospect_id": "pr_kelly",
-         "signal": "clicked", "source": "sendgrid_webhook"},
-    ])
+    _write_engagement(
+        isolated.engagement_dir,
+        "2026-06-30",
+        [
+            {
+                "ts": "2026-06-30T18:00:00Z",
+                "prospect_id": "pr_kelly",
+                "signal": "opened",
+                "source": "sendgrid_webhook",
+            },
+            {
+                "ts": "2026-06-30T18:02:00Z",
+                "prospect_id": "pr_kelly",
+                "signal": "clicked",
+                "source": "sendgrid_webhook",
+            },
+        ],
+    )
     out = watch.tick(now_iso="2026-07-01T18:30:00Z")
     assert out == [{"prospect_id": "pr_kelly", "action": "closed_clicked"}]
     r = watch._read()[0]
@@ -106,10 +121,18 @@ def test_tick_click_closes_record_without_nudge(isolated):
 
 def test_tick_open_within_dwell_no_action(isolated):
     _register_kelly()
-    _write_engagement(isolated.engagement_dir, "2026-06-30", [
-        {"ts": "2026-06-30T18:00:00Z", "prospect_id": "pr_kelly",
-         "signal": "opened", "source": "sendgrid_webhook"},
-    ])
+    _write_engagement(
+        isolated.engagement_dir,
+        "2026-06-30",
+        [
+            {
+                "ts": "2026-06-30T18:00:00Z",
+                "prospect_id": "pr_kelly",
+                "signal": "opened",
+                "source": "sendgrid_webhook",
+            },
+        ],
+    )
     # 12h after the open — well inside the 24h dwell window.
     out = watch.tick(now_iso="2026-07-01T06:00:00Z")
     assert out[0]["action"] == "dwell_not_reached"
@@ -122,12 +145,21 @@ def test_tick_open_within_dwell_no_action(isolated):
 # tick — dwell crossed, flag posture
 # ---------------------------------------------------------------------------
 
+
 def test_tick_dwell_crossed_flag_off_records_would_nudge(isolated):
     _register_kelly()
-    _write_engagement(isolated.engagement_dir, "2026-06-30", [
-        {"ts": "2026-06-30T18:00:00Z", "prospect_id": "pr_kelly",
-         "signal": "opened", "source": "sendgrid_webhook"},
-    ])
+    _write_engagement(
+        isolated.engagement_dir,
+        "2026-06-30",
+        [
+            {
+                "ts": "2026-06-30T18:00:00Z",
+                "prospect_id": "pr_kelly",
+                "signal": "opened",
+                "source": "sendgrid_webhook",
+            },
+        ],
+    )
     # 25h after open — dwell crossed.
     out = watch.tick(now_iso="2026-07-01T19:00:00Z")
     assert out[0]["action"] == "would_nudge_flag_off"
@@ -137,20 +169,33 @@ def test_tick_dwell_crossed_flag_off_records_would_nudge(isolated):
 
 
 def test_tick_dwell_crossed_flag_on_sends_nudge(isolated, monkeypatch):
-    monkeypatch.setattr(config_mod, "get_settings",
-                        _fake_get_settings(nudge_enabled=True))
+    monkeypatch.setattr(config_mod, "get_settings", _fake_get_settings(nudge_enabled=True))
     _register_kelly()
-    _write_engagement(isolated.engagement_dir, "2026-06-30", [
-        {"ts": "2026-06-30T18:00:00Z", "prospect_id": "pr_kelly",
-         "signal": "opened", "source": "sendgrid_webhook"},
-    ])
+    _write_engagement(
+        isolated.engagement_dir,
+        "2026-06-30",
+        [
+            {
+                "ts": "2026-06-30T18:00:00Z",
+                "prospect_id": "pr_kelly",
+                "signal": "opened",
+                "source": "sendgrid_webhook",
+            },
+        ],
+    )
     sent_calls = []
 
     def _fake_send_email(**kw):
         sent_calls.append(kw)
-        return {"message_id": "nudge_msg_id", "channel": "email",
-                "to": kw["to"], "ts": "2026-07-01T19:00:00Z"}
+        return {
+            "message_id": "nudge_msg_id",
+            "channel": "email",
+            "to": kw["to"],
+            "ts": "2026-07-01T19:00:00Z",
+        }
+
     import backend.common.email_backend as eb
+
     monkeypatch.setattr(eb, "send_email", _fake_send_email)
 
     out = watch.tick(now_iso="2026-07-01T19:00:00Z")
@@ -168,19 +213,28 @@ def test_tick_dwell_crossed_flag_on_sends_nudge(isolated, monkeypatch):
 
 def test_tick_nudge_is_idempotent(isolated, monkeypatch):
     """A second tick after firing must NOT re-fire."""
-    monkeypatch.setattr(config_mod, "get_settings",
-                        _fake_get_settings(nudge_enabled=True))
+    monkeypatch.setattr(config_mod, "get_settings", _fake_get_settings(nudge_enabled=True))
     _register_kelly()
-    _write_engagement(isolated.engagement_dir, "2026-06-30", [
-        {"ts": "2026-06-30T18:00:00Z", "prospect_id": "pr_kelly",
-         "signal": "opened", "source": "sendgrid_webhook"},
-    ])
+    _write_engagement(
+        isolated.engagement_dir,
+        "2026-06-30",
+        [
+            {
+                "ts": "2026-06-30T18:00:00Z",
+                "prospect_id": "pr_kelly",
+                "signal": "opened",
+                "source": "sendgrid_webhook",
+            },
+        ],
+    )
     send_count = {"n": 0}
 
     def _fake_send_email(**kw):
         send_count["n"] += 1
         return {"message_id": "x", "channel": "email", "to": kw["to"], "ts": "x"}
+
     import backend.common.email_backend as eb
+
     monkeypatch.setattr(eb, "send_email", _fake_send_email)
 
     watch.tick(now_iso="2026-07-01T19:00:00Z")
@@ -192,16 +246,28 @@ def test_tick_nudge_is_idempotent(isolated, monkeypatch):
 
 def test_force_fire_overrides_flag_off(isolated, monkeypatch):
     _register_kelly()
-    _write_engagement(isolated.engagement_dir, "2026-06-30", [
-        {"ts": "2026-06-30T18:00:00Z", "prospect_id": "pr_kelly",
-         "signal": "opened", "source": "sendgrid_webhook"},
-    ])
+    _write_engagement(
+        isolated.engagement_dir,
+        "2026-06-30",
+        [
+            {
+                "ts": "2026-06-30T18:00:00Z",
+                "prospect_id": "pr_kelly",
+                "signal": "opened",
+                "source": "sendgrid_webhook",
+            },
+        ],
+    )
     sent: list = []
     import backend.common.email_backend as eb
-    monkeypatch.setattr(eb, "send_email",
-                        lambda **kw: sent.append(kw) or
-                        {"message_id": "x", "channel": "email",
-                         "to": kw["to"], "ts": "x"})
+
+    monkeypatch.setattr(
+        eb,
+        "send_email",
+        lambda **kw: (
+            sent.append(kw) or {"message_id": "x", "channel": "email", "to": kw["to"], "ts": "x"}
+        ),
+    )
     out = watch.tick(now_iso="2026-07-01T19:00:00Z", dry_run=False)
     assert out[0]["action"] == "nudged"
     assert len(sent) == 1
@@ -211,22 +277,34 @@ def test_force_fire_overrides_flag_off(isolated, monkeypatch):
 # mark_closed — Stripe payment / operator cancel
 # ---------------------------------------------------------------------------
 
+
 def test_mark_closed_cancels_pending_nudge(isolated, monkeypatch):
-    monkeypatch.setattr(config_mod, "get_settings",
-                        _fake_get_settings(nudge_enabled=True))
+    monkeypatch.setattr(config_mod, "get_settings", _fake_get_settings(nudge_enabled=True))
     _register_kelly()
-    _write_engagement(isolated.engagement_dir, "2026-06-30", [
-        {"ts": "2026-06-30T18:00:00Z", "prospect_id": "pr_kelly",
-         "signal": "opened", "source": "sendgrid_webhook"},
-    ])
+    _write_engagement(
+        isolated.engagement_dir,
+        "2026-06-30",
+        [
+            {
+                "ts": "2026-06-30T18:00:00Z",
+                "prospect_id": "pr_kelly",
+                "signal": "opened",
+                "source": "sendgrid_webhook",
+            },
+        ],
+    )
     n = watch.mark_closed(prospect_id="pr_kelly", reason="closed_won")
     assert n == 1
     sent: list = []
     import backend.common.email_backend as eb
-    monkeypatch.setattr(eb, "send_email",
-                        lambda **kw: sent.append(kw) or
-                        {"message_id": "x", "channel": "email",
-                         "to": kw["to"], "ts": "x"})
+
+    monkeypatch.setattr(
+        eb,
+        "send_email",
+        lambda **kw: (
+            sent.append(kw) or {"message_id": "x", "channel": "email", "to": kw["to"], "ts": "x"}
+        ),
+    )
     out = watch.tick(now_iso="2026-07-01T19:00:00Z")
     assert out == []  # closed records skipped entirely
     assert sent == []
@@ -236,11 +314,11 @@ def test_mark_closed_cancels_pending_nudge(isolated, monkeypatch):
 # Fail-open — engagement dir absent doesn't crash
 # ---------------------------------------------------------------------------
 
+
 def test_tick_with_no_engagement_dir(monkeypatch, tmp_path):
     monkeypatch.setenv("SAMUS_ARTIFACT_ROOT", str(tmp_path))
     monkeypatch.setenv("SAMUS_ENGAGEMENT_DIR", str(tmp_path / "does_not_exist"))
-    monkeypatch.setattr(config_mod, "get_settings",
-                        _fake_get_settings(nudge_enabled=False))
+    monkeypatch.setattr(config_mod, "get_settings", _fake_get_settings(nudge_enabled=False))
     _register_kelly()
     out = watch.tick(now_iso="2026-07-01T19:00:00Z")
     # No engagement events → no_open_yet, but no crash.

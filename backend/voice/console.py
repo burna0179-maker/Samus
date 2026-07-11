@@ -28,6 +28,7 @@ All console paths are static (no path params) so they can be matched by the
 exact-match ``hmac_exempt_paths`` set in ``app_factory``. The one read route
 that needs a call id takes it as a query param for that reason.
 """
+
 from __future__ import annotations
 
 import hmac
@@ -78,6 +79,7 @@ class ConsoleCallRequest(BaseModel):
     (``VAPI_ASSISTANT_ID`` / ``VAPI_PHONE_NUMBER_ID``); the browser never sees
     or chooses them.
     """
+
     model_config = ConfigDict(extra="forbid")
 
     customer_number: str = Field(min_length=1)
@@ -114,6 +116,7 @@ def _normalize_console_phone(raw: str) -> str | None:
     (the same reasoning app.py uses for its lazy ``dial_call_list`` import).
     """
     from .dialer import _normalize_phone
+
     return _normalize_phone(raw)
 
 
@@ -177,7 +180,7 @@ def register_console_routes(app: FastAPI) -> None:
             raise HTTPException(
                 status_code=422,
                 detail=f"invalid_phone_number: {req.customer_number!r} "
-                       "(need at least 10 digits; US 10-digit or E.164)",
+                "(need at least 10 digits; US 10-digit or E.164)",
             )
 
         s = get_settings()
@@ -187,22 +190,25 @@ def register_console_routes(app: FastAPI) -> None:
             raise HTTPException(
                 status_code=503,
                 detail="vapi_assistant_or_phone_unset: set VAPI_ASSISTANT_ID "
-                       "and VAPI_PHONE_NUMBER_ID",
+                "and VAPI_PHONE_NUMBER_ID",
             )
 
         # Log the action — phone tail only (PII minimization, mirrors the
         # ``customer_number_tail`` the service-layer audit ledger records).
         _LOG.info(
             "console call initiated: customer_tail=%s name=%r",
-            normalized[-4:], req.customer_name or "",
+            normalized[-4:],
+            req.customer_name or "",
         )
-        result = initiate_call(InitiateCallRequest(
-            assistant_id=assistant_id,
-            phone_number_id=phone_number_id,
-            customer_number=normalized,
-            customer_name=req.customer_name or None,
-            metadata={"source": "operator_console"},
-        ))
+        result = initiate_call(
+            InitiateCallRequest(
+                assistant_id=assistant_id,
+                phone_number_id=phone_number_id,
+                customer_number=normalized,
+                customer_name=req.customer_name or None,
+                metadata={"source": "operator_console"},
+            )
+        )
         return result.model_dump()
 
     @app.get(

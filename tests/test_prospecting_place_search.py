@@ -1,4 +1,5 @@
 """Places API client — request shape + response parsing (mocked HTTP)."""
+
 from __future__ import annotations
 
 import pytest
@@ -55,9 +56,12 @@ class _FakeClient:
 
 def _patch_httpx(monkeypatch, responses):
     fake = _FakeClient(responses)
+
     def make_client(*args, **kwargs):
         return fake
+
     import httpx
+
     monkeypatch.setattr(httpx, "Client", make_client)
     return fake
 
@@ -65,10 +69,12 @@ def _patch_httpx(monkeypatch, responses):
 def test_search_text_builds_request(monkeypatch):
     monkeypatch.setenv("GOOGLE_PLACES_API_KEY", "test-key-123")
     from backend.common.settings import reload_settings
+
     reload_settings()
     fake = _patch_httpx(monkeypatch, [_FakeResponse({"places": []})])
 
     from backend.prospecting import place_search
+
     place_search.search_text("finance in 95993", max_results=25)
 
     call = fake.captured[0]
@@ -84,14 +90,17 @@ def test_search_text_builds_request(monkeypatch):
 def test_search_text_requires_api_key(monkeypatch):
     monkeypatch.delenv("GOOGLE_PLACES_API_KEY", raising=False)
     from backend.common.settings import reload_settings
+
     reload_settings()
     from backend.prospecting import place_search
+
     with pytest.raises(place_search.PlacesError, match="GOOGLE_PLACES_API_KEY"):
         place_search.search_text("anything")
 
 
 def test_place_to_prospect_maps_fields():
     from backend.prospecting.place_search import place_to_prospect
+
     p = place_to_prospect(_SAMPLE_PLACE, zipcode="95993", industry="finance")
     assert p.prospect_id.startswith("pr_")
     assert p.account_id.startswith("acct_")
@@ -112,22 +121,44 @@ def test_place_to_prospect_maps_fields():
 def test_discover_for_zipcode_dedupe_and_website_filter(monkeypatch):
     monkeypatch.setenv("GOOGLE_PLACES_API_KEY", "k")
     from backend.common.settings import reload_settings
+
     reload_settings()
     response = {
         "places": [
-            {"id": "p1", "displayName": {"text": "A"}, "websiteUri": "https://a.com",
-             "addressComponents": [], "types": []},
-            {"id": "p2", "displayName": {"text": "B"}, "websiteUri": "",
-             "addressComponents": [], "types": []},  # no website → filtered
-            {"id": "p1", "displayName": {"text": "A-dup"}, "websiteUri": "https://a.com",
-             "addressComponents": [], "types": []},  # dup → filtered
-            {"id": "p3", "displayName": {"text": "C"}, "websiteUri": "https://c.com",
-             "addressComponents": [], "types": []},
+            {
+                "id": "p1",
+                "displayName": {"text": "A"},
+                "websiteUri": "https://a.com",
+                "addressComponents": [],
+                "types": [],
+            },
+            {
+                "id": "p2",
+                "displayName": {"text": "B"},
+                "websiteUri": "",
+                "addressComponents": [],
+                "types": [],
+            },  # no website → filtered
+            {
+                "id": "p1",
+                "displayName": {"text": "A-dup"},
+                "websiteUri": "https://a.com",
+                "addressComponents": [],
+                "types": [],
+            },  # dup → filtered
+            {
+                "id": "p3",
+                "displayName": {"text": "C"},
+                "websiteUri": "https://c.com",
+                "addressComponents": [],
+                "types": [],
+            },
         ],
     }
     _patch_httpx(monkeypatch, [_FakeResponse(response)])
 
     from backend.prospecting.place_search import discover_for_zipcode
+
     out = discover_for_zipcode(
         zipcode="95993",
         industries=["finance"],

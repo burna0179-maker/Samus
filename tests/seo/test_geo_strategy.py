@@ -1,7 +1,7 @@
 """Tests for backend.seo.geo_strategy (GEO audit + citation strategy)."""
+
 from __future__ import annotations
 
-import pytest
 
 from backend.seo.geo_strategy import (
     robots_txt_audit,
@@ -16,7 +16,7 @@ from backend.seo.geo_strategy import (
     TopicalClusterPlan,
     AI_CRAWLERS,
 )
-from backend.seo.models import AuditResult, SeoIssue
+from backend.seo.models import AuditResult
 from backend.common.dates import iso_now
 
 
@@ -144,7 +144,7 @@ def test_freshness_audit_no_html_no_schema_returns_high():
 
 def test_freshness_audit_visible_date_in_html_reduces_severity():
     audit = _make_audit(schema_types=[])
-    html = '<p>Last updated: June 10, 2026</p>'
+    html = "<p>Last updated: June 10, 2026</p>"
     findings = content_freshness_audit(audit, html=html)
     ids = [f.id for f in findings]
     # visible date found but no schema -- should be medium
@@ -204,24 +204,31 @@ def test_geo_score_no_issues_is_100():
 
 def test_geo_score_critical_deducts_15():
     f = GeoFinding(
-        id="x", severity="critical", category="robots_txt",
-        message="", recommendation="",
+        id="x",
+        severity="critical",
+        category="robots_txt",
+        message="",
+        recommendation="",
     )
     assert geo_score([f]) == 85
 
 
 def test_geo_score_high_deducts_10():
     f = GeoFinding(
-        id="x", severity="high", category="schema",
-        message="", recommendation="",
+        id="x",
+        severity="high",
+        category="schema",
+        message="",
+        recommendation="",
     )
     assert geo_score([f]) == 90
 
 
 def test_geo_score_floor_is_zero():
     findings = [
-        GeoFinding(id=f"f{i}", severity="critical", category="schema",
-                   message="", recommendation="")
+        GeoFinding(
+            id=f"f{i}", severity="critical", category="schema", message="", recommendation=""
+        )
         for i in range(20)
     ]
     assert geo_score(findings) == 0
@@ -229,10 +236,8 @@ def test_geo_score_floor_is_zero():
 
 def test_geo_score_pass_findings_ignored():
     findings = [
-        GeoFinding(id="p", severity="pass", category="schema",
-                   message="", recommendation=""),
-        GeoFinding(id="h", severity="high", category="schema",
-                   message="", recommendation=""),
+        GeoFinding(id="p", severity="pass", category="schema", message="", recommendation=""),
+        GeoFinding(id="h", severity="high", category="schema", message="", recommendation=""),
     ]
     assert geo_score(findings) == 90
 
@@ -265,6 +270,7 @@ def test_build_robots_txt_ai_block_has_allow_lines():
 
 def test_schema_builder_robots_block_contains_crawlers():
     from backend.seo.schema_builder import build_robots_txt_ai_block as sb_block
+
     snippet = sb_block()
     for bot in ("OAI-SearchBot", "PerplexityBot", "Claude-SearchBot"):
         assert bot in snippet
@@ -272,6 +278,7 @@ def test_schema_builder_robots_block_contains_crawlers():
 
 def test_schema_builder_build_article_schema():
     from backend.seo.schema_builder import build_article_schema
+
     schema = build_article_schema(
         headline="How to Optimize for AI Citation",
         author_name="Alex Smith",

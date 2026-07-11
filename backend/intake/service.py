@@ -1,4 +1,5 @@
 """Intake service — validate, dedup, persist, audit onboarding leads."""
+
 from __future__ import annotations
 
 import hashlib
@@ -47,11 +48,13 @@ def _dedup_key(email: str, website_url: str, pain_points: str) -> str:
     extra punctuation) still count as the same lead. Lowercases email so
     "Alex@x.com" and "alex@x.com" collapse.
     """
-    canon = "|".join([
-        (email or "").strip().lower(),
-        (website_url or "").strip().lower(),
-        (pain_points or "")[:200],
-    ])
+    canon = "|".join(
+        [
+            (email or "").strip().lower(),
+            (website_url or "").strip().lower(),
+            (pain_points or "")[:200],
+        ]
+    )
     return hashlib.sha256(canon.encode("utf-8")).hexdigest()
 
 
@@ -97,7 +100,8 @@ def _strip_control_chars(value: str) -> str:
     legitimate input); every other C0/C1 control code is dropped.
     """
     return "".join(
-        ch for ch in (value or "")
+        ch
+        for ch in (value or "")
         if ch in _ALLOWED_CONTROL or (ord(ch) >= 0x20 and ord(ch) != 0x7F)
     )
 
@@ -116,11 +120,7 @@ def _fence_untrusted_block(label: str, value: str) -> str:
     raw = (value or "").replace("\r\n", "\n").replace("\r", "\n")
     lines = [_strip_control_chars(line) for line in raw.split("\n")]
     indented = "\n".join(f"| {line}" for line in lines)
-    return (
-        f"--- BEGIN {label} (lead-supplied, untrusted) ---\n"
-        f"{indented}\n"
-        f"--- END {label} ---"
-    )
+    return f"--- BEGIN {label} (lead-supplied, untrusted) ---\n{indented}\n--- END {label} ---"
 
 
 def _format_operator_email_body(
@@ -146,7 +146,7 @@ def _format_operator_email_body(
         "STATUS: PERSISTED to samus_onboarding_leads"
         if persisted
         else f"STATUS: DDB WRITE FAILED -- {_strip_control_chars(ddb_error or 'unknown')}\n"
-             "ACTION: re-key from this email when DDB is back up."
+        "ACTION: re-key from this email when DDB is back up."
     )
     # Subject-line fields — CR/LF stripped to prevent header injection.
     safe_email = _strip_control_chars(stored.email)
@@ -156,9 +156,9 @@ def _format_operator_email_body(
     # introduce its own newline + a forged marker line.
     safe_name = _strip_control_chars(stored.name)
     safe_website = _strip_control_chars(stored.website_url) or "(blank)"
-    services = ", ".join(
-        _strip_control_chars(s) for s in stored.service_interest
-    ) or "(none selected)"
+    services = (
+        ", ".join(_strip_control_chars(s) for s in stored.service_interest) or "(none selected)"
+    )
     safe_budget = _strip_control_chars(stored.monthly_budget) or "(blank)"
     safe_timeline = _strip_control_chars(stored.timeline) or "(blank)"
     safe_user_agent = _strip_control_chars(stored.user_agent) or "(unknown)"
@@ -207,7 +207,9 @@ def _send_operator_mirror(
     if not to_addr:
         return False, None
     subject, body = _format_operator_email_body(
-        stored, persisted=persisted, ddb_error=ddb_error,
+        stored,
+        persisted=persisted,
+        ddb_error=ddb_error,
     )
     try:
         send_email(to=to_addr, subject=subject, body=body, message_kind="transactional")
@@ -281,6 +283,11 @@ def submit_lead(
         pain_points=req.pain_points,
         monthly_budget=req.monthly_budget,
         timeline=req.timeline,
+        social_facebook=req.social_facebook,
+        social_instagram=req.social_instagram,
+        social_linkedin=req.social_linkedin,
+        brand_voice_notes=req.brand_voice_notes,
+        social_cadence_pref=req.social_cadence_pref,
         source_ip=source_ip,
         user_agent=user_agent[:512],
         dedup_key=dedup_key,
@@ -330,6 +337,7 @@ def submit_lead(
     # CRM convert event. Fail-soft by contract: emit_business_event never
     # raises.
     from backend.common.business_events import LEAD_CREATED, emit_business_event
+
     emit_business_event(
         LEAD_CREATED,
         workcell="intake",
@@ -358,8 +366,10 @@ def submit_lead(
         from backend.outreach.buying_signal_route import (
             maybe_enroll_buying_signal_from_website_form,
         )
+
         maybe_enroll_buying_signal_from_website_form(
-            stored_lead=stored, now_iso=ts,
+            stored_lead=stored,
+            now_iso=ts,
         )
     except Exception as exc:  # noqa: BLE001 — best-effort; never fail intake
         _LOG.warning("website_form warm-lead enrollment failed: %s", exc)

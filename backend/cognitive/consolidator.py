@@ -32,6 +32,7 @@ Every stage is fail-soft and individually callable; ``run_consolidation``
 never raises. Distilled lessons carry ``source_question="distilled"`` and a
 ``distilled-<day>`` briefing id — the "tier=distilled" provenance marker.
 """
+
 from __future__ import annotations
 
 import json
@@ -138,8 +139,9 @@ def _funnel_rows() -> list[dict[str, Any]]:
         return []
 
 
-def _window(rows: list[dict[str, Any]], *, ts_field: str, day: str,
-            trailing_days: int = 0) -> list[dict[str, Any]]:
+def _window(
+    rows: list[dict[str, Any]], *, ts_field: str, day: str, trailing_days: int = 0
+) -> list[dict[str, Any]]:
     """Rows whose BUSINESS day == day, or within trailing_days before it.
 
     ``day`` is a Pacific business day (see :func:`_today`); each row's UTC
@@ -185,56 +187,63 @@ def _deterministic_lessons(day: str) -> list[dict[str, Any]]:
             top, top_n = max(by_industry.items(), key=lambda kv: kv[1])
             share = top_n / len(won)
             if share >= 0.4 and top_n >= 2:
-                lessons.append({
-                    "recommendation": (
-                        f"pattern: '{top}' industry produced {top_n}/{len(won)} "
-                        f"closed_won deals in the trailing {_TRAILING_DAYS}d "
-                        f"({share:.0%}) — prioritize {top} prospects"
-                    ),
-                    "rationale": (
-                        f"provenance: conversion_funnel ledger, window "
-                        f"{_TRAILING_DAYS}d ending {day}; wins_by_industry={by_industry}"
-                    ),
-                    "category": "revenue_acceleration",
-                    "expected_impact": "high",
-                    "risk_level": "low",
-                    "source_question": "distilled",
-                })
+                lessons.append(
+                    {
+                        "recommendation": (
+                            f"pattern: '{top}' industry produced {top_n}/{len(won)} "
+                            f"closed_won deals in the trailing {_TRAILING_DAYS}d "
+                            f"({share:.0%}) — prioritize {top} prospects"
+                        ),
+                        "rationale": (
+                            f"provenance: conversion_funnel ledger, window "
+                            f"{_TRAILING_DAYS}d ending {day}; wins_by_industry={by_industry}"
+                        ),
+                        "category": "revenue_acceleration",
+                        "expected_impact": "high",
+                        "risk_level": "low",
+                        "source_question": "distilled",
+                    }
+                )
     if opps:
         rate = len(won) / len(opps)
-        lessons.append({
-            "recommendation": (
-                f"pattern: opportunity->closed_won conversion ran {rate:.1%} "
-                f"({len(won)}/{len(opps)}) over the trailing {_TRAILING_DAYS}d ending {day}"
-            ),
-            "rationale": (
-                f"provenance: conversion_funnel ledger, window {_TRAILING_DAYS}d ending {day}"
-            ),
-            "category": "operational_optimization",
-            "expected_impact": "medium",
-            "risk_level": "low",
-            "source_question": "distilled",
-        })
+        lessons.append(
+            {
+                "recommendation": (
+                    f"pattern: opportunity->closed_won conversion ran {rate:.1%} "
+                    f"({len(won)}/{len(opps)}) over the trailing {_TRAILING_DAYS}d ending {day}"
+                ),
+                "rationale": (
+                    f"provenance: conversion_funnel ledger, window {_TRAILING_DAYS}d ending {day}"
+                ),
+                "category": "operational_optimization",
+                "expected_impact": "medium",
+                "risk_level": "low",
+                "source_question": "distilled",
+            }
+        )
 
     # --- reward ledger: day's reward mass + paid terminals
     rewards = _window(_reward_rows(), ts_field="computed_at", day=day)
     if rewards:
         total = sum(float(r.get("reward", 0.0) or 0.0) for r in rewards)
         paid = sum(
-            1 for r in rewards
+            1
+            for r in rewards
             if float((r.get("components") or {}).get("terminal_paid", 0.0) or 0.0) > 0
         )
-        lessons.append({
-            "recommendation": (
-                f"pattern: {len(rewards)} reward computations on {day} "
-                f"(total reward {total:.1f}, {paid} payment-confirmed terminals)"
-            ),
-            "rationale": "provenance: strategy reward ledger (ADR-004 audit JSONL)",
-            "category": "revenue_acceleration",
-            "expected_impact": "medium" if paid else "low",
-            "risk_level": "low",
-            "source_question": "distilled",
-        })
+        lessons.append(
+            {
+                "recommendation": (
+                    f"pattern: {len(rewards)} reward computations on {day} "
+                    f"(total reward {total:.1f}, {paid} payment-confirmed terminals)"
+                ),
+                "rationale": "provenance: strategy reward ledger (ADR-004 audit JSONL)",
+                "category": "revenue_acceleration",
+                "expected_impact": "medium" if paid else "low",
+                "risk_level": "low",
+                "source_question": "distilled",
+            }
+        )
 
     # --- outreach angles: best win-rate angle
     try:
@@ -247,21 +256,23 @@ def _deterministic_lessons(day: str) -> list[dict[str, Any]]:
             rec = angles.get(best, {})
             trials = int(rec.get("wins", 0)) + int(rec.get("losses", 0))
             if trials >= 3:
-                lessons.append({
-                    "recommendation": (
-                        f"pattern: outreach angle '{best}' leads with "
-                        f"{perf[best]:.0%} win rate over {trials} interactions — "
-                        f"bias new callsheets toward it"
-                    ),
-                    "rationale": (
-                        f"provenance: outreach interaction ledger / feedback store; "
-                        f"angle_performance={ {k: round(v, 3) for k, v in perf.items()} }"
-                    ),
-                    "category": "revenue_acceleration",
-                    "expected_impact": "medium",
-                    "risk_level": "low",
-                    "source_question": "distilled",
-                })
+                lessons.append(
+                    {
+                        "recommendation": (
+                            f"pattern: outreach angle '{best}' leads with "
+                            f"{perf[best]:.0%} win rate over {trials} interactions — "
+                            f"bias new callsheets toward it"
+                        ),
+                        "rationale": (
+                            f"provenance: outreach interaction ledger / feedback store; "
+                            f"angle_performance={ {k: round(v, 3) for k, v in perf.items()} }"
+                        ),
+                        "category": "revenue_acceleration",
+                        "expected_impact": "medium",
+                        "risk_level": "low",
+                        "source_question": "distilled",
+                    }
+                )
     except Exception as exc:  # noqa: BLE001
         log.warning("distill: angle read failed: %s", exc)
 
@@ -271,47 +282,54 @@ def _deterministic_lessons(day: str) -> list[dict[str, Any]]:
 
         for exp in exp_registry.list_experiments(status="active"):
             stats = exp_registry.arm_stats(exp.experiment_id)
-            tried = {a: s for a, s in stats.items()
-                     if not s.get("archived") and s.get("trials", 0) >= 5}
+            tried = {
+                a: s for a, s in stats.items() if not s.get("archived") and s.get("trials", 0) >= 5
+            }
             if len(tried) >= 2:
                 best = max(tried, key=lambda a: tried[a]["mean_reward"])
                 s = tried[best]
-                lessons.append({
-                    "recommendation": (
-                        f"pattern: experiment '{exp.experiment_id}' "
-                        f"({exp.dimension}) currently favors arm '{best}' "
-                        f"(mean reward {s['mean_reward']:.3f} over {s['trials']} trials)"
-                    ),
-                    "rationale": (
-                        f"provenance: attribution variant store, arm_id={s['arm_id']}"
-                    ),
-                    "category": "capability_expansion",
-                    "expected_impact": "medium",
-                    "risk_level": "low",
-                    "source_question": "distilled",
-                })
+                lessons.append(
+                    {
+                        "recommendation": (
+                            f"pattern: experiment '{exp.experiment_id}' "
+                            f"({exp.dimension}) currently favors arm '{best}' "
+                            f"(mean reward {s['mean_reward']:.3f} over {s['trials']} trials)"
+                        ),
+                        "rationale": (
+                            f"provenance: attribution variant store, arm_id={s['arm_id']}"
+                        ),
+                        "category": "capability_expansion",
+                        "expected_impact": "medium",
+                        "risk_level": "low",
+                        "source_question": "distilled",
+                    }
+                )
     except Exception as exc:  # noqa: BLE001
         log.warning("distill: experiment read failed: %s", exc)
 
     # --- unified stream (additive context, no-op pre-merge)
     try:
         paid_events = [
-            e for e in read_events(event_types=["payment.received"], limit=500)
-            if business_date(_parse_ts(e.get("ts")) or datetime.min.replace(tzinfo=timezone.utc)) == day
+            e
+            for e in read_events(event_types=["payment.received"], limit=500)
+            if business_date(_parse_ts(e.get("ts")) or datetime.min.replace(tzinfo=timezone.utc))
+            == day
         ]
         if paid_events:
             revenue = sum(float(e.get("revenue_usd") or 0.0) for e in paid_events)
-            lessons.append({
-                "recommendation": (
-                    f"pattern: {len(paid_events)} payment.received events on {day} "
-                    f"(${revenue:,.2f}) in the unified stream"
-                ),
-                "rationale": "provenance: unified business-event stream",
-                "category": "revenue_acceleration",
-                "expected_impact": "high",
-                "risk_level": "low",
-                "source_question": "distilled",
-            })
+            lessons.append(
+                {
+                    "recommendation": (
+                        f"pattern: {len(paid_events)} payment.received events on {day} "
+                        f"(${revenue:,.2f}) in the unified stream"
+                    ),
+                    "rationale": "provenance: unified business-event stream",
+                    "category": "revenue_acceleration",
+                    "expected_impact": "high",
+                    "risk_level": "low",
+                    "source_question": "distilled",
+                }
+            )
     except Exception as exc:  # noqa: BLE001
         log.warning("distill: unified-stream read failed: %s", exc)
 
@@ -329,21 +347,20 @@ def _maybe_rephrase(lessons: list[dict[str, Any]]) -> list[dict[str, Any]]:
     try:
         from backend.common.llm_client import anthropic_messages
 
-        numbered = "\n".join(
-            f"{i + 1}. {les['recommendation']}" for i, les in enumerate(lessons)
-        )
+        numbered = "\n".join(f"{i + 1}. {les['recommendation']}" for i, les in enumerate(lessons))
         prompt = (
             "Rephrase each numbered operational lesson below as one crisp, "
             "actionable sentence (keep every number/statistic verbatim). "
-            "Reply with a JSON array of strings, one per lesson, same order.\n\n"
-            + numbered
+            "Reply with a JSON array of strings, one per lesson, same order.\n\n" + numbered
         )
         text, _usage = anthropic_messages(
-            workcell=_LLM_WORKCELL, api_key="unused",
-            prompt=prompt, max_tokens=_LLM_MAX_TOKENS,
+            workcell=_LLM_WORKCELL,
+            api_key="unused",
+            prompt=prompt,
+            max_tokens=_LLM_MAX_TOKENS,
         )
         start, end = text.find("["), text.rfind("]")
-        phrased = json.loads(text[start:end + 1]) if start != -1 and end != -1 else []
+        phrased = json.loads(text[start : end + 1]) if start != -1 and end != -1 else []
         if isinstance(phrased, list) and len(phrased) == len(lessons):
             for les, wording in zip(lessons, phrased):
                 if isinstance(wording, str) and wording.strip():
@@ -431,7 +448,8 @@ def _emit_guidance_laws(
 
 
 def _evidence_and_confidence(
-    lesson: dict[str, Any], rationale: str,
+    lesson: dict[str, Any],
+    rationale: str,
 ) -> tuple[int, float]:
     """Best-effort numeric support for a lesson.
 
@@ -452,8 +470,9 @@ def _evidence_and_confidence(
             confidence = (num + 1) / (den + 2)
             return den, round(confidence, 4)
     # Fallback: single trailing count "over 42 interactions" / "42 trials"
-    single = re.search(r"(?:over\s+|of\s+)?(\d+)\s+(?:trials|interactions|events)",
-                       text, re.IGNORECASE)
+    single = re.search(
+        r"(?:over\s+|of\s+)?(\d+)\s+(?:trials|interactions|events)", text, re.IGNORECASE
+    )
     if single:
         n = int(single.group(1))
         if n > 0:
@@ -488,15 +507,19 @@ def calibrate(day: str) -> dict[str, Any]:
 
     min_sample = int(float(os.getenv(ENV_CALIBRATE_MIN_SAMPLE, "") or DEFAULT_CALIBRATE_MIN_SAMPLE))
     funnel = _window(
-        _funnel_rows(), ts_field="ts", day=day, trailing_days=_TRAILING_DAYS,
+        _funnel_rows(),
+        ts_field="ts",
+        day=day,
+        trailing_days=_TRAILING_DAYS,
     )
     opps = sum(1 for r in funnel if r.get("stage") == "opportunity")
     won = sum(1 for r in funnel if r.get("stage") == "closed_won")
-    rewards = _window(_reward_rows(), ts_field="computed_at", day=day,
-                      trailing_days=_TRAILING_DAYS)
+    rewards = _window(_reward_rows(), ts_field="computed_at", day=day, trailing_days=_TRAILING_DAYS)
     samples = {
-        "window_days": _TRAILING_DAYS, "opportunities": opps,
-        "closed_won": won, "reward_computations": len(rewards),
+        "window_days": _TRAILING_DAYS,
+        "opportunities": opps,
+        "closed_won": won,
+        "reward_computations": len(rewards),
     }
     if opps < min_sample:
         return {"written": False, "reason": f"sample {opps} < {min_sample}", **samples}
@@ -511,11 +534,18 @@ def calibrate(day: str) -> dict[str, Any]:
     }
     seeds = {"conversion_prob_default": round(observed, 4)}
     ok = write_calibration(
-        tier_close_probability=tiers, optimizer_seeds=seeds,
-        samples=samples, day=day,
+        tier_close_probability=tiers,
+        optimizer_seeds=seeds,
+        samples=samples,
+        day=day,
     )
-    return {"written": ok, "factor": round(factor, 4),
-            "tier_close_probability": tiers, "optimizer_seeds": seeds, **samples}
+    return {
+        "written": ok,
+        "factor": round(factor, 4),
+        "tier_close_probability": tiers,
+        "optimizer_seeds": seeds,
+        **samples,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -549,7 +579,8 @@ def compress() -> dict[str, Any]:
                 rotated[name] = 0
                 continue
             rotated[name] = JsonlLedger(path).rotate_by_age(
-                max_age_hours=max_age_hours, ts_field=ts_field,
+                max_age_hours=max_age_hours,
+                ts_field=ts_field,
             )
         except Exception as exc:  # noqa: BLE001
             log.warning("compress: rotate failed %s: %s", name, exc)
@@ -634,10 +665,14 @@ def expire_stale_guidance(day: str) -> dict[str, Any]:
             if led.abandon(rec.recommendation_id, reason="expired: never triaged") is not None:
                 abandoned += 1
         except Exception as exc:  # noqa: BLE001 — one bad row is not fatal
-            log.warning("expire_stale_guidance: abandon failed %s: %s",
-                        rec.recommendation_id, exc)
-    log.info("expire_stale_guidance: day=%s stale_days=%d proposed=%d abandoned=%d",
-             anchor.isoformat(), stale_days, scanned, abandoned)
+            log.warning("expire_stale_guidance: abandon failed %s: %s", rec.recommendation_id, exc)
+    log.info(
+        "expire_stale_guidance: day=%s stale_days=%d proposed=%d abandoned=%d",
+        anchor.isoformat(),
+        stale_days,
+        scanned,
+        abandoned,
+    )
     return {
         "enabled": True,
         "stale_days": stale_days,

@@ -11,6 +11,7 @@ get a duplicate of the cold pitch they already declined.
 
 This file pins that routing contract.
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -37,16 +38,21 @@ def _isolate_state(tmp_path, monkeypatch):
 
 def _opp() -> Opportunity:
     return Opportunity(
-        opportunity_id="op-1", prospect_id="pr-1",
-        stage="qualified", stake_sentence=VALID_STAKE,
+        opportunity_id="op-1",
+        prospect_id="pr-1",
+        stage="qualified",
+        stake_sentence=VALID_STAKE,
     )
 
 
 def _prospect() -> Prospect:
     return Prospect(
-        prospect_id="pr-1", company_name="Acme Plumbing",
-        website_url="https://acme.test", industry="plumbing",
-        zipcode="95901", phone="555-0100",
+        prospect_id="pr-1",
+        company_name="Acme Plumbing",
+        website_url="https://acme.test",
+        industry="plumbing",
+        zipcode="95901",
+        phone="555-0100",
     )
 
 
@@ -69,14 +75,19 @@ class _FakeCrm:
 
 def _ctx(*, trigger_source: str) -> tuple[StageContext, _FakeCrm]:
     state = CashEngineState(
-        opportunity_id="op-1", prospect_id="pr-1",
-        task_id="ce-test", trigger_source=trigger_source,
+        opportunity_id="op-1",
+        prospect_id="pr-1",
+        task_id="ce-test",
+        trigger_source=trigger_source,
         stage="outreach",
     )
     crm = _FakeCrm()
     return StageContext(
-        state=state, opportunity=_opp(), prospect=_prospect(),
-        stake_sentence=VALID_STAKE, crm=crm,
+        state=state,
+        opportunity=_opp(),
+        prospect=_prospect(),
+        stake_sentence=VALID_STAKE,
+        crm=crm,
     ), crm
 
 
@@ -92,10 +103,12 @@ def _install_compose_spies(monkeypatch):
     calls: dict[str, list] = {"initial": [], "reengagement": []}
 
     def initial(*, prospect, stake_sentence, legitimacy_signal, cfg=None):
-        calls["initial"].append({
-            "prospect_id": getattr(prospect, "prospect_id", ""),
-            "legitimacy_signal": legitimacy_signal,
-        })
+        calls["initial"].append(
+            {
+                "prospect_id": getattr(prospect, "prospect_id", ""),
+                "legitimacy_signal": legitimacy_signal,
+            }
+        )
         return {
             "subject": "Quick question about Acme Plumbing",
             "body": f"{stake_sentence}\n\nHi there,\n\nWorth a quick look?",
@@ -103,10 +116,12 @@ def _install_compose_spies(monkeypatch):
         }
 
     def reengagement(*, prospect, stake_sentence, legitimacy_signal):
-        calls["reengagement"].append({
-            "prospect_id": getattr(prospect, "prospect_id", ""),
-            "legitimacy_signal": legitimacy_signal,
-        })
+        calls["reengagement"].append(
+            {
+                "prospect_id": getattr(prospect, "prospect_id", ""),
+                "legitimacy_signal": legitimacy_signal,
+            }
+        )
         return {
             "subject": "Circling back, Acme Plumbing — a different offer",
             "body": (
@@ -127,7 +142,8 @@ def _shortcircuit_codex(monkeypatch):
     from backend.common.codex.models import Verdict
 
     monkeypatch.setattr(
-        stages_mod, "codex_gate",
+        stages_mod,
+        "codex_gate",
         lambda **_: Verdict(allowed=True),
     )
 
@@ -201,6 +217,7 @@ def test_reengagement_live_send_uses_distinct_template_id(monkeypatch):
     monkeypatch.setenv("SAMUS_CASH_ENGINE_LIVE_SEND", "true")
     monkeypatch.setenv("SENDGRID_FROM_EMAIL", "samus@hustleforge.test")
     from backend.common.config import reload_settings
+
     reload_settings()
 
     try:

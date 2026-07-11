@@ -101,6 +101,7 @@ The dial pass is synchronous and paces itself between calls, so the loop runs it
 in a worker thread (``asyncio.to_thread``) — the gateway event loop is never
 blocked while a batch is dialing.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -134,9 +135,9 @@ _DEFAULT_DELAY_SEC = 30.0
 # Adaptive-cadence bounds. Interval slides between the CALM (zero-urgency) and
 # PEAK (max-urgency) ends; volume between FLOOR and PEAK. Peak values are the
 # operator's "strong but bounded" ceiling (2026-07-07).
-_DEFAULT_INTERVAL_MIN = 600.0     # 10 min at peak urgency
-_DEFAULT_INTERVAL_MAX = 1800.0    # 30 min at zero urgency
-_DEFAULT_RECHECK_SEC = 600.0      # re-check every 10 min when not dialing
+_DEFAULT_INTERVAL_MIN = 600.0  # 10 min at peak urgency
+_DEFAULT_INTERVAL_MAX = 1800.0  # 30 min at zero urgency
+_DEFAULT_RECHECK_SEC = 600.0  # re-check every 10 min when not dialing
 _DEFAULT_MAX_CALLS_PEAK = 15
 _DEFAULT_MAX_CALLS_FLOOR = 4
 _DEFAULT_DAILY_CAP_PEAK = 100
@@ -156,6 +157,7 @@ _ONLY_PRIORITIES = ["hot", "warm"]
 # ---------------------------------------------------------------------------
 # Env helpers (same idiom as morning_ritual_task / control_tick_task)
 # ---------------------------------------------------------------------------
+
 
 def _flag_on(name: str, default_on: bool = True) -> bool:
     raw = (os.environ.get(name) or "").strip().lower()
@@ -188,6 +190,7 @@ def _lerp(lo: float, hi: float, t: float) -> float:
 # Gate inputs — the impure reads, kept out of the pure decision core
 # ---------------------------------------------------------------------------
 
+
 def _production_armed() -> bool:
     """True iff autonomous production is armed — the SAME flag the idle-drive
     reads (``settings.idle_production_drive_enabled``). Read fresh each tick so a
@@ -195,6 +198,7 @@ def _production_armed() -> bool:
     settings fault: no arm read, no autonomous dial."""
     try:
         from backend.common.settings import get_settings
+
         return bool(getattr(get_settings(), "idle_production_drive_enabled", False))
     except Exception as exc:  # noqa: BLE001 — an unreadable arm means DO NOT dial
         _LOG.warning("cold_dial arm read failed — treating as disarmed: %s", exc)
@@ -207,6 +211,7 @@ def _now_local_pt() -> datetime:
     crash; the dialer's per-prospect TCPA gate is the real legal fence)."""
     try:
         from backend.common.us_timezones import state_to_timezone
+
         return datetime.now(timezone.utc).astimezone(state_to_timezone("CA"))
     except Exception:  # noqa: BLE001
         return datetime.now(timezone.utc)
@@ -218,6 +223,7 @@ def _urgency() -> float:
     fault so a finance-read glitch never floors or maxes the cadence."""
     try:
         from backend.cash_engine.goal_pace import default_urgency_score
+
         return max(0.0, min(1.0, float(default_urgency_score())))
     except Exception as exc:  # noqa: BLE001
         _LOG.warning("cold_dial urgency read failed (%s) — moderate 0.5", exc)
@@ -232,6 +238,7 @@ def _affordability_scale() -> float:
     scales). Fail-soft to 0.6 (lean) on any fault."""
     try:
         from backend.cash_engine.affordability import assess_affordability
+
         factor = float(assess_affordability().intensity_factor)
         return max(0.5, min(1.0, factor))
     except Exception as exc:  # noqa: BLE001
@@ -257,12 +264,14 @@ def _resolve_call_list_path() -> Optional[Path]:
     no dial this tick)."""
     try:
         from backend.common import storage
+
         base = storage.root() / "daily_calls"
     except Exception:  # noqa: BLE001
         return None
     names: list[str] = []
     try:
         from backend.common.us_timezones import business_today
+
         names.append(business_today().isoformat())
     except Exception:  # noqa: BLE001
         pass
@@ -295,11 +304,13 @@ def _dials_today(now_utc: Optional[datetime] = None) -> int:
     total = 0
     try:
         from backend.common import storage
+
         runs_dir = storage.root() / "voice" / "dial_runs"
         files = list(runs_dir.glob(f"dial_run_{day_str}*.json"))
     except Exception:  # noqa: BLE001
         return 0
     import json
+
     for fpath in files:
         try:
             data = json.loads(fpath.read_text(encoding="utf-8"))
@@ -314,6 +325,7 @@ def _dials_today(now_utc: Optional[datetime] = None) -> int:
 # ---------------------------------------------------------------------------
 # Adaptive cadence — urgency drives, affordability scales the volume
 # ---------------------------------------------------------------------------
+
 
 def compute_cadence(urgency: float, aff_scale: float) -> tuple[float, int, int]:
     """Map (urgency, affordability-scale) to ``(interval_sec, max_calls,
@@ -330,18 +342,18 @@ def compute_cadence(urgency: float, aff_scale: float) -> tuple[float, int, int]:
 
     imin = _float_env(ENV_INTERVAL_MIN, _DEFAULT_INTERVAL_MIN)
     imax = _float_env(ENV_INTERVAL_MAX, _DEFAULT_INTERVAL_MAX)
-    interval = _lerp(imax, imin, u)                 # u=1 => imin (fast)
+    interval = _lerp(imax, imin, u)  # u=1 => imin (fast)
     interval = max(_INTERVAL_HARD_FLOOR_SEC, interval)
 
     mc_peak = _int_env(ENV_MAX_CALLS_PEAK, _DEFAULT_MAX_CALLS_PEAK)
     mc_floor = _int_env(ENV_MAX_CALLS_FLOOR, _DEFAULT_MAX_CALLS_FLOOR)
     max_calls = int(round(_lerp(mc_floor, mc_peak, u) * af))
-    max_calls = max(1, min(50, max_calls))          # dialer hard [1, 50]
+    max_calls = max(1, min(50, max_calls))  # dialer hard [1, 50]
 
     dc_peak = _int_env(ENV_DAILY_CAP_PEAK, _DEFAULT_DAILY_CAP_PEAK)
     dc_floor = _int_env(ENV_DAILY_CAP_FLOOR, _DEFAULT_DAILY_CAP_FLOOR)
     daily_cap = int(round(_lerp(dc_floor, dc_peak, u) * af))
-    daily_cap = max(max_calls, daily_cap)           # a day is at least one batch
+    daily_cap = max(max_calls, daily_cap)  # a day is at least one batch
 
     return interval, max_calls, daily_cap
 
@@ -349,6 +361,7 @@ def compute_cadence(urgency: float, aff_scale: float) -> tuple[float, int, int]:
 # ---------------------------------------------------------------------------
 # Pure reasoning core — should the cold pass fire on this tick?
 # ---------------------------------------------------------------------------
+
 
 def should_fire_now(
     *,
@@ -391,14 +404,14 @@ def should_fire_now(
         return False, "no call_list_<today>.csv (prospecting has not supplied it)"
 
     return True, (
-        f"in dial window {start}-{end} PT, armed + attested, "
-        f"{dials_today}/{daily_cap} dialed today"
+        f"in dial window {start}-{end} PT, armed + attested, {dials_today}/{daily_cap} dialed today"
     )
 
 
 # ---------------------------------------------------------------------------
 # The dial pass — DELEGATE to samus-voice (the Vapi cred-holder); never raise
 # ---------------------------------------------------------------------------
+
 
 def _build_config(*, max_calls: Optional[int] = None, dry_run: bool = False):
     """Build the per-run :class:`DialerConfig`. ``max_calls`` comes from the
@@ -443,10 +456,10 @@ def _voice_url() -> str:
         return url
     try:
         from backend.common.config import get_settings
+
         url = ((getattr(get_settings(), "gateway_urls", None) or {}).get("voice") or "").strip()
     except Exception as exc:  # noqa: BLE001
-        _LOG.warning("cold_dial: gateway_urls read failed (%s); using %s",
-                     exc, _DEFAULT_VOICE_URL)
+        _LOG.warning("cold_dial: gateway_urls read failed (%s); using %s", exc, _DEFAULT_VOICE_URL)
         return _DEFAULT_VOICE_URL
     return url or _DEFAULT_VOICE_URL
 
@@ -567,7 +580,9 @@ def run_once(
             return {"fired": False, "reason": reason, "next_interval_sec": recheck, **base}
 
         # csv_path is guaranteed non-None here (call_list_present gate passed).
-        result = _run_dial_pass(csv_path, config=_build_config(max_calls=max_calls), executor=executor)
+        result = _run_dial_pass(
+            csv_path, config=_build_config(max_calls=max_calls), executor=executor
+        )
         # Pace the NEXT batch by the urgency-derived interval.
         return {"fired": True, "reason": reason, "next_interval_sec": interval, **base, **result}
     except Exception as exc:  # noqa: BLE001 — a tick must never crash the loop
@@ -578,6 +593,7 @@ def run_once(
 # ---------------------------------------------------------------------------
 # The asyncio loop + lifespan hooks (same shape as control_tick_task)
 # ---------------------------------------------------------------------------
+
 
 async def _cold_dial_loop() -> None:
     """Self-pacing loop: each tick's ``run_once`` returns ``next_interval_sec``
@@ -601,18 +617,29 @@ async def _cold_dial_loop() -> None:
                 _LOG.info(
                     "cold_dial fired: %s | urgency=%s aff=%s max_calls=%s daily_cap=%s "
                     "next=%.0fs run_id=%s dry_run=%s initiated=%s skipped=%s errors=%s",
-                    result.get("reason"), result.get("urgency"), result.get("aff_scale"),
-                    result.get("max_calls"), result.get("daily_cap"), interval,
-                    result.get("run_id"), result.get("dry_run"),
-                    result.get("initiated"), result.get("skipped"), result.get("errors"),
+                    result.get("reason"),
+                    result.get("urgency"),
+                    result.get("aff_scale"),
+                    result.get("max_calls"),
+                    result.get("daily_cap"),
+                    interval,
+                    result.get("run_id"),
+                    result.get("dry_run"),
+                    result.get("initiated"),
+                    result.get("skipped"),
+                    result.get("errors"),
                 )
             else:
                 # INFO once per hour boundary so the ops timeline shows the loop
                 # is alive without spamming a skip line every re-check.
                 hour = _now_local_pt().hour
                 if hour != getattr(_cold_dial_loop, "_last_skip_hour", None):
-                    _LOG.info("cold_dial skip: %s (urgency=%s next=%.0fs)",
-                              result.get("reason"), result.get("urgency"), interval)
+                    _LOG.info(
+                        "cold_dial skip: %s (urgency=%s next=%.0fs)",
+                        result.get("reason"),
+                        result.get("urgency"),
+                        interval,
+                    )
                     _cold_dial_loop._last_skip_hour = hour  # type: ignore[attr-defined]
         except Exception:  # noqa: BLE001 — a tick fault never kills the loop
             _LOG.exception("cold_dial_loop tick faulted; continuing")

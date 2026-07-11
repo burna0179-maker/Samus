@@ -20,6 +20,7 @@ Fail-safe: a missing ledger, unreadable rows, or a corrupt entry degrades
 to an empty / partial result — never raises. This module runs inside the
 gateway's pre-shift briefing path, which must not crash on a bad row.
 """
+
 from __future__ import annotations
 
 import json
@@ -60,16 +61,17 @@ def _ledger_path() -> Path:
 @dataclass
 class VendorObservation:
     """Observed bill signals for one vendor over the window."""
+
     registry_id: str
-    vendor_domain: str                     # from ledger row (may be "")
-    signal_count: int                      # bill entries in the window
-    total_observed_usd: float              # sum of all observed amounts
-    latest_amount_usd: float                # most-recent non-zero amount
-    payment_declined_count: int             # payment_declined signal_kind
-    receipt_count: int                     # receipt signal_kind
-    invoice_count: int                     # invoice signal_kind
-    registry_estimate_usd: float | None    # from codb_registry.yaml, if matched
-    variance_usd: float | None             # observed_monthly - estimate
+    vendor_domain: str  # from ledger row (may be "")
+    signal_count: int  # bill entries in the window
+    total_observed_usd: float  # sum of all observed amounts
+    latest_amount_usd: float  # most-recent non-zero amount
+    payment_declined_count: int  # payment_declined signal_kind
+    receipt_count: int  # receipt signal_kind
+    invoice_count: int  # invoice signal_kind
+    registry_estimate_usd: float | None  # from codb_registry.yaml, if matched
+    variance_usd: float | None  # observed_monthly - estimate
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -82,33 +84,30 @@ class VendorObservation:
             "receipt_count": self.receipt_count,
             "invoice_count": self.invoice_count,
             "registry_estimate_usd": (
-                None if self.registry_estimate_usd is None
-                else round(self.registry_estimate_usd, 2)
+                None if self.registry_estimate_usd is None else round(self.registry_estimate_usd, 2)
             ),
-            "variance_usd": (
-                None if self.variance_usd is None
-                else round(self.variance_usd, 2)
-            ),
+            "variance_usd": (None if self.variance_usd is None else round(self.variance_usd, 2)),
         }
 
 
 @dataclass
 class ObservedBillsSummary:
     """Roll-up of observed bill signals with cross-reference to CODB registry."""
+
     window_days: int
     signals_scanned: int
     total_observed_usd: float
     total_registry_estimate_usd: float
     total_variance_usd: float
-    payment_declined_active: int           # count of vendors with recent decline
-    unmatched_vendors_count: int           # observed but not in registry
+    payment_declined_active: int  # count of vendors with recent decline
+    unmatched_vendors_count: int  # observed but not in registry
     vendors: list[VendorObservation] = field(default_factory=list)
     # Bank activity — populated when bank_activity ledger has rows in window.
-    bank_revenue_usd: float = 0.0           # sum of category=revenue in window
-    bank_transfer_usd: float = 0.0           # owner draws / tax withholding
-    bank_personal_usd: float = 0.0           # personal / passthrough
-    bank_txn_count: int = 0                 # total bank transactions in window
-    bank_net_usd: float = 0.0                # revenue + transfers + spend
+    bank_revenue_usd: float = 0.0  # sum of category=revenue in window
+    bank_transfer_usd: float = 0.0  # owner draws / tax withholding
+    bank_personal_usd: float = 0.0  # personal / passthrough
+    bank_txn_count: int = 0  # total bank transactions in window
+    bank_net_usd: float = 0.0  # revenue + transfers + spend
     # Founder cash-health — signals from the personal Cash App account.
     # Not CODB, but a material input to reasoning about urgency + risk
     # tolerance (heavy borrow = shorter operator runway).
@@ -175,6 +174,7 @@ def _load_registry_estimates() -> dict[str, float]:
     """
     try:
         from backend.finance.codb import load_registry
+
         reg = load_registry()
         estimates: dict[str, float] = {}
         for item in reg.costs:
@@ -209,11 +209,22 @@ def _classify_ledger_row(row: dict[str, Any]) -> tuple[str, str, float | None, s
             match_vendor,
             _pick_registry_id,
         )
+
         vendor_domain, candidates = match_vendor(from_addr, subject)
-        if not vendor_domain and not any(kw in subject.lower() for kw in (
-            "invoice", "receipt", "payment", "billing", "declined",
-            "charge", "renewal", "subscription", "statement",
-        )):
+        if not vendor_domain and not any(
+            kw in subject.lower()
+            for kw in (
+                "invoice",
+                "receipt",
+                "payment",
+                "billing",
+                "declined",
+                "charge",
+                "renewal",
+                "subscription",
+                "statement",
+            )
+        ):
             return "", "", None, ""
         amount = extract_amount(subject)  # only subject available here
         kind = classify_signal_kind(subject, "")
@@ -266,6 +277,7 @@ def summarize_observed_bills(
     founder_cash_card_usd = 0.0
     try:
         from backend.finance.bank_activity import load_transactions
+
         bank_txns = load_transactions(since=since)
         bank_txn_count = len(bank_txns)
         for txn in bank_txns:
@@ -298,25 +310,35 @@ def summarize_observed_bills(
                 continue
             if txn.category != "bill":
                 continue
-            rows.append({
-                "ts": txn.ts,
-                "category": "bill",
-                "vendor": txn.vendor_registry_id or "",
-                "amount_usd": abs(txn.amount_usd),  # bank stores as negative
-                "bill_signal_kind": txn.bill_signal_kind,
-                "from_addr_tail": txn.raw_description[:12],
-                "subject_head": txn.raw_description,
-                "_source": "bank_activity",  # marker for dedup / preference
-            })
+            rows.append(
+                {
+                    "ts": txn.ts,
+                    "category": "bill",
+                    "vendor": txn.vendor_registry_id or "",
+                    "amount_usd": abs(txn.amount_usd),  # bank stores as negative
+                    "bill_signal_kind": txn.bill_signal_kind,
+                    "from_addr_tail": txn.raw_description[:12],
+                    "subject_head": txn.raw_description,
+                    "_source": "bank_activity",  # marker for dedup / preference
+                }
+            )
     except Exception as exc:  # noqa: BLE001
         _LOG.debug("observed_bills: bank_activity load failed: %s", exc)
 
     # Aggregate per vendor
-    per_vendor: dict[str, dict[str, Any]] = defaultdict(lambda: {
-        "count": 0, "total": 0.0, "latest": 0.0, "domain": "",
-        "declined": 0, "receipt": 0, "invoice": 0,
-        "bank_total": 0.0, "bank_count": 0,
-    })
+    per_vendor: dict[str, dict[str, Any]] = defaultdict(
+        lambda: {
+            "count": 0,
+            "total": 0.0,
+            "latest": 0.0,
+            "domain": "",
+            "declined": 0,
+            "receipt": 0,
+            "invoice": 0,
+            "bank_total": 0.0,
+            "bank_count": 0,
+        }
+    )
     signals_scanned = 0
 
     for row in rows:
@@ -357,7 +379,7 @@ def summarize_observed_bills(
             v["bank_total"] += amt_f
             v["bank_count"] += 1
         if amt_f > 0:
-            v["latest"] = amt_f          # rows are chronological in the ledger
+            v["latest"] = amt_f  # rows are chronological in the ledger
         # Domain from from_addr_tail (best-effort)
         tail = row.get("from_addr_tail", "")
         if "@" in tail and not v["domain"]:
@@ -392,22 +414,21 @@ def summarize_observed_bills(
         # "you spent X at vendor" for the same underlying charge.
         preferred_total = agg["bank_total"] if agg["bank_count"] > 0 else agg["total"]
         observed_monthly_equiv = preferred_total * month_factor
-        variance = (
-            round(observed_monthly_equiv - est, 2)
-            if est is not None else None
+        variance = round(observed_monthly_equiv - est, 2) if est is not None else None
+        vendors.append(
+            VendorObservation(
+                registry_id=registry_id,
+                vendor_domain=agg["domain"],
+                signal_count=agg["count"],
+                total_observed_usd=preferred_total,
+                latest_amount_usd=agg["latest"],
+                payment_declined_count=agg["declined"],
+                receipt_count=agg["receipt"],
+                invoice_count=agg["invoice"],
+                registry_estimate_usd=est,
+                variance_usd=variance,
+            )
         )
-        vendors.append(VendorObservation(
-            registry_id=registry_id,
-            vendor_domain=agg["domain"],
-            signal_count=agg["count"],
-            total_observed_usd=preferred_total,
-            latest_amount_usd=agg["latest"],
-            payment_declined_count=agg["declined"],
-            receipt_count=agg["receipt"],
-            invoice_count=agg["invoice"],
-            registry_estimate_usd=est,
-            variance_usd=variance,
-        ))
         total_observed += preferred_total
         if est is not None:
             total_estimate += est
@@ -461,10 +482,7 @@ def observed_bills_briefing_lines(summary: ObservedBillsSummary, *, top_n: int =
 
     lines: list[str] = [
         "## OBSERVED BILLS (Gmail + Bank)",
-        (
-            f"- Window: {summary.window_days} days | "
-            f"Signals scanned: {summary.signals_scanned}"
-        ),
+        (f"- Window: {summary.window_days} days | Signals scanned: {summary.signals_scanned}"),
         (
             f"- Observed monthly: ${summary.total_observed_usd:,.2f}    "
             f"Registry estimate: ${summary.total_registry_estimate_usd:,.2f}    "
@@ -482,12 +500,8 @@ def observed_bills_briefing_lines(summary: ObservedBillsSummary, *, top_n: int =
     # Founder cash-health (personal Cash App): borrowing signals urgency;
     # deposits + cash-card spend show what the operator is drawing on
     # outside the LLC accounts. Only render when there's actual data.
-    if (summary.founder_borrow_usd or summary.founder_deposits_usd
-            or summary.founder_cash_card_usd):
-        borrow_flag = (
-            "  [!] operator is borrowing"
-            if summary.founder_borrow_usd < -50 else ""
-        )
+    if summary.founder_borrow_usd or summary.founder_deposits_usd or summary.founder_cash_card_usd:
+        borrow_flag = "  [!] operator is borrowing" if summary.founder_borrow_usd < -50 else ""
         lines.append(
             f"- Founder cash-health: "
             f"borrow ${summary.founder_borrow_usd:+,.2f}, "
@@ -517,7 +531,11 @@ def observed_bills_briefing_lines(summary: ObservedBillsSummary, *, top_n: int =
         est_s = f"${v.registry_estimate_usd:,.2f}" if v.registry_estimate_usd is not None else "—"
         var_s = f"${v.variance_usd:+,.2f}" if v.variance_usd is not None else "—"
         decl_s = f"⚠ {v.payment_declined_count}" if v.payment_declined_count else "—"
-        label = v.registry_id if v.registry_id != _UNMATCHED_VENDOR else f"[NEW] {v.vendor_domain or 'unknown'}"
+        label = (
+            v.registry_id
+            if v.registry_id != _UNMATCHED_VENDOR
+            else f"[NEW] {v.vendor_domain or 'unknown'}"
+        )
         lines.append(
             f"| {label} | ${v.total_observed_usd:,.2f} | {est_s} | {var_s} | {decl_s} | {v.signal_count} |"
         )

@@ -5,6 +5,7 @@ Reuses the gateway create_app boot pattern from
 G8 routes are exercised through the same bearer-gated path the live console
 uses.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -35,7 +36,8 @@ except (ImportError, AttributeError) as exc:
     _pending_reason = f"common module missing: {exc}"
 
 pytestmark = pytest.mark.skipif(
-    _phase_a_pending, reason=f"depends on Phase A rewrite ({_pending_reason})",
+    _phase_a_pending,
+    reason=f"depends on Phase A rewrite ({_pending_reason})",
 )
 
 
@@ -54,9 +56,11 @@ def gateway_client(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("DDB_NEEDS_WARM_PATH_TABLE", "")
 
     from backend.common.settings import reload_settings
+
     reload_settings()
 
     from backend.gateway.app import create_app
+
     app = create_app()
     with TestClient(app) as c:
         yield c
@@ -95,6 +99,7 @@ def test_promote_rejects_invalid_signal_kind(gateway_client):
     class _P:
         prospect_id = "p1"
         company = "Acme"
+
         def model_dump(self):
             return {"prospect_id": "p1", "company": "Acme"}
 
@@ -114,6 +119,7 @@ def test_promote_succeeds_and_removes_from_pending(gateway_client):
     class _P:
         prospect_id = "p2"
         company = "Beta"
+
         def model_dump(self):
             return {"prospect_id": "p2", "company": "Beta"}
 

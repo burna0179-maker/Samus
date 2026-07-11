@@ -17,6 +17,7 @@ All functions are defensive: a write fault never breaks the briefing, and a
 read fault resolves to NOT attested (fail-closed — no attestation, no live
 call).
 """
+
 from __future__ import annotations
 
 import json
@@ -48,7 +49,9 @@ def _path_for(business_date: str):
     return d / f"{_PREFIX}{business_date}.json"
 
 
-def write_attestation(*, briefing_id: str = "", extra: Optional[dict[str, Any]] = None) -> Optional[str]:
+def write_attestation(
+    *, briefing_id: str = "", extra: Optional[dict[str, Any]] = None
+) -> Optional[str]:
     """Stamp today's pre-shift attestation. Returns the path written, or None on
     fault. Idempotent per business day (re-running the pre-shift just refreshes
     the record). NEVER raises — the briefing must not fail on this."""
@@ -89,8 +92,11 @@ def is_attested(business_date: Optional[str] = None) -> bool:
         if not path.is_file():
             return False
         row = json.loads(path.read_text(encoding="utf-8"))
-        return isinstance(row, dict) and row.get("kind") == "preshift_attestation" \
+        return (
+            isinstance(row, dict)
+            and row.get("kind") == "preshift_attestation"
             and row.get("business_date") == bd
+        )
     except Exception as exc:  # noqa: BLE001
         _LOG.warning("pre-shift attestation read failed: %s", exc)
         return False

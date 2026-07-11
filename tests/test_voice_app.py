@@ -1,16 +1,15 @@
 """Voice workcell FastAPI endpoint tests."""
+
 from __future__ import annotations
 
 import hmac
 from hashlib import sha256
 from typing import Any
 
-import pytest
 
-
-def _override_settings(monkeypatch, *, vapi_api_key: str = "",
-                       vapi_webhook_secret: str = "",
-                       memory_url: str = ""):
+def _override_settings(
+    monkeypatch, *, vapi_api_key: str = "", vapi_webhook_secret: str = "", memory_url: str = ""
+):
     class _S:
         pass
 
@@ -29,6 +28,7 @@ def _override_settings(monkeypatch, *, vapi_api_key: str = "",
     settings.gateway_urls = {"memory": memory_url} if memory_url else {}
     import backend.voice.service as svc_mod
     import backend.voice.app as app_mod
+
     monkeypatch.setattr(svc_mod, "get_settings", lambda: settings)
     monkeypatch.setattr(app_mod, "get_settings", lambda: settings)
 
@@ -40,6 +40,7 @@ def _audit_to_tmp(monkeypatch, tmp_path):
 def _client():
     from fastapi.testclient import TestClient
     from backend.voice.app import app
+
     return TestClient(app)
 
 
@@ -47,13 +48,18 @@ def _client():
 # Outbound endpoints
 # ---------------------------------------------------------------------------
 
+
 def test_post_voice_call_degrades_without_key(tmp_path, monkeypatch):
     _audit_to_tmp(monkeypatch, tmp_path)
     _override_settings(monkeypatch, vapi_api_key="")
-    r = _client().post("/voice/call", json={
-        "assistant_id": "asst", "phone_number_id": "phn",
-        "customer_number": "+15555550100",
-    })
+    r = _client().post(
+        "/voice/call",
+        json={
+            "assistant_id": "asst",
+            "phone_number_id": "phn",
+            "customer_number": "+15555550100",
+        },
+    )
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["vapi_error"] == "vapi_api_key_unset"
@@ -70,14 +76,20 @@ def test_post_voice_call_success(tmp_path, monkeypatch):
 
         def create_call(self, **kwargs):
             from backend.voice.models import VapiCall
+
             return VapiCall(id="call_xyz", status="queued")
 
     import backend.voice.service as svc_mod
+
     monkeypatch.setattr(svc_mod, "VapiClient", _FakeClient)
-    r = _client().post("/voice/call", json={
-        "assistant_id": "asst", "phone_number_id": "phn",
-        "customer_number": "+15555550100",
-    })
+    r = _client().post(
+        "/voice/call",
+        json={
+            "assistant_id": "asst",
+            "phone_number_id": "phn",
+            "customer_number": "+15555550100",
+        },
+    )
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["call_id"] == "call_xyz"
@@ -111,9 +123,11 @@ def test_get_voice_call_by_id(tmp_path, monkeypatch):
 
         def get_call(self, call_id):
             from backend.voice.models import VapiCall
+
             return VapiCall(id=call_id, status="ended", endedReason="completed")
 
     import backend.voice.service as svc_mod
+
     monkeypatch.setattr(svc_mod, "VapiClient", _FakeClient)
     r = _client().get("/voice/call/call_abc")
     assert r.status_code == 200
@@ -125,6 +139,7 @@ def test_get_voice_call_by_id(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 # Webhook — signature gate
 # ---------------------------------------------------------------------------
+
 
 def _eo_payload() -> dict[str, Any]:
     return {
@@ -147,16 +162,17 @@ def _eo_payload() -> dict[str, Any]:
 def test_webhook_dispatches_when_verify_off(tmp_path, monkeypatch):
     """Default conftest sets SAMUS_VOICE_VERIFY_WEBHOOK=0 so this path runs."""
     _audit_to_tmp(monkeypatch, tmp_path)
-    _override_settings(monkeypatch, vapi_webhook_secret="",
-                       memory_url="http://samus-memory:8080")
+    _override_settings(monkeypatch, vapi_webhook_secret="", memory_url="http://samus-memory:8080")
 
     async def _fake_signed_post_json(*a, **kw):
         class _R:
             status_code = 200
             text = '{"status":"ok"}'
+
         return _R()
 
     import backend.voice.service as svc_mod
+
     monkeypatch.setattr(svc_mod, "signed_post_json", _fake_signed_post_json)
     r = _client().post("/vapi/webhook", json=_eo_payload())
     assert r.status_code == 200, r.text
@@ -177,20 +193,24 @@ def test_webhook_returns_503_when_verify_on_but_secret_unset(tmp_path, monkeypat
 def test_webhook_accepts_valid_signature(tmp_path, monkeypatch):
     _audit_to_tmp(monkeypatch, tmp_path)
     secret = "test-secret-32-bytes-of-entropy!"
-    _override_settings(monkeypatch, vapi_webhook_secret=secret,
-                       memory_url="http://samus-memory:8080")
+    _override_settings(
+        monkeypatch, vapi_webhook_secret=secret, memory_url="http://samus-memory:8080"
+    )
     monkeypatch.setenv("SAMUS_VOICE_VERIFY_WEBHOOK", "1")
 
     async def _fake_signed_post_json(*a, **kw):
         class _R:
             status_code = 200
             text = "{}"
+
         return _R()
 
     import backend.voice.service as svc_mod
+
     monkeypatch.setattr(svc_mod, "signed_post_json", _fake_signed_post_json)
 
     import json as _json
+
     body_bytes = _json.dumps(_eo_payload()).encode("utf-8")
     sig = hmac.new(secret.encode("utf-8"), body_bytes, sha256).hexdigest()
     r = _client().post(
@@ -211,6 +231,7 @@ def test_webhook_rejects_bad_signature(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_VOICE_VERIFY_WEBHOOK", "1")
 
     import json as _json
+
     body_bytes = _json.dumps(_eo_payload()).encode("utf-8")
     bad_sig = hmac.new(b"wrong-secret", body_bytes, sha256).hexdigest()
     r = _client().post(
@@ -237,13 +258,15 @@ def test_webhook_rejects_missing_signature(tmp_path, monkeypatch):
 # /work TaskEnvelope route
 # ---------------------------------------------------------------------------
 
+
 def test_work_envelope_routes_initiate_call(tmp_path, monkeypatch):
     _audit_to_tmp(monkeypatch, tmp_path)
     _override_settings(monkeypatch, vapi_api_key="")
     envelope = {
         "task_id": "t1",
         "payload": {
-            "assistant_id": "a", "phone_number_id": "p",
+            "assistant_id": "a",
+            "phone_number_id": "p",
             "customer_number": "+15555550100",
         },
         "metadata": {"action": "initiate_call"},

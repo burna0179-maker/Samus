@@ -6,6 +6,7 @@ Firestore client (google-cloud-firestore is not installed locally — and must
 not need to be for the default jsonl path). Two integration tests confirm the
 finance webhook + upsell queue route correctly through the firestore backend.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -167,9 +168,7 @@ def test_open_ledger_defaults_to_jsonl(tmp_path, monkeypatch):
 
 def test_open_ledger_firestore_returns_firestore_ledger(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUS_LEDGER_BACKEND", "firestore")
-    monkeypatch.setattr(
-        "backend.common.firestore_ledger._default_client", FakeFirestoreClient
-    )
+    monkeypatch.setattr("backend.common.firestore_ledger._default_client", FakeFirestoreClient)
     led = persistence.open_ledger(jsonl_path=tmp_path / "x.jsonl", collection="x")
     assert isinstance(led, FirestoreLedger)
 
@@ -275,6 +274,7 @@ def test_firestore_ledger_claim_age_stampless_is_infinite():
     led = FirestoreLedger("c", client=client)
     # Write a stampless claim doc directly into the sibling claims collection.
     from backend.common.firestore_ledger import _claim_doc_id
+
     client.collection("c_claims").document(_claim_doc_id("evt_1")).create({"key": "evt_1"})
     assert led.claim_age_seconds("evt_1") == float("inf")
 
@@ -318,9 +318,7 @@ def test_webhook_idempotency_routes_through_firestore(monkeypatch):
 
     shared = FakeFirestoreClient()
     monkeypatch.setenv("SAMUS_LEDGER_BACKEND", "firestore")
-    monkeypatch.setattr(
-        "backend.common.firestore_ledger._default_client", lambda: shared
-    )
+    monkeypatch.setattr("backend.common.firestore_ledger._default_client", lambda: shared)
 
     rec = WebhookEventRecord(
         event_id="evt_fs_1",
@@ -342,9 +340,7 @@ def test_upsell_queue_routes_through_firestore(monkeypatch):
 
     shared = FakeFirestoreClient()
     monkeypatch.setenv("SAMUS_LEDGER_BACKEND", "firestore")
-    monkeypatch.setattr(
-        "backend.common.firestore_ledger._default_client", lambda: shared
-    )
+    monkeypatch.setattr("backend.common.firestore_ledger._default_client", lambda: shared)
 
     # service_workflow_rescue is a quote-based hop — no Stripe coupon call.
     written = upsell_queue.enqueue_upsell(

@@ -1,4 +1,5 @@
 """Outreach gate: compose_body refuses without stake; render places it at top."""
+
 from __future__ import annotations
 
 import pytest
@@ -64,7 +65,11 @@ def test_compose_body_renders_stake_at_top_verbatim():
 
 def test_compose_body_guard_rejects_bad_stake():
     with pytest.raises(OutreachStakeMissing):
-        compose_body(_contact(), _cfg(), stake_sentence="Hi we help businesses scale revenue with synergy daily.")
+        compose_body(
+            _contact(),
+            _cfg(),
+            stake_sentence="Hi we help businesses scale revenue with synergy daily.",
+        )
 
 
 def test_build_messages_skips_contact_without_stake():

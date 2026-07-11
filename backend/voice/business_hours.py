@@ -25,6 +25,7 @@ Public API::
 
     is_open_now(business_hours, *, now_local) -> bool | None
 """
+
 from __future__ import annotations
 
 import re
@@ -34,20 +35,25 @@ __all__ = ["is_open_now"]
 
 # datetime.weekday(): Monday == 0 ... Sunday == 6
 _WEEKDAY_NAMES = (
-    "monday", "tuesday", "wednesday", "thursday",
-    "friday", "saturday", "sunday",
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
 )
 
 
 def _normalize(raw: str) -> str:
     """Fold the CSV's unicode whitespace/dashes into ASCII equivalents."""
     return (
-        raw.replace(" ", " ")   # narrow no-break space (before AM/PM)
-        .replace(" ", " ")      # thin space (around the dash)
-        .replace("–", "-")      # en-dash -> hyphen
-        .replace("—", "-")      # em-dash -> hyphen (defensive)
-        .replace(" ", " ")      # plain no-break space (defensive)
-        .replace("�", "-")      # replacement char from lossy round-trips
+        raw.replace(" ", " ")  # narrow no-break space (before AM/PM)
+        .replace(" ", " ")  # thin space (around the dash)
+        .replace("–", "-")  # en-dash -> hyphen
+        .replace("—", "-")  # em-dash -> hyphen (defensive)
+        .replace(" ", " ")  # plain no-break space (defensive)
+        .replace("�", "-")  # replacement char from lossy round-trips
     )
 
 

@@ -15,12 +15,12 @@ Covers the build-plan Phase-E test bullets:
 Isolation: every test injects STUB domain providers + a spy/temp proposal sink.
 NOTHING here touches the real CRM / DDB / finance / LM Studio backends.
 """
+
 from __future__ import annotations
 
 import asyncio
 import json
 
-import pytest
 
 from backend.cognitive.cognitive_loop import CognitiveLoop
 from backend.cognitive.cycle_models import CycleInput, CycleResult, StageStatus
@@ -266,13 +266,16 @@ def test_act_invokes_no_effector_or_gate(tmp_path, monkeypatch):
         def _f(*_a, **_k):
             called.append(name)
             raise AssertionError(f"effector {name} must NOT be called by ACT")
+
         return _f
 
     # cash_engine front-door gate + review_opportunity entrypoint + live-send
     # double-gate stage (all real symbols — raising=True so a rename here fails
     # the test loudly rather than letting it pass vacuously).
     monkeypatch.setattr(gate_mod, "evaluate_gate", _spy("cash_engine.evaluate_gate"))
-    monkeypatch.setattr(cash_service_mod, "review_opportunity", _spy("cash_engine.review_opportunity"))
+    monkeypatch.setattr(
+        cash_service_mod, "review_opportunity", _spy("cash_engine.review_opportunity")
+    )
     monkeypatch.setattr(stages_mod, "_outreach_stage", _spy("cash_engine._outreach_stage"))
     # CRM mutating entrypoints.
     monkeypatch.setattr(crm_mod, "advance_opportunity", _spy("crm.advance_opportunity"))

@@ -24,6 +24,7 @@ Style notes (matches the rest of the receipts.py family):
     eyeball the offer before clicking "pay"
   - Sign as a person, not a brand voice — Morgan @ HustleForge
 """
+
 from __future__ import annotations
 
 import logging
@@ -130,13 +131,15 @@ def _catalog_payment_link(target_offer_code: str) -> str:
                 _LOG.warning(
                     "upsell target %s -> sku %s has no payment_link_url in "
                     "catalog; upsell email will render without a buy link",
-                    target_offer_code, sku_id,
+                    target_offer_code,
+                    sku_id,
                 )
             return url
     _LOG.warning(
         "upsell target %s -> sku %s not found in catalog; upsell email will "
         "render without a buy link",
-        target_offer_code, sku_id,
+        target_offer_code,
+        sku_id,
     )
     return ""
 
@@ -213,7 +216,7 @@ def _seo_audit_touch_1(
     """
     name = _target_name(target_offer_code)
     price = _one_time_price(target_offer_code)
-    credit = 149   # SEO Audit price applies as credit toward Implementation
+    credit = 149  # SEO Audit price applies as credit toward Implementation
     net = price - credit
     page = _public_page(target_offer_code)
     link = _payment_link(target_offer_code, queue_event_id)
@@ -258,8 +261,8 @@ def _seo_audit_touch_1(
         "quick wins. Typically wrapped in a week, with a before/after change "
         "log you can keep on file.</p>"
         "<ul>"
-        f"<li>Overview: <a href=\"{page}\">{page}</a></li>"
-        f"<li>Buy: <a href=\"{link}\">{link}</a></li>"
+        f'<li>Overview: <a href="{page}">{page}</a></li>'
+        f'<li>Buy: <a href="{link}">{link}</a></li>'
         "</ul>"
         "<p>If you're already handing this off internally, no hard feelings "
         "— just wanted to make sure the option was on the table before the "
@@ -322,8 +325,8 @@ def _seo_audit_touch_2(
         "apply-instructions if we don't have direct site access). One week "
         "from purchase to a before/after change log in your inbox.</p>"
         "<ul>"
-        f"<li>Overview: <a href=\"{page}\">{page}</a></li>"
-        f"<li>Buy: <a href=\"{link}\">{link}</a></li>"
+        f'<li>Overview: <a href="{page}">{page}</a></li>'
+        f'<li>Buy: <a href="{link}">{link}</a></li>'
         "</ul>"
         "<p>Happy to answer scope questions before you buy — just hit reply.</p>"
         "<p>— Morgan, HustleForge</p>"
@@ -384,8 +387,8 @@ def _seo_audit_touch_3(
         f"{name} is for that. <strong>${net} net</strong> (your ${credit} "
         f"audit credit applies against the ${price} sticker), we apply the "
         "prioritized fix list and send a before/after log:<br>"
-        f"&nbsp;&nbsp;Overview: <a href=\"{page}\">{page}</a><br>"
-        f"&nbsp;&nbsp;Buy: <a href=\"{link}\">{link}</a></li>"
+        f'&nbsp;&nbsp;Overview: <a href="{page}">{page}</a><br>'
+        f'&nbsp;&nbsp;Buy: <a href="{link}">{link}</a></li>'
         "<li><strong>The audit told you something different than you "
         "expected</strong> and you'd rather talk it through first — just "
         "hit reply with a time and we'll find ten minutes.</li>"
@@ -415,9 +418,9 @@ def _seo_impl_touch_1(
     then $300/mo recurring.
     """
     name = _target_name(target_offer_code)
-    price = _monthly_price(target_offer_code)        # $300/mo
-    credit = 200                                      # Implementation price
-    first_month = price - credit                      # $100
+    price = _monthly_price(target_offer_code)  # $300/mo
+    credit = 200  # Implementation price
+    first_month = price - credit  # $100
     page = _public_page(target_offer_code)
     link = _payment_link(target_offer_code, queue_event_id)
 
@@ -467,8 +470,8 @@ def _seo_impl_touch_1(
         "We own the execution every month: apply the next round of fixes, "
         "monitor rank + GSC traffic, send a visibility report at month-end.</p>"
         "<ul>"
-        f"<li>Overview: <a href=\"{page}\">{page}</a></li>"
-        f"<li>Start it: <a href=\"{link}\">{link}</a></li>"
+        f'<li>Overview: <a href="{page}">{page}</a></li>'
+        f'<li>Start it: <a href="{link}">{link}</a></li>'
         "</ul>"
         "<p>If you'd rather see how the implementation lands before "
         "committing to monthly, totally reasonable — give it 30-60 days and "
@@ -533,8 +536,8 @@ def _seo_impl_touch_2(
         f"toward month 1 — so you'd pay <strong>${first_month} this month</strong>, "
         f"then <strong>${price}/month</strong> going forward.</p>"
         "<ul>"
-        f"<li>Overview: <a href=\"{page}\">{page}</a></li>"
-        f"<li>Start it: <a href=\"{link}\">{link}</a></li>"
+        f'<li>Overview: <a href="{page}">{page}</a></li>'
+        f'<li>Start it: <a href="{link}">{link}</a></li>'
         "</ul>"
         "<p>Happy to look at your current GSC numbers and tell you what the "
         "first month's focus would likely be — just hit reply.</p>"
@@ -594,8 +597,8 @@ def _seo_impl_touch_3(
         f"— {name} is the monthly retainer for that. Your <strong>${credit}</strong> "
         f"Implementation credit applies to month 1, so it's <strong>${first_month} "
         f"the first month, then ${price}/month after</strong>:<br>"
-        f"&nbsp;&nbsp;Overview: <a href=\"{page}\">{page}</a><br>"
-        f"&nbsp;&nbsp;Start it: <a href=\"{link}\">{link}</a></li>"
+        f'&nbsp;&nbsp;Overview: <a href="{page}">{page}</a><br>'
+        f'&nbsp;&nbsp;Start it: <a href="{link}">{link}</a></li>'
         "</ol>"
         "<p>I won't email about this again. The Implementation credit stays "
         "valid if you come back later — just reply and we'll re-issue the link.</p>"
@@ -665,7 +668,7 @@ def _rescue_to_buildout_touch_1(
         f"and your <strong>${credit}</strong> Workflow Rescue applies as "
         f"credit (so you'd be looking at <strong>${net_low:,}-${net_high:,} "
         f"net</strong> depending on scope).</p>"
-        f"<p>Overview: <a href=\"{page}\">{page}</a></p>"
+        f'<p>Overview: <a href="{page}">{page}</a></p>'
         "<p>If this is interesting, hit reply with a paragraph or two about "
         "your current system landscape (what tools, where the hand-off pain "
         "is) and I'll send back a scoped quote within one business day.</p>"
@@ -721,7 +724,7 @@ def _rescue_to_buildout_touch_2(
         f"workflow. Typical scope lands <strong>${low:,}-${high:,}</strong>, "
         f"and the <strong>${credit}</strong> you paid for the rescue credits "
         "against the final invoice.</p>"
-        f"<p>Overview: <a href=\"{page}\">{page}</a></p>"
+        f'<p>Overview: <a href="{page}">{page}</a></p>'
         "<p>If you want to scope this out, reply with: (1) the one or two "
         "biggest hand-off pain points you're feeling, and (2) which tools "
         "are involved. I'll send back a quote within a business day.</p>"
@@ -777,7 +780,7 @@ def _rescue_to_buildout_touch_3(
         f"more of the system.</strong> That's {name}. Typical scope "
         f"<strong>${low:,}-${high:,}</strong>, and your <strong>${credit}"
         f"</strong> from the rescue still counts as credit toward the quote.<br>"
-        f"&nbsp;&nbsp;Overview: <a href=\"{page}\">{page}</a></li>"
+        f'&nbsp;&nbsp;Overview: <a href="{page}">{page}</a></li>'
         "</ol>"
         "<p>I won't email about this thread again. The rescue credit stays "
         "valid — if you pick this back up in 3 months, just reply and we'll "
@@ -856,7 +859,7 @@ def _buildout_to_aiops_touch_1(
         "first-month roadmap, then monthly continuous-improvement cycle. "
         "Better fit if you don't need the heavy build, just the steady hand.</li>"
         "</ul>"
-        f"<p>Overview: <a href=\"{page}\">{page}</a></p>"
+        f'<p>Overview: <a href="{page}">{page}</a></p>'
         "<p>If either is interesting, reply with a paragraph about where "
         "you'd want this to go and I'll send back the right path + a scoped "
         "quote within one business day.</p>"
@@ -916,7 +919,7 @@ def _buildout_to_aiops_touch_2(
         f"<strong>${credit:,}</strong> Buildout credit applies to the build "
         "invoice. The <strong>$5,000/mo</strong> retainer that follows owns "
         "the maintenance loop so you're not watching dashboards yourself.</p>"
-        f"<p>Overview: <a href=\"{page}\">{page}</a></p>"
+        f'<p>Overview: <a href="{page}">{page}</a></p>'
         "<p>If you want to scope this, reply with: (1) what's been working "
         "in the Buildout so far, and (2) the 2-3 next things you'd want "
         "automated. Quote back in one business day.</p>"
@@ -989,7 +992,7 @@ def _buildout_to_aiops_touch_3(
         "build as #3, plus the <strong>$5,000/mo</strong> premium retainer "
         "that follows it. Most heavier engagements settle here so the "
         "operator isn't watching their own dashboards.<br>"
-        f"&nbsp;&nbsp;Overview: <a href=\"{page}\">{page}</a></li>"
+        f'&nbsp;&nbsp;Overview: <a href="{page}">{page}</a></li>'
         "</ol>"
         "<p>I won't email about this thread again. The Buildout credit stays "
         "valid (paths 3 + 4 only) — if you come back in 6 months, just reply "
@@ -1039,6 +1042,7 @@ def _compliance_footer() -> tuple[str, str]:
     mechanism — inbound replies are opt-out-classified by the reply pods).
     """
     from backend.common.config import get_settings
+
     s = get_settings()
     postal = str(getattr(s, "sender_postal_address", "") or "").strip()
     unsub = str(getattr(s, "unsubscribe_url", "") or "").strip()
@@ -1055,7 +1059,8 @@ def _compliance_footer() -> tuple[str, str]:
     if postal:
         html_parts.append(f"{postal}<br>")
     html_parts.append(
-        f'Unsubscribe: <a href="{unsub}">{unsub}</a>' if unsub
+        f'Unsubscribe: <a href="{unsub}">{unsub}</a>'
+        if unsub
         else "Reply STOP to unsubscribe at any time."
     )
     html_parts.append("</p>")
@@ -1097,7 +1102,8 @@ def render_upsell_email(
     if composer is None:
         _LOG.warning(
             "render_upsell_email: no composer for source=%s touch=%d",
-            source_offer_code, touch_num,
+            source_offer_code,
+            touch_num,
         )
         return None
 

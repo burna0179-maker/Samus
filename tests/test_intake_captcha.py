@@ -4,14 +4,16 @@ CAPTCHA is opt-in: skipped entirely when no secret is configured, enforced
 (fail-closed) when one is. The Turnstile siteverify HTTP call is mocked — no
 real network.
 """
+
 from __future__ import annotations
 
 from typing import Any
 
 
 class _FakeResponse:
-    def __init__(self, *, status_code: int = 200, json_body: Any = None,
-                 raise_on_json: bool = False):
+    def __init__(
+        self, *, status_code: int = 200, json_body: Any = None, raise_on_json: bool = False
+    ):
         self.status_code = status_code
         self._json_body = json_body
         self._raise_on_json = raise_on_json
@@ -45,6 +47,7 @@ class _FakeHttpClient:
 
 def _patch_httpx(monkeypatch, fake_client):
     import backend.intake.captcha as cap_mod
+
     monkeypatch.setattr(cap_mod.httpx, "Client", lambda *a, **kw: fake_client)
 
 
@@ -54,6 +57,7 @@ def _set_captcha_secret(monkeypatch, secret: str):
     else:
         monkeypatch.delenv("SAMUS_INTAKE_CAPTCHA_SECRET", raising=False)
     from backend.common.config import reload_settings
+
     reload_settings()
 
 
@@ -61,21 +65,25 @@ def _set_captcha_secret(monkeypatch, secret: str):
 # captcha_required — activation gate
 # ---------------------------------------------------------------------------
 
+
 def test_captcha_not_required_when_secret_empty(monkeypatch):
     _set_captcha_secret(monkeypatch, "")
     from backend.intake.captcha import captcha_required
+
     assert captcha_required() is False
 
 
 def test_captcha_required_when_secret_set(monkeypatch):
     _set_captcha_secret(monkeypatch, "0x_turnstile_secret")
     from backend.intake.captcha import captcha_required
+
     assert captcha_required() is True
 
 
 # ---------------------------------------------------------------------------
 # verify_captcha — fail-closed behavior
 # ---------------------------------------------------------------------------
+
 
 def test_verify_captcha_accepts_valid_token(monkeypatch):
     _set_captcha_secret(monkeypatch, "0x_secret")
@@ -84,6 +92,7 @@ def test_verify_captcha_accepts_valid_token(monkeypatch):
     )
     _patch_httpx(monkeypatch, fake)
     from backend.intake.captcha import verify_captcha
+
     result = verify_captcha("good-token", source_ip="203.0.113.5")
     assert result.ok is True
     # The secret + token + IP were posted to the siteverify endpoint.
@@ -101,6 +110,7 @@ def test_verify_captcha_rejects_invalid_token(monkeypatch):
     )
     _patch_httpx(monkeypatch, fake)
     from backend.intake.captcha import verify_captcha
+
     result = verify_captcha("bad-token")
     assert result.ok is False
     assert "captcha_verification_failed" in result.detail
@@ -112,6 +122,7 @@ def test_verify_captcha_rejects_empty_token(monkeypatch):
     fake = _FakeHttpClient(raise_exc=AssertionError("must not call siteverify"))
     _patch_httpx(monkeypatch, fake)
     from backend.intake.captcha import verify_captcha
+
     result = verify_captcha("")
     assert result.ok is False
     assert result.detail == "captcha_token_missing"
@@ -121,10 +132,12 @@ def test_verify_captcha_rejects_empty_token(monkeypatch):
 def test_verify_captcha_fails_closed_on_transport_error(monkeypatch):
     """A network error rejects the request — CAPTCHA fails CLOSED."""
     import httpx
+
     _set_captcha_secret(monkeypatch, "0x_secret")
     fake = _FakeHttpClient(raise_exc=httpx.ConnectError("siteverify down"))
     _patch_httpx(monkeypatch, fake)
     from backend.intake.captcha import verify_captcha
+
     result = verify_captcha("some-token")
     assert result.ok is False
     assert result.detail == "captcha_verify_unreachable"
@@ -135,6 +148,7 @@ def test_verify_captcha_fails_closed_on_non_200(monkeypatch):
     fake = _FakeHttpClient(response=_FakeResponse(status_code=503, json_body={}))
     _patch_httpx(monkeypatch, fake)
     from backend.intake.captcha import verify_captcha
+
     result = verify_captcha("some-token")
     assert result.ok is False
     assert "captcha_verify_http_503" in result.detail
@@ -147,6 +161,7 @@ def test_verify_captcha_fails_closed_on_non_json_body(monkeypatch):
     )
     _patch_httpx(monkeypatch, fake)
     from backend.intake.captcha import verify_captcha
+
     result = verify_captcha("some-token")
     assert result.ok is False
     assert result.detail == "captcha_verify_bad_response"

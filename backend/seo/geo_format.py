@@ -10,11 +10,11 @@ deterministic template — like the rest of the SEO workcell, a GEO enrichment
 never raises and never blocks on the LLM. Pairs with
 :mod:`backend.seo.schema_builder` to emit the matching FAQPage/Article JSON-LD.
 """
+
 from __future__ import annotations
 
 import json
 import logging
-import os
 import re
 from dataclasses import dataclass, field
 
@@ -122,7 +122,7 @@ def build_faq_via_llm(
 
         prompt = (
             "Write a customer FAQ for the page below. Return ONLY a JSON array of "
-            f"{FAQ_MIN}-{FAQ_MAX} objects, each {{\"q\": question, \"a\": answer}}. "
+            f'{FAQ_MIN}-{FAQ_MAX} objects, each {{"q": question, "a": answer}}. '
             "Each answer is a self-contained 40-60 word direct response (no fluff, "
             "answer-first).\n\n"
             f"TOPIC: {topic}\nKEYWORDS: {', '.join(keywords)}\nCONTEXT: {context[:800]}"

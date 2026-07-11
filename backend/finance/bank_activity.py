@@ -49,6 +49,7 @@ Read-only. Ingestion is APPEND-ONLY to a JSONL ledger, keyed on
 Never mutates codb_registry.yaml; variance surfaces as a signal for
 reasoning, not an auto-edit.
 """
+
 from __future__ import annotations
 
 import csv
@@ -57,7 +58,7 @@ import json
 import logging
 import os
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
@@ -109,14 +110,14 @@ _PERSONAL_HINTS = ("cash app", "hustleforge llc")  # merchant-services fees
 
 @dataclass
 class BankTransaction:
-    ts: str                              # ISO-8601 (UTC-inferred at parse time)
-    source: str                          # "cash_app_csv" | "mercury_api" | ...
-    external_id: str                     # stable per-row hash (idempotency key)
-    amount_usd: float                    # positive = in, negative = out
+    ts: str  # ISO-8601 (UTC-inferred at parse time)
+    source: str  # "cash_app_csv" | "mercury_api" | ...
+    external_id: str  # stable per-row hash (idempotency key)
+    amount_usd: float  # positive = in, negative = out
     raw_description: str
-    vendor_registry_id: str = ""         # "" if unmatched
-    category: str = "other"              # bill | revenue | transfer | personal | other
-    bill_signal_kind: str = ""           # receipt | payment_declined | ...
+    vendor_registry_id: str = ""  # "" if unmatched
+    category: str = "other"  # bill | revenue | transfer | personal | other
+    bill_signal_kind: str = ""  # receipt | payment_declined | ...
     card_ref: str = ""
     bank_category: str = ""
     note: str = ""
@@ -223,11 +224,19 @@ def _external_id(source: str, ts: str, description: str, amount: float) -> str:
 # expense; P2P to friends and family.
 
 _BUSINESS_NOTE_KEYWORDS = (
-    "invoice", "website maintenance", "premium website", "email invoice",
-    "consulting", "freelance", "client", "contract work", "web dev",
+    "invoice",
+    "website maintenance",
+    "premium website",
+    "email invoice",
+    "consulting",
+    "freelance",
+    "client",
+    "contract work",
+    "web dev",
 )
 _BUSINESS_MERCHANT_KEYWORDS = (
-    "HUSTLEFORGE", "TWISTED DRAGON",
+    "HUSTLEFORGE",
+    "TWISTED DRAGON",
 )
 
 
@@ -342,27 +351,34 @@ def parse_cash_app_personal_csv(path: Path) -> list[BankTransaction]:
                     description = notes or "unknown"
 
                 category, vendor, kind, _is_biz = _classify_personal_row(
-                    txn_type, amount, notes, sender,
+                    txn_type,
+                    amount,
+                    notes,
+                    sender,
                 )
                 # Personal-CSV rows always land — is_biz decides how they're
                 # bucketed downstream (business signals into observed_bills
                 # variance math; personal into founder-cash-health).
-                txns.append(BankTransaction(
-                    ts=ts,
-                    source="cash_app_personal_csv",
-                    external_id=_external_id(
-                        "cash_app_personal_csv",
-                        ts, description + "|" + (txn_id or ""), amount,
-                    ),
-                    amount_usd=amount,
-                    raw_description=description,
-                    vendor_registry_id=vendor,
-                    category=category,
-                    bill_signal_kind=kind,
-                    card_ref=account,
-                    bank_category=txn_type,   # transaction type as the "category"
-                    note=notes,
-                ))
+                txns.append(
+                    BankTransaction(
+                        ts=ts,
+                        source="cash_app_personal_csv",
+                        external_id=_external_id(
+                            "cash_app_personal_csv",
+                            ts,
+                            description + "|" + (txn_id or ""),
+                            amount,
+                        ),
+                        amount_usd=amount,
+                        raw_description=description,
+                        vendor_registry_id=vendor,
+                        category=category,
+                        bill_signal_kind=kind,
+                        card_ref=account,
+                        bank_category=txn_type,  # transaction type as the "category"
+                        note=notes,
+                    )
+                )
             except Exception as exc:  # noqa: BLE001
                 _LOG.warning("bank_activity: personal-CSV row skipped: %s", exc)
     return txns
@@ -385,6 +401,7 @@ def parse_activity_csv_auto(path: Path) -> tuple[str, list[BankTransaction]]:
 
 
 # --- CSV parser (Cash App Business format) --------------------------------
+
 
 def parse_cash_app_csv(path: Path) -> list[BankTransaction]:
     """Parse a Cash App Business activity CSV export.
@@ -410,7 +427,9 @@ def parse_cash_app_csv(path: Path) -> list[BankTransaction]:
                 try:
                     amount = float(amount_raw)
                 except ValueError:
-                    _LOG.warning("bank_activity: unparseable amount %r in %s", amount_raw, description)
+                    _LOG.warning(
+                        "bank_activity: unparseable amount %r in %s", amount_raw, description
+                    )
                     continue
                 ts = _parse_date(raw_date)
                 bank_category = row.get("Category", "").strip()
@@ -418,27 +437,32 @@ def parse_cash_app_csv(path: Path) -> list[BankTransaction]:
                 note = row.get("Note", "").strip()
 
                 category, vendor, kind = _classify_bank_row(
-                    description, amount, bank_category,
+                    description,
+                    amount,
+                    bank_category,
                 )
-                txns.append(BankTransaction(
-                    ts=ts,
-                    source="cash_app_csv",
-                    external_id=_external_id("cash_app_csv", ts, description, amount),
-                    amount_usd=amount,
-                    raw_description=description,
-                    vendor_registry_id=vendor,
-                    category=category,
-                    bill_signal_kind=kind,
-                    card_ref=card_ref,
-                    bank_category=bank_category,
-                    note=note,
-                ))
+                txns.append(
+                    BankTransaction(
+                        ts=ts,
+                        source="cash_app_csv",
+                        external_id=_external_id("cash_app_csv", ts, description, amount),
+                        amount_usd=amount,
+                        raw_description=description,
+                        vendor_registry_id=vendor,
+                        category=category,
+                        bill_signal_kind=kind,
+                        card_ref=card_ref,
+                        bank_category=bank_category,
+                        note=note,
+                    )
+                )
             except Exception as exc:  # noqa: BLE001 — one bad row must not kill the ingest
                 _LOG.warning("bank_activity: row skipped: %s", exc)
     return txns
 
 
 # --- Ledger writer --------------------------------------------------------
+
 
 def _load_existing_ids(path: Path) -> set[str]:
     if not path.exists():
@@ -489,6 +513,7 @@ def append_transactions(
 
 # --- Read side — consumed by observed_bills -------------------------------
 
+
 def load_transactions(
     *,
     since: datetime | None = None,
@@ -516,31 +541,36 @@ def load_transactions(
                         continue
                 except (ValueError, AttributeError):
                     pass
-            out.append(BankTransaction(
-                ts=rec.get("ts", ""),
-                source=rec.get("source", ""),
-                external_id=rec.get("external_id", ""),
-                amount_usd=float(rec.get("amount_usd", 0.0)),
-                raw_description=rec.get("raw_description", ""),
-                vendor_registry_id=rec.get("vendor_registry_id", ""),
-                category=rec.get("category", "other"),
-                bill_signal_kind=rec.get("bill_signal_kind", ""),
-                card_ref=rec.get("card_ref", ""),
-                bank_category=rec.get("bank_category", ""),
-                note=rec.get("note", ""),
-            ))
+            out.append(
+                BankTransaction(
+                    ts=rec.get("ts", ""),
+                    source=rec.get("source", ""),
+                    external_id=rec.get("external_id", ""),
+                    amount_usd=float(rec.get("amount_usd", 0.0)),
+                    raw_description=rec.get("raw_description", ""),
+                    vendor_registry_id=rec.get("vendor_registry_id", ""),
+                    category=rec.get("category", "other"),
+                    bill_signal_kind=rec.get("bill_signal_kind", ""),
+                    card_ref=rec.get("card_ref", ""),
+                    bank_category=rec.get("bank_category", ""),
+                    note=rec.get("note", ""),
+                )
+            )
     return out
 
 
 # --- CLI entry point ------------------------------------------------------
 
+
 def main(argv: list[str] | None = None) -> int:
     import argparse
+
     logging.basicConfig(level=os.getenv("SAMUS_LOG_LEVEL", "INFO"))
     parser = argparse.ArgumentParser(description="Ingest a Cash App CSV into bank_activity ledger")
     parser.add_argument("csv_path", help="Path to Cash App activity CSV")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Parse and print summary without appending")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Parse and print summary without appending"
+    )
     args = parser.parse_args(argv)
 
     csv_path = Path(args.csv_path).expanduser()
@@ -548,15 +578,15 @@ def main(argv: list[str] | None = None) -> int:
 
     # Print summary
     from collections import Counter
+
     cats = Counter(t.category for t in txns)
     vendors = Counter(t.vendor_registry_id for t in txns if t.vendor_registry_id)
-    codb_spend = sum(t.amount_usd for t in txns
-                     if t.amount_usd < 0 and t.category == "bill")
+    codb_spend = sum(t.amount_usd for t in txns if t.amount_usd < 0 and t.category == "bill")
     revenue = sum(t.amount_usd for t in txns if t.category == "revenue")
-    business_transfer = sum(t.amount_usd for t in txns
-                            if t.category == "business_transfer")
-    personal_spend = sum(t.amount_usd for t in txns
-                        if t.amount_usd < 0 and t.category == "personal")
+    business_transfer = sum(t.amount_usd for t in txns if t.category == "business_transfer")
+    personal_spend = sum(
+        t.amount_usd for t in txns if t.amount_usd < 0 and t.category == "personal"
+    )
 
     print(f"Parsed {len(txns)} transactions from {csv_path.name} (shape={shape})")
     print(f"  Categories: {dict(cats)}")
@@ -564,8 +594,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  CODB spend:      ${codb_spend:,.2f}")
     print(f"  Business revenue: ${revenue:,.2f}")
     if business_transfer:
-        print(f"  Owner<->LLC transfers: ${business_transfer:+,.2f} "
-              f"(funding + distributions)")
+        print(f"  Owner<->LLC transfers: ${business_transfer:+,.2f} (funding + distributions)")
     if personal_spend:
         print(f"  Personal spend:  ${personal_spend:,.2f}")
     print(f"  Business net (revenue - CODB): ${revenue + codb_spend:,.2f}")

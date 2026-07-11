@@ -1,4 +1,5 @@
 """Token substitution + bracket sanitiser (Samus STANDARD)."""
+
 from __future__ import annotations
 
 import re
@@ -14,7 +15,13 @@ class TokenSubstitutionError(ValueError):
 
 _TOKEN_RE = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
 _FORBIDDEN_BRACKET_PREFIXES: tuple[str, ...] = (
-    "AUTONOMY", "SYSTEM", "USER", "ASSISTANT", "TOOL", "SOVEREIGN", "OPERATOR",
+    "AUTONOMY",
+    "SYSTEM",
+    "USER",
+    "ASSISTANT",
+    "TOOL",
+    "SOVEREIGN",
+    "OPERATOR",
 )
 
 

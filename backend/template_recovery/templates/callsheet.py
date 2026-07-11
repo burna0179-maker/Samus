@@ -2,6 +2,7 @@
 
 Pure Python, no I/O, no LLM, constant-time. Same input -> identical output.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -29,8 +30,8 @@ def callsheet_template_v5(context: dict[str, Any]) -> str:
         f"Industry: {industry}\n"
         f"\n"
         f"## Opening\n"
-        f"  \"Hi {contact}, this is the Samus team — do you have a quick "
-        f"minute?\"\n"
+        f'  "Hi {contact}, this is the Samus team — do you have a quick '
+        f'minute?"\n'
         f"\n"
         f"## Purpose\n"
         f"  Introduce {offer} for {business}.\n"
@@ -46,9 +47,9 @@ def callsheet_template_v5(context: dict[str, Any]) -> str:
         f"  - Clear reporting against agreed metrics.\n"
         f"\n"
         f"## Objection handling\n"
-        f"  - \"No budget\": start with the free baseline review.\n"
-        f"  - \"No time\": the call is 15 minutes; we do the heavy lifting.\n"
-        f"  - \"Already have someone\": offer a second-opinion audit.\n"
+        f'  - "No budget": start with the free baseline review.\n'
+        f'  - "No time": the call is 15 minutes; we do the heavy lifting.\n'
+        f'  - "Already have someone": offer a second-opinion audit.\n'
         f"\n"
         f"## Close\n"
         f"  Book the 15-minute review call and confirm the calendar invite.\n"

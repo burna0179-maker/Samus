@@ -7,6 +7,7 @@ templating -> CSV export. Audit event appended on completion.
 In-process idempotency via ``GLOBAL_IDEMPOTENCY_STORE`` keyed on the task_id —
 re-running with the same task_id returns the cached result.
 """
+
 from __future__ import annotations
 
 import logging
@@ -85,7 +86,9 @@ def _run_with_deadline(fn: Callable[[], _T], *, deadline_s: float) -> _T:
             error_box.append(exc)
 
     worker = threading.Thread(
-        target=_runner, name="prospect-deadline", daemon=True,
+        target=_runner,
+        name="prospect-deadline",
+        daemon=True,
     )
     worker.start()
     worker.join(timeout=deadline_s)
@@ -93,18 +96,14 @@ def _run_with_deadline(fn: Callable[[], _T], *, deadline_s: float) -> _T:
         # Over budget: abandon the (daemon) thread and skip this prospect. The
         # thread keeps running its blocked read to natural completion in the
         # background but holds no pooled resource, so it cannot stall the run.
-        raise ProspectDeadlineExceeded(
-            f"prospect step exceeded {deadline_s}s wall-clock budget"
-        )
+        raise ProspectDeadlineExceeded(f"prospect step exceeded {deadline_s}s wall-clock budget")
     if error_box:
         raise error_box[0]
     if result_box:
         return result_box[0]
     # Defensive: a runner that neither produced a result nor an error (should
     # be unreachable) is treated as an overrun rather than returning None.
-    raise ProspectDeadlineExceeded(
-        f"prospect step produced no result within {deadline_s}s"
-    )
+    raise ProspectDeadlineExceeded(f"prospect step produced no result within {deadline_s}s")
 
 
 def _audit_llm_cost(audit_result: dict) -> float:
@@ -133,10 +132,17 @@ def _audit_ledger() -> persistence.JsonlLedger:
 # path flap, momentary 5xx, flaky DNS, a WAF that throttled) could have caused.
 # A positive "no real website" verdict (no_website / parked / social_only) and
 # the deterministic gone(410) are NOT re-polled: re-polling cannot change them.
-_RECHECK_STATUSES: frozenset[str] = frozenset({
-    "domain_unresolved", "unreachable_timeout", "unreachable",
-    "server_error", "http_error", "access_blocked", "empty",
-})
+_RECHECK_STATUSES: frozenset[str] = frozenset(
+    {
+        "domain_unresolved",
+        "unreachable_timeout",
+        "unreachable",
+        "server_error",
+        "http_error",
+        "access_blocked",
+        "empty",
+    }
+)
 
 
 def recheck_unreachable(
@@ -177,18 +183,24 @@ def recheck_unreachable(
                 update["seo_score"] = int(seo_value or 0)
             recovered = p.model_copy(update=update)
             new_score = score_prospect(recovered)
-            recovered = recovered.model_copy(update={
-                "lead_score": new_score,
-                "call_priority": classify_priority(new_score),
-            })
+            recovered = recovered.model_copy(
+                update={
+                    "lead_score": new_score,
+                    "call_priority": classify_priority(new_score),
+                }
+            )
             out.append(build_call_sheet(recovered))
             _LOG.info(
                 "website recheck reclassified prospect=%s %s -> %s",
-                p.prospect_id, status, new_status,
+                p.prospect_id,
+                status,
+                new_status,
             )
         except Exception as exc:  # noqa: BLE001 — best-effort integrity pass
             _LOG.warning(
-                "website recheck failed prospect=%s err=%s", p.prospect_id, exc,
+                "website recheck failed prospect=%s err=%s",
+                p.prospect_id,
+                exc,
             )
             out.append(p)
     return out
@@ -199,9 +211,15 @@ def recheck_unreachable(
 # fresh, targeted Places search by name+city can find a site the bulk discovery
 # missed. That's the root of the "pitch a business it has no website when it
 # does" false positive.
-_ABSENCE_STATUSES: frozenset[str] = frozenset({
-    "no_website", "parked", "social_only", "gone", "domain_unresolved",
-})
+_ABSENCE_STATUSES: frozenset[str] = frozenset(
+    {
+        "no_website",
+        "parked",
+        "social_only",
+        "gone",
+        "domain_unresolved",
+    }
+)
 
 
 def verify_web_presence(prospects: list[ProspectRecord]) -> list[ProspectRecord]:
@@ -230,24 +248,29 @@ def verify_web_presence(prospects: list[ProspectRecord]) -> list[ProspectRecord]
             # from discovery; more reliable than re-deriving it from a fresh
             # Places name-match). The street address for matching comes from the
             # Places listing inside verify_presence (it carries the street#+ZIP).
-            v = verify_presence(
-                p.company_name, city=p.city, state=p.state, known_phone=p.phone)
+            v = verify_presence(p.company_name, city=p.city, state=p.state, known_phone=p.phone)
             if not v.buildable and v.website:
-                recovered = p.model_copy(update={
-                    "website_url": v.website,
-                    # a live site we simply couldn't fetch — NOT a "no site" hook
-                    "website_status": "access_blocked",
-                })
+                recovered = p.model_copy(
+                    update={
+                        "website_url": v.website,
+                        # a live site we simply couldn't fetch — NOT a "no site" hook
+                        "website_status": "access_blocked",
+                    }
+                )
                 new_score = score_prospect(recovered)
-                recovered = recovered.model_copy(update={
-                    "lead_score": new_score,
-                    "call_priority": classify_priority(new_score),
-                })
+                recovered = recovered.model_copy(
+                    update={
+                        "lead_score": new_score,
+                        "call_priority": classify_priority(new_score),
+                    }
+                )
                 out.append(build_call_sheet(recovered))
                 _LOG.info(
                     "presence verify: prospect=%s HAS a live site (%s) — corrected "
                     "%s -> access_blocked (no false 'no website' pitch)",
-                    p.prospect_id, v.website, status,
+                    p.prospect_id,
+                    v.website,
+                    status,
                 )
             else:
                 out.append(p)
@@ -306,9 +329,12 @@ def process_discovery(
                 zip_count += 1
         _LOG.info(
             "process_discovery zip done",
-            extra={"zipcode": zipcode, "count": zip_count,
-                   "industries": industries_list,
-                   "per_industry_cap": per_industry_cap},
+            extra={
+                "zipcode": zipcode,
+                "count": zip_count,
+                "industries": industries_list,
+                "per_industry_cap": per_industry_cap,
+            },
         )
 
     # Step 2: SEO + owner enrichment, THEN lead scoring. The SEO/enrichment
@@ -353,7 +379,8 @@ def process_discovery(
                 update["seo_score"] = int(seo_score_value or 0)
             if req.enable_owner_enrichment:
                 signals = enrich_from_page_with_fallback(
-                    page, prospect.website_url,
+                    page,
+                    prospect.website_url,
                     enable_facebook=req.enable_facebook_enrichment,
                 )
                 update.update(signals)
@@ -371,6 +398,7 @@ def process_discovery(
                 if not signals.get("owner_email"):
                     try:
                         from .apollo_adapter import enrich_via_apollo
+
                         apollo = enrich_via_apollo(
                             company_name=prospect.company_name,
                             website_url=prospect.website_url,
@@ -383,17 +411,22 @@ def process_discovery(
                                 if v and not update.get(k):
                                     update[k] = v
                     except Exception as _exc:  # noqa: BLE001
-                        _LOG.debug("apollo enrichment skipped url=%s err=%s",
-                                   prospect.website_url, _exc)
+                        _LOG.debug(
+                            "apollo enrichment skipped url=%s err=%s", prospect.website_url, _exc
+                        )
             return update
 
         audited: list[ProspectRecord] = []
         for prospect in discovered:
             if not prospect.website_url:
                 # No website at all — the strongest web-design pitch there is.
-                audited.append(prospect.model_copy(update={
-                    "website_status": "no_website",
-                }))
+                audited.append(
+                    prospect.model_copy(
+                        update={
+                            "website_status": "no_website",
+                        }
+                    )
+                )
                 continue
             try:
                 # Wall-clock bound: an over-budget prospect is logged + SKIPPED
@@ -411,6 +444,7 @@ def process_discovery(
                     LEAD_ENRICHED,
                     emit_business_event,
                 )
+
                 emit_business_event(
                     LEAD_ENRICHED,
                     workcell="prospecting",
@@ -426,13 +460,15 @@ def process_discovery(
                 _LOG.warning(
                     "enrichment deadline exceeded url=%s (%s) — skipping "
                     "enrichment for this prospect, keeping it on the list",
-                    prospect.website_url, exc,
+                    prospect.website_url,
+                    exc,
                 )
                 audited.append(prospect)
             except Exception as exc:  # noqa: BLE001 — defensive boundary
                 _LOG.warning(
                     "enrichment failed url=%s err=%s",
-                    prospect.website_url, exc,
+                    prospect.website_url,
+                    exc,
                 )
                 audited.append(prospect)
         enriched = audited
@@ -442,10 +478,14 @@ def process_discovery(
     for prospect in enriched:
         score = score_prospect(prospect)
         priority = classify_priority(score)
-        scored.append(prospect.model_copy(update={
-            "lead_score": score,
-            "call_priority": priority,
-        }))
+        scored.append(
+            prospect.model_copy(
+                update={
+                    "lead_score": score,
+                    "call_priority": priority,
+                }
+            )
+        )
 
     # Step 2c: signal_filter pre-qualification gate. Each scored prospect is
     # run through the backend.signal_filter weighted admission threshold;
@@ -468,8 +508,12 @@ def process_discovery(
         scored, rejected = apply_signal_filter_gate(scored)
         _LOG.info(
             "process_discovery signal_filter gate applied",
-            extra={"task_id": task_id, "admitted": len(scored),
-                   "rejected": rejected, "before": before},
+            extra={
+                "task_id": task_id,
+                "admitted": len(scored),
+                "rejected": rejected,
+                "before": before,
+            },
         )
 
     # Step 2.6: Strategy "decide" step — pick the bandit policy family.
@@ -503,14 +547,17 @@ def process_discovery(
                     # One call per distinct industry; reused for every
                     # prospect of that industry below.
                     policy_by_industry[industry] = select_best_policy(industry)
-                with_policy.append(prospect.model_copy(update={
-                    "policy_family": policy_by_industry[industry],
-                }))
+                with_policy.append(
+                    prospect.model_copy(
+                        update={
+                            "policy_family": policy_by_industry[industry],
+                        }
+                    )
+                )
             scored = with_policy
             _LOG.info(
                 "process_discovery strategy policy decided",
-                extra={"task_id": task_id,
-                       "policy_by_industry": policy_by_industry},
+                extra={"task_id": task_id, "policy_by_industry": policy_by_industry},
             )
         except Exception as exc:  # noqa: BLE001 — defensive boundary
             _LOG.warning(
@@ -529,6 +576,7 @@ def process_discovery(
         # in tests that opt out.
         from backend.seo.models import AuditRequest
         from backend.seo.service import audit_and_report
+
         with_reports: list[ProspectRecord] = []
         for prospect in scored:
             if not prospect.website_url or prospect.call_priority == "low":
@@ -557,29 +605,35 @@ def process_discovery(
                 # call-list tie-breaker. Absent when the security audit is
                 # disabled — degrades to "" (no grade).
                 audit_findings = (result.get("audit") or {}).get("findings") or {}
-                security_grade = str(
-                    (audit_findings.get("security") or {}).get("grade") or ""
-                )
+                security_grade = str((audit_findings.get("security") or {}).get("grade") or "")
                 # Strategy-integration build, Unit 4: the audit's content-draft
                 # stage may have fired an LLM call — add its real priced cost
                 # to this prospect's running per-prospect LLM spend.
                 audit_cost = _audit_llm_cost(result)
-                with_reports.append(prospect.model_copy(update={
-                    "seo_report_path": str(result.get("report_path") or ""),
-                    "security_grade": security_grade,
-                    "llm_cost_usd": prospect.llm_cost_usd + audit_cost,
-                }))
+                with_reports.append(
+                    prospect.model_copy(
+                        update={
+                            "seo_report_path": str(result.get("report_path") or ""),
+                            "security_grade": security_grade,
+                            "llm_cost_usd": prospect.llm_cost_usd + audit_cost,
+                        }
+                    )
+                )
             except ProspectDeadlineExceeded as exc:
                 _LOG.warning(
                     "full audit deadline exceeded url=%s priority=%s (%s) — "
                     "skipping report for this prospect, keeping it on the list",
-                    prospect.website_url, prospect.call_priority, exc,
+                    prospect.website_url,
+                    prospect.call_priority,
+                    exc,
                 )
                 with_reports.append(prospect)
             except Exception as exc:  # noqa: BLE001 — defensive boundary
                 _LOG.warning(
                     "full audit failed url=%s priority=%s err=%s",
-                    prospect.website_url, prospect.call_priority, exc,
+                    prospect.website_url,
+                    prospect.call_priority,
+                    exc,
                 )
                 with_reports.append(prospect)
         scored = with_reports
@@ -611,14 +665,19 @@ def process_discovery(
             except Exception as exc:  # noqa: BLE001 — defensive boundary
                 _LOG.warning(
                     "callsheet generation failed prospect=%s; templated fallback: %s",
-                    prospect.prospect_id, exc,
+                    prospect.prospect_id,
+                    exc,
                 )
                 sheet, callsheet_cost = build_call_sheet(prospect), 0.0
         else:
             sheet, callsheet_cost = build_call_sheet(prospect), 0.0
-        finalized.append(sheet.model_copy(update={
-            "llm_cost_usd": sheet.llm_cost_usd + callsheet_cost,
-        }))
+        finalized.append(
+            sheet.model_copy(
+                update={
+                    "llm_cost_usd": sheet.llm_cost_usd + callsheet_cost,
+                }
+            )
+        )
 
     # Step 3.5: website-status verification re-poll (list-integrity backup).
     # A transient crawl failure at Step 2a can mislabel a healthy site as
@@ -627,7 +686,8 @@ def process_discovery(
     # is re-classified + re-scored, one that still fails is confirmed.
     if req.enable_website_recheck:
         finalized = recheck_unreachable(
-            finalized, enable_seo_audit=req.enable_seo_audit,
+            finalized,
+            enable_seo_audit=req.enable_seo_audit,
         )
         # Root fix for the "no website" false positive: a fresh Places lookup
         # catches sites the bulk discovery missed (no URL to re-poll), so we
@@ -648,10 +708,12 @@ def process_discovery(
     if req.persist_prospects and finalized:
         try:
             from backend.crm.persistence import upsert_prospect_record
+
             persisted_count = sum(1 for p in finalized if upsert_prospect_record(p))
             _LOG.info(
                 "process_discovery persisted %d/%d prospects to DDB",
-                persisted_count, len(finalized),
+                persisted_count,
+                len(finalized),
             )
         except Exception as _exc:  # noqa: BLE001 — never block discovery
             _LOG.warning("persist_prospects block failed: %s", _exc)
@@ -678,7 +740,8 @@ def process_discovery(
         _LOG.info(
             "freshness gate: %d/%d prospects held (promoted within %s-day "
             "cooldown); %d fresh promoted to the call list",
-            held, len(finalized),
+            held,
+            len(finalized),
             os.environ.get("SAMUS_PROSPECT_RECYCLE_DAYS", "30") or "30",
             len(fresh),
         )
@@ -702,7 +765,9 @@ def process_discovery(
         if recycled_n:
             _LOG.info(
                 "recycle enrichment: %d/%d fresh prospects are returning "
-                "(prior pipeline history attached)", recycled_n, len(fresh),
+                "(prior pipeline history attached)",
+                recycled_n,
+                len(fresh),
             )
     except Exception as exc:  # noqa: BLE001 — enrichment never blocks promotion
         _LOG.warning("recycle enrichment failed: %s", exc)
@@ -782,10 +847,14 @@ def _backfill_recent_contact(
             )
             if resp.status_code == 200:
                 data = resp.json() or {}
-                out.append(p.model_copy(update={
-                    "last_contact_at": str(data.get("updated_at") or ""),
-                    "last_contact_outcome": str(data.get("last_outcome") or ""),
-                }))
+                out.append(
+                    p.model_copy(
+                        update={
+                            "last_contact_at": str(data.get("updated_at") or ""),
+                            "last_contact_outcome": str(data.get("last_outcome") or ""),
+                        }
+                    )
+                )
                 hits += 1
                 continue
             # 404 / other = treat as no prior contact

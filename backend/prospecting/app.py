@@ -25,6 +25,7 @@ to ``"discover"`` when the key is absent for backwards compatibility):
 
 Capability check runs before any business logic on every handler path.
 """
+
 from __future__ import annotations
 
 import logging
@@ -131,13 +132,14 @@ def _handle_analyze_business(payload: Any) -> dict[str, Any]:
     scores = intelligence.score_opportunity(signals)
     products = intelligence.map_products(scores)
     angle = intelligence.determine_pitch_angle(
-        signals, scores,
+        signals,
+        scores,
         learned_performance=feedback_store.get_angle_performance(),
     )
     result = {
-        "signals":     signals,
-        "scores":      scores,
-        "products":    products,
+        "signals": signals,
+        "scores": scores,
+        "products": products,
         "pitch_angle": angle,
     }
     _LOG.info(
@@ -198,9 +200,7 @@ def _handle_generate_dynamic_script_with_pivot(payload: Any) -> dict[str, Any]:
     intel = payload.get("intel")
     if not isinstance(intel, dict):
         raise HTTPException(status_code=400, detail="missing_required_field: intel")
-    _LOG.info(
-        "generate_dynamic_script_with_pivot action started company=%s", company_name
-    )
+    _LOG.info("generate_dynamic_script_with_pivot action started company=%s", company_name)
     result = dynamic_script.generate_script_with_pivot(company_name, intel)
     _LOG.info(
         "generate_dynamic_script_with_pivot complete",
@@ -262,7 +262,8 @@ async def _prospecting_lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 def create_app():
     app = create_base_app(
-        service_name="prospecting", lifespan=_prospecting_lifespan,
+        service_name="prospecting",
+        lifespan=_prospecting_lifespan,
     )
 
     @app.post("/work")

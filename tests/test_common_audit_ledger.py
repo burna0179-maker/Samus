@@ -8,20 +8,18 @@ Covers the round-5 Anita parity behaviour now ported to Samus:
   * key-change archive vs corruption archive
   * legacy in-place migration left as no-op when no legacy records exist
 """
+
 from __future__ import annotations
 
 import json
-import time
 from pathlib import Path
 
 import pytest
 
 from backend.common.audit_ledger import (
     AuditLedger,
-    LedgerState,
     LedgerTamperError,
     _GENESIS,
-    _canonical_material,
 )
 
 
@@ -124,9 +122,7 @@ def test_epoch_overlap_accepts_neighbor(tmp_path: Path) -> None:
     overlap = 10
     path = tmp_path / "audit.jsonl"
     # Use a fresh instance each time so the in-memory _last_hash is reloaded.
-    ledger = AuditLedger(
-        path, secret_key=_SECRET, epoch_sec=short_epoch, epoch_overlap_sec=overlap
-    )
+    ledger = AuditLedger(path, secret_key=_SECRET, epoch_sec=short_epoch, epoch_overlap_sec=overlap)
     # Just append a few entries and verify they all pass.
     for i in range(3):
         ledger.record(f"e.{i}", {})

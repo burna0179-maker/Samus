@@ -22,12 +22,12 @@ Isolation: every armed test injects STUB providers (no real CRM / DDB / finance 
 LM Studio / EFH-axiom backend is touched) and points ``state_path`` at a temp
 root. The dormant tests assert the heavy stack is never even imported/constructed.
 """
+
 from __future__ import annotations
 
 import asyncio
 import json
 
-import pytest
 
 from backend.cognitive.cycle_models import CycleInput
 
@@ -256,7 +256,14 @@ def test_run_one_cycle_armed_executes_end_to_end_with_stubs(tmp_path, monkeypatc
     assert reasoner.calls == 1
     # Full stage list present (PERCEIVE..EMIT).
     assert summary.stages == [
-        "PERCEIVE", "CLASSIFY", "REASON", "DECIDE", "ACT", "REFLECT", "PERSIST", "EMIT",
+        "PERCEIVE",
+        "CLASSIFY",
+        "REASON",
+        "DECIDE",
+        "ACT",
+        "REFLECT",
+        "PERSIST",
+        "EMIT",
     ]
     # Exactly one propose-only proposal written + surfaced in the summary.
     assert summary.proposal_written is True
@@ -289,11 +296,14 @@ def test_run_one_cycle_armed_invokes_no_effector_or_gate(tmp_path, monkeypatch):
         def _f(*_a, **_k):
             called.append(name)
             raise AssertionError(f"effector {name} must NOT be called by the cognitive loop")
+
         return _f
 
     # cash_engine front-door gate + review_opportunity + live-send double-gate.
     monkeypatch.setattr(gate_mod, "evaluate_gate", _spy("cash_engine.evaluate_gate"))
-    monkeypatch.setattr(cash_service_mod, "review_opportunity", _spy("cash_engine.review_opportunity"))
+    monkeypatch.setattr(
+        cash_service_mod, "review_opportunity", _spy("cash_engine.review_opportunity")
+    )
     monkeypatch.setattr(stages_mod, "_outreach_stage", _spy("cash_engine._outreach_stage"))
     # CRM mutating entrypoints.
     monkeypatch.setattr(crm_mod, "advance_opportunity", _spy("crm.advance_opportunity"))
@@ -454,7 +464,8 @@ def test_route_flag_on_runs_one_cycle(tmp_path, monkeypatch):
 
 
 def test_build_cognition_runtime_appends_precedent_to_system_prefix(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ):
     """When a high-confidence belief matches the runner's precedent context,
     ``build_cognition_runtime`` composes it into the ``system_prefix`` passed
@@ -486,9 +497,9 @@ def test_build_cognition_runtime_appends_precedent_to_system_prefix(
 
     monkeypatch.setattr(cl, "build_llm_reasoner", _spy_build_llm_reasoner)
 
-    rt = runner_mod.build_cognition_runtime(domain=_StubDomainProvider(),
-                                            classifier=_StubClassifierClears(),
-                                            enabled=True)
+    rt = runner_mod.build_cognition_runtime(
+        domain=_StubDomainProvider(), classifier=_StubClassifierClears(), enabled=True
+    )
     assert rt is not None
 
     prefix = captured.get("system_prefix", "")

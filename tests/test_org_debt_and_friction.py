@@ -1,4 +1,5 @@
 """Org-debt aggregate (T3) + control-loop friction metrics (T5)."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -11,13 +12,18 @@ from backend.governance import org_debt
 # T3 — org_debt
 # ---------------------------------------------------------------------------
 
+
 class _FakeKarma:
     def __init__(self, v: float) -> None:
         self.v = v
 
     def dims(self):
-        return {"success_rate": self.v, "policy_compliance": self.v,
-                "resource_efficiency": self.v, "stability_score": self.v}
+        return {
+            "success_rate": self.v,
+            "policy_compliance": self.v,
+            "resource_efficiency": self.v,
+            "stability_score": self.v,
+        }
 
 
 class _FakeKarmaStore:
@@ -37,8 +43,9 @@ class _FakeBudgetStore:
 
 
 def _budget(eff, *, circuit="", errors=0):
-    return SimpleNamespace(efficiency_ema=eff, circuit_open_until=circuit,
-                           consecutive_errors=errors)
+    return SimpleNamespace(
+        efficiency_ema=eff, circuit_open_until=circuit, consecutive_errors=errors
+    )
 
 
 def test_healthy_workcell_has_low_debt():
@@ -76,8 +83,11 @@ def test_report_ranks_worst_first():
 
 def test_missing_stores_degrade_to_neutral():
     class _Boom:
-        def load(self, wc): raise RuntimeError("down")
-        def snapshot(self, wc): raise RuntimeError("down")
+        def load(self, wc):
+            raise RuntimeError("down")
+
+        def snapshot(self, wc):
+            raise RuntimeError("down")
 
     row = org_debt.workcell_debt("x", karma_store=_Boom(), budget_store=_Boom())
     # neutral: karma 0.5, eff 1.0, circuit 0 -> 0.4*0.5 + 0 + 0 = 0.2
@@ -87,6 +97,7 @@ def test_missing_stores_degrade_to_neutral():
 # ---------------------------------------------------------------------------
 # T5 — friction
 # ---------------------------------------------------------------------------
+
 
 def _tick(*cut_workcells, extra_adjust=()):
     """A tick whose recommendations cut the given workcells (+ optional non-cut
@@ -116,7 +127,7 @@ def test_oscillating_decisions_raise_entropy_and_flag_leak():
     ticks = [_tick("outreach"), _tick(), _tick("outreach"), _tick(), _tick("outreach")]
     rep = friction.friction_report(ticks=ticks)
     wc = rep["per_workcell"]["outreach"]
-    assert wc["flips"] == 4          # flips on every transition
+    assert wc["flips"] == 4  # flips on every transition
     assert wc["flip_rate"] == 1.0
     assert rep["decision_entropy"] == 1.0
     assert rep["energy_leak"] is True
@@ -124,7 +135,7 @@ def test_oscillating_decisions_raise_entropy_and_flag_leak():
 
 def test_coordination_cost_is_mean_adjustments():
     ticks = [
-        _tick("a", "b"),                 # 2 adjustments
+        _tick("a", "b"),  # 2 adjustments
         _tick("a", extra_adjust=("c",)),  # 2 adjustments
     ]
     rep = friction.friction_report(ticks=ticks)

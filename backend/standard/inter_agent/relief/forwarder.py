@@ -30,6 +30,7 @@ Settings attributes (read live via getattr):
     samus_agora_relief_forward_staleness_sec  int   (default 21600 = 6h)
     samus_agora_relief_forward_max_per_run    int   (default 5)
 """
+
 # AXIOM-2a: boundary defender — mirrors operator-pending work outward, never resolves it.
 from __future__ import annotations
 
@@ -81,7 +82,9 @@ class ReliefForwarder:
 
     def _save_forwarded(self, forwarded: set) -> None:
         try:
-            self._state_path.parent.mkdir(parents=True, exist_ok=True)  # canon-carve-out: relief_forwarder_state
+            self._state_path.parent.mkdir(
+                parents=True, exist_ok=True
+            )  # canon-carve-out: relief_forwarder_state
             trimmed = list(forwarded)[-5000:]
             self._state_path.write_text(  # canon-carve-out: relief_forwarder_state
                 json.dumps({"forwarded": trimmed}), encoding="utf-8"
@@ -141,8 +144,11 @@ class ReliefForwarder:
             try:
                 ok = bool(self._post_fn(request))
             except Exception:  # noqa: BLE001
-                _LOG.debug("relief_forwarder: post_fn raised for %s",
-                           request.get("remote_ticket_id"), exc_info=True)
+                _LOG.debug(
+                    "relief_forwarder: post_fn raised for %s",
+                    request.get("remote_ticket_id"),
+                    exc_info=True,
+                )
                 ok = False
             if ok:
                 forwarded.add(request["remote_ticket_id"])

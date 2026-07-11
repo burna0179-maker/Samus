@@ -1,4 +1,5 @@
 """Doc §3.18 — build_audit_event + _deterministic_hash."""
+
 from __future__ import annotations
 
 import re
@@ -59,6 +60,7 @@ def test_deterministic_hash_changes_for_different_payloads():
 
 def test_deterministic_hash_handles_non_json_types():
     from datetime import datetime, timezone
+
     h = _deterministic_hash({"ts": datetime(2026, 5, 15, tzinfo=timezone.utc)})
     assert _HEX_RE.match(h)
 

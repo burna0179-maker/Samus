@@ -13,11 +13,12 @@ Test coverage
 
 Total: 5 tests (>= required 5).
 """
+
 from __future__ import annotations
 
 import asyncio
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest  # noqa: F401  (kept for any test that still uses pytest.raises etc.)
 
@@ -81,16 +82,18 @@ def test_execute_plan_idempotent_when_already_complete(monkeypatch):
         calls.append((args, kwargs))
         return _make_response(200, {"ok": True})
 
-    monkeypatch.setattr(
-        "backend.common.http_client.signed_post_json", fake_signed_post
-    )
+    monkeypatch.setattr("backend.common.http_client.signed_post_json", fake_signed_post)
 
     plan = _two_step_plan()
     plan.status = PLAN_STATUS_COMPLETE
 
-    result = asyncio.run(execute_plan(
-        plan, gateway_url="http://test:8080", hmac_key="test-key",
-    ))
+    result = asyncio.run(
+        execute_plan(
+            plan,
+            gateway_url="http://test:8080",
+            hmac_key="test-key",
+        )
+    )
 
     assert result.status == PLAN_STATUS_COMPLETE
     assert calls == []  # no dispatch calls were made
@@ -106,9 +109,7 @@ def test_execute_plan_invalid_plan_sets_failed_status_and_stamps_errors_into_ris
         calls.append(1)
         return _make_response(200, {})
 
-    monkeypatch.setattr(
-        "backend.common.http_client.signed_post_json", fake_signed_post
-    )
+    monkeypatch.setattr("backend.common.http_client.signed_post_json", fake_signed_post)
 
     # Invalid: empty plan_id and empty task_id
     bad_plan = FulfillmentPlan(
@@ -117,9 +118,13 @@ def test_execute_plan_invalid_plan_sets_failed_status_and_stamps_errors_into_ris
         steps=[PlanStep(id=":s", type="svc.a")],
     )
 
-    result = asyncio.run(execute_plan(
-        bad_plan, gateway_url="http://test:8080", hmac_key="test-key",
-    ))
+    result = asyncio.run(
+        execute_plan(
+            bad_plan,
+            gateway_url="http://test:8080",
+            hmac_key="test-key",
+        )
+    )
 
     assert result.status == PLAN_STATUS_FAILED
     assert "validation_errors" in result.risk
@@ -137,9 +142,7 @@ def test_execute_plan_sequential_steps_all_succeed(monkeypatch):
         dispatched.append(step_id)
         return _make_response(200, {"step_done": True})
 
-    monkeypatch.setattr(
-        "backend.common.http_client.signed_post_json", fake_signed_post
-    )
+    monkeypatch.setattr("backend.common.http_client.signed_post_json", fake_signed_post)
 
     plan = build_execution_graph_v2(
         "taskX",
@@ -147,9 +150,13 @@ def test_execute_plan_sequential_steps_all_succeed(monkeypatch):
         {},
     )
 
-    result = asyncio.run(execute_plan(
-        plan, gateway_url="http://test:8080", hmac_key="sec",
-    ))
+    result = asyncio.run(
+        execute_plan(
+            plan,
+            gateway_url="http://test:8080",
+            hmac_key="sec",
+        )
+    )
 
     assert result.status == PLAN_STATUS_COMPLETE
     # All steps should have been dispatched.
@@ -167,15 +174,17 @@ def test_execute_plan_step_failure_blocks_dependents(monkeypatch):
             return _make_response(500, {"error": "internal"})
         return _make_response(200, {"ok": True})
 
-    monkeypatch.setattr(
-        "backend.common.http_client.signed_post_json", fake_signed_post
-    )
+    monkeypatch.setattr("backend.common.http_client.signed_post_json", fake_signed_post)
 
     plan = _two_step_plan()
 
-    result = asyncio.run(execute_plan(
-        plan, gateway_url="http://test:8080", hmac_key="sec",
-    ))
+    result = asyncio.run(
+        execute_plan(
+            plan,
+            gateway_url="http://test:8080",
+            hmac_key="sec",
+        )
+    )
 
     assert result.status == PLAN_STATUS_FAILED
     step_a = next(s for s in result.steps if s.id == "tp:step_a")
@@ -190,15 +199,17 @@ def test_execute_plan_dispatcher_exception_marks_step_failed(monkeypatch):
     async def fake_signed_post(*args: Any, **kwargs: Any):
         raise ConnectionError("connection refused")
 
-    monkeypatch.setattr(
-        "backend.common.http_client.signed_post_json", fake_signed_post
-    )
+    monkeypatch.setattr("backend.common.http_client.signed_post_json", fake_signed_post)
 
     plan = _two_step_plan()
 
-    result = asyncio.run(execute_plan(
-        plan, gateway_url="http://test:8080", hmac_key="sec",
-    ))
+    result = asyncio.run(
+        execute_plan(
+            plan,
+            gateway_url="http://test:8080",
+            hmac_key="sec",
+        )
+    )
 
     assert result.status == PLAN_STATUS_FAILED
     step_a = next(s for s in result.steps if s.id == "tp:step_a")

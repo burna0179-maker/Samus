@@ -22,6 +22,7 @@ Path: honors ``SAMUS_SEND_RAMP_LEDGER_PATH`` (explicit override); otherwise
 :func:`backend.common.state_paths.state_root` resolver (the writable
 ``samus-data`` volume in-container, ``<code root>/state`` on host/tests).
 """
+
 from __future__ import annotations
 
 import datetime as _dt

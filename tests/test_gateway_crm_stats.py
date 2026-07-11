@@ -13,6 +13,7 @@ Mirrors the ``test_gateway_admin_tasks`` / ``test_gateway_conversion_funnel``
 Phase-A skip / httpx-patch / TestClient harness so a missing dep skips the
 whole module rather than red-X'ing the unrelated rewrite.
 """
+
 from __future__ import annotations
 
 import datetime as _dt
@@ -30,8 +31,7 @@ _pending_reason = ""
 try:
     from backend.common import dlq, governance, autonomy  # noqa: F401
 
-    if not (hasattr(governance, "classify_risk")
-            and hasattr(governance, "approval_decision")):
+    if not (hasattr(governance, "classify_risk") and hasattr(governance, "approval_decision")):
         _phase_a_pending = True
         _pending_reason = "governance interface incomplete"
     if not hasattr(autonomy, "run_cycle"):
@@ -100,22 +100,27 @@ def client(monkeypatch, tmp_path):
     # Point the outreach audit reader at a tmp file the tests write to
     # individually. Default unset -> the production /opt/samus path.
     monkeypatch.setenv(
-        "SAMUS_OUTREACH_AUDIT_PATH", str(tmp_path / "outreach_audit.jsonl"),
+        "SAMUS_OUTREACH_AUDIT_PATH",
+        str(tmp_path / "outreach_audit.jsonl"),
     )
     from backend.common.settings import reload_settings
+
     reload_settings()
     # Reset the per-process /api/crm/stats cache so a prior test's body
     # cannot leak into this one. The cache is keyed by UTC date and the
     # whole suite runs inside one day, so the dict must be cleared by hand.
     from backend.gateway import app as gateway_app
+
     gateway_app._CRM_STATS_CACHE.clear()
 
     from fastapi.testclient import TestClient
+
     return TestClient(gateway_app.create_app())
 
 
 def _write_outreach_jsonl(monkeypatch, lines: list[dict[str, Any]]) -> None:
     import os
+
     path = os.environ["SAMUS_OUTREACH_AUDIT_PATH"]
     with open(path, "w", encoding="utf-8") as fh:
         for ev in lines:
@@ -125,32 +130,65 @@ def _write_outreach_jsonl(monkeypatch, lines: list[dict[str, Any]]) -> None:
 def test_crm_stats_composes_crm_and_outreach(client, monkeypatch):
     today = _today()
 
-    last = _patch_httpx(monkeypatch, lambda u, p: _canned(200, {
-        "date": today,
-        "calls_today": 5,
-        "booked_today": 1,
-        "followups_today": 2,
-        "scan_truncated": False,
-        "ddb_error": None,
-    }))
+    last = _patch_httpx(
+        monkeypatch,
+        lambda u, p: _canned(
+            200,
+            {
+                "date": today,
+                "calls_today": 5,
+                "booked_today": 1,
+                "followups_today": 2,
+                "scan_truncated": False,
+                "ddb_error": None,
+            },
+        ),
+    )
 
     # 3 completed sends today, 1 failed (excluded), 1 from yesterday (excluded).
     yday = (_dt.date.fromisoformat(today) - _dt.timedelta(days=1)).isoformat()
-    _write_outreach_jsonl(monkeypatch, [
-        {"ts": f"{today}T09:00:00Z", "service": "outreach",
-         "action": "send_message", "status": "completed"},
-        {"ts": f"{today}T10:00:00Z", "service": "outreach",
-         "action": "send_message", "status": "completed"},
-        {"ts": f"{today}T11:00:00Z", "service": "outreach",
-         "action": "send_message", "status": "completed"},
-        {"ts": f"{today}T12:00:00Z", "service": "outreach",
-         "action": "send_message", "status": "failed"},
-        {"ts": f"{yday}T09:00:00Z", "service": "outreach",
-         "action": "send_message", "status": "completed"},
-        # Unrelated action — must not count.
-        {"ts": f"{today}T13:00:00Z", "service": "outreach",
-         "action": "advance_call", "status": "completed"},
-    ])
+    _write_outreach_jsonl(
+        monkeypatch,
+        [
+            {
+                "ts": f"{today}T09:00:00Z",
+                "service": "outreach",
+                "action": "send_message",
+                "status": "completed",
+            },
+            {
+                "ts": f"{today}T10:00:00Z",
+                "service": "outreach",
+                "action": "send_message",
+                "status": "completed",
+            },
+            {
+                "ts": f"{today}T11:00:00Z",
+                "service": "outreach",
+                "action": "send_message",
+                "status": "completed",
+            },
+            {
+                "ts": f"{today}T12:00:00Z",
+                "service": "outreach",
+                "action": "send_message",
+                "status": "failed",
+            },
+            {
+                "ts": f"{yday}T09:00:00Z",
+                "service": "outreach",
+                "action": "send_message",
+                "status": "completed",
+            },
+            # Unrelated action — must not count.
+            {
+                "ts": f"{today}T13:00:00Z",
+                "service": "outreach",
+                "action": "advance_call",
+                "status": "completed",
+            },
+        ],
+    )
 
     resp = client.get("/api/crm/stats")
     assert resp.status_code == 200, resp.text
@@ -176,6 +214,7 @@ def test_crm_stats_composes_crm_and_outreach(client, monkeypatch):
 def test_crm_stats_degrades_on_crm_unreachable(client, monkeypatch):
     def _boom(u, p):
         raise httpx.ConnectError("connection refused")
+
     _patch_httpx(monkeypatch, _boom)
     _write_outreach_jsonl(monkeypatch, [])  # empty outreach ledger
 
@@ -192,14 +231,20 @@ def test_crm_stats_degrades_on_crm_unreachable(client, monkeypatch):
 
 def test_crm_stats_zero_calls_no_div_by_zero(client, monkeypatch):
     today = _today()
-    _patch_httpx(monkeypatch, lambda u, p: _canned(200, {
-        "date": today,
-        "calls_today": 0,
-        "booked_today": 0,
-        "followups_today": 0,
-        "scan_truncated": False,
-        "ddb_error": None,
-    }))
+    _patch_httpx(
+        monkeypatch,
+        lambda u, p: _canned(
+            200,
+            {
+                "date": today,
+                "calls_today": 0,
+                "booked_today": 0,
+                "followups_today": 0,
+                "scan_truncated": False,
+                "ddb_error": None,
+            },
+        ),
+    )
     _write_outreach_jsonl(monkeypatch, [])
     resp = client.get("/api/crm/stats")
     assert resp.status_code == 200
@@ -213,10 +258,20 @@ def test_crm_stats_missing_outreach_file_is_silent(client, monkeypatch):
     hasn't sent anything yet. We must NOT surface a misleading 'outreach'
     error in that case."""
     today = _today()
-    _patch_httpx(monkeypatch, lambda u, p: _canned(200, {
-        "date": today, "calls_today": 1, "booked_today": 0,
-        "followups_today": 0, "scan_truncated": False, "ddb_error": None,
-    }))
+    _patch_httpx(
+        monkeypatch,
+        lambda u, p: _canned(
+            200,
+            {
+                "date": today,
+                "calls_today": 1,
+                "booked_today": 0,
+                "followups_today": 0,
+                "scan_truncated": False,
+                "ddb_error": None,
+            },
+        ),
+    )
     # Intentionally do NOT write the outreach JSONL — the fixture's path
     # points at a tmp file that doesn't exist yet.
     resp = client.get("/api/crm/stats")
@@ -230,10 +285,20 @@ def test_crm_stats_respects_goal_env_overrides(client, monkeypatch):
     today = _today()
     monkeypatch.setenv("SAMUS_CRM_CALLS_GOAL", "12")
     monkeypatch.setenv("SAMUS_CRM_EMAILS_GOAL", "25")
-    _patch_httpx(monkeypatch, lambda u, p: _canned(200, {
-        "date": today, "calls_today": 2, "booked_today": 1,
-        "followups_today": 0, "scan_truncated": False, "ddb_error": None,
-    }))
+    _patch_httpx(
+        monkeypatch,
+        lambda u, p: _canned(
+            200,
+            {
+                "date": today,
+                "calls_today": 2,
+                "booked_today": 1,
+                "followups_today": 0,
+                "scan_truncated": False,
+                "ddb_error": None,
+            },
+        ),
+    )
     _write_outreach_jsonl(monkeypatch, [])
     resp = client.get("/api/crm/stats")
     assert resp.status_code == 200
@@ -250,10 +315,17 @@ def test_crm_stats_caches_within_ttl(client, monkeypatch):
 
     def _factory(u, p):
         calls["n"] += 1
-        return _canned(200, {
-            "date": today, "calls_today": calls["n"], "booked_today": 0,
-            "followups_today": 0, "scan_truncated": False, "ddb_error": None,
-        })
+        return _canned(
+            200,
+            {
+                "date": today,
+                "calls_today": calls["n"],
+                "booked_today": 0,
+                "followups_today": 0,
+                "scan_truncated": False,
+                "ddb_error": None,
+            },
+        )
 
     _patch_httpx(monkeypatch, _factory)
     _write_outreach_jsonl(monkeypatch, [])
@@ -270,16 +342,31 @@ def test_crm_stats_proxy_signs_call(client, monkeypatch):
     ``{"error":"hmac_headers_missing"}``. Confirm the proxy attaches all
     five Samus HMAC headers before sending."""
     today = _today()
-    last = _patch_httpx(monkeypatch, lambda u, p: _canned(200, {
-        "date": today, "calls_today": 2, "booked_today": 0,
-        "followups_today": 0, "scan_truncated": False, "ddb_error": None,
-    }))
+    last = _patch_httpx(
+        monkeypatch,
+        lambda u, p: _canned(
+            200,
+            {
+                "date": today,
+                "calls_today": 2,
+                "booked_today": 0,
+                "followups_today": 0,
+                "scan_truncated": False,
+                "ddb_error": None,
+            },
+        ),
+    )
     _write_outreach_jsonl(monkeypatch, [])
     resp = client.get("/api/crm/stats")
     assert resp.status_code == 200
     headers = last["headers"]
-    for key in ("X-Samus-Timestamp", "X-Samus-Nonce", "X-Samus-Signature",
-                "X-Samus-Caller", "X-Samus-Trace-Id"):
+    for key in (
+        "X-Samus-Timestamp",
+        "X-Samus-Nonce",
+        "X-Samus-Signature",
+        "X-Samus-Caller",
+        "X-Samus-Trace-Id",
+    ):
         assert key in headers, f"missing {key} in {sorted(headers)}"
     assert headers["X-Samus-Caller"] == "gateway"
 
@@ -292,13 +379,17 @@ def test_crm_stats_503_when_crm_url_unset(monkeypatch, tmp_path):
     monkeypatch.delenv("CRM_URL", raising=False)
     monkeypatch.setenv("SAMUS_GATEWAY_URLS", "")
     monkeypatch.setenv(
-        "SAMUS_OUTREACH_AUDIT_PATH", str(tmp_path / "outreach_audit.jsonl"),
+        "SAMUS_OUTREACH_AUDIT_PATH",
+        str(tmp_path / "outreach_audit.jsonl"),
     )
     from backend.common.settings import reload_settings
+
     reload_settings()
     from backend.gateway import app as gateway_app
+
     gateway_app._CRM_STATS_CACHE.clear()
     from fastapi.testclient import TestClient
+
     c = TestClient(gateway_app.create_app())
 
     resp = c.get("/api/crm/stats")

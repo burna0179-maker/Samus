@@ -19,6 +19,7 @@ Every route follows the existing admin pattern: a top-of-handler
 never-500 degrade (an operator surface returns ``ok=False`` + an error string
 rather than raising).
 """
+
 from __future__ import annotations
 
 import logging
@@ -101,7 +102,9 @@ def register_planning_routes(app: Any) -> None:
     # -- GET /admin/approvals (pending queue) --------------------------------
     @app.get("/admin/approvals")
     async def admin_approvals(
-        status: str = "pending", kind: str | None = None, limit: int = 200,
+        status: str = "pending",
+        kind: str | None = None,
+        limit: int = 200,
     ) -> dict[str, Any]:
         """Operator approval queue (T1 store). Defaults to pending.
 
@@ -113,7 +116,9 @@ def register_planning_routes(app: Any) -> None:
             from backend.common.approvals import list_approvals
 
             rows = list_approvals(
-                status=(status or None), kind=kind, limit=limit,
+                status=(status or None),
+                kind=kind,
+                limit=limit,
             )
             return {"ok": True, "approvals": rows, "count": len(rows)}
         except Exception as exc:  # noqa: BLE001
@@ -156,7 +161,8 @@ def register_planning_routes(app: Any) -> None:
     # -- GET /admin/command_center (the executive aggregate) -----------------
     @app.get("/admin/command_center")
     async def admin_command_center(
-        prospect_id: str | None = None, day: str | None = None,
+        prospect_id: str | None = None,
+        day: str | None = None,
     ) -> dict[str, Any]:
         """The single executive aggregate: what happened / why / what's running
         now / what needs approval / economics / health.

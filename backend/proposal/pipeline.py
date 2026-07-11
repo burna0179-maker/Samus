@@ -6,6 +6,7 @@ The five stages chain into ``service.generate_proposal``:
 
 Each stage is deterministic and side-effect-free.
 """
+
 from __future__ import annotations
 
 from .models import (
@@ -46,7 +47,9 @@ def plan_workflow(intake: OnboardingIntake) -> TaskPlan:
     )
 
 
-def select_templates(plan: TaskPlan, registry: dict[str, TemplateDefinition]) -> list[TemplateDefinition]:
+def select_templates(
+    plan: TaskPlan, registry: dict[str, TemplateDefinition]
+) -> list[TemplateDefinition]:
     """Return matching templates for every want; skip wants with no match."""
     out: list[TemplateDefinition] = []
     seen_ids: set[str] = set()
@@ -99,16 +102,23 @@ def compile_workflow(plan: TaskPlan, templates: list[TemplateDefinition]) -> Com
     prev_id: str | None = None
     if triggers:
         t0 = triggers[0]
-        node = WorkflowNode(node_id="trigger_0", kind="trigger",
-                            template_id=t0.template_id, description=t0.description)
+        node = WorkflowNode(
+            node_id="trigger_0",
+            kind="trigger",
+            template_id=t0.template_id,
+            description=t0.description,
+        )
         nodes.append(node)
         _push_tools(t0)
         prev_id = node.node_id
 
     for i, tpl in enumerate(actions):
         nid = f"action_{i}"
-        nodes.append(WorkflowNode(node_id=nid, kind="action",
-                                  template_id=tpl.template_id, description=tpl.description))
+        nodes.append(
+            WorkflowNode(
+                node_id=nid, kind="action", template_id=tpl.template_id, description=tpl.description
+            )
+        )
         _push_tools(tpl)
         if prev_id is not None:
             edges.append(WorkflowEdge(source_node_id=prev_id, target_node_id=nid))
@@ -116,8 +126,14 @@ def compile_workflow(plan: TaskPlan, templates: list[TemplateDefinition]) -> Com
 
     for i, tpl in enumerate(notifications):
         nid = f"notify_{i}"
-        nodes.append(WorkflowNode(node_id=nid, kind="notification",
-                                  template_id=tpl.template_id, description=tpl.description))
+        nodes.append(
+            WorkflowNode(
+                node_id=nid,
+                kind="notification",
+                template_id=tpl.template_id,
+                description=tpl.description,
+            )
+        )
         _push_tools(tpl)
         if prev_id is not None:
             edges.append(WorkflowEdge(source_node_id=prev_id, target_node_id=nid))

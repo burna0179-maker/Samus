@@ -12,6 +12,7 @@ templates load, validate, and round-trip identically whether they came from
 YAML on disk, an API body, or a test fixture. Execution lives in
 ``executor.py`` / ``orchestrator.py``; routing rules live in ``registry.py``.
 """
+
 from __future__ import annotations
 
 from enum import Enum
@@ -76,8 +77,8 @@ class AuditSeverity(str, Enum):
 class RollbackMode(str, Enum):
     """What to do with a node that fails after exhausting its retry policy."""
 
-    NONE = "none"          # leave the node failed, continue siblings
-    HALT = "halt"          # stop the run (state -> failed)
+    NONE = "none"  # leave the node failed, continue siblings
+    HALT = "halt"  # stop the run (state -> failed)
     COMPENSATE = "compensate"  # dispatch a compensating capability, then halt
 
 
@@ -169,8 +170,8 @@ class CampaignChannel(BaseModel):
 
     name: str = Field(min_length=1)
     kind: str = "social"  # social|email|sms|flyer|web|ads|review|partner|search
-    handle: str = ""      # @handle, page url, list name, ...
-    cadence: str = ""     # freeform cadence, e.g. "3/week", "biweekly"
+    handle: str = ""  # @handle, page url, list name, ...
+    cadence: str = ""  # freeform cadence, e.g. "3/week", "biweekly"
     enabled: bool = True
 
 

@@ -12,6 +12,7 @@ next action at a point in time. **Dispatch is DRY-RUN by default** — the engin
 plans messages; it does not send. Wiring ``plan_next`` to the live outreach send
 path + a scheduler is the operator's activation step.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -242,12 +243,54 @@ WELCOME_SEQUENCE = Sequence(
     id="welcome",
     kind="welcome",
     touches=[
-        Touch(1, 0, "email", "welcome_quick_win", subject="Welcome — one quick win", brief="What to expect + ONE immediate-value action. No pitch."),
-        Touch(2, 2, "email", "problem_education", subject="The hidden cost of {pain}", brief="Deepen the pain point + a surprising stat."),
-        Touch(3, 4, "email", "solution_intro", subject="How teams actually solve this", brief="Introduce the approach; show a result/clip. CTA: 2-min video / trial."),
-        Touch(4, 7, "email", "social_proof", subject="{customer} got {result}", brief="Customer story: Problem -> Tried -> Used -> Result. CTA: start trial."),
-        Touch(5, 10, "email", "objection", subject="\"But will it work for us?\"", brief="Address the #1 non-conversion reason. CTA: book a 15-min call."),
-        Touch(6, 14, "email", "last_touch", subject="Last note", brief="Urgency / trial ending. Two CTAs: upgrade AND book a call."),
+        Touch(
+            1,
+            0,
+            "email",
+            "welcome_quick_win",
+            subject="Welcome — one quick win",
+            brief="What to expect + ONE immediate-value action. No pitch.",
+        ),
+        Touch(
+            2,
+            2,
+            "email",
+            "problem_education",
+            subject="The hidden cost of {pain}",
+            brief="Deepen the pain point + a surprising stat.",
+        ),
+        Touch(
+            3,
+            4,
+            "email",
+            "solution_intro",
+            subject="How teams actually solve this",
+            brief="Introduce the approach; show a result/clip. CTA: 2-min video / trial.",
+        ),
+        Touch(
+            4,
+            7,
+            "email",
+            "social_proof",
+            subject="{customer} got {result}",
+            brief="Customer story: Problem -> Tried -> Used -> Result. CTA: start trial.",
+        ),
+        Touch(
+            5,
+            10,
+            "email",
+            "objection",
+            subject='"But will it work for us?"',
+            brief="Address the #1 non-conversion reason. CTA: book a 15-min call.",
+        ),
+        Touch(
+            6,
+            14,
+            "email",
+            "last_touch",
+            subject="Last note",
+            brief="Urgency / trial ending. Two CTAs: upgrade AND book a call.",
+        ),
     ],
     branches=[
         Branch("unsubscribed", "stop"),
@@ -263,9 +306,30 @@ ONBOARDING_SEQUENCE = Sequence(
     id="onboarding",
     kind="onboarding",
     touches=[
-        Touch(1, 0, "email", "onboard_welcome", subject="You're in — let's get your first result", brief="The single action that delivers first value."),
-        Touch(2, 1, "email", "onboard_nudge", subject="Your first result is one step away", brief="Nudge toward the aha moment; offer help."),
-        Touch(3, 2, "email", "onboard_aha_check", subject="Did you hit {first_value}?", brief="Confirm activation; if not, remove the blocker."),
+        Touch(
+            1,
+            0,
+            "email",
+            "onboard_welcome",
+            subject="You're in — let's get your first result",
+            brief="The single action that delivers first value.",
+        ),
+        Touch(
+            2,
+            1,
+            "email",
+            "onboard_nudge",
+            subject="Your first result is one step away",
+            brief="Nudge toward the aha moment; offer help.",
+        ),
+        Touch(
+            3,
+            2,
+            "email",
+            "onboard_aha_check",
+            subject="Did you hit {first_value}?",
+            brief="Confirm activation; if not, remove the blocker.",
+        ),
     ],
     branches=[
         Branch("unsubscribed", "stop"),
@@ -278,9 +342,30 @@ REENGAGEMENT_SEQUENCE = Sequence(
     id="reengagement",
     kind="reengagement",
     touches=[
-        Touch(1, 0, "email", "reengage_value", subject="Still wrestling with {pain}?", brief="Pure value, no ask — a useful resource."),
-        Touch(2, 3, "email", "reengage_proof", subject="What changed for {customer}", brief="A fresh proof point relevant to their segment."),
-        Touch(3, 7, "email", "reengage_breakup", subject="Should I close your file?", brief="Permission-to-close breakup email; easy re-opt-in."),
+        Touch(
+            1,
+            0,
+            "email",
+            "reengage_value",
+            subject="Still wrestling with {pain}?",
+            brief="Pure value, no ask — a useful resource.",
+        ),
+        Touch(
+            2,
+            3,
+            "email",
+            "reengage_proof",
+            subject="What changed for {customer}",
+            brief="A fresh proof point relevant to their segment.",
+        ),
+        Touch(
+            3,
+            7,
+            "email",
+            "reengage_breakup",
+            subject="Should I close your file?",
+            brief="Permission-to-close breakup email; easy re-opt-in.",
+        ),
     ],
     branches=[
         Branch("unsubscribed", "stop"),
@@ -297,9 +382,30 @@ BUYING_SIGNAL_SEQUENCE = Sequence(
     id="buying_signal",
     kind="buying_signal",
     touches=[
-        Touch(1, 0, "email", "buying_signal_recap", subject="Great talking — here's that link", brief="Warm recap of the call referencing the specific pain they named + the offer/checkout link. ONE clear CTA. No re-pitch — they already said yes-ish on the call."),
-        Touch(2, 1, "email", "buying_signal_nudge", subject="Anything I can clear up?", brief="Short nudge — offer to answer the one question holding them back. No pressure, single CTA back to the link."),
-        Touch(3, 3, "email", "buying_signal_hold", subject="Holding your spot", brief="Soft-urgency close — we kept your spot, last easy step. Permission-to-close tone. Single CTA."),
+        Touch(
+            1,
+            0,
+            "email",
+            "buying_signal_recap",
+            subject="Great talking — here's that link",
+            brief="Warm recap of the call referencing the specific pain they named + the offer/checkout link. ONE clear CTA. No re-pitch — they already said yes-ish on the call.",
+        ),
+        Touch(
+            2,
+            1,
+            "email",
+            "buying_signal_nudge",
+            subject="Anything I can clear up?",
+            brief="Short nudge — offer to answer the one question holding them back. No pressure, single CTA back to the link.",
+        ),
+        Touch(
+            3,
+            3,
+            "email",
+            "buying_signal_hold",
+            subject="Holding your spot",
+            brief="Soft-urgency close — we kept your spot, last easy step. Permission-to-close tone. Single CTA.",
+        ),
     ],
     branches=[
         Branch("unsubscribed", "stop"),
@@ -309,7 +415,8 @@ BUYING_SIGNAL_SEQUENCE = Sequence(
 )
 
 SEQUENCES: dict[str, Sequence] = {
-    s.id: s for s in (
+    s.id: s
+    for s in (
         WELCOME_SEQUENCE,
         ONBOARDING_SEQUENCE,
         REENGAGEMENT_SEQUENCE,

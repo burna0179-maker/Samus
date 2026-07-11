@@ -1,4 +1,5 @@
 """Tests for backend.common.quorum_publisher — shape conversion + fail-open."""
+
 from __future__ import annotations
 
 import datetime as _dt
@@ -52,6 +53,7 @@ def _sample_finding(verdict: str = "BLOCK") -> dict:
 # publish_efh_veto
 # ---------------------------------------------------------------------------
 
+
 def test_publish_efh_veto_maps_to_governance_publish(fake_client):
     veto = _sample_veto()
     assert qp.publish_efh_veto(veto) is True
@@ -80,6 +82,7 @@ def test_publish_efh_veto_fails_open_on_client_exception(fake_client):
 # ---------------------------------------------------------------------------
 # publish_pdc_finding
 # ---------------------------------------------------------------------------
+
 
 def test_publish_pdc_finding_skips_pass(fake_client):
     assert qp.publish_pdc_finding(_sample_finding("PASS")) is False
@@ -116,8 +119,7 @@ def test_publish_pdc_finding_publishes_escalate(fake_client):
     assert qp.publish_pdc_finding(finding) is True
     args = fake_client.publish.call_args.kwargs
     assert args["risk_score"] == 0.7
-    assert any(v["voter"] == "adversarial_actor" and v["vote"] == "ESCALATE"
-               for v in args["votes"])
+    assert any(v["voter"] == "adversarial_actor" and v["vote"] == "ESCALATE" for v in args["votes"])
 
 
 def test_publish_pdc_finding_internal_adversarial_votes_block(fake_client):
@@ -129,8 +131,7 @@ def test_publish_pdc_finding_internal_adversarial_votes_block(fake_client):
     }
     assert qp.publish_pdc_finding(finding) is True
     args = fake_client.publish.call_args.kwargs
-    assert any(v["voter"] == "adversarial_actor" and v["vote"] == "BLOCK"
-               for v in args["votes"])
+    assert any(v["voter"] == "adversarial_actor" and v["vote"] == "BLOCK" for v in args["votes"])
 
 
 def test_publish_pdc_finding_accepts_dataclass_with_to_dict(fake_client):

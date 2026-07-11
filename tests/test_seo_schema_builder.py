@@ -1,4 +1,5 @@
 """Tests for backend.seo.schema_builder — JSON-LD generation (pure)."""
+
 from __future__ import annotations
 
 import json
@@ -24,7 +25,13 @@ def test_faq_page_shape_and_drops_empty():
 
 def test_article_truncates_headline_and_cleans():
     long_headline = "A" * 200
-    schema = sb.article(headline=long_headline, description="d", url="https://e.com/p", author="Acme", image="https://e.com/i.png")
+    schema = sb.article(
+        headline=long_headline,
+        description="d",
+        url="https://e.com/p",
+        author="Acme",
+        image="https://e.com/i.png",
+    )
     assert len(schema["headline"]) <= 110
     assert schema["@type"] == "Article"
     assert schema["mainEntityOfPage"]["@id"] == "https://e.com/p"
@@ -69,7 +76,9 @@ def test_how_to_positions_steps():
 
 
 def test_breadcrumb_positions():
-    schema = sb.breadcrumb([{"name": "Home", "url": "https://e.com"}, {"name": "Blog", "url": "https://e.com/blog"}])
+    schema = sb.breadcrumb(
+        [{"name": "Home", "url": "https://e.com"}, {"name": "Blog", "url": "https://e.com/blog"}]
+    )
     assert schema["itemListElement"][1]["position"] == 2
     assert schema["itemListElement"][0]["name"] == "Home"
 

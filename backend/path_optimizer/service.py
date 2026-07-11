@@ -5,6 +5,7 @@ budget store, computes ``error_spike_detected`` from the supplied outcome
 history, runs the deterministic :class:`PathOptimizer`, persists the decision
 to ``samus_task_state``, and returns the structured result.
 """
+
 from __future__ import annotations
 
 import logging

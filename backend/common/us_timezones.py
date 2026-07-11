@@ -17,6 +17,7 @@ A state code that isn't in the map (territories, blanks, typos) falls back
 to America/Los_Angeles — the operator's tz. Conservative direction since
 PT 8am-9pm is inside the legal window everywhere else in the US.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -50,42 +51,67 @@ _OPERATOR_TZ_NAME: Final[str] = "America/Los_Angeles"
 # to operator-PT.
 _STATE_TO_TZ: Final[dict[str, str]] = {
     # Eastern
-    "CT": "America/New_York", "DE": "America/New_York",
-    "DC": "America/New_York", "FL": "America/New_York",
-    "GA": "America/New_York", "IN": "America/New_York",
-    "ME": "America/New_York", "MD": "America/New_York",
-    "MA": "America/New_York", "MI": "America/New_York",
-    "NH": "America/New_York", "NJ": "America/New_York",
-    "NY": "America/New_York", "NC": "America/New_York",
-    "OH": "America/New_York", "PA": "America/New_York",
-    "RI": "America/New_York", "SC": "America/New_York",
-    "VT": "America/New_York", "VA": "America/New_York",
+    "CT": "America/New_York",
+    "DE": "America/New_York",
+    "DC": "America/New_York",
+    "FL": "America/New_York",
+    "GA": "America/New_York",
+    "IN": "America/New_York",
+    "ME": "America/New_York",
+    "MD": "America/New_York",
+    "MA": "America/New_York",
+    "MI": "America/New_York",
+    "NH": "America/New_York",
+    "NJ": "America/New_York",
+    "NY": "America/New_York",
+    "NC": "America/New_York",
+    "OH": "America/New_York",
+    "PA": "America/New_York",
+    "RI": "America/New_York",
+    "SC": "America/New_York",
+    "VT": "America/New_York",
+    "VA": "America/New_York",
     "WV": "America/New_York",
     # Central
-    "AL": "America/Chicago",  "AR": "America/Chicago",
-    "IL": "America/Chicago",  "IA": "America/Chicago",
-    "KS": "America/Chicago",  "KY": "America/Chicago",
-    "LA": "America/Chicago",  "MN": "America/Chicago",
-    "MS": "America/Chicago",  "MO": "America/Chicago",
-    "NE": "America/Chicago",  "ND": "America/Chicago",
-    "OK": "America/Chicago",  "SD": "America/Chicago",
-    "TN": "America/Chicago",  "TX": "America/Chicago",
+    "AL": "America/Chicago",
+    "AR": "America/Chicago",
+    "IL": "America/Chicago",
+    "IA": "America/Chicago",
+    "KS": "America/Chicago",
+    "KY": "America/Chicago",
+    "LA": "America/Chicago",
+    "MN": "America/Chicago",
+    "MS": "America/Chicago",
+    "MO": "America/Chicago",
+    "NE": "America/Chicago",
+    "ND": "America/Chicago",
+    "OK": "America/Chicago",
+    "SD": "America/Chicago",
+    "TN": "America/Chicago",
+    "TX": "America/Chicago",
     "WI": "America/Chicago",
     # Mountain (Arizona is no-DST so it's a quirk — most of the year same as PT)
-    "AZ": "America/Phoenix",  "CO": "America/Denver",
-    "ID": "America/Denver",   "MT": "America/Denver",
-    "NM": "America/Denver",   "UT": "America/Denver",
+    "AZ": "America/Phoenix",
+    "CO": "America/Denver",
+    "ID": "America/Denver",
+    "MT": "America/Denver",
+    "NM": "America/Denver",
+    "UT": "America/Denver",
     "WY": "America/Denver",
     # Pacific
-    "CA": "America/Los_Angeles", "NV": "America/Los_Angeles",
-    "OR": "America/Los_Angeles", "WA": "America/Los_Angeles",
+    "CA": "America/Los_Angeles",
+    "NV": "America/Los_Angeles",
+    "OR": "America/Los_Angeles",
+    "WA": "America/Los_Angeles",
     # Alaska
     "AK": "America/Anchorage",
     # Hawaii (no DST)
     "HI": "Pacific/Honolulu",
     # Territories
-    "PR": "America/Puerto_Rico", "VI": "America/St_Thomas",
-    "GU": "Pacific/Guam",        "MP": "Pacific/Saipan",
+    "PR": "America/Puerto_Rico",
+    "VI": "America/St_Thomas",
+    "GU": "Pacific/Guam",
+    "MP": "Pacific/Saipan",
     "AS": "Pacific/Pago_Pago",
 }
 

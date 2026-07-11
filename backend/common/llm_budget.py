@@ -54,6 +54,7 @@ Backwards-compat: both new fields default to ``0`` / ``""`` when loaded from
 a DDB row written by the pre-hardening code, so the rollout doesn't require
 a backfill migration.
 """
+
 from __future__ import annotations
 
 import calendar
@@ -62,7 +63,7 @@ import logging
 import os
 import threading
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from decimal import Decimal
 from typing import Any, Callable
 
@@ -79,9 +80,14 @@ _GLOBAL_CONTROLS = "__global_controls__"
 # Workcells whose LLM paths keep working through a freeze_nonessential()
 # window — revenue-critical / operator-facing surfaces. Everything else is
 # "nonessential" for the purposes of the entropy countermeasure.
-ESSENTIAL_WORKCELLS: frozenset[str] = frozenset({
-    "finance", "gateway", "cash_engine", "crm",
-})
+ESSENTIAL_WORKCELLS: frozenset[str] = frozenset(
+    {
+        "finance",
+        "gateway",
+        "cash_engine",
+        "crm",
+    }
+)
 
 # HOTL enforcement clamps: a quota override may not push a workcell below
 # 0.25x or above 2.0x of its base daily quota (matches the adaptive ceiling).
@@ -90,21 +96,26 @@ QUOTA_OVERRIDE_MAX_FACTOR = 2.0
 QUOTA_OVERRIDE_MAX_TTL_SEC = 24 * 3600
 
 
-def _publish_call_counters(workcell: str, input_tokens: int,
-                           output_tokens: int, outcome: str) -> None:
+def _publish_call_counters(
+    workcell: str, input_tokens: int, output_tokens: int, outcome: str
+) -> None:
     """Increment cumulative Prometheus counters by this call's deltas."""
     try:
         from . import metrics as _metrics
+
         if input_tokens:
             _metrics.SAMUS_LLM_TOKENS_TOTAL.labels(
-                workcell=workcell, kind="input",
+                workcell=workcell,
+                kind="input",
             ).inc(input_tokens)
         if output_tokens:
             _metrics.SAMUS_LLM_TOKENS_TOTAL.labels(
-                workcell=workcell, kind="output",
+                workcell=workcell,
+                kind="output",
             ).inc(output_tokens)
         _metrics.SAMUS_LLM_CALLS_TOTAL.labels(
-            workcell=workcell, outcome=outcome,
+            workcell=workcell,
+            outcome=outcome,
         ).inc()
     except Exception as exc:  # noqa: BLE001
         _LOG.debug("llm_budget call-counter publish skipped: %s", exc)
@@ -114,6 +125,7 @@ def _publish_circuit_trip(workcell: str) -> None:
     """Increment the circuit-breaker trip counter (Control C)."""
     try:
         from . import metrics as _metrics
+
         _metrics.SAMUS_LLM_CIRCUIT_TRIPS_TOTAL.labels(workcell=workcell).inc()
     except Exception as exc:  # noqa: BLE001
         _LOG.debug("llm_budget circuit-trip publish skipped: %s", exc)
@@ -126,6 +138,7 @@ def _publish_metrics(workcell: str, b: "WorkcellBudget", store: "LlmBudgetStore"
     """
     try:
         from . import metrics as _metrics
+
         quota = compute_quota(
             store.base_token_budget,
             efficiency_ema=b.efficiency_ema,
@@ -143,31 +156,32 @@ def _publish_metrics(workcell: str, b: "WorkcellBudget", store: "LlmBudgetStore"
 # Dataclasses
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class WorkcellBudget:
     """In-memory shape of one workcell's row. Mirrors the DDB schema."""
 
     workcell: str
-    bucket_day: str = ""                  # YYYY-MM-DD; reset trigger
+    bucket_day: str = ""  # YYYY-MM-DD; reset trigger
     input_tokens_today: int = 0
     output_tokens_today: int = 0
-    total_tokens_today: int = 0           # = input + output (denormalized)
+    total_tokens_today: int = 0  # = input + output (denormalized)
     call_count_today: int = 0
     success_count_today: int = 0
     failure_count_today: int = 0
-    error_count_today: int = 0            # LLM errors (network, 5xx, parse)
-    efficiency_ema: float = 1.0           # 0.0 - 1.0; init to 1.0 (benefit of doubt)
-    efficiency_call_count: int = 0        # non-error calls (for stat-significance gate)
+    error_count_today: int = 0  # LLM errors (network, 5xx, parse)
+    efficiency_ema: float = 1.0  # 0.0 - 1.0; init to 1.0 (benefit of doubt)
+    efficiency_call_count: int = 0  # non-error calls (for stat-significance gate)
     # Control C: circuit-breaker fields (token-cost-hardening 2026-05-18).
     # Default to zero / empty so older DDB rows load without migration.
     consecutive_errors: int = 0
-    circuit_open_until: str = ""          # ISO8601 UTC; empty when closed
+    circuit_open_until: str = ""  # ISO8601 UTC; empty when closed
     # HOTL Tranche 1 enforcement fields (default 0/"" — no migration needed):
     # a TTL-bounded operator/controller quota override, and — on the
     # ``_GLOBAL_CONTROLS`` sentinel row only — the freeze-nonessential window.
-    quota_override: int = 0               # 0 = no override in effect
-    quota_override_expires_at: str = ""   # ISO8601 UTC; empty = no override
-    freeze_nonessential_until: str = ""   # ISO8601 UTC; sentinel row only
+    quota_override: int = 0  # 0 = no override in effect
+    quota_override_expires_at: str = ""  # ISO8601 UTC; empty = no override
+    freeze_nonessential_until: str = ""  # ISO8601 UTC; sentinel row only
     last_updated: str = ""
 
     def to_item(self) -> dict[str, Any]:
@@ -183,15 +197,24 @@ class WorkcellBudget:
         """
         kwargs: dict[str, Any] = {"workcell": str(item["workcell"])}
         for f in (
-            "bucket_day", "last_updated", "circuit_open_until",
-            "quota_override_expires_at", "freeze_nonessential_until",
+            "bucket_day",
+            "last_updated",
+            "circuit_open_until",
+            "quota_override_expires_at",
+            "freeze_nonessential_until",
         ):
             kwargs[f] = str(item.get(f, "") or "")
         for f in (
-            "input_tokens_today", "output_tokens_today", "total_tokens_today",
-            "call_count_today", "success_count_today", "failure_count_today",
-            "error_count_today", "efficiency_call_count",
-            "consecutive_errors", "quota_override",
+            "input_tokens_today",
+            "output_tokens_today",
+            "total_tokens_today",
+            "call_count_today",
+            "success_count_today",
+            "failure_count_today",
+            "error_count_today",
+            "efficiency_call_count",
+            "consecutive_errors",
+            "quota_override",
         ):
             kwargs[f] = int(item.get(f, 0) or 0)
         ema = item.get("efficiency_ema", 1.0)
@@ -213,6 +236,7 @@ class QuotaDecision:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _today_utc(now_func: Callable[[], float] | None = None) -> str:
     t = (now_func or time.time)()
@@ -236,7 +260,9 @@ def _iso_to_epoch(value: str) -> float:
         return 0.0
 
 
-def _reset_if_new_day(b: WorkcellBudget, now_func: Callable[[], float] | None = None) -> WorkcellBudget:
+def _reset_if_new_day(
+    b: WorkcellBudget, now_func: Callable[[], float] | None = None
+) -> WorkcellBudget:
     """Zero today's counters when bucket_day rolls over. EMA + call_count preserved.
 
     Circuit-breaker state intentionally survives the rollover — a workcell
@@ -283,6 +309,7 @@ def compute_quota(
 # ---------------------------------------------------------------------------
 # Storage backends
 # ---------------------------------------------------------------------------
+
 
 class _JsonBackend:
     """Local JSON-file backend. Process-local lock; safe across threads.
@@ -354,6 +381,7 @@ class _DdbBackend:
 
     def _table(self) -> Any:
         from . import aws  # local import so the JSON backend works without boto3
+
         return aws.table(self.table_name, self.region)
 
     def load(self, workcell: str) -> WorkcellBudget | None:
@@ -383,6 +411,7 @@ class _DdbBackend:
 # ---------------------------------------------------------------------------
 # Store (public API)
 # ---------------------------------------------------------------------------
+
 
 class LlmBudgetStore:
     """Public facade. Selects backend, applies daily reset, runs quota math.
@@ -479,8 +508,10 @@ class LlmBudgetStore:
         except Exception as exc:  # noqa: BLE001 - never block on store failure
             _LOG.warning("llm_budget load failed (%s); allowing call", exc)
             return QuotaDecision(
-                allowed=True, quota=self.base_token_budget,
-                used=0, requested=int(est_tokens),
+                allowed=True,
+                quota=self.base_token_budget,
+                used=0,
+                requested=int(est_tokens),
                 reason=f"store_unavailable: {exc}",
             )
 
@@ -525,11 +556,17 @@ class LlmBudgetStore:
         requested = max(0, int(est_tokens))
         if used + requested > quota:
             return QuotaDecision(
-                allowed=False, quota=quota, used=used, requested=requested,
+                allowed=False,
+                quota=quota,
+                used=used,
+                requested=requested,
                 reason=f"budget_exceeded: used={used} + req={requested} > quota={quota}",
             )
         return QuotaDecision(
-            allowed=True, quota=quota, used=used, requested=requested,
+            allowed=True,
+            quota=quota,
+            used=used,
+            requested=requested,
         )
 
     def record_spend(
@@ -595,9 +632,7 @@ class LlmBudgetStore:
                 b.circuit_open_until = _iso_at(open_until)
                 tripped = True
         else:
-            raise ValueError(
-                f"outcome must be one of {{success, failure, error}}, got {outcome!r}"
-            )
+            raise ValueError(f"outcome must be one of {{success, failure, error}}, got {outcome!r}")
 
         self._save(b)
         _publish_metrics(workcell, b, self)
@@ -606,7 +641,9 @@ class LlmBudgetStore:
             _LOG.warning(
                 "llm circuit breaker tripped for workcell=%s "
                 "(consecutive_errors=%s, cooldown_until=%s)",
-                workcell, b.consecutive_errors, b.circuit_open_until,
+                workcell,
+                b.consecutive_errors,
+                b.circuit_open_until,
             )
         return b
 
@@ -632,7 +669,10 @@ class LlmBudgetStore:
         return max(lo, min(hi, int(quota)))
 
     def set_quota_override(
-        self, workcell: str, quota: int, ttl_seconds: float,
+        self,
+        workcell: str,
+        quota: int,
+        ttl_seconds: float,
     ) -> WorkcellBudget:
         """Apply a TTL-bounded daily-quota override for ``workcell``.
 
@@ -702,6 +742,7 @@ def get_store() -> LlmBudgetStore:
         if _STORE is not None:
             return _STORE
         from .config import get_settings
+
         s = get_settings()
         _STORE = LlmBudgetStore(
             base_token_budget=s.llm_workcell_base_token_budget,

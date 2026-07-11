@@ -5,6 +5,7 @@ test_gateway_admin_tasks proxy-test pattern: the outbound httpx call is
 mocked, and we confirm the proxy returns the raw funnel shape and degrades
 to a structured error body on a transport failure.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -20,8 +21,7 @@ _pending_reason = ""
 try:
     from backend.common import dlq, governance, autonomy  # noqa: F401
 
-    if not (hasattr(governance, "classify_risk")
-            and hasattr(governance, "approval_decision")):
+    if not (hasattr(governance, "classify_risk") and hasattr(governance, "approval_decision")):
         _phase_a_pending = True
         _pending_reason = "governance interface incomplete"
     if not hasattr(autonomy, "run_cycle"):
@@ -47,10 +47,12 @@ def client(monkeypatch):
     # the test inspects matches production.
     monkeypatch.setenv("SAMUS_SERVICE", "gateway")
     from backend.common.settings import reload_settings
+
     reload_settings()
 
     from fastapi.testclient import TestClient
     from backend.gateway.app import create_app
+
     return TestClient(create_app())
 
 
@@ -88,13 +90,24 @@ def _canned(status_code: int, payload: Any) -> httpx.Response:
 
 
 _FUNNEL_BODY = {
-    "stages": {"lead": 10, "prospect": 6, "opportunity": 3,
-               "proposal": 2, "closed_won": 1, "closed_lost": 1},
-    "stage_order": ["lead", "prospect", "opportunity",
-                    "proposal", "closed_won", "closed_lost"],
+    "stages": {
+        "lead": 10,
+        "prospect": 6,
+        "opportunity": 3,
+        "proposal": 2,
+        "closed_won": 1,
+        "closed_lost": 1,
+    },
+    "stage_order": ["lead", "prospect", "opportunity", "proposal", "closed_won", "closed_lost"],
     "transitions": [
-        {"from": "lead", "to": "prospect", "from_count": 10,
-         "to_count": 6, "conversion_rate": 0.6, "leaked": 4},
+        {
+            "from": "lead",
+            "to": "prospect",
+            "from_count": 10,
+            "to_count": 6,
+            "conversion_rate": 0.6,
+            "leaked": 4,
+        },
     ],
     "overall_conversion_rate": 0.1,
     "total_events": 23,
@@ -119,9 +132,11 @@ def test_admin_conversion_funnel_503_when_crm_url_unset(monkeypatch):
     monkeypatch.delenv("CRM_URL", raising=False)
     monkeypatch.setenv("SAMUS_GATEWAY_URLS", "")
     from backend.common.settings import reload_settings
+
     reload_settings()
     from fastapi.testclient import TestClient
     from backend.gateway.app import create_app
+
     c = TestClient(create_app())
     resp = c.get("/admin/conversion_funnel")
     assert resp.status_code == 503
@@ -165,7 +180,12 @@ def test_admin_conversion_funnel_proxy_signs_call(client, monkeypatch):
     resp = client.get("/admin/conversion_funnel")
     assert resp.status_code == 200
     headers = last["headers"]
-    for key in ("X-Samus-Timestamp", "X-Samus-Nonce", "X-Samus-Signature",
-                "X-Samus-Caller", "X-Samus-Trace-Id"):
+    for key in (
+        "X-Samus-Timestamp",
+        "X-Samus-Nonce",
+        "X-Samus-Signature",
+        "X-Samus-Caller",
+        "X-Samus-Trace-Id",
+    ):
         assert key in headers, f"missing {key} in {sorted(headers)}"
     assert headers["X-Samus-Caller"] == "gateway"

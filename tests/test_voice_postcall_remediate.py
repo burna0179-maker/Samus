@@ -11,6 +11,7 @@ These tests exercise the loop directly through the SYNCHRONOUS webhook path
 (SAMUS_VOICE_WEBHOOK_FAST_ACK=0) so the assertions run before the loop closes,
 and mock the two seams so nothing touches the network / SES / Neo4j.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -21,6 +22,7 @@ import pytest
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
 # ---------------------------------------------------------------------------
+
 
 def _settings(*, postcall_enabled: bool):
     class _S:
@@ -34,42 +36,46 @@ def _settings(*, postcall_enabled: bool):
     s.outreach_buying_signal_intent_threshold = 70
     # Fields the rest of _process_outbound_end_of_call touches.
     s.vapi_api_key = "vapi_x"
-    s.shared_hmac_key = ""          # -> memory/crm dispatch cleanly skipped
+    s.shared_hmac_key = ""  # -> memory/crm dispatch cleanly skipped
     s.gateway_urls = {}
     s.vapi_inbound_assistant_id = ""
     s.vapi_inbound_phone_number_id = ""
     return s
 
 
-def _event(*, action="book_call", tier="high", intent=82,
-           contact="owner@acme.example"):
+def _event(*, action="book_call", tier="high", intent=82, contact="owner@acme.example"):
     from backend.voice.models import VapiWebhookEvent
-    return VapiWebhookEvent.model_validate({
-        "message": {
-            "type": "end-of-call-report",
-            "call": {
-                "id": "call_pcr_1",
-                "status": "ended",
-                "metadata": {
-                    "prospect_id": "p_pcr_1",
-                    "prospect_phone": "+15305551212",
-                    "owner_email": "meta-owner@acme.example",
-                    "owner_name": "Pat Owner",
-                    "website_url": "https://acme.example",
-                    "company_name": "Acme LLC",
+
+    return VapiWebhookEvent.model_validate(
+        {
+            "message": {
+                "type": "end-of-call-report",
+                "call": {
+                    "id": "call_pcr_1",
+                    "status": "ended",
+                    "metadata": {
+                        "prospect_id": "p_pcr_1",
+                        "prospect_phone": "+15305551212",
+                        "owner_email": "meta-owner@acme.example",
+                        "owner_name": "Pat Owner",
+                        "website_url": "https://acme.example",
+                        "company_name": "Acme LLC",
+                    },
                 },
-            },
-            "endedReason": "customer-ended-call",
-            "summary": "they liked the pitch",
-            "structuredData": {"lead_summary": {
-                "company": "Acme LLC",
-                "intent_score": intent,
-                "tier": tier,
-                "recommended_action": action,
-                "contact_offered": contact,
-            }},
+                "endedReason": "customer-ended-call",
+                "summary": "they liked the pitch",
+                "structuredData": {
+                    "lead_summary": {
+                        "company": "Acme LLC",
+                        "intent_score": intent,
+                        "tier": tier,
+                        "recommended_action": action,
+                        "contact_offered": contact,
+                    }
+                },
+            }
         }
-    })
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -95,8 +101,7 @@ def _wire(monkeypatch, settings, *, deliver=None, enroll=None):
     monkeypatch.setattr(svc, "get_settings", lambda: settings)
     # Neutralise unrelated best-effort side effects.
     monkeypatch.setattr(svc, "index_outbound_call", lambda **k: None)
-    monkeypatch.setattr(svc, "submit_product_page",
-                        lambda **k: {"status": "skipped_existing_sku"})
+    monkeypatch.setattr(svc, "submit_product_page", lambda **k: {"status": "skipped_existing_sku"})
 
     deliver_calls: list[dict] = []
     enroll_calls: list[dict] = []
@@ -107,9 +112,7 @@ def _wire(monkeypatch, settings, *, deliver=None, enroll=None):
             return deliver(**kw)
         return {"ok": True}
 
-    route_enabled = bool(
-        getattr(settings, "outreach_buying_signal_route_enabled", False)
-    )
+    route_enabled = bool(getattr(settings, "outreach_buying_signal_route_enabled", False))
 
     def _enroll(**kw):
         # Mirror the real gate: the pre-existing route block (no override) is a
@@ -124,6 +127,7 @@ def _wire(monkeypatch, settings, *, deliver=None, enroll=None):
 
     import backend.fulfill as fulfill_mod
     import backend.outreach.buying_signal_route as bsr_mod
+
     monkeypatch.setattr(fulfill_mod, "fulfill_customer", _deliver)
     monkeypatch.setattr(bsr_mod, "maybe_enroll_buying_signal", _enroll)
     return deliver_calls, enroll_calls
@@ -131,12 +135,14 @@ def _wire(monkeypatch, settings, *, deliver=None, enroll=None):
 
 def _run(event):
     import backend.voice.service as svc
+
     return asyncio.run(svc.handle_webhook_event(event))
 
 
 # ---------------------------------------------------------------------------
 # (1) Flag OFF => unchanged: no delivery / enroll call made.
 # ---------------------------------------------------------------------------
+
 
 def test_flag_off_makes_no_delivery_or_enroll(monkeypatch):
     settings = _settings(postcall_enabled=False)
@@ -151,6 +157,7 @@ def test_flag_off_makes_no_delivery_or_enroll(monkeypatch):
 # ---------------------------------------------------------------------------
 # (2) Flag ON + interested outcome => delivery + enroll each invoked once.
 # ---------------------------------------------------------------------------
+
 
 def test_flag_on_interested_invokes_delivery_and_enroll_once(monkeypatch):
     settings = _settings(postcall_enabled=True)
@@ -183,6 +190,7 @@ def test_email_falls_back_to_metadata_owner_email(monkeypatch):
 # (3) Flag ON + non-interested outcome => neither invoked.
 # ---------------------------------------------------------------------------
 
+
 def test_flag_on_disqualify_invokes_neither(monkeypatch):
     settings = _settings(postcall_enabled=True)
     deliver_calls, enroll_calls = _wire(monkeypatch, settings)
@@ -208,6 +216,7 @@ def test_flag_on_low_intent_follow_up_invokes_neither(monkeypatch):
 # ---------------------------------------------------------------------------
 # (4) A raised exception in delivery / enroll does NOT propagate.
 # ---------------------------------------------------------------------------
+
 
 def test_delivery_exception_does_not_break_webhook(monkeypatch):
     settings = _settings(postcall_enabled=True)
@@ -243,6 +252,7 @@ def test_enroll_exception_does_not_break_webhook(monkeypatch):
 # ---------------------------------------------------------------------------
 # Guardrail: the loop never calls anything that initiates a dial.
 # ---------------------------------------------------------------------------
+
 
 def test_loop_never_initiates_a_dial(monkeypatch):
     settings = _settings(postcall_enabled=True)

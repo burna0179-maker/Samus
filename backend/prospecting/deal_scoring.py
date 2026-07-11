@@ -17,6 +17,7 @@ Tiers (score thresholds):
   nurture >= 0.35
   cold   <  0.35
 """
+
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
@@ -113,7 +114,9 @@ def classify_deal(score: float) -> str:
     return "cold"
 
 
-def score_deal(intel: Dict[str, Any], engagement: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def score_deal(
+    intel: Dict[str, Any], engagement: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
     opportunity = intel.get("opportunity_scores", {})
     signals = intel.get("signals", {})
     base = compute_base_score(opportunity)

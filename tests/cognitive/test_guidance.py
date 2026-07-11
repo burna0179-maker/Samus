@@ -14,6 +14,7 @@ Covers:
 Isolation: the JSONL ledger is redirected under tmp_path via SAMUS_STATE_ROOT.
 No network, no LLM, no Firestore.
 """
+
 from __future__ import annotations
 
 import json
@@ -97,9 +98,9 @@ def test_level_coerce():
         ("high", "low", GuidanceTier.CRITICAL.value),
         ("high", "high", GuidanceTier.CRITICAL.value),
         ("medium", "low", GuidanceTier.HIGH_VALUE.value),
-        ("medium", "high", GuidanceTier.CRITICAL.value),   # high risk escalates
+        ("medium", "high", GuidanceTier.CRITICAL.value),  # high risk escalates
         ("low", "low", GuidanceTier.INFORMATIONAL.value),
-        ("low", "high", GuidanceTier.HIGH_VALUE.value),    # high risk escalates
+        ("low", "high", GuidanceTier.HIGH_VALUE.value),  # high risk escalates
     ],
 )
 def test_tier_derivation(impact, risk, expected_tier):
@@ -108,9 +109,9 @@ def test_tier_derivation(impact, risk, expected_tier):
 
 def test_acceptance_hint():
     assert _acceptance_hint("high", "low") == "accept"
-    assert _acceptance_hint("low", "low") == "reject"      # infeasible
+    assert _acceptance_hint("low", "low") == "reject"  # infeasible
     assert _acceptance_hint("medium", "high") == "review"  # risky, not surely feasible
-    assert _acceptance_hint("high", "high") == "accept"    # high feasibility overrides
+    assert _acceptance_hint("high", "high") == "accept"  # high feasibility overrides
 
 
 # ---------------------------------------------------------------------------
@@ -193,7 +194,7 @@ def test_ingest_structured(ledger):
 
     rev = records[0]
     assert rev.category == GuidanceCategory.REVENUE.value
-    assert rev.tier == GuidanceTier.CRITICAL.value           # high impact
+    assert rev.tier == GuidanceTier.CRITICAL.value  # high impact
     assert rev.owner == "outreach"
     assert rev.acceptance_hint == "accept"
     assert rev.action_plan == ["pull list", "generate audits", "send batch"]
@@ -207,22 +208,36 @@ def test_ingest_structured(ledger):
 
 
 def test_ingest_owner_pipe_delimited_takes_first(ledger):
-    payload = {"recommendations": [
-        {"category": "revenue_acceleration", "recommendation": "bundle SEO + proposal",
-         "suggested_owner": "seo|outreach|strategy",
-         "feasibility": "high", "expected_impact": "high", "risk_level": "low"},
-    ]}
+    payload = {
+        "recommendations": [
+            {
+                "category": "revenue_acceleration",
+                "recommendation": "bundle SEO + proposal",
+                "suggested_owner": "seo|outreach|strategy",
+                "feasibility": "high",
+                "expected_impact": "high",
+                "risk_level": "low",
+            },
+        ]
+    }
     [rec] = ingest_guidance("b", payload, ledger=ledger)
-    assert rec.owner == "seo"   # first concrete workcell, not the pipe list
+    assert rec.owner == "seo"  # first concrete workcell, not the pipe list
 
 
 def test_ingest_default_owner_routing(ledger):
-    payload = {"recommendations": [
-        {"category": "autonomy_advancement", "recommendation": "gate autonomy on accuracy",
-         "feasibility": "medium", "expected_impact": "medium", "risk_level": "medium"},
-    ]}
+    payload = {
+        "recommendations": [
+            {
+                "category": "autonomy_advancement",
+                "recommendation": "gate autonomy on accuracy",
+                "feasibility": "medium",
+                "expected_impact": "medium",
+                "risk_level": "medium",
+            },
+        ]
+    }
     [rec] = ingest_guidance("b", payload, ledger=ledger)
-    assert rec.owner == "cognition"   # default routing for autonomy
+    assert rec.owner == "cognition"  # default routing for autonomy
 
 
 def test_ingest_skips_empty_recommendation(ledger):
@@ -242,10 +257,20 @@ def test_ingest_malformed_never_raises(ledger):
 # Ledger — latest-wins + status lifecycle
 # ---------------------------------------------------------------------------
 def test_latest_wins_after_transition(ledger):
-    [rec] = ingest_guidance("b", {"recommendations": [
-        {"recommendation": "do the thing", "feasibility": "high",
-         "expected_impact": "high", "risk_level": "low"}
-    ]}, ledger=ledger)
+    [rec] = ingest_guidance(
+        "b",
+        {
+            "recommendations": [
+                {
+                    "recommendation": "do the thing",
+                    "feasibility": "high",
+                    "expected_impact": "high",
+                    "risk_level": "low",
+                }
+            ]
+        },
+        ledger=ledger,
+    )
     rid = rec.recommendation_id
 
     ledger.accept(rid)
@@ -259,10 +284,26 @@ def test_latest_wins_after_transition(ledger):
 
 
 def test_reject_and_open_items(ledger):
-    records = ingest_guidance("b", {"recommendations": [
-        {"recommendation": "good", "feasibility": "high", "expected_impact": "high", "risk_level": "low"},
-        {"recommendation": "bad", "feasibility": "low", "expected_impact": "low", "risk_level": "high"},
-    ]}, ledger=ledger)
+    records = ingest_guidance(
+        "b",
+        {
+            "recommendations": [
+                {
+                    "recommendation": "good",
+                    "feasibility": "high",
+                    "expected_impact": "high",
+                    "risk_level": "low",
+                },
+                {
+                    "recommendation": "bad",
+                    "feasibility": "low",
+                    "expected_impact": "low",
+                    "risk_level": "high",
+                },
+            ]
+        },
+        ledger=ledger,
+    )
     ledger.reject(records[1].recommendation_id, reason="infeasible")
 
     open_items = ledger.open_items()
@@ -275,10 +316,20 @@ def test_reject_and_open_items(ledger):
 
 
 def test_record_outcome_effectiveness(ledger):
-    [rec] = ingest_guidance("b", {"recommendations": [
-        {"recommendation": "send emails", "feasibility": "high",
-         "expected_impact": "high", "risk_level": "low"}
-    ]}, ledger=ledger)
+    [rec] = ingest_guidance(
+        "b",
+        {
+            "recommendations": [
+                {
+                    "recommendation": "send emails",
+                    "feasibility": "high",
+                    "expected_impact": "high",
+                    "risk_level": "low",
+                }
+            ]
+        },
+        ledger=ledger,
+    )
     rid = rec.recommendation_id
     ledger.accept(rid)
     ledger.start(rid)
@@ -298,15 +349,37 @@ def test_record_outcome_effectiveness(ledger):
 
 
 def test_success_score_clamped(ledger):
-    [rec] = ingest_guidance("b", {"recommendations": [
-        {"recommendation": "x", "feasibility": "high", "expected_impact": "high", "risk_level": "low"}
-    ]}, ledger=ledger)
+    [rec] = ingest_guidance(
+        "b",
+        {
+            "recommendations": [
+                {
+                    "recommendation": "x",
+                    "feasibility": "high",
+                    "expected_impact": "high",
+                    "risk_level": "low",
+                }
+            ]
+        },
+        ledger=ledger,
+    )
     out = ledger.record_outcome(rec.recommendation_id, outcome="done", success_score=5.0)
     assert out.success_score == 1.0
     # and a negative clamps to 0
-    [rec2] = ingest_guidance("b2", {"recommendations": [
-        {"recommendation": "y", "feasibility": "high", "expected_impact": "high", "risk_level": "low"}
-    ]}, ledger=ledger)
+    [rec2] = ingest_guidance(
+        "b2",
+        {
+            "recommendations": [
+                {
+                    "recommendation": "y",
+                    "feasibility": "high",
+                    "expected_impact": "high",
+                    "risk_level": "low",
+                }
+            ]
+        },
+        ledger=ledger,
+    )
     out2 = ledger.record_outcome(rec2.recommendation_id, outcome="done", success_score=-3)
     assert out2.success_score == 0.0
 
@@ -316,23 +389,44 @@ def test_transition_unknown_id_returns_none(ledger):
 
 
 def test_effectiveness_summary(ledger):
-    records = ingest_guidance("b", {"recommendations": [
-        {"recommendation": "a", "feasibility": "high", "expected_impact": "high", "risk_level": "low"},
-        {"recommendation": "b", "feasibility": "high", "expected_impact": "medium", "risk_level": "low"},
-        {"recommendation": "c", "feasibility": "low", "expected_impact": "low", "risk_level": "low"},
-    ]}, ledger=ledger)
+    records = ingest_guidance(
+        "b",
+        {
+            "recommendations": [
+                {
+                    "recommendation": "a",
+                    "feasibility": "high",
+                    "expected_impact": "high",
+                    "risk_level": "low",
+                },
+                {
+                    "recommendation": "b",
+                    "feasibility": "high",
+                    "expected_impact": "medium",
+                    "risk_level": "low",
+                },
+                {
+                    "recommendation": "c",
+                    "feasibility": "low",
+                    "expected_impact": "low",
+                    "risk_level": "low",
+                },
+            ]
+        },
+        ledger=ledger,
+    )
     # complete one with a score, reject one
     ledger.record_outcome(records[0].recommendation_id, outcome="won", success_score=0.9)
     ledger.reject(records[2].recommendation_id)
 
     summary = ledger.effectiveness_summary()
     assert summary["total"] == 3
-    assert summary["by_tier"][GuidanceTier.CRITICAL.value] == 1   # 'a' high impact
+    assert summary["by_tier"][GuidanceTier.CRITICAL.value] == 1  # 'a' high impact
     assert summary["by_status"][GuidanceStatus.COMPLETED.value] == 1
     assert summary["by_status"][GuidanceStatus.REJECTED.value] == 1
     assert summary["completed_count"] == 1
     assert summary["mean_success_score"] == 0.9
-    assert summary["open_count"] == 1   # only 'b' still open
+    assert summary["open_count"] == 1  # only 'b' still open
 
 
 def test_empty_ledger_summary(ledger):
@@ -346,9 +440,20 @@ def test_empty_ledger_summary(ledger):
 # Revision-based latest-wins (finding 1) — must NOT depend on scan order
 # ---------------------------------------------------------------------------
 def test_revision_increments_per_transition(ledger):
-    [rec] = ingest_guidance("b", {"recommendations": [
-        {"recommendation": "x", "feasibility": "high", "expected_impact": "high", "risk_level": "low"}
-    ]}, ledger=ledger)
+    [rec] = ingest_guidance(
+        "b",
+        {
+            "recommendations": [
+                {
+                    "recommendation": "x",
+                    "feasibility": "high",
+                    "expected_impact": "high",
+                    "risk_level": "low",
+                }
+            ]
+        },
+        ledger=ledger,
+    )
     assert rec.revision == 0
     ledger.accept(rec.recommendation_id)
     ledger.start(rec.recommendation_id)
@@ -368,25 +473,30 @@ def test_latest_wins_ignores_scan_order():
 
     rid = "fixed-id"
     base = dict(
-        recommendation_id=rid, briefing_id="b", ts="2026-06-29T00:00:00Z",
+        recommendation_id=rid,
+        briefing_id="b",
+        ts="2026-06-29T00:00:00Z",
         recommendation="x",
     )
-    proposed = GuidanceRecord.from_dict({**base, "updated_ts": "2026-06-29T00:00:00Z",
-                                         "status": "proposed", "revision": 0}).to_dict()
-    completed = GuidanceRecord.from_dict({**base, "updated_ts": "2026-06-29T00:00:01Z",
-                                          "status": "completed", "revision": 3}).to_dict()
+    proposed = GuidanceRecord.from_dict(
+        {**base, "updated_ts": "2026-06-29T00:00:00Z", "status": "proposed", "revision": 0}
+    ).to_dict()
+    completed = GuidanceRecord.from_dict(
+        {**base, "updated_ts": "2026-06-29T00:00:01Z", "status": "completed", "revision": 3}
+    ).to_dict()
 
     class _OutOfOrderLedger:
         # scan() returns the COMPLETED (rev 3) FIRST, PROPOSED (rev 0) LAST —
         # the worst case for a last-seen-wins reducer.
         def scan(self):
             return [completed, proposed]
+
         def append(self, row):  # unused here
             pass
 
     led = GuidanceLedger(ledger=_OutOfOrderLedger())
     [current] = led.all_latest()
-    assert current.status == "completed"   # rev 3 wins despite being scanned first
+    assert current.status == "completed"  # rev 3 wins despite being scanned first
     assert current.revision == 3
 
 
@@ -394,8 +504,14 @@ def test_from_dict_poison_row_skipped():
     """A malformed row must not crash all_latest() — it's skipped + logged."""
     from backend.cognitive.guidance import GuidanceLedger
 
-    good = {"kind": "guidance_record", "recommendation_id": "g1", "ts": "t",
-            "updated_ts": "t", "recommendation": "ok", "revision": 0}
+    good = {
+        "kind": "guidance_record",
+        "recommendation_id": "g1",
+        "ts": "t",
+        "updated_ts": "t",
+        "recommendation": "ok",
+        "revision": 0,
+    }
     # tier as a non-numeric string is now tolerated by _safe_int, so craft a row
     # that genuinely breaks from_dict: recommendation_id present but a nested
     # un-stringifiable structure is fine — instead force a None row.
@@ -404,6 +520,7 @@ def test_from_dict_poison_row_skipped():
     class _Led:
         def scan(self):
             return [good, poison]
+
         def append(self, row):
             pass
 
@@ -415,11 +532,19 @@ def test_from_dict_poison_row_skipped():
 
 def test_from_dict_tolerant_tier_and_score():
     from backend.cognitive.guidance_models import GuidanceRecord
-    rec = GuidanceRecord.from_dict({
-        "recommendation_id": "x", "briefing_id": "b", "ts": "t", "updated_ts": "t",
-        "recommendation": "y", "tier": "high", "success_score": "not-a-number",
-    })
-    assert rec.tier == 3            # non-numeric tier -> default
+
+    rec = GuidanceRecord.from_dict(
+        {
+            "recommendation_id": "x",
+            "briefing_id": "b",
+            "ts": "t",
+            "updated_ts": "t",
+            "recommendation": "y",
+            "tier": "high",
+            "success_score": "not-a-number",
+        }
+    )
+    assert rec.tier == 3  # non-numeric tier -> default
     assert rec.success_score is None  # non-numeric score -> None
 
 
@@ -427,12 +552,19 @@ def test_from_dict_tolerant_tier_and_score():
 # Hardened parsing (findings 6, 7, 10)
 # ---------------------------------------------------------------------------
 def test_build_record_non_string_recommendation():
-    payload = {"recommendations": [
-        {"recommendation": ["step a", "step b"], "feasibility": "high",
-         "expected_impact": "high", "risk_level": "low"},
-    ]}
+    payload = {
+        "recommendations": [
+            {
+                "recommendation": ["step a", "step b"],
+                "feasibility": "high",
+                "expected_impact": "high",
+                "risk_level": "low",
+            },
+        ]
+    }
     items = _coerce_items(payload)
     from backend.cognitive.guidance import _build_record
+
     rec = _build_record("b", items[0])
     # list joined, NOT str()'d into "['step a', 'step b']"
     assert rec.recommendation == "step a; step b"
@@ -441,7 +573,7 @@ def test_build_record_non_string_recommendation():
 def test_envelope_mixed_dict_and_string():
     payload = {"recommendations": ["do x", {"recommendation": "do y"}]}
     items = _coerce_items(payload)
-    assert len(items) == 2   # the bare string "do x" is NOT dropped
+    assert len(items) == 2  # the bare string "do x" is NOT dropped
 
 
 def test_envelope_non_list_value_recurses():
@@ -457,21 +589,40 @@ def test_strip_fence_hyphen_lang_and_trailing_ws():
 
 
 def test_owner_leading_delimiter_takes_first_nonempty(ledger):
-    payload = {"recommendations": [
-        {"category": "revenue_acceleration", "recommendation": "x", "suggested_owner": "|outreach|seo",
-         "feasibility": "high", "expected_impact": "high", "risk_level": "low"},
-    ]}
+    payload = {
+        "recommendations": [
+            {
+                "category": "revenue_acceleration",
+                "recommendation": "x",
+                "suggested_owner": "|outreach|seo",
+                "feasibility": "high",
+                "expected_impact": "high",
+                "risk_level": "low",
+            },
+        ]
+    }
     [rec] = ingest_guidance("b", payload, ledger=ledger)
-    assert rec.owner == "outreach"   # not "" -> not category default
+    assert rec.owner == "outreach"  # not "" -> not category default
 
 
 # ---------------------------------------------------------------------------
 # Lifecycle coverage gaps (finding 8)
 # ---------------------------------------------------------------------------
 def test_abandon(ledger):
-    [rec] = ingest_guidance("b", {"recommendations": [
-        {"recommendation": "x", "feasibility": "high", "expected_impact": "high", "risk_level": "low"}
-    ]}, ledger=ledger)
+    [rec] = ingest_guidance(
+        "b",
+        {
+            "recommendations": [
+                {
+                    "recommendation": "x",
+                    "feasibility": "high",
+                    "expected_impact": "high",
+                    "risk_level": "low",
+                }
+            ]
+        },
+        ledger=ledger,
+    )
     ledger.accept(rec.recommendation_id)
     ledger.start(rec.recommendation_id)
     updated = ledger.abandon(rec.recommendation_id, reason="deprioritized")
@@ -485,9 +636,20 @@ def test_record_outcome_unknown_id(ledger):
 
 
 def test_record_outcome_none_score(ledger):
-    [rec] = ingest_guidance("b", {"recommendations": [
-        {"recommendation": "x", "feasibility": "high", "expected_impact": "high", "risk_level": "low"}
-    ]}, ledger=ledger)
+    [rec] = ingest_guidance(
+        "b",
+        {
+            "recommendations": [
+                {
+                    "recommendation": "x",
+                    "feasibility": "high",
+                    "expected_impact": "high",
+                    "risk_level": "low",
+                }
+            ]
+        },
+        ledger=ledger,
+    )
     out = ledger.record_outcome(rec.recommendation_id, outcome="done", success_score=None)
     assert out.status == GuidanceStatus.COMPLETED.value
     assert out.success_score is None
@@ -497,16 +659,27 @@ def test_record_outcome_none_score(ledger):
 # Compaction (finding 2)
 # ---------------------------------------------------------------------------
 def test_compact_drops_superseded_rows(ledger, tmp_path):
-    [rec] = ingest_guidance("b", {"recommendations": [
-        {"recommendation": "x", "feasibility": "high", "expected_impact": "high", "risk_level": "low"}
-    ]}, ledger=ledger)
+    [rec] = ingest_guidance(
+        "b",
+        {
+            "recommendations": [
+                {
+                    "recommendation": "x",
+                    "feasibility": "high",
+                    "expected_impact": "high",
+                    "risk_level": "low",
+                }
+            ]
+        },
+        ledger=ledger,
+    )
     rid = rec.recommendation_id
     ledger.accept(rid)
     ledger.start(rid)
     ledger.record_outcome(rid, outcome="won", success_score=0.9)
     # 4 rows on disk (proposed + accepted + in_progress + completed)
     dropped = ledger.compact()
-    assert dropped == 3   # only the latest (completed) survives
+    assert dropped == 3  # only the latest (completed) survives
     # state preserved after compaction
     current = ledger.get(rid)
     assert current.status == GuidanceStatus.COMPLETED.value

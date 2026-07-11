@@ -34,6 +34,7 @@ CLI::
     python -m backend.catalog.funnel_health --wp         # also scan WordPress
     python -m backend.catalog.funnel_health --read-only  # print cached, no network
 """
+
 from __future__ import annotations
 
 import argparse
@@ -62,12 +63,16 @@ _STATUS_UNKNOWN = "unknown"
 def _gate_armed() -> bool:
     """WIRE vs ARM: the hard campaign gate is off unless the operator arms it."""
     return os.getenv("SAMUS_FUNNEL_GATE_ENABLED", "").strip().lower() in (
-        "1", "true", "yes", "on",
+        "1",
+        "true",
+        "yes",
+        "on",
     )
 
 
 def _snapshot_path() -> Path:
     from backend.common import storage
+
     d = storage.root() / "catalog"
     d.mkdir(parents=True, exist_ok=True)
     return d / _SNAPSHOT_FILENAME
@@ -86,12 +91,13 @@ class FunnelHealthSnapshot:
                        failed). Not an alert by itself, but an absence of
                        signal the brief should mention.
     """
+
     status: str = _STATUS_UNKNOWN
     checked_ts: float = 0.0
     stale_skus: list[str] = field(default_factory=list)
     stale_sku_urls: dict[str, str] = field(default_factory=dict)
-    hardcoded_stale: list[str] = field(default_factory=list)   # "file:line -> url"
-    wp_stale: list[str] = field(default_factory=list)          # "page/slug -> url"
+    hardcoded_stale: list[str] = field(default_factory=list)  # "file:line -> url"
+    wp_stale: list[str] = field(default_factory=list)  # "page/slug -> url"
     wp_scanned: bool = False
     detail: str = ""
 
@@ -108,8 +114,7 @@ class FunnelHealthSnapshot:
         now = now_ts if now_ts is not None else time.time()
         return max(0.0, now - self.checked_ts)
 
-    def is_fresh(self, *, ttl_s: float = _DEFAULT_TTL_S,
-                 now_ts: Optional[float] = None) -> bool:
+    def is_fresh(self, *, ttl_s: float = _DEFAULT_TTL_S, now_ts: Optional[float] = None) -> bool:
         return self.checked_ts > 0 and self.age_s(now_ts) <= ttl_s
 
     def summary_line(self) -> str:
@@ -119,8 +124,9 @@ class FunnelHealthSnapshot:
         if self.status == _STATUS_DEGRADED:
             parts = []
             if self.stale_skus:
-                parts.append(f"{len(self.stale_skus)} stale catalog SKU(s): "
-                             + ", ".join(self.stale_skus))
+                parts.append(
+                    f"{len(self.stale_skus)} stale catalog SKU(s): " + ", ".join(self.stale_skus)
+                )
             if self.hardcoded_stale:
                 parts.append(f"{len(self.hardcoded_stale)} stale hardcoded URL(s)")
             if self.wp_stale:
@@ -172,7 +178,8 @@ def refresh_snapshot(
 
     if not key:
         snap = FunnelHealthSnapshot(
-            status=_STATUS_UNKNOWN, checked_ts=now,
+            status=_STATUS_UNKNOWN,
+            checked_ts=now,
             detail="no STRIPE_API_KEY - cannot verify links",
         )
         _save_snapshot(snap)
@@ -182,7 +189,8 @@ def refresh_snapshot(
     if not active:
         # Fetch failed — do NOT overwrite the last known-good snapshot.
         return FunnelHealthSnapshot(
-            status=_STATUS_UNKNOWN, checked_ts=now,
+            status=_STATUS_UNKNOWN,
+            checked_ts=now,
             detail="stripe fetch failed - prior snapshot retained",
         )
 
@@ -235,14 +243,16 @@ def refresh_if_stale(
     snap = load_snapshot()
     if snap.is_fresh(ttl_s=ttl_s, now_ts=now_ts):
         return snap
-    _LOG.info("funnel snapshot stale (%.1fh) — triggering lazy refresh",
-              snap.age_s(now_ts) / 3600.0)
+    _LOG.info(
+        "funnel snapshot stale (%.1fh) — triggering lazy refresh", snap.age_s(now_ts) / 3600.0
+    )
     return refresh_snapshot(include_wp=include_wp, now_ts=now_ts)
 
 
 @dataclass(frozen=True)
 class FunnelGateOutcome:
     """Result of consulting the funnel before a checkout-pushing campaign."""
+
     allowed: bool
     armed: bool
     status: str
@@ -283,11 +293,16 @@ def funnel_gate(
 
     if not degraded or not snap.is_fresh(ttl_s=ttl_s, now_ts=now_ts):
         return FunnelGateOutcome(
-            allowed=True, armed=armed, status=snap.status,
-            reason="funnel verified live" if snap.status == _STATUS_OK
-            else ("degraded off-channel (WordPress) - email unaffected"
-                  if snap.status == _STATUS_DEGRADED and not degraded
-                  else "funnel unverified - fail-open"),
+            allowed=True,
+            armed=armed,
+            status=snap.status,
+            reason="funnel verified live"
+            if snap.status == _STATUS_OK
+            else (
+                "degraded off-channel (WordPress) - email unaffected"
+                if snap.status == _STATUS_DEGRADED and not degraded
+                else "funnel unverified - fail-open"
+            ),
         )
 
     # Degraded on a shipped surface + fresh. Does it touch the campaign's SKUs?
@@ -297,21 +312,23 @@ def funnel_gate(
         wp_relevant = consider_wp and snap.wp_stale
         if not hit_skus and not wp_relevant and not snap.hardcoded_stale:
             return FunnelGateOutcome(
-                allowed=True, armed=armed, status=snap.status,
+                allowed=True,
+                armed=armed,
+                status=snap.status,
                 reason="degraded but campaign SKUs unaffected",
             )
 
     reason = snap.summary_line()
     if armed:
         _LOG.warning("funnel gate BLOCKED campaign (skus=%s): %s", hit_skus, reason)
-        return FunnelGateOutcome(allowed=False, armed=True,
-                                 status=snap.status, reason=reason)
+        return FunnelGateOutcome(allowed=False, armed=True, status=snap.status, reason=reason)
     _LOG.warning(
         "funnel gate (dormant) would block campaign (skus=%s): %s - set "
-        "SAMUS_FUNNEL_GATE_ENABLED=1 to enforce", hit_skus, reason,
+        "SAMUS_FUNNEL_GATE_ENABLED=1 to enforce",
+        hit_skus,
+        reason,
     )
-    return FunnelGateOutcome(allowed=True, armed=False,
-                             status=snap.status, reason=reason)
+    return FunnelGateOutcome(allowed=True, armed=False, status=snap.status, reason=reason)
 
 
 def main(argv: Optional[list[str]] = None) -> int:
@@ -319,12 +336,14 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m backend.catalog.funnel_health",
         description="Refresh the checkout-funnel health snapshot the revenue "
-                    "engine and morning brief read. Exit 3 when degraded.",
+        "engine and morning brief read. Exit 3 when degraded.",
     )
-    parser.add_argument("--wp", action="store_true",
-                        help="Also scan WordPress CMS content (network).")
-    parser.add_argument("--read-only", action="store_true",
-                        help="Print the cached snapshot without refreshing.")
+    parser.add_argument(
+        "--wp", action="store_true", help="Also scan WordPress CMS content (network)."
+    )
+    parser.add_argument(
+        "--read-only", action="store_true", help="Print the cached snapshot without refreshing."
+    )
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
@@ -335,8 +354,10 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     print(snap.summary_line())
     if snap.checked_ts:
-        print(f"  checked: {snap.age_s():.0f}s ago"
-              f" (fresh={snap.is_fresh()}, wp_scanned={snap.wp_scanned})")
+        print(
+            f"  checked: {snap.age_s():.0f}s ago"
+            f" (fresh={snap.is_fresh()}, wp_scanned={snap.wp_scanned})"
+        )
     for sku, url in snap.stale_sku_urls.items():
         print(f"  stale sku: {sku} -> {url}")
     for h in snap.hardcoded_stale:

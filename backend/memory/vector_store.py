@@ -31,6 +31,7 @@ Doctrine (mirrors the rest of the Samus stack):
 This unit deliberately does NOT wire the store into any live dispatch decision;
 it is the layer + interface + tests only. Consumers are a follow-up.
 """
+
 from __future__ import annotations
 
 import logging
@@ -49,8 +50,8 @@ class VectorStatus:
     """String status codes returned in result objects (stable for callers)."""
 
     OK = "ok"
-    SKIPPED = "skipped"          # flag-off / nothing to do — benign no-op
-    DEGRADED = "degraded"        # configured but backend missing/unreachable
+    SKIPPED = "skipped"  # flag-off / nothing to do — benign no-op
+    DEGRADED = "degraded"  # configured but backend missing/unreachable
 
 
 @dataclass
@@ -279,9 +280,7 @@ class VectorStore:
         try:
             self._backend = _resolve_chroma_backend(self._config)
         except RuntimeError as exc:
-            _LOG.warning(
-                "vector_store backend unavailable (failing closed): %s", exc
-            )
+            _LOG.warning("vector_store backend unavailable (failing closed): %s", exc)
             self._backend = None
         return self._backend
 
@@ -390,9 +389,7 @@ class VectorStore:
             ("embeddings", embeddings),
         ):
             if seq is not None and len(seq) != n:
-                raise ValueError(
-                    f"{label} length {len(seq)} does not match ids length {n}"
-                )
+                raise ValueError(f"{label} length {len(seq)} does not match ids length {n}")
         if documents is None and embeddings is None:
             raise ValueError("upsert requires documents or embeddings")
 
@@ -404,6 +401,7 @@ def _parse_query_response(raw: dict[str, Any]) -> list[QueryHit]:
     ``{"ids": [["a","b"]], "documents": [["..","..]], ...}``. This unit issues
     one query at a time, so we read index 0 of each top-level list.
     """
+
     def _first(key: str) -> list[Any]:
         outer = raw.get(key)
         if not outer:

@@ -93,16 +93,12 @@ def _validate_unit_interval(name: str, value: float) -> None:
     """
 
     if not isinstance(value, (int, float)) or isinstance(value, bool):
-        raise ValueError(
-            f"{name} must be a real number in [0.0, 1.0]; got {value!r}"
-        )
+        raise ValueError(f"{name} must be a real number in [0.0, 1.0]; got {value!r}")
     # NaN compares false to itself; reject explicitly.
     if value != value:  # noqa: PLR0124 - NaN check
         raise ValueError(f"{name} must be in [0.0, 1.0]; got NaN")
     if value < 0.0 or value > 1.0:
-        raise ValueError(
-            f"{name} must be in [0.0, 1.0]; got {value!r}"
-        )
+        raise ValueError(f"{name} must be in [0.0, 1.0]; got {value!r}")
 
 
 @dataclass(frozen=True)
@@ -175,12 +171,9 @@ def score_trust(inputs: TrustInputs) -> TrustResult:
 
     contributions: dict[str, float] = {
         "success_rate_weighted": inputs.success_rate * WEIGHTS["success_rate"],
-        "policy_compliance_weighted": inputs.policy_compliance
-        * WEIGHTS["policy_compliance"],
-        "resource_efficiency_weighted": inputs.resource_efficiency
-        * WEIGHTS["resource_efficiency"],
-        "stability_score_weighted": inputs.stability_score
-        * WEIGHTS["stability_score"],
+        "policy_compliance_weighted": inputs.policy_compliance * WEIGHTS["policy_compliance"],
+        "resource_efficiency_weighted": inputs.resource_efficiency * WEIGHTS["resource_efficiency"],
+        "stability_score_weighted": inputs.stability_score * WEIGHTS["stability_score"],
     }
     raw_score = sum(contributions.values())
     # Clamp into [0,1] before rounding to guard against float drift pushing a

@@ -1,4 +1,5 @@
 """Pydantic models for the outreach workcell."""
+
 from __future__ import annotations
 
 from typing import Any, Literal
@@ -7,12 +8,21 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 _STATES = Literal[
-    "open", "pitch", "engage", "handle_objection",
-    "close_attempt", "fallback", "exit",
+    "open",
+    "pitch",
+    "engage",
+    "handle_objection",
+    "close_attempt",
+    "fallback",
+    "exit",
 ]
 _OUTCOMES = Literal[
-    "closed", "failed", "interested", "not_interested",
-    "callback", "voicemail",
+    "closed",
+    "failed",
+    "interested",
+    "not_interested",
+    "callback",
+    "voicemail",
 ]
 
 
@@ -73,6 +83,7 @@ class OutreachOutcome(BaseModel):
 
 class OutreachMessageRequest(BaseModel):
     """Outbound message capability — email wired via SES; sms/call/voicemail still deferred."""
+
     model_config = ConfigDict(extra="forbid")
 
     prospect_id: str
@@ -102,11 +113,10 @@ class OutreachMessageRequest(BaseModel):
     def _require_email_fields(self) -> "OutreachMessageRequest":
         if self.channel == "email":
             missing = [
-                name for name, value in (("to", self.to), ("subject", self.subject))
+                name
+                for name, value in (("to", self.to), ("subject", self.subject))
                 if not (value and value.strip())
             ]
             if missing:
-                raise ValueError(
-                    f"channel='email' requires non-empty {', '.join(missing)}"
-                )
+                raise ValueError(f"channel='email' requires non-empty {', '.join(missing)}")
         return self

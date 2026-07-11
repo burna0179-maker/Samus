@@ -1,16 +1,13 @@
 """Tests for backend.content.planner (content calendar + topic planner)."""
+
 from __future__ import annotations
 
-import pytest
 
 from backend.content.planner import (
     plan_content_month,
-    BlogTopic,
     ContentPlan,
     _faq_questions_for,
     _blog_title,
-    _TOPICS_PER_THEME,
-    _NURTURE_TRIGGERS,
 )
 from backend.seo.models import AuditResult, SeoIssue
 from backend.common.dates import iso_now
@@ -99,9 +96,23 @@ def test_plan_content_month_topics_have_question_titles():
         year=2026,
         primary_keywords=["local SEO"],
     )
-    _question_starters = ("How", "What", "Why", "Which", "When", "Where", "Is", "Are", "Does", "Do", "Can")
+    _question_starters = (
+        "How",
+        "What",
+        "Why",
+        "Which",
+        "When",
+        "Where",
+        "Is",
+        "Are",
+        "Does",
+        "Do",
+        "Can",
+    )
     for topic in plan.blog_topics:
-        is_question = "?" in topic.title or any(topic.title.startswith(w) for w in _question_starters)
+        is_question = "?" in topic.title or any(
+            topic.title.startswith(w) for w in _question_starters
+        )
         assert is_question, f"Title not question-formatted: {topic.title!r}"
 
 
@@ -225,7 +236,19 @@ def test_faq_questions_contain_keyword():
 
 
 def test_blog_title_is_question_formatted():
-    _question_starters = ("How", "What", "Why", "Which", "When", "Where", "Is", "Are", "Does", "Do", "Can")
+    _question_starters = (
+        "How",
+        "What",
+        "Why",
+        "Which",
+        "When",
+        "Where",
+        "Is",
+        "Are",
+        "Does",
+        "Do",
+        "Can",
+    )
     for i in range(8):
         title = _blog_title("GEO", i, "plumbing")
         is_question = "?" in title or any(title.startswith(w) for w in _question_starters)

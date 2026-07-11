@@ -9,6 +9,7 @@ updates it on append. These tests assert:
     on-disk tail (so a new process continues the chain);
   * record() no longer scans the whole file per append.
 """
+
 from __future__ import annotations
 
 from pathlib import Path

@@ -1,9 +1,9 @@
 """Optimizer service orchestrators — bandit + portfolio."""
+
 from __future__ import annotations
 
 import logging
 import os
-from typing import Any
 
 from backend.common import events, persistence
 from backend.common.idempotency import GLOBAL_IDEMPOTENCY_STORE
@@ -104,7 +104,10 @@ def update_arm(req: UpdateArmRequest) -> UpdateArmResult:
     state = _load_state(req.campaign_id, weights)
 
     new_stats_dict, new_total = bandit.apply_reward(
-        _stats_to_dict(state.arms), req.arm, req.signals, weights,
+        _stats_to_dict(state.arms),
+        req.arm,
+        req.signals,
+        weights,
     )
     state.arms = _dict_to_stats(new_stats_dict)
     state.total_trials = new_total
@@ -167,12 +170,14 @@ def optimize_portfolio(req: OptimizePortfolioRequest) -> OptimizePortfolioResult
                 # Budget exhausted — demote to defer.
                 decision = "defer"
                 projected = 0.0
-        actions.append(PortfolioAction(
-            prospect_id=opp.prospect_id,
-            decision=decision,
-            score=score,
-            projected_cost=projected,
-        ))
+        actions.append(
+            PortfolioAction(
+                prospect_id=opp.prospect_id,
+                decision=decision,
+                score=score,
+                projected_cost=projected,
+            )
+        )
 
     result = OptimizePortfolioResult(
         campaign_id=req.campaign_id,

@@ -20,6 +20,7 @@ Design constraints (per the build spec):
   * NEVER raises — every failure path degrades to an all-empty dict-of-empties.
   * Absent ``HF_DATA_DIR`` / ``call_outcomes`` dir -> all-empty (graceful).
 """
+
 from __future__ import annotations
 
 import json

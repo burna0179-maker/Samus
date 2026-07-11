@@ -5,6 +5,7 @@ Routes ``envelope.action`` -> the orchestrator lifecycle operations, mirroring
 queue as well as synchronously over HTTP. Wrapped in try/except so the module
 imports cleanly even when ``backend.common.worker_base`` is unavailable.
 """
+
 from __future__ import annotations
 
 import logging
@@ -30,9 +31,7 @@ try:
             payload = getattr(envelope, "payload", None) or {}
             orch = default_orchestrator()
             if action == "create_campaign":
-                instance = CampaignInstance.model_validate(
-                    payload.get("instance", payload)
-                )
+                instance = CampaignInstance.model_validate(payload.get("instance", payload))
                 return orch.create_campaign(instance).model_dump()
             if action == "start_campaign":
                 return orch.start(payload["campaign_id"]).model_dump()

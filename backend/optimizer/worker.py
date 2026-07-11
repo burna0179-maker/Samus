@@ -1,4 +1,5 @@
 """Optimizer workcell SQS worker."""
+
 from __future__ import annotations
 
 import logging
@@ -25,7 +26,9 @@ try:
             if action == "update_arm":
                 return update_arm(UpdateArmRequest.model_validate(payload)).model_dump()
             if action == "optimize_portfolio":
-                return optimize_portfolio(OptimizePortfolioRequest.model_validate(payload)).model_dump()
+                return optimize_portfolio(
+                    OptimizePortfolioRequest.model_validate(payload)
+                ).model_dump()
             raise ValueError(f"unknown_action: {action}")
 
 except Exception as exc:  # pragma: no cover
@@ -49,9 +52,7 @@ except Exception as exc:  # pragma: no cover
 
 def main() -> None:
     if _IMPORT_ERROR is not None or serve_worker is None:
-        raise NotImplementedError(
-            f"worker_base unavailable; import failed: {_IMPORT_ERROR!r}"
-        )
+        raise NotImplementedError(f"worker_base unavailable; import failed: {_IMPORT_ERROR!r}")
     settings = AwsWorkerSettings.from_env("optimizer", "SQS_OPTIMIZER_QUEUE_URL")  # type: ignore[union-attr]
     serve_worker(OptimizerWorker(AwsRuntime(settings)))  # type: ignore[misc]
 

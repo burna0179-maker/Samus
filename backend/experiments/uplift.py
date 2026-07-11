@@ -27,6 +27,7 @@ cannot masquerade as an arm effect. That needs per-window stats the assignments
 ledger can supply; this first cut uses the sample-size + significance guard,
 which already prevents the dominant failure mode (promoting a small-sample fluke).
 """
+
 from __future__ import annotations
 
 from typing import Any, Mapping
@@ -134,19 +135,21 @@ def uplift_report(
         absolute = arm_rate - control_rate
         relative = (absolute / control_rate) if control_rate > 0 else 0.0
         risk = _spurious_risk(s, control_stats, p, alpha, min_sample)
-        arms_out.append({
-            "arm": arm,
-            "arm_rate": round(arm_rate, 4),
-            "control_rate": round(control_rate, 4),
-            "absolute_uplift": round(absolute, 4),
-            "relative_uplift": round(relative, 4),
-            "z": round(z, 4),
-            "p_value": round(p, 4),
-            "confidence": round(1.0 - p, 4),
-            "significant": bool(p < alpha and absolute > 0),
-            "spurious_risk": risk,
-            "trials": a_trials,
-        })
+        arms_out.append(
+            {
+                "arm": arm,
+                "arm_rate": round(arm_rate, 4),
+                "control_rate": round(control_rate, 4),
+                "absolute_uplift": round(absolute, 4),
+                "relative_uplift": round(relative, 4),
+                "z": round(z, 4),
+                "p_value": round(p, 4),
+                "confidence": round(1.0 - p, 4),
+                "significant": bool(p < alpha and absolute > 0),
+                "spurious_risk": risk,
+                "trials": a_trials,
+            }
+        )
 
     # Rank by absolute uplift, most positive first.
     arms_out.sort(key=lambda a: a["absolute_uplift"], reverse=True)
@@ -173,7 +176,10 @@ def best_causal_arm(
     control, or None if no arm causally beats the incumbent. This is the gate a
     causally-honest promoter consults before crowning a winner."""
     report = uplift_report(
-        experiment_id, alpha=alpha, min_sample=min_sample, stats=stats,
+        experiment_id,
+        alpha=alpha,
+        min_sample=min_sample,
+        stats=stats,
     )
     if not report.get("ok"):
         return None

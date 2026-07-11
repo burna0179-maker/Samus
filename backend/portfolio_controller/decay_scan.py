@@ -15,6 +15,7 @@ External-factor signal (market news / regulatory) is pluggable via
 honestly driven by stage x staleness until a real feed is wired, rather than
 inventing market pressure.
 """
+
 from __future__ import annotations
 
 import logging
@@ -115,13 +116,9 @@ def scan_for_decay_triggers(
             prospect_id=prospect_id,
             trigger_source="signal_decay",
             current_samus_state=(
-                f"stage={assessment.stage} "
-                f"staleness_days={assessment.staleness_days:.1f}"
+                f"stage={assessment.stage} staleness_days={assessment.staleness_days:.1f}"
             ),
-            trigger_reason=(
-                f"DecayRiskScore {assessment.decay_risk:.2f} "
-                f">= threshold {thr:.2f}"
-            ),
+            trigger_reason=(f"DecayRiskScore {assessment.decay_risk:.2f} >= threshold {thr:.2f}"),
         )
         result = review(req, crm=crm, decay_risk=assessment.decay_risk)
         out.results.append(result)
@@ -132,7 +129,11 @@ def scan_for_decay_triggers(
 
     _LOG.info(
         "decay_scan: scanned=%d crossed=%d enqueued=%d escalated=%d thr=%.2f",
-        out.scanned, out.crossed, out.enqueued, out.escalated, thr,
+        out.scanned,
+        out.crossed,
+        out.enqueued,
+        out.escalated,
+        thr,
     )
     return out
 

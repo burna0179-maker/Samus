@@ -13,6 +13,7 @@ chosen template.
 Every stage re-validates through the Codex (:func:`backend.website.gate.codex_gate`,
 fail-closed). The outward stages (publish, deliver) also honour the live flag.
 """
+
 from __future__ import annotations
 
 import logging
@@ -82,6 +83,7 @@ def _brief_copy(order: WebsiteOrder) -> str:
 # Stage handlers
 # --------------------------------------------------------------------------
 
+
 def _brief_stage(ctx: StageContext) -> StageResult:
     """Confirm/assemble the build spec. Parks if there is nothing to build."""
     brief = ctx.order.brief
@@ -91,6 +93,7 @@ def _brief_stage(ctx: StageContext) -> StageResult:
         # the copy). Without generation we refuse to publish an empty shell.
         if getattr(ctx.settings, "website_content_generation_enabled", False):
             from .content_gen import default_page_set
+
             brief.pages = default_page_set()
             ctx.state.log("brief_seeded_default_pages", page_count=len(brief.pages))
         else:
@@ -106,10 +109,13 @@ def _brief_stage(ctx: StageContext) -> StageResult:
     if not verdict.allowed:
         return _blocked("brief", verdict)
 
-    return StageResult(ok=True, detail={
-        "page_count": len(brief.pages),
-        "settlement_kind": ctx.order.settlement_kind,
-    })
+    return StageResult(
+        ok=True,
+        detail={
+            "page_count": len(brief.pages),
+            "settlement_kind": ctx.order.settlement_kind,
+        },
+    )
 
 
 def _generate_stage(ctx: StageContext) -> StageResult:
@@ -141,13 +147,16 @@ def _generate_stage(ctx: StageContext) -> StageResult:
         return _blocked("generate", verdict)
 
     audit = report.get("taste_audit", {})
-    return StageResult(ok=True, detail={
-        "generation_report": report,
-        "llm_used": report.get("llm_used", False),
-        "taste_grade": audit.get("grade"),
-        "taste_passed": audit.get("passed"),
-        "pages_generated": report.get("pages_generated", []),
-    })
+    return StageResult(
+        ok=True,
+        detail={
+            "generation_report": report,
+            "llm_used": report.get("llm_used", False),
+            "taste_grade": audit.get("grade"),
+            "taste_passed": audit.get("passed"),
+            "pages_generated": report.get("pages_generated", []),
+        },
+    )
 
 
 def _provision_stage(ctx: StageContext) -> StageResult:
@@ -178,7 +187,8 @@ def _provision_stage(ctx: StageContext) -> StageResult:
         # Auth / transport failure is resumable (fix the key, retry) — not a
         # silent success. Park with the Wix status for the operator.
         return StageResult(
-            ok=False, parked=True,
+            ok=False,
+            parked=True,
             park_reason=f"wix_provision_failed:{exc.status_code or 'transport'}",
         )
 
@@ -251,8 +261,10 @@ def _business_info_stage(ctx: StageContext) -> StageResult:
 
     verdict = codex_gate(
         capability="website_business_info",
-        payload={"profile": profile, "contact": {k: v for k, v in contact.items()
-                                                  if k != "address"}},
+        payload={
+            "profile": profile,
+            "contact": {k: v for k, v in contact.items() if k != "address"},
+        },
     )
     if not verdict.allowed:
         return _blocked("business_info", verdict)
@@ -270,16 +282,20 @@ def _business_info_stage(ctx: StageContext) -> StageResult:
         # Partial progress (e.g. profile set, contact failed) is durable + safe
         # to retry — the sub-actions are last-writer-wins. Park with the detail.
         return StageResult(
-            ok=False, parked=True,
+            ok=False,
+            parked=True,
             park_reason=f"wix_business_info_failed:{exc.status_code or 'transport'}",
             detail={"business_info_applied": done},
         )
-    return StageResult(ok=True, detail={
-        "business_info_applied": done,
-        # The business/site name is not settable via the v4 API — flag it for
-        # the operator to set in the Wix dashboard (Settings -> Business Info).
-        "manual_followup": f"set site/business name to '{brief.business_name}' in dashboard",
-    })
+    return StageResult(
+        ok=True,
+        detail={
+            "business_info_applied": done,
+            # The business/site name is not settable via the v4 API — flag it for
+            # the operator to set in the Wix dashboard (Settings -> Business Info).
+            "manual_followup": f"set site/business name to '{brief.business_name}' in dashboard",
+        },
+    )
 
 
 def _content_row(order: WebsiteOrder) -> dict[str, str]:
@@ -336,24 +352,27 @@ def _content_stage(ctx: StageContext) -> StageResult:
     try:
         if existing_id:
             ctx.wix.update_data_item(
-                site_id=site_id, collection_id=collection_id,
-                item_id=existing_id, data=row)
+                site_id=site_id, collection_id=collection_id, item_id=existing_id, data=row
+            )
             item_id = existing_id
         else:
-            resp = ctx.wix.insert_data_item(
-                site_id=site_id, collection_id=collection_id, data=row)
+            resp = ctx.wix.insert_data_item(site_id=site_id, collection_id=collection_id, data=row)
             item = resp.get("dataItem") or {}
             item_id = str(item.get("id") or (item.get("data") or {}).get("_id") or "")
     except WixError as exc:
         return StageResult(
-            ok=False, parked=True,
+            ok=False,
+            parked=True,
             park_reason=f"wix_content_failed:{exc.status_code or 'transport'}",
         )
-    return StageResult(ok=True, detail={
-        "content_item_ids": [item_id],
-        "content_collection_id": collection_id,
-        "content_upserted": "updated" if existing_id else "inserted",
-    })
+    return StageResult(
+        ok=True,
+        detail={
+            "content_item_ids": [item_id],
+            "content_collection_id": collection_id,
+            "content_upserted": "updated" if existing_id else "inserted",
+        },
+    )
 
 
 def _existing_row_id(wix: WixClient, site_id: str, collection_id: str) -> str:
@@ -398,7 +417,8 @@ def _media_stage(ctx: StageContext) -> StageResult:
 
     # Same Codex discipline as every other stage (benign generated prompts).
     verdict = codex_gate(
-        capability="website_media", payload={"prompts": [a.prompt for a in assets]},
+        capability="website_media",
+        payload={"prompts": [a.prompt for a in assets]},
     )
     if not verdict.allowed:
         return _blocked("media", verdict)
@@ -408,8 +428,11 @@ def _media_stage(ctx: StageContext) -> StageResult:
         collection_id = _content_collection_id(ctx)
         try:
             report["publish"] = media_publish.publish_assets(
-                assets, wix=ctx.wix, site_id=ctx.state.site_id,
-                collection_id=collection_id, update_cms=bool(collection_id),
+                assets,
+                wix=ctx.wix,
+                site_id=ctx.state.site_id,
+                collection_id=collection_id,
+                update_cms=bool(collection_id),
             )
         except Exception as exc:  # noqa: BLE001 — enhancement, never blocks
             _LOG.warning("media publish failed: %s", exc)
@@ -444,7 +467,7 @@ def _seo_stage(ctx: StageContext) -> StageResult:
 
     # Codex-gates the generated SEO copy (G2 banned-phrase scan).
     seo_copy = "\n".join(
-        f"{m.get('title','')} {m.get('description','')}" for m in package["page_meta"].values()
+        f"{m.get('title', '')} {m.get('description', '')}" for m in package["page_meta"].values()
     )
     verdict = codex_gate(capability="website_seo", payload={"copy": seo_copy})
     if not verdict.allowed:
@@ -454,17 +477,21 @@ def _seo_stage(ctx: StageContext) -> StageResult:
     problems = seo_enrich.check_seo_package(package)
     if problems and gate == "enforce":
         return StageResult(
-            ok=False, parked=True,
+            ok=False,
+            parked=True,
             park_reason="seo_incomplete:" + "; ".join(problems[:4]),
             detail={"seo_package": package, "seo_problems": problems},
         )
 
-    return StageResult(ok=True, detail={
-        "seo_package": package,
-        "seo_pages": len(package["page_meta"]),
-        "seo_problems": problems,        # empty on a clean pass; surfaced under `audit`
-        "seo_gate": gate,
-    })
+    return StageResult(
+        ok=True,
+        detail={
+            "seo_package": package,
+            "seo_pages": len(package["page_meta"]),
+            "seo_problems": problems,  # empty on a clean pass; surfaced under `audit`
+            "seo_gate": gate,
+        },
+    )
 
 
 def _qa_stage(ctx: StageContext) -> StageResult:
@@ -515,13 +542,17 @@ def _publish_stage(ctx: StageContext) -> StageResult:
         ctx.wix.publish_site(site_id=ctx.state.site_id)
     except WixError as exc:
         return StageResult(
-            ok=False, parked=True,
+            ok=False,
+            parked=True,
             park_reason=f"wix_publish_failed:{exc.status_code or 'transport'}",
         )
-    return StageResult(ok=True, detail={
-        "published": True,
-        "site_url": f"https://manage.wix.com/dashboard/{ctx.state.site_id}",
-    })
+    return StageResult(
+        ok=True,
+        detail={
+            "published": True,
+            "site_url": f"https://manage.wix.com/dashboard/{ctx.state.site_id}",
+        },
+    )
 
 
 def _deliver_stage(ctx: StageContext) -> StageResult:
@@ -550,7 +581,9 @@ def _deliver_stage(ctx: StageContext) -> StageResult:
             # under enforce, advisory otherwise.
             if "enforce" in (seo_gate, sec_gate):
                 return StageResult(
-                    ok=False, parked=True, park_reason="public_url_unknown",
+                    ok=False,
+                    parked=True,
+                    park_reason="public_url_unknown",
                     detail={"hint": "set brief.public_url to the published site URL"},
                 )
         else:
@@ -558,27 +591,36 @@ def _deliver_stage(ctx: StageContext) -> StageResult:
 
             live = seo_enrich.evaluate_live(
                 public_url,
-                keywords=(ctx.state.seo_package or {}).get("keywords") if ctx.state.seo_package else None,
+                keywords=(ctx.state.seo_package or {}).get("keywords")
+                if ctx.state.seo_package
+                else None,
                 industry=ctx.order.brief.industry,
             )
             problems = seo_enrich.live_gate_violations(
                 live,
                 seo_min_score=int(getattr(ctx.settings, "website_seo_min_score", 70)),
                 security_min_grade=str(getattr(ctx.settings, "website_security_min_grade", "B")),
-                seo_gate=seo_gate, security_gate=sec_gate,
+                seo_gate=seo_gate,
+                security_gate=sec_gate,
             )
             if problems and ("enforce" in (seo_gate, sec_gate)):
                 return StageResult(
-                    ok=False, parked=True,
+                    ok=False,
+                    parked=True,
                     park_reason="quality_gate_failed:" + "; ".join(problems[:3]),
                     detail={"live_audit": live, "gate_problems": problems},
                 )
 
     # The actual hand-off channel (email the customer) reuses the outreach
     # workcell and is wired during the walk-through; record delivery durably now.
-    return StageResult(ok=True, detail={
-        "delivered_url": url, "delivered_at": iso_now(), "live_audit": live,
-    })
+    return StageResult(
+        ok=True,
+        detail={
+            "delivered_url": url,
+            "delivered_at": iso_now(),
+            "live_audit": live,
+        },
+    )
 
 
 def _settle_stage(ctx: StageContext) -> StageResult:
@@ -602,21 +644,24 @@ def _settle_stage(ctx: StageContext) -> StageResult:
         if ctx.crm is not None:
             try:
                 from backend.crm.models import CreateOperatorTaskRequest
-                ctx.crm.create_operator_task(CreateOperatorTaskRequest(
-                    kind="other",
-                    title=(
-                        f"Append ${order.settlement_amount_usd:.2f} repayment-in-kind "
-                        f"for {order.settlement_lender_id} (website delivered)"
-                    ),
-                    description=(
-                        "Website build delivered as work-for-debt. Append a "
-                        f"repayments[] entry for lender_id={order.settlement_lender_id} "
-                        f"amount_usd={order.settlement_amount_usd:.2f} in "
-                        "backend/finance/liabilities.yaml (operator-curated)."
-                    ),
-                    source="website_settle",
-                    source_ref=marker,
-                ))
+
+                ctx.crm.create_operator_task(
+                    CreateOperatorTaskRequest(
+                        kind="other",
+                        title=(
+                            f"Append ${order.settlement_amount_usd:.2f} repayment-in-kind "
+                            f"for {order.settlement_lender_id} (website delivered)"
+                        ),
+                        description=(
+                            "Website build delivered as work-for-debt. Append a "
+                            f"repayments[] entry for lender_id={order.settlement_lender_id} "
+                            f"amount_usd={order.settlement_amount_usd:.2f} in "
+                            "backend/finance/liabilities.yaml (operator-curated)."
+                        ),
+                        source="website_settle",
+                        source_ref=marker,
+                    )
+                )
             except Exception as exc:  # noqa: BLE001 — marker is the deliverable
                 _LOG.warning("website settle: operator task creation failed: %s", exc)
         return StageResult(ok=True, detail={"settlement_ref": marker})

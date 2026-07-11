@@ -21,6 +21,7 @@ Wire-not-arm: gated by ``SAMUS_IDLE_PRODUCTION_DRIVE_ENABLED`` (default OFF). Wh
 off the drive still observes and reports, but the producer is never invoked, so
 no autonomous production can occur.
 """
+
 from __future__ import annotations
 
 import logging
@@ -61,6 +62,7 @@ class IdleObservation:
     activity has been observed. ``behind_pace`` is a soft goal signal: ``True`` =
     behind and should push, ``False`` = on/ahead of pace so hold, ``None`` =
     unknown (treat idleness alone as reason to produce)."""
+
     last_activity_ts: Optional[float]
     in_business_hours: bool
     behind_pace: Optional[bool] = None
@@ -87,11 +89,13 @@ def decide_idle_production(
     other gates pass, the drive produces to prime the pipeline.
     """
     if not enabled:
-        return IdleDriveDecision(False, "disarmed", 0.0, enabled,
-                                 in_business_hours, behind_pace=behind_pace)
+        return IdleDriveDecision(
+            False, "disarmed", 0.0, enabled, in_business_hours, behind_pace=behind_pace
+        )
     if not in_business_hours:
-        return IdleDriveDecision(False, "off-hours", 0.0, enabled,
-                                 in_business_hours, behind_pace=behind_pace)
+        return IdleDriveDecision(
+            False, "off-hours", 0.0, enabled, in_business_hours, behind_pace=behind_pace
+        )
 
     if last_activity_ts is None:
         idle_seconds = idle_threshold_s  # cold: as idle as the threshold
@@ -100,19 +104,31 @@ def decide_idle_production(
 
     if idle_seconds < idle_threshold_s:
         return IdleDriveDecision(
-            False, f"recently active ({idle_seconds / 60.0:.0f}m ago)",
-            idle_seconds, enabled, in_business_hours, behind_pace=behind_pace,
+            False,
+            f"recently active ({idle_seconds / 60.0:.0f}m ago)",
+            idle_seconds,
+            enabled,
+            in_business_hours,
+            behind_pace=behind_pace,
         )
     if behind_pace is False:
         return IdleDriveDecision(
-            False, "on/ahead of pace", idle_seconds, enabled,
-            in_business_hours, behind_pace=behind_pace,
+            False,
+            "on/ahead of pace",
+            idle_seconds,
+            enabled,
+            in_business_hours,
+            behind_pace=behind_pace,
         )
 
     pace_note = "behind pace" if behind_pace else "pace unknown"
     return IdleDriveDecision(
-        True, f"idle {idle_seconds / 60.0:.0f}m during business hours; {pace_note}",
-        idle_seconds, enabled, in_business_hours, behind_pace=behind_pace,
+        True,
+        f"idle {idle_seconds / 60.0:.0f}m during business hours; {pace_note}",
+        idle_seconds,
+        enabled,
+        in_business_hours,
+        behind_pace=behind_pace,
     )
 
 
@@ -293,6 +309,7 @@ def _default_observer() -> IdleObservation:
     # None (unknown data) => idleness alone drives production at moderate intensity.
     try:
         from backend.cash_engine.goal_pace import default_behind_pace
+
         behind_pace = default_behind_pace()
     except Exception:  # noqa: BLE001 — a pace-read fault must never break observing
         behind_pace = None
@@ -358,17 +375,27 @@ def run_idle_drive(
         obs = (observer or _default_observer)()
     except Exception as exc:  # noqa: BLE001 — observation fault => hold, never crash
         _LOG.warning("idle-drive observer failed: %s", exc)
-        return {"ok": True, "enabled": enabled, "produced": False,
-                "reason": f"observer-error: {exc}"}
+        return {
+            "ok": True,
+            "enabled": enabled,
+            "produced": False,
+            "reason": f"observer-error: {exc}",
+        }
 
     decision = decide_idle_production(
-        enabled=enabled, now_ts=now, last_activity_ts=obs.last_activity_ts,
-        in_business_hours=obs.in_business_hours, behind_pace=obs.behind_pace,
+        enabled=enabled,
+        now_ts=now,
+        last_activity_ts=obs.last_activity_ts,
+        in_business_hours=obs.in_business_hours,
+        behind_pace=obs.behind_pace,
         idle_threshold_s=threshold,
     )
     summary: dict[str, Any] = {
-        "ok": True, "enabled": enabled, "produced": False,
-        "reason": decision.reason, "idle_seconds": round(decision.idle_seconds, 1),
+        "ok": True,
+        "enabled": enabled,
+        "produced": False,
+        "reason": decision.reason,
+        "idle_seconds": round(decision.idle_seconds, 1),
     }
     if not decision.should_produce:
         return summary

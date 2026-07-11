@@ -11,13 +11,14 @@ implementation — the middleware only guards ``POST /mcp``. So this
 subscriber needs no signing material today. If the hub adds auth later,
 add header injection here.
 """
+
 from __future__ import annotations
 
 import asyncio
 import json
 import logging
 import os
-from typing import Awaitable, Callable, Optional
+from typing import Callable, Optional
 
 import httpx
 
@@ -44,7 +45,9 @@ def _resolve_url() -> str:
 def is_subscribe_disabled() -> bool:
     """Honoured by the lifespan wiring to skip starting the subscriber."""
     return os.environ.get(ENV_HUB_DISABLED, "").strip().lower() in (
-        "1", "true", "yes",
+        "1",
+        "true",
+        "yes",
     )
 
 
@@ -76,11 +79,8 @@ class HubSubscriber:
         # No request-level timeout — SSE is a long-lived stream. Connect
         # timeout is kept short so a dead hub fails fast at connect, not
         # mid-read.
-        self._client_factory: ClientFactory = (
-            client_factory
-            or (lambda: httpx.AsyncClient(
-                timeout=httpx.Timeout(None, connect=5.0)
-            ))
+        self._client_factory: ClientFactory = client_factory or (
+            lambda: httpx.AsyncClient(timeout=httpx.Timeout(None, connect=5.0))
         )
         self._dispatch = dispatcher or dispatch
         self._task: Optional[asyncio.Task[None]] = None
@@ -128,7 +128,8 @@ class HubSubscriber:
             except Exception as exc:  # noqa: BLE001 — log + retry every transport failure
                 _LOG.warning(
                     "hub SSE connection error: %s; retrying in %.1fs",
-                    exc, backoff,
+                    exc,
+                    backoff,
                 )
             if self._stop_event.is_set():
                 return
@@ -154,7 +155,7 @@ class HubSubscriber:
                         # Other SSE fields (event:, id:, retry:) — we
                         # don't use them today; skip without warning.
                         continue
-                    payload = line[len("data:"):].strip()
+                    payload = line[len("data:") :].strip()
                     if not payload:
                         continue
                     try:

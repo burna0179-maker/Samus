@@ -5,6 +5,7 @@ webhook receivers call on every dispatch. The full implementation lives in
 ``shared/security_sentinel`` (Major's codebase); when that module is absent,
 this shim records to the local audit ledger only.
 """
+
 from __future__ import annotations
 
 import logging
@@ -28,14 +29,19 @@ def bind() -> None:
 
 def screen_dispatch(*, service: str, action: str, payload: dict[str, Any]) -> bool:
     """Return True if the dispatch should proceed. Logs every call."""
-    audit.record("dispatch.screen", service=service, action=action, payload_keys=list(payload.keys()))
+    audit.record(
+        "dispatch.screen", service=service, action=action, payload_keys=list(payload.keys())
+    )
     return True
 
 
 def record_auth_event(*, identity: str | None, scope: str, ok: bool, **extra: Any) -> None:
     audit.record(
         "auth.event",
-        identity=identity, scope=scope, ok=ok, **extra,
+        identity=identity,
+        scope=scope,
+        ok=ok,
+        **extra,
     )
 
 

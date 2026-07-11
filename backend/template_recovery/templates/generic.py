@@ -3,6 +3,7 @@
 Served for any task kind not present in ``SCAFFOLD_LIBRARY`` — recovery must
 never raise on an unknown kind. Pure Python, no I/O, no LLM, constant-time.
 """
+
 from __future__ import annotations
 
 from typing import Any

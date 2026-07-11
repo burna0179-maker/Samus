@@ -25,20 +25,20 @@ Three injectable callables let tests run without Neo4j / CRM / SES:
   * ``crm_dispatch_fn``    — callable(payload: dict) -> None (signed HTTP POST)
   * ``send_email_fn``      — callable(to, subject, body, html_body=None) -> dict
 """
+
 from __future__ import annotations
 
 import asyncio
 import json
 import logging
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from .registry import (
-    RETAINER_SKUS,
     RetainerProductConfig,
     get_retainer_sku,
 )
@@ -82,14 +82,15 @@ class EnrollmentResult(BaseModel):
     step is recorded with status + elapsed_ms; ``ok`` is the boolean
     rollup; ``ts`` is the run start (ISO-8601 UTC).
     """
+
     model_config = ConfigDict(extra="forbid")
 
     email: str
     sku_id: str
     customer_id: str | None = None
     opportunity_id: str | None = None
-    next_cycle_at: str | None = None      # ISO-8601 UTC
-    plan_marker_path: str | None = None   # filesystem path to next-cycle marker
+    next_cycle_at: str | None = None  # ISO-8601 UTC
+    plan_marker_path: str | None = None  # filesystem path to next-cycle marker
     welcome_message_id: str | None = None
     ok: bool
     steps: list[EnrollStep] = Field(default_factory=list)
@@ -100,6 +101,7 @@ class EnrollmentResult(BaseModel):
 # Exceptions
 # ---------------------------------------------------------------------------
 
+
 class UnknownRetainerSkuError(ValueError):
     """Raised when ``enroll_retainer`` gets a sku_id outside ``RETAINER_SKUS``."""
 
@@ -107,6 +109,7 @@ class UnknownRetainerSkuError(ValueError):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -133,6 +136,7 @@ def _first_of_next_month(now: datetime | None = None) -> datetime:
 def _plan_marker_dir(customer_id: str, sku_id: str) -> Path:
     """``<SAMUS_ARTIFACT_ROOT>/customers/<slug>/<sku>/_enrollment/``."""
     from backend.common import storage
+
     target = storage.root() / "customers" / customer_id / sku_id / "_enrollment"
     target.mkdir(parents=True, exist_ok=True)
     return target
@@ -327,6 +331,7 @@ def _build_welcome_email(
 # CRM dispatch (best-effort)
 # ---------------------------------------------------------------------------
 
+
 def _default_crm_dispatch(payload: dict[str, Any]) -> None:
     """Best-effort POST to ``samus-crm``'s ``POST /crm/opportunities``.
 
@@ -347,9 +352,7 @@ def _default_crm_dispatch(payload: dict[str, Any]) -> None:
         _LOG.debug("retainer crm dispatch skipped: shared_hmac_key_unset")
         return
     try:
-        asyncio.run(
-            signed_post_json(crm_url, "/crm/opportunities", payload, retries=2)
-        )
+        asyncio.run(signed_post_json(crm_url, "/crm/opportunities", payload, retries=2))
     except Exception as exc:  # noqa: BLE001
         _LOG.warning("retainer crm opportunity dispatch failed: %s", exc)
 
@@ -358,14 +361,15 @@ def _default_crm_dispatch(payload: dict[str, Any]) -> None:
 # Orchestrator
 # ---------------------------------------------------------------------------
 
+
 def enroll_retainer(
     *,
     sku_id: str,
     email: str,
     name: str = "",
     company: str = "",
-    operations_summary: str = "",   # collected for AI Ops Partner intake
-    audit_url: str = "",            # collected for SEO Optimization intake
+    operations_summary: str = "",  # collected for AI Ops Partner intake
+    audit_url: str = "",  # collected for SEO Optimization intake
     monthly_amount_usd_cents: int | None = None,
     customer_store: Any = None,
     crm_dispatch_fn: Any = None,
@@ -397,17 +401,22 @@ def enroll_retainer(
     plan_marker_path: str | None = None
     welcome_message_id: str | None = None
 
-    def _step(name: EnrollStepName, status: EnrollStepStatus,
-              detail: str, t0: float) -> EnrollStep:
+    def _step(name: EnrollStepName, status: EnrollStepStatus, detail: str, t0: float) -> EnrollStep:
         s = EnrollStep(
-            name=name, status=status, detail=detail, elapsed_ms=_ms_since(t0),
+            name=name,
+            status=status,
+            detail=detail,
+            elapsed_ms=_ms_since(t0),
         )
         steps.append(s)
         _LOG.info(
             "retainer_enroll_step",
             extra={
-                "step": name, "status": status, "detail": detail,
-                "email": email, "sku_id": sku_id,
+                "step": name,
+                "status": status,
+                "detail": detail,
+                "email": email,
+                "sku_id": sku_id,
             },
         )
         return s
@@ -424,12 +433,14 @@ def enroll_retainer(
     # Lazy service resolution.
     if customer_store is None:
         from backend.memory.customers import CustomerStore
+
         customer_store = CustomerStore()
     if crm_dispatch_fn is None:
         crm_dispatch_fn = _default_crm_dispatch
     if send_email_fn is None:
         from functools import partial
         from backend.common.email_backend import send_email as _real_send
+
         # Retainer enrollment confirmation is CAN-SPAM transactional —
         # exempt from unsubscribe/postal rules (suppression still applies).
         send_email_fn = partial(_real_send, message_kind="transactional")
@@ -440,27 +451,41 @@ def enroll_retainer(
         existing = customer_store.get_by_email(email)
         if existing is not None:
             customer = existing
-            _step("find_or_create_customer", "ok",
-                  f"found existing {customer.id} (state={customer.current_state})", t0)
+            _step(
+                "find_or_create_customer",
+                "ok",
+                f"found existing {customer.id} (state={customer.current_state})",
+                t0,
+            )
         else:
             customer = customer_store.create_customer(
-                email=email, name=name, company=company, source="retainer_enroll",
+                email=email,
+                name=name,
+                company=company,
+                source="retainer_enroll",
             )
-            _step("find_or_create_customer", "ok",
-                  f"created {customer.id} in state={customer.current_state}", t0)
+            _step(
+                "find_or_create_customer",
+                "ok",
+                f"created {customer.id} in state={customer.current_state}",
+                t0,
+            )
         customer_id = customer.id
     except Exception as exc:  # noqa: BLE001
         _step("find_or_create_customer", "failed", str(exc), t0)
         return EnrollmentResult(
-            email=email, sku_id=sku_id, customer_id=customer_id,
-            ok=False, steps=steps, ts=started,
+            email=email,
+            sku_id=sku_id,
+            customer_id=customer_id,
+            ok=False,
+            steps=steps,
+            ts=started,
         )
 
     # ---- 3. advance customer to active_retainer --------------------------
     t0 = time.monotonic()
     if customer.current_state == _TARGET_CUSTOMER_STATE:
-        _step("advance_to_active_retainer", "skipped",
-              f"already at {_TARGET_CUSTOMER_STATE}", t0)
+        _step("advance_to_active_retainer", "skipped", f"already at {_TARGET_CUSTOMER_STATE}", t0)
     else:
         try:
             customer_store.advance_state(
@@ -473,13 +498,21 @@ def enroll_retainer(
                     "retainer_cadence": sku.cadence,
                 },
             )
-            _step("advance_to_active_retainer", "ok",
-                  f"-> {_TARGET_CUSTOMER_STATE} (tagged is_retainer)", t0)
+            _step(
+                "advance_to_active_retainer",
+                "ok",
+                f"-> {_TARGET_CUSTOMER_STATE} (tagged is_retainer)",
+                t0,
+            )
         except Exception as exc:  # noqa: BLE001
             _step("advance_to_active_retainer", "failed", str(exc), t0)
             return EnrollmentResult(
-                email=email, sku_id=sku_id, customer_id=customer_id,
-                ok=False, steps=steps, ts=started,
+                email=email,
+                sku_id=sku_id,
+                customer_id=customer_id,
+                ok=False,
+                steps=steps,
+                ts=started,
             )
 
     # ---- 4. create CRM opportunity ---------------------------------------
@@ -491,25 +524,32 @@ def enroll_retainer(
     ) / 100.0
     opportunity_id = f"retainer_{customer.id}_{sku.sku_id}_{int(time.time())}"
     try:
-        crm_dispatch_fn({
-            "prospect_id": customer.id,           # reuse customer_id as prospect_id
-            "name": f"{sku.display_name} retainer ({customer.email})",
-            "service_interest": [sku.sku_id],
-            # No native "retainer-tier" intent score input today; flag via
-            # service_interest list so deal-scoring can recognize it.
-            "intent_score": 100,
-            "monthly_budget": f"${int(deal_size)}/mo",
-            "next_step": "monthly_cycle starts on first of next month",
-            "expected_close": _now_iso(),
-        })
-        _step("create_opportunity", "ok",
-              f"dispatched (deal_size=${deal_size:,.0f}/mo, stage={_TARGET_OPPORTUNITY_STAGE})", t0)
+        crm_dispatch_fn(
+            {
+                "prospect_id": customer.id,  # reuse customer_id as prospect_id
+                "name": f"{sku.display_name} retainer ({customer.email})",
+                "service_interest": [sku.sku_id],
+                # No native "retainer-tier" intent score input today; flag via
+                # service_interest list so deal-scoring can recognize it.
+                "intent_score": 100,
+                "monthly_budget": f"${int(deal_size)}/mo",
+                "next_step": "monthly_cycle starts on first of next month",
+                "expected_close": _now_iso(),
+            }
+        )
+        _step(
+            "create_opportunity",
+            "ok",
+            f"dispatched (deal_size=${deal_size:,.0f}/mo, stage={_TARGET_OPPORTUNITY_STAGE})",
+            t0,
+        )
     except Exception as exc:  # noqa: BLE001
         # CRM dispatch is best-effort — log + continue. The enrollment is
         # still valid; the operator can manually backfill the opportunity
         # row if dispatch failed.
-        _step("create_opportunity", "failed",
-              f"{exc} (continuing — CRM dispatch is best-effort)", t0)
+        _step(
+            "create_opportunity", "failed", f"{exc} (continuing — CRM dispatch is best-effort)", t0
+        )
 
     # ---- 5. schedule first monthly cycle --------------------------------
     # next_cycle_dt is always computed (the welcome email references it for
@@ -521,20 +561,28 @@ def enroll_retainer(
         # Always-on SKUs (e.g. the AI Digital Receptionist) deliver value
         # continuously — there is no monthly deliverable DAG, so no cycle
         # marker is written and the monthly-cycle cron never picks one up.
-        _step("schedule_next_cycle", "skipped",
-              "sku has no monthly cycle (always-on service)", t0)
+        _step("schedule_next_cycle", "skipped", "sku has no monthly cycle (always-on service)", t0)
     else:
         try:
             marker = _write_next_cycle_marker(customer.id, sku, next_cycle_dt)
             next_cycle_iso = next_cycle_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
             plan_marker_path = str(marker)
-            _step("schedule_next_cycle", "ok",
-                  f"next_cycle_at={next_cycle_iso} marker={marker.name}", t0)
+            _step(
+                "schedule_next_cycle",
+                "ok",
+                f"next_cycle_at={next_cycle_iso} marker={marker.name}",
+                t0,
+            )
         except Exception as exc:  # noqa: BLE001
             _step("schedule_next_cycle", "failed", str(exc), t0)
             return EnrollmentResult(
-                email=email, sku_id=sku_id, customer_id=customer_id,
-                opportunity_id=opportunity_id, ok=False, steps=steps, ts=started,
+                email=email,
+                sku_id=sku_id,
+                customer_id=customer_id,
+                opportunity_id=opportunity_id,
+                ok=False,
+                steps=steps,
+                ts=started,
             )
 
     # ---- 6. send welcome email ------------------------------------------
@@ -553,33 +601,48 @@ def enroll_retainer(
         )
         welcome_message_id = send_result.get("message_id")
         channel = send_result.get("channel", "?")
-        _step("send_welcome_email", "ok",
-              f"{channel} message_id={welcome_message_id}", t0)
+        _step("send_welcome_email", "ok", f"{channel} message_id={welcome_message_id}", t0)
     except TypeError:
         # Some backend adapters don't accept html_body kwarg — retry plain.
         try:
             send_result = send_email_fn(
-                to=customer.email, subject=subject, body=text_body,
+                to=customer.email,
+                subject=subject,
+                body=text_body,
             )
             welcome_message_id = send_result.get("message_id")
             channel = send_result.get("channel", "?")
-            _step("send_welcome_email", "ok",
-                  f"{channel} message_id={welcome_message_id} (text-only)", t0)
+            _step(
+                "send_welcome_email",
+                "ok",
+                f"{channel} message_id={welcome_message_id} (text-only)",
+                t0,
+            )
         except Exception as exc:  # noqa: BLE001
             _step("send_welcome_email", "failed", str(exc), t0)
             return EnrollmentResult(
-                email=email, sku_id=sku_id, customer_id=customer_id,
-                opportunity_id=opportunity_id, next_cycle_at=next_cycle_iso,
+                email=email,
+                sku_id=sku_id,
+                customer_id=customer_id,
+                opportunity_id=opportunity_id,
+                next_cycle_at=next_cycle_iso,
                 plan_marker_path=plan_marker_path,
-                ok=False, steps=steps, ts=started,
+                ok=False,
+                steps=steps,
+                ts=started,
             )
     except Exception as exc:  # noqa: BLE001
         _step("send_welcome_email", "failed", str(exc), t0)
         return EnrollmentResult(
-            email=email, sku_id=sku_id, customer_id=customer_id,
-            opportunity_id=opportunity_id, next_cycle_at=next_cycle_iso,
+            email=email,
+            sku_id=sku_id,
+            customer_id=customer_id,
+            opportunity_id=opportunity_id,
+            next_cycle_at=next_cycle_iso,
             plan_marker_path=plan_marker_path,
-            ok=False, steps=steps, ts=started,
+            ok=False,
+            steps=steps,
+            ts=started,
         )
 
     return EnrollmentResult(

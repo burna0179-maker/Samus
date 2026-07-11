@@ -4,19 +4,22 @@ This is the "Documented runbook (trigger -> action map, retry behavior, failure
 modes)" deliverable promised in ``scope_planner`` — now generated from the actual
 compiled workflow rather than written by hand.
 """
+
 from __future__ import annotations
 
 from backend.services.scope_planner import TaskPlan
 from backend.workflow.models import N8nWorkflow
 
 
-def render_runbook(plan: TaskPlan, wf: N8nWorkflow, *, sku_name: str = "", bottleneck: str = "") -> str:
+def render_runbook(
+    plan: TaskPlan, wf: N8nWorkflow, *, sku_name: str = "", bottleneck: str = ""
+) -> str:
     lines: list[str] = []
     lines.append(f"# Runbook — {wf.name}")
     lines.append("")
     if sku_name:
         lines.append(f"**Service:** {sku_name}  ")
-    lines.append(f"**Platform:** n8n  ")
+    lines.append("**Platform:** n8n  ")
     lines.append(f"**Nodes:** {len(wf.nodes)}")
     lines.append("")
     if bottleneck:
@@ -61,8 +64,12 @@ def render_runbook(plan: TaskPlan, wf: N8nWorkflow, *, sku_name: str = "", bottl
     lines.append("")
     lines.append("1. In n8n: **Workflows → ⋮ → Import from File** and choose `workflow.json`.")
     lines.append("2. Open each node above and connect its credential (see the list).")
-    lines.append("3. Fill the placeholder fields (channel id, sheet id, phone number, message text).")
-    lines.append("4. Run a test execution, confirm the failure branch fires (disconnect a credential to test).")
+    lines.append(
+        "3. Fill the placeholder fields (channel id, sheet id, phone number, message text)."
+    )
+    lines.append(
+        "4. Run a test execution, confirm the failure branch fires (disconnect a credential to test)."
+    )
     lines.append("5. Toggle the workflow **Active**.")
     lines.append("")
     lines.append("— Hustleforge")

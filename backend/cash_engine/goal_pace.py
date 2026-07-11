@@ -19,6 +19,7 @@ decision. Every default reader is defensive: on any doubt it returns None, and
 :func:`compute_behind_pace` maps a missing side to None (unknown => moderate),
 never to a false "behind" that would over-produce.
 """
+
 from __future__ import annotations
 
 import logging
@@ -108,10 +109,12 @@ def compute_behind_pace(
 # Default readers.
 # ---------------------------------------------------------------------------
 
+
 def _default_codb_reader() -> Optional[float]:
     """Total monthly burn from the CODB registry. Standalone (no Stripe)."""
     try:
         from backend.finance.service import get_codb_summary
+
         return float(get_codb_summary().total_monthly_burn_usd)
     except Exception as exc:  # noqa: BLE001
         _LOG.warning("codb summary unavailable: %s", exc)
@@ -132,9 +135,11 @@ def _default_mrr_reader() -> Optional[float]:
     than a false 'behind'."""
     try:
         from backend.finance import webhook as webhook_mod
+
         if not webhook_mod.event_log_path().exists():
             return None
         from backend.finance.service import get_mrr_adds
+
         # Wide window: capture all logged recurring adds as the best disk proxy.
         return float(get_mrr_adds(window_days=3650).total_mrr_usd)
     except Exception as exc:  # noqa: BLE001
@@ -152,6 +157,7 @@ def _recent_daily_revenue(days: int = _VELOCITY_WINDOW_DAYS) -> Optional[float]:
     velocity, which is exactly what the deadline run-rate check wants."""
     try:
         from backend.finance import webhook as webhook_mod
+
         if not webhook_mod.event_log_path().exists():
             return None
         events = webhook_mod.load_recent_events(days)
@@ -180,8 +186,10 @@ def _default_deadline_signal() -> Optional[bool]:
     total_days = (deadline - start).days
     days_remaining = (deadline - today).days
     return deadline_behind(
-        goal_usd=goal, total_campaign_days=total_days,
-        days_remaining=days_remaining, recent_daily_revenue=_recent_daily_revenue(),
+        goal_usd=goal,
+        total_campaign_days=total_days,
+        days_remaining=days_remaining,
+        recent_daily_revenue=_recent_daily_revenue(),
     )
 
 
@@ -198,6 +206,7 @@ def default_behind_pace() -> Optional[bool]:
 # ---------------------------------------------------------------------------
 # Graded urgency score — the continuous sibling of behind_pace.
 # ---------------------------------------------------------------------------
+
 
 def _default_deadline_urgency() -> Optional[float]:
     """Deadline run-rate GAP as a 0..1 urgency: ``(required_daily - recent_daily)

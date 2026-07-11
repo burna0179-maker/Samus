@@ -38,12 +38,12 @@ live cash-engine + Codex + EFH + karma are NEVER touched. The proposals JSONL
 ledger lives under ``tmp_path`` (``SAMUS_STATE_ROOT`` override), the telemetry
 sink is a spy. No DDB / network / LM Studio.
 """
+
 from __future__ import annotations
 
 import asyncio
 import json
 
-import pytest
 
 from backend.cognitive.cycle_models import CycleInput
 
@@ -90,18 +90,14 @@ class _RaisingReviewSpy:
 
     def __call__(self, *_a, **_k):
         self.calls += 1
-        raise AssertionError(
-            "review_opportunity MUST NOT be called when promotion is disabled"
-        )
+        raise AssertionError("review_opportunity MUST NOT be called when promotion is disabled")
 
 
 class _RaisingSink:
     """A telemetry sink that fails the test if anything appends to it."""
 
     def append(self, *_a, **_k):
-        raise AssertionError(
-            "telemetry MUST NOT be appended when promotion is disabled"
-        )
+        raise AssertionError("telemetry MUST NOT be appended when promotion is disabled")
 
 
 class _RecordingSink:
@@ -206,8 +202,14 @@ class _RaisingReview:
 # ---------------------------------------------------------------------------
 # Proposal-row factories
 # ---------------------------------------------------------------------------
-def _proposal_row(*, plan_token="tok-1", intent_type="stake_then_outreach",
-                  prospect_id="prospect-1", actioned=False, ts=None):
+def _proposal_row(
+    *,
+    plan_token="tok-1",
+    intent_type="stake_then_outreach",
+    prospect_id="prospect-1",
+    actioned=False,
+    ts=None,
+):
     """A Phase-E shaped cognition_proposal row, possibly with a prospect_id."""
     from backend.common.dates import iso_now
 
@@ -324,6 +326,7 @@ def test_b_flag_on_pass_marks_actioned_and_writes_telemetry(tmp_path, monkeypatc
     # One telemetry row.
     assert len(telemetry.rows) == 1
     from backend.cognitive.proposal_promoter import EVENT_NAME
+
     assert telemetry.rows[0]["event"] == EVENT_NAME
     assert telemetry.rows[0]["verdict"]["status"] == "pass"
 
@@ -434,10 +437,13 @@ def test_d_flag_on_review_raises_is_fail_closed_to_error(tmp_path, monkeypatch):
 def test_e_idempotent_double_run_does_not_double_promote(tmp_path, monkeypatch):
     _arm_promotion(monkeypatch, tmp_path / "state")
     ledger = tmp_path / "state" / "cognition" / "proposals.jsonl"
-    _write_jsonl(ledger, [
-        _proposal_row(plan_token="tok-a", prospect_id="p-A"),
-        _proposal_row(plan_token="tok-b", prospect_id="p-B"),
-    ])
+    _write_jsonl(
+        ledger,
+        [
+            _proposal_row(plan_token="tok-a", prospect_id="p-A"),
+            _proposal_row(plan_token="tok-b", prospect_id="p-B"),
+        ],
+    )
 
     from backend.cognitive.proposal_promoter import ProposalPromoter
 
@@ -560,7 +566,11 @@ def test_g_runner_integration_flag_on_yields_one_promotion_attempt(tmp_path, mon
             return {"crossing": 0, "worst_risk": 0.0, "threshold": threshold, "assessed": 0}
 
         def finance_runway(self):
-            return {"days_of_runway": 90.0, "alert_triggered": False, "available_balance_usd": 500.0}
+            return {
+                "days_of_runway": 90.0,
+                "alert_triggered": False,
+                "available_balance_usd": 500.0,
+            }
 
         def finance_actions(self):
             return {"open_total": 0, "overdue_count": 0, "due_today_count": 0}
@@ -647,7 +657,11 @@ def test_g2_runner_integration_flag_off_yields_zero_promotion_attempts(tmp_path,
             return {"crossing": 0, "worst_risk": 0.0, "threshold": threshold, "assessed": 0}
 
         def finance_runway(self):
-            return {"days_of_runway": 90.0, "alert_triggered": False, "available_balance_usd": 500.0}
+            return {
+                "days_of_runway": 90.0,
+                "alert_triggered": False,
+                "available_balance_usd": 500.0,
+            }
 
         def finance_actions(self):
             return {"open_total": 0, "overdue_count": 0, "due_today_count": 0}
@@ -742,7 +756,11 @@ def test_i_block_cooldown_suppresses_same_prospect_then_expires(tmp_path, monkey
 
     # --- Tick 1: first promotion -> BLOCK, review called once, cooldown armed.
     r1 = _promote_one_pending(
-        ledger, review, telemetry, plan_token="tok-cd-1", prospect_id="p-cd",
+        ledger,
+        review,
+        telemetry,
+        plan_token="tok-cd-1",
+        prospect_id="p-cd",
     )
     assert r1.status == "blocked"
     assert len(review.calls) == 1
@@ -751,7 +769,11 @@ def test_i_block_cooldown_suppresses_same_prospect_then_expires(tmp_path, monkey
     # --- Tick 2: still inside the cooldown window -> SKIP, review NOT re-called.
     clock["t"] = 1000.0 + 300.0  # 300s < 600s window
     r2 = _promote_one_pending(
-        ledger, review, telemetry, plan_token="tok-cd-2", prospect_id="p-cd",
+        ledger,
+        review,
+        telemetry,
+        plan_token="tok-cd-2",
+        prospect_id="p-cd",
     )
     assert r2.status == "skipped"
     assert r2.reason == "block_cooldown"
@@ -764,7 +786,11 @@ def test_i_block_cooldown_suppresses_same_prospect_then_expires(tmp_path, monkey
     # --- Tick 3: clock advances PAST the cooldown -> review called again.
     clock["t"] = 1000.0 + 600.0 + 1.0  # just past the 600s window
     r3 = _promote_one_pending(
-        ledger, review, telemetry, plan_token="tok-cd-3", prospect_id="p-cd",
+        ledger,
+        review,
+        telemetry,
+        plan_token="tok-cd-3",
+        prospect_id="p-cd",
     )
     assert r3.status == "blocked"
     assert len(review.calls) == 2, "after the cooldown expires the gate is consulted again"
@@ -787,7 +813,11 @@ def test_j_block_cooldown_is_per_prospect_not_global(tmp_path, monkeypatch):
 
     # Prospect A blocks -> cooldown armed for A only.
     rA = _promote_one_pending(
-        ledger, review, telemetry, plan_token="tok-A", prospect_id="p-A",
+        ledger,
+        review,
+        telemetry,
+        plan_token="tok-A",
+        prospect_id="p-A",
     )
     assert rA.status == "blocked"
     assert len(review.calls) == 1
@@ -796,14 +826,22 @@ def test_j_block_cooldown_is_per_prospect_not_global(tmp_path, monkeypatch):
 
     # Prospect B (different id) within A's window is NOT suppressed -> reviewed.
     rB = _promote_one_pending(
-        ledger, review, telemetry, plan_token="tok-B", prospect_id="p-B",
+        ledger,
+        review,
+        telemetry,
+        plan_token="tok-B",
+        prospect_id="p-B",
     )
     assert rB.status == "blocked", "a different prospect is not gated by A's cooldown"
     assert len(review.calls) == 2, "prospect B must reach review_opportunity"
 
     # Re-promoting A within its window still SKIPs (sanity: A is still cooling).
     rA2 = _promote_one_pending(
-        ledger, review, telemetry, plan_token="tok-A2", prospect_id="p-A",
+        ledger,
+        review,
+        telemetry,
+        plan_token="tok-A2",
+        prospect_id="p-A",
     )
     assert rA2.status == "skipped"
     assert rA2.reason == "block_cooldown"
@@ -823,14 +861,22 @@ def test_k_pass_verdict_does_not_arm_block_cooldown(tmp_path, monkeypatch):
     import backend.cognitive.proposal_promoter as pp
 
     r1 = _promote_one_pending(
-        ledger, review, telemetry, plan_token="tok-pass-cd", prospect_id="p-pass",
+        ledger,
+        review,
+        telemetry,
+        plan_token="tok-pass-cd",
+        prospect_id="p-pass",
     )
     assert r1.status == "pass"
     assert "p-pass" not in pp._BLOCK_COOLDOWN
 
     # A second tick for the same prospect is NOT suppressed -> review re-called.
     r2 = _promote_one_pending(
-        ledger, review, telemetry, plan_token="tok-pass-cd-2", prospect_id="p-pass",
+        ledger,
+        review,
+        telemetry,
+        plan_token="tok-pass-cd-2",
+        prospect_id="p-pass",
     )
     assert r2.status == "pass"
     assert len(review.calls) == 2

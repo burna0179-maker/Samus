@@ -15,6 +15,7 @@ NEVER writes to ``codb_registry.yaml`` — this is a read-only reconnaissance
 tool. Refining the registry stays a manual operator edit, matching the
 "recommend-only" pattern used by ``backend/cognitive/codb_reasoner.py``.
 """
+
 from __future__ import annotations
 
 import email
@@ -80,8 +81,14 @@ _AWS_SERVICE_HINTS: dict[str, str] = {
 # Subject keywords that flag a billing-related email even when the sender
 # domain isn't in KNOWN_VENDORS — used to find genuinely NEW vendors.
 _SUBJECT_KEYWORDS = (
-    "invoice", "receipt", "statement", "payment", "billing",
-    "declined", "charge", "renewal",
+    "invoice",
+    "receipt",
+    "statement",
+    "payment",
+    "billing",
+    "declined",
+    "charge",
+    "renewal",
 )
 
 UNMATCHED_BUCKET = "unmatched_new_vendor"
@@ -90,13 +97,15 @@ SignalKind = Literal["receipt", "invoice", "payment_declined", "renewal_notice",
 
 _AMOUNT_RE = re.compile(r"\$[\d,]+\.?\d*")
 _PRIORITY_CONTEXT_RE = re.compile(
-    r"(total|charged|due|amount)\D{0,20}(\$[\d,]+\.?\d*)", re.IGNORECASE,
+    r"(total|charged|due|amount)\D{0,20}(\$[\d,]+\.?\d*)",
+    re.IGNORECASE,
 )
 
 
 # ---------------------------------------------------------------------------
 # Vendor matching
 # ---------------------------------------------------------------------------
+
 
 def _domain_from_addr(from_addr: str) -> str:
     """Bare lower-cased domain from an email address, '' if unparseable."""
@@ -146,7 +155,9 @@ def _pick_openai_candidate(candidates: list[str], subject: str, amount: float | 
     return candidates[0] if candidates else "openai-api-samus-inference"
 
 
-def _pick_registry_id(domain: str, candidates: list[str], subject: str, amount: float | None) -> str:
+def _pick_registry_id(
+    domain: str, candidates: list[str], subject: str, amount: float | None
+) -> str:
     """Resolve ``candidates`` (possibly multiple) down to one registry id."""
     if not candidates:
         return UNMATCHED_BUCKET
@@ -166,6 +177,7 @@ def _pick_registry_id(domain: str, candidates: list[str], subject: str, amount: 
 # ---------------------------------------------------------------------------
 # Amount + signal-kind extraction
 # ---------------------------------------------------------------------------
+
 
 def extract_amount(text: str) -> float | None:
     """Best-effort dollar amount from subject+body text.
@@ -217,9 +229,11 @@ def classify_signal_kind(subject: str, body: str) -> SignalKind:
 # Shapes
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class RawMatch:
     """One Gmail search hit before parsing — gmail_id + raw RFC822 bytes."""
+
     gmail_id: str
     raw: bytes
 
@@ -227,6 +241,7 @@ class RawMatch:
 @dataclass
 class BillSignal:
     """One parsed + classified billing email."""
+
     gmail_id: str
     message_id: str
     from_addr: str
@@ -235,8 +250,8 @@ class BillSignal:
     date_header: str
     amount_usd: float | None
     signal_kind: SignalKind
-    matched_registry_id: str   # codb id, "aws-other", or UNMATCHED_BUCKET
-    snippet: str = ""          # first ~200 chars of body, for operator context
+    matched_registry_id: str  # codb id, "aws-other", or UNMATCHED_BUCKET
+    snippet: str = ""  # first ~200 chars of body, for operator context
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -256,15 +271,16 @@ class BillSignal:
 @dataclass
 class VendorBillRow:
     """One row in the compiled snapshot — one registry id (or bucket)."""
+
     registry_id: str
-    vendor_label: str                  # registry name, or from_domain if unmatched
+    vendor_label: str  # registry name, or from_domain if unmatched
     latest_observed_usd: float | None
-    last_seen_date: str                # raw Date header of the most recent signal
+    last_seen_date: str  # raw Date header of the most recent signal
     registry_estimate_usd: float | None
     delta_usd: float | None
     signal_count: int
-    payment_declined: bool             # True if ANY signal for this vendor was declined
-    flag: str                          # human-readable flag for the summary table
+    payment_declined: bool  # True if ANY signal for this vendor was declined
+    flag: str  # human-readable flag for the summary table
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -283,6 +299,7 @@ class VendorBillRow:
 @dataclass
 class BillsSnapshot:
     """Compiled bills snapshot — the CLI's JSON output shape."""
+
     ts: str
     lookback_days: int
     signals_scanned: int
@@ -304,6 +321,7 @@ class BillsSnapshot:
 # ---------------------------------------------------------------------------
 # Step 2: search + fetch (READ-ONLY — list + get only)
 # ---------------------------------------------------------------------------
+
 
 def _build_search_query(lookback_days: int) -> str:
     """Combine vendor domains OR subject keywords, restricted to a window.
@@ -357,6 +375,7 @@ def search_billing_emails(
 # Step 3: parse one message -> BillSignal
 # ---------------------------------------------------------------------------
 
+
 def parse_bill_signal(raw_message: RawMatch) -> BillSignal | None:
     """Parse one raw Gmail match into a :class:`BillSignal`.
 
@@ -368,7 +387,9 @@ def parse_bill_signal(raw_message: RawMatch) -> BillSignal | None:
         parsed = parse_rfc822(raw_message.raw)
     except Exception as exc:  # noqa: BLE001
         _LOG.warning(
-            "gmail_bill_scan parse failed gmail_id=%s: %s", raw_message.gmail_id, exc,
+            "gmail_bill_scan parse failed gmail_id=%s: %s",
+            raw_message.gmail_id,
+            exc,
         )
         return None
 
@@ -394,7 +415,8 @@ def parse_bill_signal(raw_message: RawMatch) -> BillSignal | None:
     except Exception as exc:  # noqa: BLE001 — never raise on a single message
         _LOG.warning(
             "gmail_bill_scan signal-build failed gmail_id=%s: %s",
-            raw_message.gmail_id, exc,
+            raw_message.gmail_id,
+            exc,
         )
         return None
 
@@ -402,6 +424,7 @@ def parse_bill_signal(raw_message: RawMatch) -> BillSignal | None:
 # ---------------------------------------------------------------------------
 # Step 4: compile snapshot (cross-reference against the registry — READ ONLY)
 # ---------------------------------------------------------------------------
+
 
 def _parse_date_for_sort(date_header: str) -> float:
     """Best-effort epoch seconds from an RFC822 Date header; 0.0 if unparseable."""
@@ -481,24 +504,28 @@ def compile_bills_snapshot(
         if delta is not None and abs(delta) >= 1.0:
             flags.append(f"DELTA_{'+' if delta > 0 else ''}{delta:.2f}")
 
-        rows.append(VendorBillRow(
-            registry_id=registry_id,
-            vendor_label=vendor_label,
-            latest_observed_usd=latest_observed,
-            last_seen_date=latest.date_header,
-            registry_estimate_usd=registry_estimate,
-            delta_usd=delta,
-            signal_count=len(sigs),
-            payment_declined=declined,
-            flag=", ".join(flags) if flags else "ok",
-        ))
+        rows.append(
+            VendorBillRow(
+                registry_id=registry_id,
+                vendor_label=vendor_label,
+                latest_observed_usd=latest_observed,
+                last_seen_date=latest.date_header,
+                registry_estimate_usd=registry_estimate,
+                delta_usd=delta,
+                signal_count=len(sigs),
+                payment_declined=declined,
+                flag=", ".join(flags) if flags else "ok",
+            )
+        )
 
     # Sort: at-risk first, then by |delta| desc, then alpha.
-    rows.sort(key=lambda r: (
-        not r.payment_declined,
-        -(abs(r.delta_usd) if r.delta_usd is not None else 0.0),
-        r.vendor_label,
-    ))
+    rows.sort(
+        key=lambda r: (
+            not r.payment_declined,
+            -(abs(r.delta_usd) if r.delta_usd is not None else 0.0),
+            r.vendor_label,
+        )
+    )
 
     return BillsSnapshot(
         ts=ts or iso_now(),
@@ -513,6 +540,7 @@ def compile_bills_snapshot(
 # ---------------------------------------------------------------------------
 # Output-path convention (mirrors gmail_poller's ledger path pattern)
 # ---------------------------------------------------------------------------
+
 
 def default_snapshot_path() -> Path:
     """Default output path — sibling of the inbound-email ledger.
@@ -532,6 +560,7 @@ def default_snapshot_path() -> Path:
 # Pipeline runner (used by the CLI; also test-friendly via api_factory)
 # ---------------------------------------------------------------------------
 
+
 def run_scan(
     *,
     lookback_days: int = 90,
@@ -544,6 +573,7 @@ def run_scan(
     """
     settings = get_settings()
     if api_factory is None:
+
         def api_factory() -> GmailApiClient:  # type: ignore[no-redef]
             return GmailApiClient(
                 client_id=settings.gmail_oauth_client_id,
@@ -554,7 +584,9 @@ def run_scan(
     signals: list[BillSignal] = []
     with api_factory() as client:
         raw_matches = search_billing_emails(
-            client, lookback_days=lookback_days, max_results=max_results,
+            client,
+            lookback_days=lookback_days,
+            max_results=max_results,
         )
         for raw in raw_matches:
             sig = parse_bill_signal(raw)
@@ -569,19 +601,22 @@ def run_scan(
 # Human-readable summary table
 # ---------------------------------------------------------------------------
 
+
 def render_summary_table(snapshot: BillsSnapshot) -> str:
     """Vendor | latest_observed_usd | registry_estimate_usd | delta | last_seen_date | flag."""
     headers = ("vendor", "latest_$", "registry_est_$", "delta_$", "last_seen", "flag")
     rows_fmt: list[tuple[str, ...]] = []
     for r in snapshot.rows:
-        rows_fmt.append((
-            r.vendor_label[:40],
-            f"{r.latest_observed_usd:.2f}" if r.latest_observed_usd is not None else "-",
-            f"{r.registry_estimate_usd:.2f}" if r.registry_estimate_usd is not None else "-",
-            f"{r.delta_usd:+.2f}" if r.delta_usd is not None else "-",
-            r.last_seen_date[:25] if r.last_seen_date else "-",
-            r.flag,
-        ))
+        rows_fmt.append(
+            (
+                r.vendor_label[:40],
+                f"{r.latest_observed_usd:.2f}" if r.latest_observed_usd is not None else "-",
+                f"{r.registry_estimate_usd:.2f}" if r.registry_estimate_usd is not None else "-",
+                f"{r.delta_usd:+.2f}" if r.delta_usd is not None else "-",
+                r.last_seen_date[:25] if r.last_seen_date else "-",
+                r.flag,
+            )
+        )
     widths = [
         max(len(headers[i]), *(len(row[i]) for row in rows_fmt)) if rows_fmt else len(headers[i])
         for i in range(len(headers))
@@ -625,7 +660,8 @@ def main(argv: list[str] | None = None) -> int:
     import logging as _logging
 
     _logging.basicConfig(
-        level="INFO", format="%(asctime)s %(levelname)s %(name)s %(message)s",
+        level="INFO",
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
 
     parser = argparse.ArgumentParser(description="Gmail bill/invoice scanner")
@@ -649,7 +685,8 @@ def main(argv: list[str] | None = None) -> int:
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(
-        json.dumps(snapshot.to_dict(), indent=2, ensure_ascii=False), encoding="utf-8",
+        json.dumps(snapshot.to_dict(), indent=2, ensure_ascii=False),
+        encoding="utf-8",
     )
 
     print(render_summary_table(snapshot))

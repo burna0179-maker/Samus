@@ -7,6 +7,7 @@ audit/enforce policy wired into ``BaseSqsWorker._process_message``:
   * tampered / unsigned message is REJECTED (dropped, handler never runs) in
     enforce mode (SAMUS_SQS_REQUIRE_HMAC on).
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -26,6 +27,7 @@ def _with_hmac_key(monkeypatch):
     # Ensure no per-service override shadows the shared key for the gateway.
     monkeypatch.delenv("SAMUS_HMAC_KEY_GATEWAY", raising=False)
     from backend.common.settings import reload_settings
+
     reload_settings()
     yield
     reload_settings()
@@ -33,7 +35,9 @@ def _with_hmac_key(monkeypatch):
 
 def _envelope(**overrides: Any) -> QueueEnvelope:
     base = dict(
-        task_id="t-1", service="crm", action="close_payment_to_opportunity",
+        task_id="t-1",
+        service="crm",
+        action="close_payment_to_opportunity",
         payload={"email": "buyer@x.com", "amount_usd": 1500.0},
         metadata={"src": "gateway"},
     )
@@ -44,6 +48,7 @@ def _envelope(**overrides: Any) -> QueueEnvelope:
 # ---------------------------------------------------------------------------
 # Signing module — round trip + tamper detection
 # ---------------------------------------------------------------------------
+
 
 def test_sign_then_verify_round_trip():
     env = queue_signing.sign_envelope(_envelope())
@@ -75,6 +80,7 @@ def test_serialized_signature_survives_round_trip():
 def test_no_key_signs_nothing(monkeypatch):
     monkeypatch.setenv("SAMUS_SHARED_HMAC_KEY", "")
     from backend.common.settings import reload_settings
+
     reload_settings()
     env = queue_signing.sign_envelope(_envelope())
     assert env.hmac is None
@@ -83,6 +89,7 @@ def test_no_key_signs_nothing(monkeypatch):
 # ---------------------------------------------------------------------------
 # Audit / enforce policy
 # ---------------------------------------------------------------------------
+
 
 def test_audit_mode_processes_bad_message(monkeypatch, caplog):
     monkeypatch.delenv("SAMUS_SQS_REQUIRE_HMAC", raising=False)  # default OFF
@@ -116,6 +123,7 @@ def test_enforce_mode_admits_valid(monkeypatch):
 # ---------------------------------------------------------------------------
 # Wiring through BaseSqsWorker._process_message
 # ---------------------------------------------------------------------------
+
 
 class _FakeTable:
     def put_item(self, **kwargs):  # noqa: D401 - stub

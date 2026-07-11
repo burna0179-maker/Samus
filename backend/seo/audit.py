@@ -18,6 +18,7 @@ Enrichment surface (added 2026-05-16) — beyond the original 6-field check:
 All enrichment is bs4-only; the regex fallback returns empty defaults for
 these fields so ``_build_issues`` can be tolerant without branching.
 """
+
 from __future__ import annotations
 
 import json as _json
@@ -45,7 +46,10 @@ _LOG = logging.getLogger("samus.seo.audit")
 # connect/read/write/pool independently so no single warm/hot audit fetch
 # (homepage + robots.txt) can wedge the sequential daily run.
 _HTTP_TIMEOUT = safe_fetch.bounded_timeout(
-    connect=5.0, read=15.0, write=10.0, pool=5.0,
+    connect=5.0,
+    read=15.0,
+    write=10.0,
+    pool=5.0,
 )
 # Browser-equivalent identity. A self-identifying bot UA is 403'd outright by
 # common WAFs (the 2026-05-21 crawler false-positive sweep), which sinks the
@@ -118,6 +122,7 @@ def _get_shared_client() -> httpx.Client:
         _SHARED_CLIENT_CLASS = Client
     return _SHARED_CLIENT
 
+
 # Retry budget for the page fetch + robots.txt fetch. Transient 5xx +
 # connect/read timeouts get retried; permanent 4xx are not. Three total
 # attempts, exponential backoff 0.5s -> 1s -> 2s.
@@ -140,6 +145,7 @@ try:  # tenacity is in requirements.txt; keep an import guard for safety
         stop_after_attempt,
         wait_exponential,
     )
+
     _HAS_TENACITY = True
 except Exception:  # pragma: no cover
     _HAS_TENACITY = False
@@ -180,7 +186,9 @@ def _fetch_inner(url: str) -> tuple[int, str, dict[str, str]]:
     )
     if 500 <= r.status_code < 600:
         raise httpx.HTTPStatusError(
-            f"server returned {r.status_code}", request=r.request, response=r,
+            f"server returned {r.status_code}",
+            request=r.request,
+            response=r,
         )
     return r.status_code, r.text or "", {k.lower(): v for k, v in r.headers.items()}
 
@@ -313,16 +321,44 @@ def _extract_schema_org(soup) -> tuple[list[str], bool, bool]:
     # likely-encountered ones for small-business prospects. Substring
     # match is good enough; schema.org allows custom subtypes anyway.
     local_business_subtypes = {
-        "LocalBusiness", "AutoRepair", "BarOrPub", "BeautySalon", "Bakery",
-        "ChildCare", "DaySpa", "Dentist", "DryCleaningOrLaundry",
-        "Electrician", "EmergencyService", "EmploymentAgency",
-        "FinancialService", "FoodEstablishment", "GeneralContractor",
-        "HVACBusiness", "HairSalon", "HomeAndConstructionBusiness",
-        "HousePainter", "LegalService", "Locksmith", "MedicalBusiness",
-        "MovingCompany", "NailSalon", "Notary", "Optician", "Pediatric",
-        "Pharmacy", "Physician", "Plumber", "RealEstateAgent", "Restaurant",
-        "RoofingContractor", "SelfStorage", "Store", "TaxiService",
-        "TravelAgency", "VeterinaryCare",
+        "LocalBusiness",
+        "AutoRepair",
+        "BarOrPub",
+        "BeautySalon",
+        "Bakery",
+        "ChildCare",
+        "DaySpa",
+        "Dentist",
+        "DryCleaningOrLaundry",
+        "Electrician",
+        "EmergencyService",
+        "EmploymentAgency",
+        "FinancialService",
+        "FoodEstablishment",
+        "GeneralContractor",
+        "HVACBusiness",
+        "HairSalon",
+        "HomeAndConstructionBusiness",
+        "HousePainter",
+        "LegalService",
+        "Locksmith",
+        "MedicalBusiness",
+        "MovingCompany",
+        "NailSalon",
+        "Notary",
+        "Optician",
+        "Pediatric",
+        "Pharmacy",
+        "Physician",
+        "Plumber",
+        "RealEstateAgent",
+        "Restaurant",
+        "RoofingContractor",
+        "SelfStorage",
+        "Store",
+        "TaxiService",
+        "TravelAgency",
+        "VeterinaryCare",
     }
 
     types: list[str] = []
@@ -396,7 +432,12 @@ def _extract_link_graph(soup, base_url: str) -> tuple[int, int, int, int]:
     anchors: set[str] = set()
     for a in soup.find_all("a"):
         href = (a.get("href") or "").strip()
-        if not href or href.startswith("#") or href.startswith("mailto:") or href.startswith("tel:"):
+        if (
+            not href
+            or href.startswith("#")
+            or href.startswith("mailto:")
+            or href.startswith("tel:")
+        ):
             continue
         rel = a.get("rel") or []
         rel_lower = [r.lower() for r in (rel if isinstance(rel, list) else [rel])]
@@ -478,7 +519,8 @@ def _extract_with_bs4(html: str, base_url: str = "") -> dict[str, Any]:
     schema_types, has_local_business, has_organization = _extract_schema_org(soup)
     image_count, images_with_alt, images_with_lazy = _extract_image_signals(soup)
     link_internal, link_external, link_nofollow, unique_anchors = _extract_link_graph(
-        soup, base_url or "https://example.com",
+        soup,
+        base_url or "https://example.com",
     )
     has_ga4, has_gtm, has_meta_pixel, has_legacy_ga = _extract_analytics(html)
 
@@ -608,8 +650,12 @@ def _extract_with_regex(html: str) -> dict[str, Any]:
                     continue
                 schema_types.append(clean)
                 if "LocalBusiness" in clean or clean in (
-                    "Plumber", "Electrician", "Restaurant", "Dentist",
-                    "RoofingContractor", "HVACBusiness",
+                    "Plumber",
+                    "Electrician",
+                    "Restaurant",
+                    "Dentist",
+                    "RoofingContractor",
+                    "HVACBusiness",
                 ):
                     has_local_business = True
                 if clean in ("Organization", "LocalBusiness"):
@@ -652,41 +698,80 @@ def _build_issues(url: str, parsed: dict[str, Any]) -> list[SeoIssue]:
     issues: list[SeoIssue] = []
     title = parsed.get("title") or ""
     if not title:
-        issues.append(SeoIssue(
-            id="missing_title", severity="high", category="content",
-            message="Page is missing a <title> tag.", evidence=""))
+        issues.append(
+            SeoIssue(
+                id="missing_title",
+                severity="high",
+                category="content",
+                message="Page is missing a <title> tag.",
+                evidence="",
+            )
+        )
     elif len(title) < 10 or len(title) > 70:
-        issues.append(SeoIssue(
-            id="title_length", severity="medium", category="content",
-            message=f"Title length {len(title)} chars (recommended 10-70).",
-            evidence=title[:120]))
+        issues.append(
+            SeoIssue(
+                id="title_length",
+                severity="medium",
+                category="content",
+                message=f"Title length {len(title)} chars (recommended 10-70).",
+                evidence=title[:120],
+            )
+        )
 
     meta = parsed.get("meta_description") or ""
     if not meta:
-        issues.append(SeoIssue(
-            id="missing_meta_description", severity="high", category="content",
-            message="Page is missing a meta description.", evidence=""))
+        issues.append(
+            SeoIssue(
+                id="missing_meta_description",
+                severity="high",
+                category="content",
+                message="Page is missing a meta description.",
+                evidence="",
+            )
+        )
     elif len(meta) < 50 or len(meta) > 160:
-        issues.append(SeoIssue(
-            id="meta_description_length", severity="medium", category="content",
-            message=f"Meta description length {len(meta)} chars (recommended 50-160).",
-            evidence=meta[:160]))
+        issues.append(
+            SeoIssue(
+                id="meta_description_length",
+                severity="medium",
+                category="content",
+                message=f"Meta description length {len(meta)} chars (recommended 50-160).",
+                evidence=meta[:160],
+            )
+        )
 
     h1_count = parsed.get("h1_count") or 0
     if h1_count == 0:
-        issues.append(SeoIssue(
-            id="missing_h1", severity="high", category="content",
-            message="Page has no <h1> heading.", evidence=""))
+        issues.append(
+            SeoIssue(
+                id="missing_h1",
+                severity="high",
+                category="content",
+                message="Page has no <h1> heading.",
+                evidence="",
+            )
+        )
     elif h1_count > 1:
-        issues.append(SeoIssue(
-            id="multiple_h1", severity="medium", category="content",
-            message=f"Page has {h1_count} <h1> headings; only one is recommended.",
-            evidence=""))
+        issues.append(
+            SeoIssue(
+                id="multiple_h1",
+                severity="medium",
+                category="content",
+                message=f"Page has {h1_count} <h1> headings; only one is recommended.",
+                evidence="",
+            )
+        )
 
     if not parsed.get("viewport"):
-        issues.append(SeoIssue(
-            id="missing_viewport_meta", severity="high", category="mobile",
-            message="Mobile viewport meta tag is missing.", evidence=""))
+        issues.append(
+            SeoIssue(
+                id="missing_viewport_meta",
+                severity="high",
+                category="mobile",
+                message="Mobile viewport meta tag is missing.",
+                evidence="",
+            )
+        )
 
     # NAP (Name / Address / Phone) signals. Skipped if the page already
     # publishes structured LocalBusiness data — the schema fields ARE the
@@ -708,27 +793,42 @@ def _build_issues(url: str, parsed: dict[str, Any]) -> list[SeoIssue]:
         has_address_keyword = bool(address_regex.search(text))
         has_zip = bool(zip_regex.search(text))
         if not has_phone and not (has_address_keyword or has_zip):
-            issues.append(SeoIssue(
-                id="missing_local_signals", severity="medium", category="local",
-                message=(
-                    "Page has no visible phone number or street-address tokens. "
-                    "Local-pack ranking + Maps listings depend on the NAP "
-                    "(Name / Address / Phone) being readable on the page."
-                ),
-                evidence=""))
+            issues.append(
+                SeoIssue(
+                    id="missing_local_signals",
+                    severity="medium",
+                    category="local",
+                    message=(
+                        "Page has no visible phone number or street-address tokens. "
+                        "Local-pack ranking + Maps listings depend on the NAP "
+                        "(Name / Address / Phone) being readable on the page."
+                    ),
+                    evidence="",
+                )
+            )
 
     if urlparse(url).scheme == "https" and parsed.get("http_resources_on_https"):
         sample = parsed["http_resources_on_https"][:3]
-        issues.append(SeoIssue(
-            id="mixed_content", severity="critical", category="technical",
-            message="HTTPS page loads HTTP sub-resources (mixed content).",
-            evidence=", ".join(sample)))
+        issues.append(
+            SeoIssue(
+                id="mixed_content",
+                severity="critical",
+                category="technical",
+                message="HTTPS page loads HTTP sub-resources (mixed content).",
+                evidence=", ".join(sample),
+            )
+        )
 
     if parsed.get("has_noindex"):
-        issues.append(SeoIssue(
-            id="noindex_directive", severity="critical", category="technical",
-            message="Page explicitly opts out of indexing (noindex).",
-            evidence=""))
+        issues.append(
+            SeoIssue(
+                id="noindex_directive",
+                severity="critical",
+                category="technical",
+                message="Page explicitly opts out of indexing (noindex).",
+                evidence="",
+            )
+        )
 
     # --- Enrichment-driven issues (added 2026-05-16) --------------------
     _build_enrichment_issues(url, parsed, issues)
@@ -737,7 +837,8 @@ def _build_issues(url: str, parsed: dict[str, Any]) -> list[SeoIssue]:
 
 
 def _build_pagespeed_issues(
-    ps: PageSpeedResult, issues: list[SeoIssue],
+    ps: PageSpeedResult,
+    issues: list[SeoIssue],
 ) -> None:
     """Append PageSpeed Insights-driven issues in place.
 
@@ -761,83 +862,105 @@ def _build_pagespeed_issues(
     # ---- Performance score ---------------------------------------------
     if ps.performance_score is not None:
         if ps.performance_score < 50:
-            issues.append(SeoIssue(
-                id="pagespeed_performance_poor", severity="high",
-                category="technical",
-                message=(
-                    f"Google PageSpeed gives this page a Performance score of "
-                    f"{ps.performance_score}/100 on mobile. Below 50 is the "
-                    "'poor' tier — slow page speed directly suppresses ranking "
-                    "and increases bounce rate."
-                ),
-                evidence=f"strategy={ps.strategy}",
-            ))
+            issues.append(
+                SeoIssue(
+                    id="pagespeed_performance_poor",
+                    severity="high",
+                    category="technical",
+                    message=(
+                        f"Google PageSpeed gives this page a Performance score of "
+                        f"{ps.performance_score}/100 on mobile. Below 50 is the "
+                        "'poor' tier — slow page speed directly suppresses ranking "
+                        "and increases bounce rate."
+                    ),
+                    evidence=f"strategy={ps.strategy}",
+                )
+            )
         elif ps.performance_score < 90:
-            issues.append(SeoIssue(
-                id="pagespeed_performance_needs_improvement",
-                severity="medium", category="technical",
-                message=(
-                    f"PageSpeed Performance is {ps.performance_score}/100 on "
-                    "mobile — Google's 'needs improvement' tier (50-89). "
-                    "Not actively penalized, but you're leaving ranking + "
-                    "user-experience headroom on the table."
-                ),
-                evidence=f"strategy={ps.strategy}",
-            ))
+            issues.append(
+                SeoIssue(
+                    id="pagespeed_performance_needs_improvement",
+                    severity="medium",
+                    category="technical",
+                    message=(
+                        f"PageSpeed Performance is {ps.performance_score}/100 on "
+                        "mobile — Google's 'needs improvement' tier (50-89). "
+                        "Not actively penalized, but you're leaving ranking + "
+                        "user-experience headroom on the table."
+                    ),
+                    evidence=f"strategy={ps.strategy}",
+                )
+            )
 
     # ---- Largest Contentful Paint --------------------------------------
     if ps.lcp_ms is not None:
         if ps.lcp_ms > 4000:
-            issues.append(SeoIssue(
-                id="pagespeed_lcp_poor", severity="high", category="technical",
-                message=(
-                    f"Largest Contentful Paint is {ps.lcp_ms} ms — Google "
-                    "treats anything above 4000 ms as 'poor.' LCP is a Core "
-                    "Web Vital and a direct ranking factor."
-                ),
-                evidence="threshold: <2500ms good, >4000ms poor",
-            ))
+            issues.append(
+                SeoIssue(
+                    id="pagespeed_lcp_poor",
+                    severity="high",
+                    category="technical",
+                    message=(
+                        f"Largest Contentful Paint is {ps.lcp_ms} ms — Google "
+                        "treats anything above 4000 ms as 'poor.' LCP is a Core "
+                        "Web Vital and a direct ranking factor."
+                    ),
+                    evidence="threshold: <2500ms good, >4000ms poor",
+                )
+            )
         elif ps.lcp_ms > 2500:
-            issues.append(SeoIssue(
-                id="pagespeed_lcp_needs_improvement",
-                severity="medium", category="technical",
-                message=(
-                    f"LCP is {ps.lcp_ms} ms — Google's 'needs improvement' "
-                    "band (2500-4000ms). Not yet in the penalty zone, but "
-                    "every 100ms above 2500ms costs measurable conversion."
-                ),
-                evidence="threshold: <2500ms good, 2500-4000ms NI, >4000ms poor",
-            ))
+            issues.append(
+                SeoIssue(
+                    id="pagespeed_lcp_needs_improvement",
+                    severity="medium",
+                    category="technical",
+                    message=(
+                        f"LCP is {ps.lcp_ms} ms — Google's 'needs improvement' "
+                        "band (2500-4000ms). Not yet in the penalty zone, but "
+                        "every 100ms above 2500ms costs measurable conversion."
+                    ),
+                    evidence="threshold: <2500ms good, 2500-4000ms NI, >4000ms poor",
+                )
+            )
 
     # ---- Cumulative Layout Shift ---------------------------------------
     if ps.cls is not None:
         if ps.cls > 0.25:
-            issues.append(SeoIssue(
-                id="pagespeed_cls_poor", severity="high", category="technical",
-                message=(
-                    f"Cumulative Layout Shift is {ps.cls} — Google treats "
-                    "anything above 0.25 as 'poor.' CLS is a Core Web Vital "
-                    "and a direct ranking factor; users also abandon pages "
-                    "that shift under their tap."
-                ),
-                evidence="threshold: <0.1 good, >0.25 poor",
-            ))
+            issues.append(
+                SeoIssue(
+                    id="pagespeed_cls_poor",
+                    severity="high",
+                    category="technical",
+                    message=(
+                        f"Cumulative Layout Shift is {ps.cls} — Google treats "
+                        "anything above 0.25 as 'poor.' CLS is a Core Web Vital "
+                        "and a direct ranking factor; users also abandon pages "
+                        "that shift under their tap."
+                    ),
+                    evidence="threshold: <0.1 good, >0.25 poor",
+                )
+            )
         elif ps.cls > 0.1:
-            issues.append(SeoIssue(
-                id="pagespeed_cls_needs_improvement",
-                severity="medium", category="technical",
-                message=(
-                    f"CLS is {ps.cls} — Google's 'needs improvement' band "
-                    "(0.1-0.25). Page content is shifting noticeably as it "
-                    "loads. Not yet penalized, but worth fixing for tap "
-                    "accuracy + user trust."
-                ),
-                evidence="threshold: <0.1 good, 0.1-0.25 NI, >0.25 poor",
-            ))
+            issues.append(
+                SeoIssue(
+                    id="pagespeed_cls_needs_improvement",
+                    severity="medium",
+                    category="technical",
+                    message=(
+                        f"CLS is {ps.cls} — Google's 'needs improvement' band "
+                        "(0.1-0.25). Page content is shifting noticeably as it "
+                        "loads. Not yet penalized, but worth fixing for tap "
+                        "accuracy + user trust."
+                    ),
+                    evidence="threshold: <0.1 good, 0.1-0.25 NI, >0.25 poor",
+                )
+            )
 
 
 def _build_enrichment_issues(
-    url: str, parsed: dict[str, Any], issues: list[SeoIssue],
+    url: str,
+    parsed: dict[str, Any],
+    issues: list[SeoIssue],
 ) -> None:
     """Append enrichment-driven issues in place. Pulled out of
     ``_build_issues`` so the original checklist stays readable.
@@ -845,63 +968,83 @@ def _build_enrichment_issues(
     # ---- Canonical -----------------------------------------------------
     canonical = (parsed.get("canonical_url") or "").strip()
     if not canonical:
-        issues.append(SeoIssue(
-            id="missing_canonical", severity="high", category="technical",
-            message=(
-                "Page has no canonical URL tag. Without it, Google can treat "
-                "HTTPS/HTTP, www/non-www, and trailing-slash variants as "
-                "duplicates and split your ranking power across them."
-            ),
-            evidence="",
-        ))
+        issues.append(
+            SeoIssue(
+                id="missing_canonical",
+                severity="high",
+                category="technical",
+                message=(
+                    "Page has no canonical URL tag. Without it, Google can treat "
+                    "HTTPS/HTTP, www/non-www, and trailing-slash variants as "
+                    "duplicates and split your ranking power across them."
+                ),
+                evidence="",
+            )
+        )
 
     # ---- Open Graph (social previews) ----------------------------------
     og = parsed.get("og") or {}
     if not og.get("title"):
-        issues.append(SeoIssue(
-            id="missing_og_title", severity="medium", category="content",
-            message=(
-                "No Open Graph title set. When this page is shared on "
-                "Facebook, LinkedIn, or messaging apps, the preview will "
-                "fall back to the page title or be blank."
-            ),
-            evidence="",
-        ))
+        issues.append(
+            SeoIssue(
+                id="missing_og_title",
+                severity="medium",
+                category="content",
+                message=(
+                    "No Open Graph title set. When this page is shared on "
+                    "Facebook, LinkedIn, or messaging apps, the preview will "
+                    "fall back to the page title or be blank."
+                ),
+                evidence="",
+            )
+        )
     if not og.get("image"):
-        issues.append(SeoIssue(
-            id="missing_og_image", severity="medium", category="content",
-            message=(
-                "No Open Graph image set. Social shares of this URL will "
-                "appear without a thumbnail — significantly lower click-through."
-            ),
-            evidence="",
-        ))
+        issues.append(
+            SeoIssue(
+                id="missing_og_image",
+                severity="medium",
+                category="content",
+                message=(
+                    "No Open Graph image set. Social shares of this URL will "
+                    "appear without a thumbnail — significantly lower click-through."
+                ),
+                evidence="",
+            )
+        )
 
     # ---- schema.org JSON-LD --------------------------------------------
     schema_types = parsed.get("schema_types") or []
     has_local_business = bool(parsed.get("has_local_business_schema"))
     has_organization = bool(parsed.get("has_organization_schema"))
     if not schema_types:
-        issues.append(SeoIssue(
-            id="missing_schema_org", severity="high", category="technical",
-            message=(
-                "No schema.org structured data (JSON-LD) found. This is the "
-                "primary mechanism Google uses to understand what your "
-                "business is and where you operate."
-            ),
-            evidence="",
-        ))
+        issues.append(
+            SeoIssue(
+                id="missing_schema_org",
+                severity="high",
+                category="technical",
+                message=(
+                    "No schema.org structured data (JSON-LD) found. This is the "
+                    "primary mechanism Google uses to understand what your "
+                    "business is and where you operate."
+                ),
+                evidence="",
+            )
+        )
     elif not (has_local_business or has_organization):
-        issues.append(SeoIssue(
-            id="missing_local_business_schema", severity="high", category="local",
-            message=(
-                "Structured data is present, but no LocalBusiness or "
-                "Organization @type is declared. Local search and Google "
-                "Maps rely on this to display your name, address, phone, "
-                "and hours in search results."
-            ),
-            evidence=f"types found: {', '.join(schema_types[:5])}",
-        ))
+        issues.append(
+            SeoIssue(
+                id="missing_local_business_schema",
+                severity="high",
+                category="local",
+                message=(
+                    "Structured data is present, but no LocalBusiness or "
+                    "Organization @type is declared. Local search and Google "
+                    "Maps rely on this to display your name, address, phone, "
+                    "and hours in search results."
+                ),
+                evidence=f"types found: {', '.join(schema_types[:5])}",
+            )
+        )
 
     # ---- Alt-text coverage (bs4-only — regex path reports 0/0) ---------
     image_count = int(parsed.get("image_count") or 0)
@@ -909,28 +1052,34 @@ def _build_enrichment_issues(
     if image_count > 0:
         coverage = images_with_alt / image_count
         if coverage < 0.5:
-            issues.append(SeoIssue(
-                id="low_alt_text_coverage_critical", severity="high",
-                category="content",
-                message=(
-                    f"Only {images_with_alt} of {image_count} images "
-                    f"({coverage * 100:.0f}%) have alt text. This blocks "
-                    "image search ranking and breaks the page for users on "
-                    "screen readers."
-                ),
-                evidence="",
-            ))
+            issues.append(
+                SeoIssue(
+                    id="low_alt_text_coverage_critical",
+                    severity="high",
+                    category="content",
+                    message=(
+                        f"Only {images_with_alt} of {image_count} images "
+                        f"({coverage * 100:.0f}%) have alt text. This blocks "
+                        "image search ranking and breaks the page for users on "
+                        "screen readers."
+                    ),
+                    evidence="",
+                )
+            )
         elif coverage < 0.8:
-            issues.append(SeoIssue(
-                id="low_alt_text_coverage", severity="medium",
-                category="content",
-                message=(
-                    f"{images_with_alt} of {image_count} images "
-                    f"({coverage * 100:.0f}%) have alt text. Recommended is "
-                    "80% or higher for accessibility + image search."
-                ),
-                evidence="",
-            ))
+            issues.append(
+                SeoIssue(
+                    id="low_alt_text_coverage",
+                    severity="medium",
+                    category="content",
+                    message=(
+                        f"{images_with_alt} of {image_count} images "
+                        f"({coverage * 100:.0f}%) have alt text. Recommended is "
+                        "80% or higher for accessibility + image search."
+                    ),
+                    evidence="",
+                )
+            )
 
     # ---- Link graph (bs4-only) -----------------------------------------
     link_internal = int(parsed.get("link_internal_count") or 0)
@@ -939,16 +1088,20 @@ def _build_enrichment_issues(
     # proxy — regex path reports 0 even if the page has images).
     bs4_ran = parsed.get("image_count", 0) > 0 or link_internal + link_external > 0
     if bs4_ran and link_internal == 0:
-        issues.append(SeoIssue(
-            id="no_internal_links", severity="high", category="technical",
-            message=(
-                "Page has no internal links to other pages on your site. "
-                "Search engines use these to discover and rank your content; "
-                "an orphan page is invisible to crawlers reaching it from "
-                "elsewhere."
-            ),
-            evidence="",
-        ))
+        issues.append(
+            SeoIssue(
+                id="no_internal_links",
+                severity="high",
+                category="technical",
+                message=(
+                    "Page has no internal links to other pages on your site. "
+                    "Search engines use these to discover and rank your content; "
+                    "an orphan page is invisible to crawlers reaching it from "
+                    "elsewhere."
+                ),
+                evidence="",
+            )
+        )
 
     # ---- Analytics (HTML-string scan — runs under both parsers) --------
     has_ga4 = bool(parsed.get("has_ga4"))
@@ -956,26 +1109,34 @@ def _build_enrichment_issues(
     has_meta_pixel = bool(parsed.get("has_meta_pixel"))
     has_legacy_ga = bool(parsed.get("has_legacy_ga"))
     if not (has_ga4 or has_gtm or has_meta_pixel or has_legacy_ga):
-        issues.append(SeoIssue(
-            id="no_analytics_detected", severity="high", category="technical",
-            message=(
-                "No analytics tracking detected (Google Analytics 4, Google "
-                "Tag Manager, or Meta Pixel). Without it, you can't measure "
-                "which marketing efforts actually bring in customers — every "
-                "optimization is a guess."
-            ),
-            evidence="",
-        ))
+        issues.append(
+            SeoIssue(
+                id="no_analytics_detected",
+                severity="high",
+                category="technical",
+                message=(
+                    "No analytics tracking detected (Google Analytics 4, Google "
+                    "Tag Manager, or Meta Pixel). Without it, you can't measure "
+                    "which marketing efforts actually bring in customers — every "
+                    "optimization is a guess."
+                ),
+                evidence="",
+            )
+        )
     elif has_legacy_ga and not (has_ga4 or has_gtm):
-        issues.append(SeoIssue(
-            id="legacy_analytics_only", severity="medium", category="technical",
-            message=(
-                "Only the legacy Google Analytics (Universal Analytics) is "
-                "installed. UA stopped processing new data on July 1, 2023 — "
-                "the dashboard shows nothing current. Upgrade to GA4."
-            ),
-            evidence="",
-        ))
+        issues.append(
+            SeoIssue(
+                id="legacy_analytics_only",
+                severity="medium",
+                category="technical",
+                message=(
+                    "Only the legacy Google Analytics (Universal Analytics) is "
+                    "installed. UA stopped processing new data on July 1, 2023 — "
+                    "the dashboard shows nothing current. Upgrade to GA4."
+                ),
+                evidence="",
+            )
+        )
 
 
 def _score(issues: list[SeoIssue]) -> int:
@@ -1007,14 +1168,25 @@ def audit_url(url: str, keywords: list[str] | None = None, industry: str = "") -
         # transport layer (non-2xx / connection failure) — tag it
         # http_status so it survives the Gap Report serialization filter.
         issue = SeoIssue(
-            id="fetch_failed", severity="critical", category="technical",
-            message=f"Could not fetch page (status={status}).", evidence="",
-            evidence_source="http_status")
+            id="fetch_failed",
+            severity="critical",
+            category="technical",
+            message=f"Could not fetch page (status={status}).",
+            evidence="",
+            evidence_source="http_status",
+        )
         return AuditResult(
-            url=url, seo_score=0, issues=[issue],
-            findings={"status_code": status, "fetched": False, "industry": industry,
-                      "keywords": keywords, "robots_txt_status": robots_status,
-                      "robots_txt_allows": robots_allows},
+            url=url,
+            seo_score=0,
+            issues=[issue],
+            findings={
+                "status_code": status,
+                "fetched": False,
+                "industry": industry,
+                "keywords": keywords,
+                "robots_txt_status": robots_status,
+                "robots_txt_allows": robots_allows,
+            },
             evidence_sources={"fetch_failed": "http_status"},
             ts=iso_now(),
         )
@@ -1025,17 +1197,21 @@ def audit_url(url: str, keywords: list[str] | None = None, industry: str = "") -
     # so the robots issue surfaces in the report's Technical section.
     if not robots_allows:
         # G6: sourced from robots.txt parse.
-        issues.append(SeoIssue(
-            id="blocked_by_robots", severity="critical", category="technical",
-            message=(
-                "Your robots.txt is blocking crawlers from indexing this page. "
-                "This is almost certainly the reason it doesn't show up in "
-                "Google searches. Audit ran with operator consent; "
-                "production search engines will respect the Disallow."
-            ),
-            evidence=_robots_url(url),
-            evidence_source="robots_txt",
-        ))
+        issues.append(
+            SeoIssue(
+                id="blocked_by_robots",
+                severity="critical",
+                category="technical",
+                message=(
+                    "Your robots.txt is blocking crawlers from indexing this page. "
+                    "This is almost certainly the reason it doesn't show up in "
+                    "Google searches. Audit ran with operator consent; "
+                    "production search engines will respect the Disallow."
+                ),
+                evidence=_robots_url(url),
+                evidence_source="robots_txt",
+            )
+        )
 
     # PageSpeed Insights — layered on after on-page extraction so the
     # external API call is the slowest thing in the audit and can fail
@@ -1075,10 +1251,7 @@ def audit_url(url: str, keywords: list[str] | None = None, industry: str = "") -
 
     image_count = parsed.get("image_count", 0) or 0
     images_with_alt = parsed.get("images_with_alt", 0) or 0
-    alt_coverage_pct = (
-        round(100.0 * images_with_alt / image_count, 1)
-        if image_count > 0 else None
-    )
+    alt_coverage_pct = round(100.0 * images_with_alt / image_count, 1) if image_count > 0 else None
     findings = {
         "status_code": status,
         "fetched": True,
@@ -1151,11 +1324,12 @@ def audit_url(url: str, keywords: list[str] | None = None, industry: str = "") -
     # G6: derive the audit-level evidence_sources map from any issue whose
     # emitter tagged a deterministic source. Used by the Codex validator
     # (chapter 12 / ADR-009) + the Gap Report serialization filter.
-    evidence_sources = {
-        i.id: i.evidence_source for i in issues if i.evidence_source is not None
-    }
+    evidence_sources = {i.id: i.evidence_source for i in issues if i.evidence_source is not None}
     return AuditResult(
-        url=url, seo_score=_score(issues), issues=issues, findings=findings,
+        url=url,
+        seo_score=_score(issues),
+        issues=issues,
+        findings=findings,
         evidence_sources=evidence_sources,
         ts=iso_now(),
     )

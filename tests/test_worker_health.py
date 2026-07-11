@@ -5,6 +5,7 @@ requires every service to listen on ``$PORT`` within the startup window.
 ``serve_worker`` starts a trivial health server when ``$PORT`` is set and
 skips it otherwise, so the local Docker Compose stack is unchanged.
 """
+
 from __future__ import annotations
 
 import json
@@ -78,7 +79,8 @@ class _FakeWorker:
 def test_serve_worker_skips_health_server_without_port(monkeypatch):
     monkeypatch.delenv("PORT", raising=False)
     monkeypatch.setattr(
-        worker_base, "start_health_server",
+        worker_base,
+        "start_health_server",
         lambda *a, **kw: pytest.fail("health server must not start without $PORT"),
     )
     worker = _FakeWorker()

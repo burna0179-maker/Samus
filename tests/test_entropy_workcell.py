@@ -4,6 +4,7 @@ Covers: /health smoke, /work + /entropy/scan routing, the deterministic
 compute_entropy_score (exactness + clamping), and countermeasure mapping for
 each of the five spec conditions.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -165,16 +166,12 @@ def test_countermeasure_low_efficiency_ema():
 
 
 def test_countermeasure_successful_template_route():
-    measures = recommend_countermeasures(
-        EntropyInputs(), template_success_rate=0.9
-    )
+    measures = recommend_countermeasures(EntropyInputs(), template_success_rate=0.9)
     assert controller.CLONE_TEMPLATE_STRATEGY in measures
 
 
 def test_countermeasure_rising_token_success_ratio():
-    measures = recommend_countermeasures(
-        EntropyInputs(), token_success_ratio=3.5
-    )
+    measures = recommend_countermeasures(EntropyInputs(), token_success_ratio=3.5)
     assert controller.TIGHTEN_PROSPECT_FILTERING in measures
 
 

@@ -5,9 +5,9 @@ user turn when enabled; (2) the autonomous dial can NEVER place a live call —
 it is fenced by the dormant flag AND, even when the flag is on, by the Codex
 VR-G5 (ADR-002) block, and a Codex outage is itself fail-closed.
 """
+
 from __future__ import annotations
 
-import pytest
 
 from backend.voice import autonomous
 from backend.voice.models import VapiWebhookMessage
@@ -22,18 +22,21 @@ def _msg(**kw) -> VapiWebhookMessage:
 # B2 — process_midcall_transcript
 # ---------------------------------------------------------------------------
 
+
 def test_midcall_dormant_by_default(monkeypatch):
     monkeypatch.delenv("SAMUS_VOICE_MIDCALL_ENABLED", raising=False)
-    assert autonomous.process_midcall_transcript(
-        _msg(transcript="I'm not sure about the price", role="user", transcriptType="final")
-    ) is None
+    assert (
+        autonomous.process_midcall_transcript(
+            _msg(transcript="I'm not sure about the price", role="user", transcriptType="final")
+        )
+        is None
+    )
 
 
 def test_midcall_enabled_adapts_final_user_turn(monkeypatch):
     monkeypatch.setenv("SAMUS_VOICE_MIDCALL_ENABLED", "1")
     out = autonomous.process_midcall_transcript(
-        _msg(transcript="this sounds great, how do we start?",
-             role="user", transcriptType="final"),
+        _msg(transcript="this sounds great, how do we start?", role="user", transcriptType="final"),
     )
     assert out is not None
     assert out["adapted"] is True
@@ -43,9 +46,12 @@ def test_midcall_enabled_adapts_final_user_turn(monkeypatch):
 
 def test_midcall_ignores_non_transcript_type(monkeypatch):
     monkeypatch.setenv("SAMUS_VOICE_MIDCALL_ENABLED", "1")
-    assert autonomous.process_midcall_transcript(
-        _msg(type="status-update", transcript="x", role="user", transcriptType="final")
-    ) is None
+    assert (
+        autonomous.process_midcall_transcript(
+            _msg(type="status-update", transcript="x", role="user", transcriptType="final")
+        )
+        is None
+    )
 
 
 def test_midcall_ignores_empty_transcript(monkeypatch):
@@ -55,16 +61,22 @@ def test_midcall_ignores_empty_transcript(monkeypatch):
 
 def test_midcall_ignores_assistant_role(monkeypatch):
     monkeypatch.setenv("SAMUS_VOICE_MIDCALL_ENABLED", "1")
-    assert autonomous.process_midcall_transcript(
-        _msg(transcript="hello there", role="assistant", transcriptType="final")
-    ) is None
+    assert (
+        autonomous.process_midcall_transcript(
+            _msg(transcript="hello there", role="assistant", transcriptType="final")
+        )
+        is None
+    )
 
 
 def test_midcall_ignores_partial_transcript(monkeypatch):
     monkeypatch.setenv("SAMUS_VOICE_MIDCALL_ENABLED", "1")
-    assert autonomous.process_midcall_transcript(
-        _msg(transcript="I was thinking", role="user", transcriptType="partial")
-    ) is None
+    assert (
+        autonomous.process_midcall_transcript(
+            _msg(transcript="I was thinking", role="user", transcriptType="partial")
+        )
+        is None
+    )
 
 
 def test_midcall_adds_next_action_when_autonomous_on_with_intel(monkeypatch):
@@ -76,13 +88,14 @@ def test_midcall_adds_next_action_when_autonomous_on_with_intel(monkeypatch):
         current_state="engage",
     )
     assert out is not None
-    assert out["next_action"] == "ask_question"   # engage -> ask_question
+    assert out["next_action"] == "ask_question"  # engage -> ask_question
     assert "next_state" in out
 
 
 # ---------------------------------------------------------------------------
 # C — attempt_autonomous_dial (NEVER dials)
 # ---------------------------------------------------------------------------
+
 
 def test_dial_refused_when_dormant(monkeypatch):
     monkeypatch.delenv("SAMUS_AUTONOMOUS_CLOSER_ENABLED", raising=False)
@@ -120,6 +133,7 @@ def test_dial_fail_closed_when_codex_unavailable(monkeypatch):
 # run_autonomous_closer_cycle
 # ---------------------------------------------------------------------------
 
+
 def test_cycle_dormant_by_default(monkeypatch):
     monkeypatch.delenv("SAMUS_AUTONOMOUS_CLOSER_ENABLED", raising=False)
     out = autonomous.run_autonomous_closer_cycle([{"prospect_id": "p1"}])
@@ -133,6 +147,6 @@ def test_cycle_enabled_dials_nothing(monkeypatch):
         [{"prospect_id": "p1"}, {"prospect_id": "p2"}],
     )
     assert out["ran"] is True
-    assert out["dialed_count"] == 0          # NEVER dials
+    assert out["dialed_count"] == 0  # NEVER dials
     assert out["blocked_count"] == 2
     assert all(a["blocked"] for a in out["attempts"])

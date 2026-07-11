@@ -3,6 +3,7 @@
 Exact-formula forecast_score tests + closer-mode boundary tests at 0.65/0.82
 + should_proactively_shift threshold behaviour.
 """
+
 from __future__ import annotations
 
 import pytest

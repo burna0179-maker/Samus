@@ -1,4 +1,5 @@
 """TestClient smoke for backend.fulfillment.app."""
+
 from __future__ import annotations
 
 
@@ -9,6 +10,7 @@ def _reset_idempotency(monkeypatch):
     fresh = IdempotencyStore()
     monkeypatch.setattr(idem_mod, "GLOBAL_IDEMPOTENCY_STORE", fresh)
     import backend.fulfillment.logic as logic_mod
+
     monkeypatch.setattr(logic_mod, "GLOBAL_IDEMPOTENCY_STORE", fresh)
 
 
@@ -19,11 +21,14 @@ def test_work_endpoint(tmp_path, monkeypatch):
     from backend.fulfillment.app import app
 
     client = TestClient(app)
-    r = client.post("/work", json={
-        "task_id": "fulfill-1",
-        "payload": {"objective": "tidy the inbox", "actions": [{"action": "sort"}]},
-        "metadata": {"approvals": []},
-    })
+    r = client.post(
+        "/work",
+        json={
+            "task_id": "fulfill-1",
+            "payload": {"objective": "tidy the inbox", "actions": [{"action": "sort"}]},
+            "metadata": {"approvals": []},
+        },
+    )
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["task_id"] == "fulfill-1"

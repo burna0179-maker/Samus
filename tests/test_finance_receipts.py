@@ -2,6 +2,7 @@
 that confirm the receipt is fired on a processed checkout.session.completed
 and that a receipt failure does NOT break the webhook flow.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -17,8 +18,10 @@ import pytest
 # Pure render tests
 # ---------------------------------------------------------------------------
 
+
 def test_offer_display_name_known_acronyms():
     from backend.finance.receipts import _offer_display_name
+
     assert _offer_display_name("seo_audit") == "SEO Audit"
     assert _offer_display_name("seo-implementation") == "SEO Implementation"
     assert _offer_display_name("crm_setup") == "CRM Setup"
@@ -27,23 +30,27 @@ def test_offer_display_name_known_acronyms():
 
 def test_offer_display_name_title_cases_plain_words():
     from backend.finance.receipts import _offer_display_name
+
     assert _offer_display_name("workflow_rescue") == "Workflow Rescue"
     assert _offer_display_name("monthly_retainer") == "Monthly Retainer"
 
 
 def test_offer_display_name_falls_back_on_empty_or_whitespace():
     from backend.finance.receipts import _offer_display_name
+
     assert _offer_display_name("") == "your purchase"
     assert _offer_display_name("   ") == "your purchase"
 
 
 def test_format_amount_none_amount_returns_placeholder():
     from backend.finance.receipts import _format_amount
+
     assert _format_amount(None, "usd") == "(amount unavailable)"
 
 
 def test_format_amount_uppercases_currency_and_groups_thousands():
     from backend.finance.receipts import _format_amount
+
     assert _format_amount(149.0, "usd") == "$149.00 USD"
     assert _format_amount(1234.5, "usd") == "$1,234.50 USD"
     assert _format_amount(50000.0, "eur") == "$50,000.00 EUR"
@@ -51,6 +58,7 @@ def test_format_amount_uppercases_currency_and_groups_thousands():
 
 def test_render_payment_receipt_happy_path_includes_all_fields():
     from backend.finance.receipts import render_payment_receipt
+
     subject, text, html = render_payment_receipt(
         amount_total_usd=149.0,
         currency="usd",
@@ -61,9 +69,14 @@ def test_render_payment_receipt_happy_path_includes_all_fields():
     assert "SEO Audit" in subject
     assert "$149.00 USD" in subject
 
-    for needle in ("SEO Audit", "(seo_audit)", "$149.00 USD",
-                   "2026-05-15T18:00:00Z", "evt_test_123",
-                   "HustleForge"):
+    for needle in (
+        "SEO Audit",
+        "(seo_audit)",
+        "$149.00 USD",
+        "2026-05-15T18:00:00Z",
+        "evt_test_123",
+        "HustleForge",
+    ):
         assert needle in text, f"text body missing: {needle!r}"
         assert needle in html, f"html body missing: {needle!r}"
 
@@ -74,9 +87,13 @@ def test_render_payment_receipt_happy_path_includes_all_fields():
 
 def test_render_payment_receipt_handles_missing_offer_code():
     from backend.finance.receipts import render_payment_receipt
+
     subject, text, html = render_payment_receipt(
-        amount_total_usd=500.0, currency="usd",
-        hf_offer_code="", event_id="evt_x", received_at="2026-05-15T00:00:00Z",
+        amount_total_usd=500.0,
+        currency="usd",
+        hf_offer_code="",
+        event_id="evt_x",
+        received_at="2026-05-15T00:00:00Z",
     )
     assert "your purchase" in subject
     assert "your purchase" in text
@@ -88,9 +105,12 @@ def test_render_payment_receipt_handles_missing_offer_code():
 
 def test_render_payment_receipt_handles_missing_amount():
     from backend.finance.receipts import render_payment_receipt
+
     subject, text, html = render_payment_receipt(
-        amount_total_usd=None, currency="usd",
-        hf_offer_code="seo_audit", event_id="evt_x",
+        amount_total_usd=None,
+        currency="usd",
+        hf_offer_code="seo_audit",
+        event_id="evt_x",
         received_at="2026-05-15T00:00:00Z",
     )
     assert "(amount unavailable)" in subject
@@ -102,22 +122,30 @@ def test_render_payment_receipt_handles_missing_amount():
 # send_payment_receipt — never raises; returns outcome dict
 # ---------------------------------------------------------------------------
 
+
 def test_send_payment_receipt_happy_path(monkeypatch):
     """When send_email succeeds, receipt returns sent=True with message id."""
     captured: dict = {}
 
     def _fake_send_email(**kw: Any) -> dict[str, str]:
         captured.update(kw)
-        return {"message_id": "sg_ok_42", "channel": "email",
-                "to": kw["to"], "ts": "2026-05-15T00:00:00Z"}
+        return {
+            "message_id": "sg_ok_42",
+            "channel": "email",
+            "to": kw["to"],
+            "ts": "2026-05-15T00:00:00Z",
+        }
 
     import backend.finance.receipts as mod
+
     monkeypatch.setattr(mod, "send_email", _fake_send_email)
 
     out = mod.send_payment_receipt(
         customer_email="alice@example.com",
-        amount_total_usd=149.0, currency="usd",
-        hf_offer_code="seo_audit", event_id="evt_1",
+        amount_total_usd=149.0,
+        currency="usd",
+        hf_offer_code="seo_audit",
+        event_id="evt_1",
         received_at="2026-05-15T00:00:00Z",
     )
     assert out == {"sent": True, "message_id": "sg_ok_42", "error": ""}
@@ -136,12 +164,15 @@ def test_send_payment_receipt_no_email_returns_short_circuit(monkeypatch):
         return {"message_id": "should_not_get_here"}
 
     import backend.finance.receipts as mod
+
     monkeypatch.setattr(mod, "send_email", _fake_send_email)
 
     out = mod.send_payment_receipt(
         customer_email="",
-        amount_total_usd=149.0, currency="usd",
-        hf_offer_code="seo_audit", event_id="evt_1",
+        amount_total_usd=149.0,
+        currency="usd",
+        hf_offer_code="seo_audit",
+        event_id="evt_1",
         received_at="2026-05-15T00:00:00Z",
     )
     assert out == {"sent": False, "message_id": "", "error": "no_customer_email"}
@@ -151,12 +182,15 @@ def test_send_payment_receipt_no_email_returns_short_circuit(monkeypatch):
 def test_send_payment_receipt_whitespace_email_short_circuits(monkeypatch):
     called: list = []
     import backend.finance.receipts as mod
+
     monkeypatch.setattr(mod, "send_email", lambda **kw: called.append(kw))
 
     out = mod.send_payment_receipt(
         customer_email="   ",
-        amount_total_usd=149.0, currency="usd",
-        hf_offer_code="seo_audit", event_id="evt_x",
+        amount_total_usd=149.0,
+        currency="usd",
+        hf_offer_code="seo_audit",
+        event_id="evt_x",
         received_at="2026-05-15T00:00:00Z",
     )
     assert out["sent"] is False
@@ -176,8 +210,10 @@ def test_send_payment_receipt_swallows_emailbackenderror(monkeypatch):
 
     out = mod.send_payment_receipt(
         customer_email="a@b.com",
-        amount_total_usd=100.0, currency="usd",
-        hf_offer_code="seo_audit", event_id="evt_e",
+        amount_total_usd=100.0,
+        currency="usd",
+        hf_offer_code="seo_audit",
+        event_id="evt_e",
         received_at="2026-05-15T00:00:00Z",
     )
     assert out["sent"] is False
@@ -196,8 +232,10 @@ def test_send_payment_receipt_swallows_value_error(monkeypatch):
 
     out = mod.send_payment_receipt(
         customer_email="a@b.com",
-        amount_total_usd=100.0, currency="usd",
-        hf_offer_code="seo_audit", event_id="evt_v",
+        amount_total_usd=100.0,
+        currency="usd",
+        hf_offer_code="seo_audit",
+        event_id="evt_v",
         received_at="2026-05-15T00:00:00Z",
     )
     assert out["sent"] is False
@@ -215,8 +253,10 @@ def test_send_payment_receipt_swallows_not_implemented(monkeypatch):
 
     out = mod.send_payment_receipt(
         customer_email="a@b.com",
-        amount_total_usd=100.0, currency="usd",
-        hf_offer_code="seo_audit", event_id="evt_ni",
+        amount_total_usd=100.0,
+        currency="usd",
+        hf_offer_code="seo_audit",
+        event_id="evt_ni",
         received_at="2026-05-15T00:00:00Z",
     )
     assert out["sent"] is False
@@ -226,6 +266,7 @@ def test_send_payment_receipt_swallows_not_implemented(monkeypatch):
 def test_send_payment_receipt_truncates_long_errors(monkeypatch):
     """Defensive: very long backend errors get truncated to 200 chars."""
     import backend.finance.receipts as mod
+
     long_msg = "x" * 1000
 
     def _boom(**kw: Any) -> dict[str, str]:
@@ -233,8 +274,11 @@ def test_send_payment_receipt_truncates_long_errors(monkeypatch):
 
     monkeypatch.setattr(mod, "send_email", _boom)
     out = mod.send_payment_receipt(
-        customer_email="a@b.com", amount_total_usd=1.0, currency="usd",
-        hf_offer_code="x", event_id="evt_long",
+        customer_email="a@b.com",
+        amount_total_usd=1.0,
+        currency="usd",
+        hf_offer_code="x",
+        event_id="evt_long",
         received_at="2026-05-15T00:00:00Z",
     )
     assert len(out["error"]) == 200
@@ -245,6 +289,7 @@ def test_send_payment_receipt_truncates_long_errors(monkeypatch):
 # NOT change process_status or raise
 # ---------------------------------------------------------------------------
 
+
 def _sign(payload_bytes: bytes, secret: str, *, timestamp: int | None = None) -> str:
     ts = timestamp if timestamp is not None else int(time.time())
     signed_payload = f"{ts}.".encode("utf-8") + payload_bytes
@@ -252,29 +297,39 @@ def _sign(payload_bytes: bytes, secret: str, *, timestamp: int | None = None) ->
     return f"t={ts},v1={sig}"
 
 
-def _checkout_session_event(*, event_id: str = "evt_recpt_1",
-                            email: str = "alice@example.com",
-                            offer: str = "seo_audit",
-                            amount_cents: int = 14900) -> dict:
+def _checkout_session_event(
+    *,
+    event_id: str = "evt_recpt_1",
+    email: str = "alice@example.com",
+    offer: str = "seo_audit",
+    amount_cents: int = 14900,
+) -> dict:
     return {
-        "id": event_id, "type": "checkout.session.completed",
-        "livemode": True, "created": int(time.time()),
-        "data": {"object": {
-            "object": "checkout.session",
-            "customer_details": {"email": email},
-            "amount_total": amount_cents, "currency": "usd",
-            "payment_status": "paid",
-            "metadata": {"hf_offer_code": offer},
-        }},
+        "id": event_id,
+        "type": "checkout.session.completed",
+        "livemode": True,
+        "created": int(time.time()),
+        "data": {
+            "object": {
+                "object": "checkout.session",
+                "customer_details": {"email": email},
+                "amount_total": amount_cents,
+                "currency": "usd",
+                "payment_status": "paid",
+                "metadata": {"hf_offer_code": offer},
+            }
+        },
     }
 
 
 def _override_settings(monkeypatch, *, stripe_webhook_secret: str = "whsec_test"):
     class _S:
         pass
+
     s = _S()
     s.stripe_webhook_secret = stripe_webhook_secret
     import backend.finance.webhook as web
+
     monkeypatch.setattr(web, "get_settings", lambda: s)
 
 
@@ -314,8 +369,7 @@ class _FakeStore:
     def get_by_email(self, email):
         return self.customers.get(email.lower())
 
-    def create_customer(self, *, email, name="", company="", source="manual",
-                        metadata=None):
+    def create_customer(self, *, email, name="", company="", source="manual", metadata=None):
         c = _FakeCustomer(id_=f"cust_{email.replace('@', '_')}", email=email)
         self.customers[email.lower()] = c
         return c
@@ -340,6 +394,7 @@ def test_webhook_processed_event_fires_receipt_and_records_outcome(monkeypatch, 
         return {"sent": True, "message_id": "sg_via_webhook", "error": ""}
 
     import backend.finance.webhook as web
+
     monkeypatch.setattr(web, "send_payment_receipt", _fake_send_payment_receipt)
 
     body = json.dumps(_checkout_session_event(event_id="evt_recpt_ok")).encode()
@@ -368,10 +423,10 @@ def test_webhook_receipt_failure_does_not_change_process_status(monkeypatch, tmp
     _override_settings(monkeypatch)
 
     def _fake_failed(**kw: Any) -> dict[str, Any]:
-        return {"sent": False, "message_id": "",
-                "error": "sendgrid_http_403: not verified"}
+        return {"sent": False, "message_id": "", "error": "sendgrid_http_403: not verified"}
 
     import backend.finance.webhook as web
+
     monkeypatch.setattr(web, "send_payment_receipt", _fake_failed)
 
     body = json.dumps(_checkout_session_event(event_id="evt_recpt_fail")).encode()
@@ -391,7 +446,9 @@ def test_webhook_receipt_failure_does_not_change_process_status(monkeypatch, tmp
     assert "not verified" in last["receipt_error"]
 
 
-def test_webhook_receipt_raise_would_bubble_but_send_payment_receipt_never_raises(monkeypatch, tmp_path):
+def test_webhook_receipt_raise_would_bubble_but_send_payment_receipt_never_raises(
+    monkeypatch, tmp_path
+):
     """Belt-and-suspenders: even if send_payment_receipt itself raised
     (which it's documented not to), the webhook would propagate — confirming
     the swallow-and-return contract is the only thing between Stripe and a
@@ -404,6 +461,7 @@ def test_webhook_receipt_raise_would_bubble_but_send_payment_receipt_never_raise
         raise RuntimeError("contract violation — send_payment_receipt must not raise")
 
     import backend.finance.webhook as web
+
     monkeypatch.setattr(web, "send_payment_receipt", _accidentally_raises)
 
     body = json.dumps(_checkout_session_event(event_id="evt_contract")).encode()
@@ -425,6 +483,7 @@ def test_webhook_idempotency_prevents_double_receipt_on_stripe_retry(monkeypatch
         return {"sent": True, "message_id": f"sg_{call_count['n']}", "error": ""}
 
     import backend.finance.webhook as web
+
     monkeypatch.setattr(web, "send_payment_receipt", _counting_send)
 
     body = json.dumps(_checkout_session_event(event_id="evt_idemp")).encode()

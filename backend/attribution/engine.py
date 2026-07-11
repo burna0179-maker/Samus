@@ -10,6 +10,7 @@ is a deterministic passthrough (first candidate = current behavior), so the
 engine is fully built but changes nothing until armed. ``record_outcome`` always
 accrues stats (so a track record exists before arming).
 """
+
 from __future__ import annotations
 
 import logging
@@ -54,13 +55,18 @@ def build_arm_id(template_id: str, subject_variant: str = "", cta_variant: str =
 
 
 def reward_from_signals(
-    *, opened: bool = False, clicked: bool = False,
-    replied: bool = False, won: bool = False,
+    *,
+    opened: bool = False,
+    clicked: bool = False,
+    replied: bool = False,
+    won: bool = False,
 ) -> float:
     """Shape engagement/close signals into a bounded [0,1] reward."""
     raw = (
-        _W_OPEN * bool(opened) + _W_CLICK * bool(clicked)
-        + _W_REPLY * bool(replied) + _W_WON * bool(won)
+        _W_OPEN * bool(opened)
+        + _W_CLICK * bool(clicked)
+        + _W_REPLY * bool(replied)
+        + _W_WON * bool(won)
     )
     return max(0.0, min(1.0, raw))
 
@@ -106,7 +112,11 @@ def select_variant(candidate_arm_ids: list[str], *, now: float | None = None) ->
 
 
 def record_outcome(
-    arm_id: str, reward: float, *, won: bool = False, now: float | None = None,
+    arm_id: str,
+    reward: float,
+    *,
+    won: bool = False,
+    now: float | None = None,
 ) -> None:
     """Learn from a variant outcome. Always accrues (even while disabled).
     Best-effort, never raises."""
@@ -134,6 +144,7 @@ def record_outcome(
     # persisted). Additive; guarded so telemetry never blocks a send.
     try:
         from backend.common import learning_telemetry as _learning_telemetry
+
         _learning_telemetry.record_learning_update(
             kind=_learning_telemetry.KIND_VARIANT,
             arm_id=arm_id,

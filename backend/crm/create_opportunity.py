@@ -18,6 +18,7 @@ DPAPI). Non-interactive: one opportunity per invocation.
       --name "Acme HVAC - SEO Audit" --intent-score 85 \\
       --service-interest seo_audit --next-step "sent the $149 audit buy link"
 """
+
 from __future__ import annotations
 
 import argparse
@@ -43,10 +44,7 @@ def _existing_opportunities(prospect_id: str) -> list[str]:
     except Exception as exc:  # noqa: BLE001 — degraded read; do not block create
         _LOG.warning("opportunity pre-check scan failed: %s", exc)
         return []
-    return [
-        o.opportunity_id for o in result.opportunities
-        if o.prospect_id == prospect_id
-    ]
+    return [o.opportunity_id for o in result.opportunities if o.prospect_id == prospect_id]
 
 
 def create_opportunity(
@@ -85,8 +83,7 @@ def create_opportunity(
     """
     prospect_id = (prospect_id or "").strip()
     if not prospect_id:
-        return {"ok": False, "status": "rejected",
-                "error": "prospect_id is required"}
+        return {"ok": False, "status": "rejected", "error": "prospect_id is required"}
 
     existing = _existing_opportunities(prospect_id)
     if existing and not force:
@@ -96,32 +93,38 @@ def create_opportunity(
             "prospect_id": prospect_id,
             "existing_opportunity_ids": existing,
             "error": f"prospect already has {len(existing)} opportunity(ies); "
-                     "pass --force to open another",
+            "pass --force to open another",
         }
 
     try:
-        result = crm_service.create_opportunity(CreateOpportunityRequest(
-            prospect_id=prospect_id,
-            name=name,
-            intent_score=intent_score,
-            service_interest=list(service_interest or []),
-            next_step=next_step,
-            assigned_to=assigned_to,
-            monthly_budget=monthly_budget,
-            # Strategy bandit attribution snapshot (Unit 3).
-            industry=industry,
-            policy_family=policy_family,
-            seo_score=seo_score,
-            owner_email=owner_email,
-            social_facebook=social_facebook,
-            social_instagram=social_instagram,
-            # Per-prospect LLM cost (Unit 4).
-            token_cost_usd=token_cost_usd,
-        ))
+        result = crm_service.create_opportunity(
+            CreateOpportunityRequest(
+                prospect_id=prospect_id,
+                name=name,
+                intent_score=intent_score,
+                service_interest=list(service_interest or []),
+                next_step=next_step,
+                assigned_to=assigned_to,
+                monthly_budget=monthly_budget,
+                # Strategy bandit attribution snapshot (Unit 3).
+                industry=industry,
+                policy_family=policy_family,
+                seo_score=seo_score,
+                owner_email=owner_email,
+                social_facebook=social_facebook,
+                social_instagram=social_instagram,
+                # Per-prospect LLM cost (Unit 4).
+                token_cost_usd=token_cost_usd,
+            )
+        )
     except Exception as exc:  # noqa: BLE001 — surface, never raise out
         _LOG.warning("create_opportunity failed: %s", exc)
-        return {"ok": False, "status": "failed", "prospect_id": prospect_id,
-                "error": f"create_opportunity_raised: {exc}"}
+        return {
+            "ok": False,
+            "status": "failed",
+            "prospect_id": prospect_id,
+            "error": f"create_opportunity_raised: {exc}",
+        }
 
     return {
         "ok": result.status == "created",
@@ -142,33 +145,60 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--prospect-id", required=True)
     parser.add_argument("--name", default="")
-    parser.add_argument("--intent-score", type=int, default=None,
-                        help="0-100 intent signal; a booked deal is ~85")
-    parser.add_argument("--service-interest", action="append", default=[],
-                        metavar="CODE",
-                        help="repeatable; e.g. --service-interest seo_audit")
+    parser.add_argument(
+        "--intent-score", type=int, default=None, help="0-100 intent signal; a booked deal is ~85"
+    )
+    parser.add_argument(
+        "--service-interest",
+        action="append",
+        default=[],
+        metavar="CODE",
+        help="repeatable; e.g. --service-interest seo_audit",
+    )
     parser.add_argument("--next-step", default="")
     parser.add_argument("--assigned-to", default="", help="operator email")
-    parser.add_argument("--monthly-budget", default="",
-                        help="intake budget enum, e.g. $2000-$5000 (optional)")
-    parser.add_argument("--force", action="store_true",
-                        help="create even if the prospect already has an opportunity")
+    parser.add_argument(
+        "--monthly-budget", default="", help="intake budget enum, e.g. $2000-$5000 (optional)"
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="create even if the prospect already has an opportunity",
+    )
     # --- strategy bandit attribution snapshot (Unit 3) --------------------
-    parser.add_argument("--industry", default="",
-                        help="prospect industry — the bandit arm's vertical")
-    parser.add_argument("--policy-family", default="",
-                        help="policy family the strategy bandit picked for this prospect")
-    parser.add_argument("--seo-score", type=int, default=0,
-                        help="0-100 SEO audit score from the call-list row")
-    parser.add_argument("--owner-email-found", action="store_true",
-                        help="enrichment found an owner email for this prospect")
-    parser.add_argument("--social-facebook-found", action="store_true",
-                        help="enrichment found a Facebook handle for this prospect")
-    parser.add_argument("--social-instagram-found", action="store_true",
-                        help="enrichment found an Instagram handle for this prospect")
+    parser.add_argument(
+        "--industry", default="", help="prospect industry — the bandit arm's vertical"
+    )
+    parser.add_argument(
+        "--policy-family",
+        default="",
+        help="policy family the strategy bandit picked for this prospect",
+    )
+    parser.add_argument(
+        "--seo-score", type=int, default=0, help="0-100 SEO audit score from the call-list row"
+    )
+    parser.add_argument(
+        "--owner-email-found",
+        action="store_true",
+        help="enrichment found an owner email for this prospect",
+    )
+    parser.add_argument(
+        "--social-facebook-found",
+        action="store_true",
+        help="enrichment found a Facebook handle for this prospect",
+    )
+    parser.add_argument(
+        "--social-instagram-found",
+        action="store_true",
+        help="enrichment found an Instagram handle for this prospect",
+    )
     # --- per-prospect LLM cost (strategy-integration build, Unit 4) -------
-    parser.add_argument("--token-cost-usd", type=float, default=0.0,
-                        help="per-prospect LLM dollars spent during discovery")
+    parser.add_argument(
+        "--token-cost-usd",
+        type=float,
+        default=0.0,
+        help="per-prospect LLM dollars spent during discovery",
+    )
     args = parser.parse_args(argv)
 
     result = create_opportunity(

@@ -36,6 +36,7 @@ The field ``name`` / ``kind`` / ``options`` tuples mirror the active
 enum values exactly. Adding a field there REQUIRES updating this module —
 the test suite asserts the schema covers every model field.
 """
+
 from __future__ import annotations
 
 from typing import List, Optional

@@ -12,6 +12,7 @@ blocked gate escalates with a structured verdict — it never silently drops
 and never executes a revenue action on un-validated authority. Every outcome
 is written to the review ledger for the operator's audit trail.
 """
+
 from __future__ import annotations
 
 import logging
@@ -79,8 +80,11 @@ def review_opportunity(
         )
         _LOG.info(
             "cash_engine review BLOCKED prospect=%s opp=%s status=%s protocol=%s rule=%s",
-            req.prospect_id, outcome.opportunity_id, status,
-            outcome.required_protocol, outcome.violated_rule_id,
+            req.prospect_id,
+            outcome.opportunity_id,
+            status,
+            outcome.required_protocol,
+            outcome.violated_rule_id,
         )
         _ledger(req, result)
         return result
@@ -139,7 +143,10 @@ def review_opportunity(
     )
     _LOG.info(
         "cash_engine review ENQUEUED prospect=%s opp=%s task=%s queue=%s",
-        req.prospect_id, outcome.opportunity_id, task_id, result.queue,
+        req.prospect_id,
+        outcome.opportunity_id,
+        task_id,
+        result.queue,
     )
     _ledger(req, result)
     return result
@@ -147,26 +154,29 @@ def review_opportunity(
 
 def _ledger(req: RevenueTriggerRequest, result: RevenueTriggerResult) -> None:
     """Best-effort append of one review verdict to the audit ledger."""
-    cash_queue.record_review({
-        "prospect_id": req.prospect_id,
-        "opportunity_id": result.opportunity_id,
-        "trigger_source": req.trigger_source,
-        "trigger_reason": req.trigger_reason,
-        "current_samus_state": req.current_samus_state,
-        "accepted": result.accepted,
-        "status": result.status,
-        "task_id": result.task_id,
-        "queue": result.queue,
-        "required_protocol": result.required_protocol,
-        "violated_rule_id": result.violated_rule_id,
-        "reason": result.reason,
-        "decay_risk": result.decay_risk,
-    })
+    cash_queue.record_review(
+        {
+            "prospect_id": req.prospect_id,
+            "opportunity_id": result.opportunity_id,
+            "trigger_source": req.trigger_source,
+            "trigger_reason": req.trigger_reason,
+            "current_samus_state": req.current_samus_state,
+            "accepted": result.accepted,
+            "status": result.status,
+            "task_id": result.task_id,
+            "queue": result.queue,
+            "required_protocol": result.required_protocol,
+            "violated_rule_id": result.violated_rule_id,
+            "reason": result.reason,
+            "decay_risk": result.decay_risk,
+        }
+    )
     _record_front_door_decision(req, result)
 
 
 def _record_front_door_decision(
-    req: RevenueTriggerRequest, result: RevenueTriggerResult,
+    req: RevenueTriggerRequest,
+    result: RevenueTriggerResult,
 ) -> None:
     """Join the front-door admit/reject verdict to the unified decision spine.
 

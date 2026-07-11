@@ -12,13 +12,13 @@ Covers:
     drives the in-container discover path with persist_prospects=True against
     the cumulative zipcode set, then records + persists state.
 """
+
 from __future__ import annotations
 
 import asyncio
 import json
 from types import SimpleNamespace
 
-import pytest
 
 from backend.prospecting import cadence_task as ct
 from backend.prospecting import geo_ring as gr
@@ -133,9 +133,19 @@ def test_load_missing_file_returns_ring_zero_defaults(tmp_path):
 def test_save_then_load_round_trips(tmp_path):
     path = tmp_path / "geo.json"
     state = gr.GeoRingState(
-        current_ring=2, days_at_ring=4, last_run_date="2026-06-10",
-        history=[{"date": "2026-06-10", "ring_index": 2, "ring_name": "x",
-                  "zipcodes_count": 10, "day_at_ring": 4, "exit_code": 0}],
+        current_ring=2,
+        days_at_ring=4,
+        last_run_date="2026-06-10",
+        history=[
+            {
+                "date": "2026-06-10",
+                "ring_index": 2,
+                "ring_name": "x",
+                "zipcodes_count": 10,
+                "day_at_ring": 4,
+                "exit_code": 0,
+            }
+        ],
     )
     written = gr.save_state(state, path)
     assert written == path
@@ -162,12 +172,14 @@ def test_corrupt_state_is_quarantined_and_reinitialised(tmp_path):
 
 
 def test_from_dict_defends_garbage_fields():
-    state = gr.GeoRingState.from_dict({
-        "current_ring": "not-an-int",
-        "days_at_ring": None,
-        "last_run_date": 12345,          # wrong type -> dropped to None
-        "history": "not-a-list",         # wrong type -> []
-    })
+    state = gr.GeoRingState.from_dict(
+        {
+            "current_ring": "not-an-int",
+            "days_at_ring": None,
+            "last_run_date": 12345,  # wrong type -> dropped to None
+            "history": "not-a-list",  # wrong type -> []
+        }
+    )
     assert state.current_ring == 0
     assert state.days_at_ring == 0
     assert state.last_run_date is None
@@ -183,16 +195,15 @@ def test_record_run_increments_day_and_appends_history():
     from datetime import date
 
     state = gr.GeoRingState(current_ring=1, days_at_ring=2)
-    gr.record_run(state, run_date=date(2026, 6, 14), exit_code=0,
-                  zipcodes_count=12)
-    assert state.days_at_ring == 3                     # incremented
+    gr.record_run(state, run_date=date(2026, 6, 14), exit_code=0, zipcodes_count=12)
+    assert state.days_at_ring == 3  # incremented
     assert state.last_run_date == "2026-06-14"
     assert len(state.history) == 1
     entry = state.history[0]
     assert entry["ring_index"] == 1
     assert entry["ring_name"] == gr.RING_CATALOG[1].name
     assert entry["zipcodes_count"] == 12
-    assert entry["day_at_ring"] == 3                   # the incremented value
+    assert entry["day_at_ring"] == 3  # the incremented value
     assert entry["exit_code"] == 0
 
 
@@ -226,6 +237,7 @@ def test_cadence_disabled_by_default(monkeypatch):
     """
     monkeypatch.delenv("SAMUS_PROSPECTING_IN_STACK_CADENCE_ENABLED", raising=False)
     from backend.common.settings import reload_settings
+
     reload_settings()
     assert ct.cadence_enabled() is False
 
@@ -237,6 +249,7 @@ def test_start_cadence_loop_is_dormant_when_flag_off(monkeypatch):
     """
     monkeypatch.delenv("SAMUS_PROSPECTING_IN_STACK_CADENCE_ENABLED", raising=False)
     from backend.common.settings import reload_settings
+
     reload_settings()
 
     app = SimpleNamespace(state=SimpleNamespace())
@@ -270,6 +283,7 @@ def _arm_flag(monkeypatch):
     """
     monkeypatch.setenv("SAMUS_PROSPECTING_IN_STACK_CADENCE_ENABLED", "1")
     from backend.common.settings import reload_settings
+
     reload_settings()
 
 
@@ -329,6 +343,7 @@ def test_run_prospecting_tick_drives_discover_and_persists_state(monkeypatch, tm
         )
 
     import backend.prospecting.service as p_service
+
     monkeypatch.setattr(p_service, "process_discovery", _fake_process_discovery)
 
     summary = ct.run_prospecting_tick()
@@ -350,7 +365,7 @@ def test_run_prospecting_tick_drives_discover_and_persists_state(monkeypatch, tm
     # State was recorded (day incremented 4 -> 5) and persisted to disk.
     reloaded = gr.load_state(state_path)
     assert reloaded.days_at_ring == 5
-    assert reloaded.current_ring == 1            # healthy yield — ring held
+    assert reloaded.current_ring == 1  # healthy yield — ring held
     assert len(reloaded.history) == 1
     assert reloaded.history[-1]["exit_code"] == 0
     # The on-disk file is valid JSON in the expected shape.
@@ -362,14 +377,20 @@ def _stub_discovery(monkeypatch, *, fresh_count: int, held: int = 0):
     from backend.prospecting.models import DiscoveryResult
 
     import backend.prospecting.service as p_service
+
     monkeypatch.setattr(
-        p_service, "process_discovery",
+        p_service,
+        "process_discovery",
         lambda req, *, task_id=None: DiscoveryResult(
             campaign_name=req.campaign_name,
             prospect_count=fresh_count + held,
-            csv_path="/x.csv", txt_path="/x.txt", prospects=[],
-            cache_hit=False, persisted_count=0,
-            fresh_count=fresh_count, recycled_held_count=held,
+            csv_path="/x.csv",
+            txt_path="/x.txt",
+            prospects=[],
+            cache_hit=False,
+            persisted_count=0,
+            fresh_count=fresh_count,
+            recycled_held_count=held,
         ),
     )
 

@@ -28,6 +28,7 @@ Operational contract:
     fails the action stays blocked — losing the audit trail is itself a
     safety failure, so the verdict does not flip to allow.
 """
+
 from __future__ import annotations
 
 import logging
@@ -101,6 +102,7 @@ def _governed_dial_permitted(action: ProposedAction) -> bool:
     """
     try:
         from backend.common.config import get_settings
+
         if not bool(getattr(get_settings(), "governed_autonomous_dial_enabled", False)):
             return False
     except Exception:  # noqa: BLE001 — cannot confirm the flag -> fail closed
@@ -110,51 +112,58 @@ def _governed_dial_permitted(action: ProposedAction) -> bool:
         return False
     if not str(p.get("stake_sentence") or "").strip():
         return False
-    for gate in ("within_call_hours", "cooldown_ok", "under_daily_cap",
-                 "dnc_ok", "consent_ok"):
+    for gate in ("within_call_hours", "cooldown_ok", "under_daily_cap", "dnc_ok", "consent_ok"):
         if p.get(gate) is not True:
             return False
     return True
 
 
 def _check_blocking(
-    action: ProposedAction, registry: CodexRegistry,
+    action: ProposedAction,
+    registry: CodexRegistry,
 ) -> list[tuple[str, str]]:
     findings: list[tuple[str, str]] = []
     kind = action.action_kind
     payload = action.payload or {}
 
     if kind == "voice_dial" and not _governed_dial_permitted(action):
-        findings.append((
-            "VR-G5",
-            "ADR-002/ADR-016/ADR-017: autonomous dialing forbidden unless the "
-            "governed dial policy is armed and its preconditions (stake_sentence, "
-            "within_call_hours, cooldown_ok, under_daily_cap, dnc_ok, consent_ok) "
-            "are attested. A cold no-consent number is never live-dialed.",
-        ))
+        findings.append(
+            (
+                "VR-G5",
+                "ADR-002/ADR-016/ADR-017: autonomous dialing forbidden unless the "
+                "governed dial policy is armed and its preconditions (stake_sentence, "
+                "within_call_hours, cooldown_ok, under_daily_cap, dnc_ok, consent_ok) "
+                "are attested. A cold no-consent number is never live-dialed.",
+            )
+        )
 
     if kind == "subscription_create":
-        findings.append((
-            "VR-ADR-003",
-            "ADR-003 defers productization until >=10 paid closes.",
-        ))
+        findings.append(
+            (
+                "VR-ADR-003",
+                "ADR-003 defers productization until >=10 paid closes.",
+            )
+        )
 
     if kind == "outreach_send" and _is_missing(payload, "stake_sentence"):
-        findings.append((
-            "VR-G1",
-            "Guardrail G1 requires Stake Sentence on every outbound dispatch.",
-        ))
+        findings.append(
+            (
+                "VR-G1",
+                "Guardrail G1 requires Stake Sentence on every outbound dispatch.",
+            )
+        )
 
     banned_phrases = registry.banned_phrases()
     for field_name, value in _iter_user_text_fields(payload):
         lowered = value.lower()
         for phrase in banned_phrases:
             if phrase and phrase.lower() in lowered:
-                findings.append((
-                    "VR-G2",
-                    f"Guardrail G2: field {field_name!r} contains banned phrase "
-                    f"{phrase!r}.",
-                ))
+                findings.append(
+                    (
+                        "VR-G2",
+                        f"Guardrail G2: field {field_name!r} contains banned phrase {phrase!r}.",
+                    )
+                )
                 break
 
     # G6: the seo workcell filters unverified claims at render time and
@@ -164,38 +173,42 @@ def _check_blocking(
     # is fine: it just means the filter dropped every claim because none
     # were tagged with a verified source, which IS the safe path.
     if kind == "gap_report_render" and "evidence_sources" not in payload:
-        findings.append((
-            "VR-G6",
-            "Guardrail G6: Gap Report renders must declare evidence_sources "
-            "(post-filter list of EvidenceSource enum values). Empty list is "
-            "permitted; absent key indicates the caller bypassed the filter.",
-        ))
+        findings.append(
+            (
+                "VR-G6",
+                "Guardrail G6: Gap Report renders must declare evidence_sources "
+                "(post-filter list of EvidenceSource enum values). Empty list is "
+                "permitted; absent key indicates the caller bypassed the filter.",
+            )
+        )
 
-    if (
-        kind == "reward_function_update"
-        and payload.get("subtracts_harm") is not True
-    ):
-        findings.append((
-            "VR-G7",
-            "Guardrail G7: reward function must subtract harm "
-            "(retracted_claims, unsubscribes, complaints).",
-        ))
+    if kind == "reward_function_update" and payload.get("subtracts_harm") is not True:
+        findings.append(
+            (
+                "VR-G7",
+                "Guardrail G7: reward function must subtract harm "
+                "(retracted_claims, unsubscribes, complaints).",
+            )
+        )
 
     if kind == "outreach_send" and _is_missing(payload, "legitimacy_signal"):
-        findings.append((
-            "VR-G8",
-            "Guardrail G8: outreach refuses to fire on a prospect with no "
-            "warmth signal (RFP, chamber, prior inbound, public registry).",
-        ))
+        findings.append(
+            (
+                "VR-G8",
+                "Guardrail G8: outreach refuses to fire on a prospect with no "
+                "warmth signal (RFP, chamber, prior inbound, public registry).",
+            )
+        )
 
     if kind == "other":
         target = _get_str(payload, "target")
         if target == "STAKE_SENTENCE_BANNED_PHRASES":
-            findings.append((
-                "VR-ADR-008",
-                "ADR-008 requires a Codex ADR before any banned-phrase list "
-                "change.",
-            ))
+            findings.append(
+                (
+                    "VR-ADR-008",
+                    "ADR-008 requires a Codex ADR before any banned-phrase list change.",
+                )
+            )
 
     return findings
 
@@ -224,17 +237,19 @@ def check_action(
     if blocking:
         blocking_sorted = sorted(blocking, key=lambda pair: pair[0])
         primary_id, primary_reason = blocking_sorted[0]
-        secondary_warnings = [
-            f"{rid}: {reason}" for rid, reason in blocking_sorted[1:]
-        ]
+        secondary_warnings = [f"{rid}: {reason}" for rid, reason in blocking_sorted[1:]]
         drafted_path: Path | None = None
         try:
             drafted_path = draft_adr_for_violation(
-                action, primary_id, primary_reason, reg,
+                action,
+                primary_id,
+                primary_reason,
+                reg,
             )
         except OSError as exc:
             _LOG.error(
-                "codex adr_drafter write failed; verdict stays blocking: %s", exc,
+                "codex adr_drafter write failed; verdict stays blocking: %s",
+                exc,
             )
             secondary_warnings.append(
                 f"adr_draft_write_failed: {exc!s}",

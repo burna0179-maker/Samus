@@ -1,4 +1,5 @@
 """get_voice_call_summary — rollup of voice_events.jsonl for the morning briefing."""
+
 from __future__ import annotations
 
 import json
@@ -33,11 +34,21 @@ def test_get_voice_call_summary_filters_window(tmp_path, monkeypatch):
     events = tmp_path / "voice_events.jsonl"
     rows = [
         # in window
-        {"ts": _ts(1), "kind": "dial_attempt", "outcome": "initiated",
-         "prospect_id": "p1", "call_id": "c1"},
+        {
+            "ts": _ts(1),
+            "kind": "dial_attempt",
+            "outcome": "initiated",
+            "prospect_id": "p1",
+            "call_id": "c1",
+        },
         # stale (48h ago)
-        {"ts": _ts(48), "kind": "dial_attempt", "outcome": "initiated",
-         "prospect_id": "p_old", "call_id": "c_old"},
+        {
+            "ts": _ts(48),
+            "kind": "dial_attempt",
+            "outcome": "initiated",
+            "prospect_id": "p_old",
+            "call_id": "c_old",
+        },
     ]
     _write_event_lines(events, rows)
     monkeypatch.setenv("SAMUS_VOICE_EVENTS_PATH", str(events))
@@ -51,18 +62,38 @@ def test_get_voice_call_summary_filters_window(tmp_path, monkeypatch):
 def test_get_voice_call_summary_aggregates_end_of_call(tmp_path, monkeypatch):
     events = tmp_path / "voice_events.jsonl"
     rows = [
-        {"ts": _ts(2), "kind": "dial_attempt", "outcome": "initiated",
-         "prospect_id": "p1", "call_id": "c1"},
-        {"ts": _ts(1.9), "kind": "end_of_call",
-         "call_id": "c1", "company": "Acme",
-         "tier": "high", "intent_score": 82,
-         "recommended_action": "book_call"},
-        {"ts": _ts(1.5), "kind": "end_of_call",
-         "call_id": "c2", "tier": "medium", "intent_score": 50,
-         "recommended_action": "follow_up"},
-        {"ts": _ts(1.0), "kind": "end_of_call",
-         "call_id": "c3", "tier": "low", "intent_score": 20,
-         "recommended_action": "disqualify"},
+        {
+            "ts": _ts(2),
+            "kind": "dial_attempt",
+            "outcome": "initiated",
+            "prospect_id": "p1",
+            "call_id": "c1",
+        },
+        {
+            "ts": _ts(1.9),
+            "kind": "end_of_call",
+            "call_id": "c1",
+            "company": "Acme",
+            "tier": "high",
+            "intent_score": 82,
+            "recommended_action": "book_call",
+        },
+        {
+            "ts": _ts(1.5),
+            "kind": "end_of_call",
+            "call_id": "c2",
+            "tier": "medium",
+            "intent_score": 50,
+            "recommended_action": "follow_up",
+        },
+        {
+            "ts": _ts(1.0),
+            "kind": "end_of_call",
+            "call_id": "c3",
+            "tier": "low",
+            "intent_score": 20,
+            "recommended_action": "disqualify",
+        },
     ]
     _write_event_lines(events, rows)
     monkeypatch.setenv("SAMUS_VOICE_EVENTS_PATH", str(events))
@@ -87,16 +118,11 @@ def test_get_voice_call_summary_aggregates_dial_outcomes(tmp_path, monkeypatch):
     """Dialer rollup buckets every outcome (initiated / dry_run / skipped_*)."""
     events = tmp_path / "voice_events.jsonl"
     rows = [
-        {"ts": _ts(1), "kind": "dial_attempt", "outcome": "initiated",
-         "prospect_id": "p1"},
-        {"ts": _ts(1), "kind": "dial_attempt", "outcome": "initiated",
-         "prospect_id": "p2"},
-        {"ts": _ts(1), "kind": "dial_attempt", "outcome": "skipped_hours",
-         "prospect_id": "p3"},
-        {"ts": _ts(1), "kind": "dial_attempt", "outcome": "skipped_phone",
-         "prospect_id": "p4"},
-        {"ts": _ts(1), "kind": "dial_attempt", "outcome": "vapi_error",
-         "prospect_id": "p5"},
+        {"ts": _ts(1), "kind": "dial_attempt", "outcome": "initiated", "prospect_id": "p1"},
+        {"ts": _ts(1), "kind": "dial_attempt", "outcome": "initiated", "prospect_id": "p2"},
+        {"ts": _ts(1), "kind": "dial_attempt", "outcome": "skipped_hours", "prospect_id": "p3"},
+        {"ts": _ts(1), "kind": "dial_attempt", "outcome": "skipped_phone", "prospect_id": "p4"},
+        {"ts": _ts(1), "kind": "dial_attempt", "outcome": "vapi_error", "prospect_id": "p5"},
     ]
     _write_event_lines(events, rows)
     monkeypatch.setenv("SAMUS_VOICE_EVENTS_PATH", str(events))
@@ -132,12 +158,20 @@ def test_get_voice_call_summary_skips_malformed_lines(tmp_path, monkeypatch):
     events = tmp_path / "voice_events.jsonl"
     events.parent.mkdir(parents=True, exist_ok=True)
     events.write_text(
-        '\n'.join([
-            '{"not": "valid"',
-            'not json at all',
-            json.dumps({"ts": _ts(1), "kind": "dial_attempt",
-                        "outcome": "initiated", "prospect_id": "p1"}),
-        ]),
+        "\n".join(
+            [
+                '{"not": "valid"',
+                "not json at all",
+                json.dumps(
+                    {
+                        "ts": _ts(1),
+                        "kind": "dial_attempt",
+                        "outcome": "initiated",
+                        "prospect_id": "p1",
+                    }
+                ),
+            ]
+        ),
         encoding="utf-8",
     )
     monkeypatch.setenv("SAMUS_VOICE_EVENTS_PATH", str(events))

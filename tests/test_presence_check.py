@@ -1,5 +1,6 @@
 """Tests for backend.website.presence_check — the pre-build insurance gate.
 Places API is mocked; no network."""
+
 from __future__ import annotations
 
 import backend.prospecting.place_search as ps
@@ -55,22 +56,28 @@ def test_unrelated_top_result_does_not_block(monkeypatch):
     _mock(monkeypatch, [_place("Totally Different Co", website="http://other.com")])
     monkeypatch.setattr(pc, "web_search_finds_site", lambda *a, **k: "")
     v = pc.verify_presence("USA Auto Sale", city="Yuba City")
-    assert v.buildable is True                      # not blocked by an unrelated hit
-    assert v.website == ""                           # the unrelated site's URL is not used
+    assert v.buildable is True  # not blocked by an unrelated hit
+    assert v.website == ""  # the unrelated site's URL is not used
 
 
 def test_web_search_returns_own_site_over_directory():
     import httpx
 
     def handler(req):
-        return httpx.Response(200, json={"items": [
-            {"link": "https://www.yelp.com/biz/acme"},
-            {"link": "https://acmeauto.com/"},
-        ]})
+        return httpx.Response(
+            200,
+            json={
+                "items": [
+                    {"link": "https://www.yelp.com/biz/acme"},
+                    {"link": "https://acmeauto.com/"},
+                ]
+            },
+        )
 
     with httpx.Client(transport=httpx.MockTransport(handler)) as c:
-        site = pc.web_search_finds_site("Acme Auto", "Yuba City",
-                                        api_key="K", cse_id="cx", http_client=c)
+        site = pc.web_search_finds_site(
+            "Acme Auto", "Yuba City", api_key="K", cse_id="cx", http_client=c
+        )
     assert site == "https://acmeauto.com/"
 
 
@@ -78,14 +85,18 @@ def test_web_search_all_directories_returns_empty():
     import httpx
 
     def handler(req):
-        return httpx.Response(200, json={"items": [
-            {"link": "https://www.yelp.com/biz/acme"},
-            {"link": "https://www.facebook.com/acme"},
-        ]})
+        return httpx.Response(
+            200,
+            json={
+                "items": [
+                    {"link": "https://www.yelp.com/biz/acme"},
+                    {"link": "https://www.facebook.com/acme"},
+                ]
+            },
+        )
 
     with httpx.Client(transport=httpx.MockTransport(handler)) as c:
-        assert pc.web_search_finds_site("Acme", "X", api_key="K", cse_id="cx",
-                                        http_client=c) == ""
+        assert pc.web_search_finds_site("Acme", "X", api_key="K", cse_id="cx", http_client=c) == ""
 
 
 def test_web_search_no_creds_is_noop():
@@ -94,9 +105,8 @@ def test_web_search_no_creds_is_noop():
 
 def test_verify_presence_web_search_fallback_blocks(monkeypatch):
     # Places has NO linked site, but a web search finds one -> not buildable
-    _mock(monkeypatch, [_place("Webtech Solutions")])          # no websiteUri
-    monkeypatch.setattr(pc, "web_search_finds_site",
-                        lambda *a, **k: "https://webtechsolution.org/")
+    _mock(monkeypatch, [_place("Webtech Solutions")])  # no websiteUri
+    monkeypatch.setattr(pc, "web_search_finds_site", lambda *a, **k: "https://webtechsolution.org/")
     v = pc.verify_presence("Webtech Solutions", city="Yuba City")
     assert v.buildable is False
     assert "webtechsolution.org" in v.website
@@ -111,7 +121,8 @@ def test_no_places_results_is_buildable(monkeypatch):
 def test_search_failure_fails_open(monkeypatch):
     def _boom(q, **k):
         raise RuntimeError("places down")
+
     monkeypatch.setattr(ps, "search_text", _boom)
     v = pc.verify_presence("Acme", city="X")
-    assert v.buildable is True                      # insurance never hard-blocks
+    assert v.buildable is True  # insurance never hard-blocks
     assert "failed" in v.reason

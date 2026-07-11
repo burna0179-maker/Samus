@@ -9,6 +9,7 @@ so arming it is a credential change, not a rewrite.
 Orders pulled back attribute to the ``tiktok_shop`` revenue stream
 (:mod:`backend.finance.revenue_streams`) so the income separates by source/entity.
 """
+
 from __future__ import annotations
 
 import logging
@@ -33,12 +34,23 @@ def _armed(settings: Any) -> tuple[bool, str]:
     return True, token
 
 
-def _http(method: str, url: str, *, token: str, json: dict[str, Any] | None = None,
-          params: dict[str, Any] | None = None) -> httpx.Response:
+def _http(
+    method: str,
+    url: str,
+    *,
+    token: str,
+    json: dict[str, Any] | None = None,
+    params: dict[str, Any] | None = None,
+) -> httpx.Response:
     """Thin wrapper — the test monkeypatch point."""
     with httpx.Client(timeout=_TIMEOUT) as client:
-        return client.request(method, url, json=json, params=params,
-                              headers={"x-tts-access-token": token, "Content-Type": "application/json"})
+        return client.request(
+            method,
+            url,
+            json=json,
+            params=params,
+            headers={"x-tts-access-token": token, "Content-Type": "application/json"},
+        )
 
 
 def list_shop_products(*, settings: Any, limit: int = 50) -> dict[str, Any]:
@@ -46,8 +58,12 @@ def list_shop_products(*, settings: Any, limit: int = 50) -> dict[str, Any]:
     if not armed:
         return {"status": token, "products": []}
     try:
-        resp = _http("GET", f"{_BASE}/product/202309/products/search",
-                     token=token, params={"page_size": max(1, min(100, limit))})
+        resp = _http(
+            "GET",
+            f"{_BASE}/product/202309/products/search",
+            token=token,
+            params={"page_size": max(1, min(100, limit))},
+        )
         if resp.status_code != 200:
             return {"status": f"http_{resp.status_code}", "products": []}
         data = resp.json()
@@ -57,14 +73,23 @@ def list_shop_products(*, settings: Any, limit: int = 50) -> dict[str, Any]:
         return {"status": "error", "error": str(exc), "products": []}
 
 
-def create_listing(*, title: str, description: str, price_usd: float, settings: Any) -> dict[str, Any]:
+def create_listing(
+    *, title: str, description: str, price_usd: float, settings: Any
+) -> dict[str, Any]:
     armed, token = _armed(settings)
     if not armed:
         return {"ok": False, "status": token}
     try:
-        resp = _http("POST", f"{_BASE}/product/202309/products", token=token,
-                     json={"title": title, "description": description,
-                           "skus": [{"price": {"amount": str(price_usd), "currency": "USD"}}]})
+        resp = _http(
+            "POST",
+            f"{_BASE}/product/202309/products",
+            token=token,
+            json={
+                "title": title,
+                "description": description,
+                "skus": [{"price": {"amount": str(price_usd), "currency": "USD"}}],
+            },
+        )
         if resp.status_code != 200:
             return {"ok": False, "status": f"http_{resp.status_code}", "error": resp.text[:200]}
         return {"ok": True, "status": "created", "data": resp.json().get("data") or {}}
@@ -79,8 +104,12 @@ def fetch_orders(*, settings: Any, limit: int = 50) -> dict[str, Any]:
     if not armed:
         return {"status": token, "order_count": 0, "orders": []}
     try:
-        resp = _http("GET", f"{_BASE}/order/202309/orders/search",
-                     token=token, params={"page_size": max(1, min(100, limit))})
+        resp = _http(
+            "GET",
+            f"{_BASE}/order/202309/orders/search",
+            token=token,
+            params={"page_size": max(1, min(100, limit))},
+        )
         if resp.status_code != 200:
             return {"status": f"http_{resp.status_code}", "order_count": 0, "orders": []}
         rows = (resp.json().get("data") or {}).get("orders") or []

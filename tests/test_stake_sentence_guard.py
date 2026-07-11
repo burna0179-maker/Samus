@@ -1,4 +1,5 @@
 """Guard + dedup tests for stake_sentence."""
+
 from __future__ import annotations
 
 import pytest
@@ -75,7 +76,10 @@ def test_dedup_hit(tmp_path, monkeypatch):
     _redirect_dedup(monkeypatch, tmp_path)
     g.record_hash(_VALID)
     assert g.is_duplicate(_VALID) is True
-    assert g.is_duplicate("Different Alex picked you because Acme has the worst homepage I have seen.") is False
+    assert (
+        g.is_duplicate("Different Alex picked you because Acme has the worst homepage I have seen.")
+        is False
+    )
 
 
 def test_dedup_normalization_collapses_whitespace_and_case(tmp_path, monkeypatch):

@@ -38,8 +38,8 @@ class CatalogEntry:
     display_name: str
     category: SkuCategory
     fulfillment_module: FulfillmentModule
-    price_usd_cents: int          # for retainers, this is the monthly cents
-    recurring: bool               # True for retainers
+    price_usd_cents: int  # for retainers, this is the monthly cents
+    recurring: bool  # True for retainers
     stripe_product_id: Optional[str]
     stripe_price_id: Optional[str]
     payment_link_url: Optional[str]
@@ -117,7 +117,6 @@ CATALOG: list[CatalogEntry] = [
         payment_link_url="https://buy.stripe.com/9B6fZgcoW7yWbSm6Hy8so0h",
         description="Full technical SEO audit covering page-level optimization, Core Web Vitals, keyword opportunities, and a prioritized action roadmap.",
     ),
-
     # --- AI Ops Partner build (one-time, quote-based — pairs with retainer below) ---
     CatalogEntry(
         sku_id="service_ai_ops_partner_build",
@@ -136,7 +135,6 @@ CATALOG: list[CatalogEntry] = [
         payment_link_url=None,
         description="One-time engagement to build a standing operations engine: integrated automations, monitoring, and runbooks. Price scoped per build ($2,000-$5,000 typical). Pairs with the AI Ops Partner monthly retainer for ongoing upkeep.",
     ),
-
     # --- Retainers (monthly recurring) ---
     # AI Ops Partner has two tiers reflecting two customer journeys:
     #   * Entry: customer self-serves from hustleforge.tech/ai-ops-partner/.
@@ -206,7 +204,6 @@ CATALOG: list[CatalogEntry] = [
         payment_link_url=None,
         description="AI voice receptionist answering inbound calls 24/7: greeting, FAQs, appointment + callback capture, call transfer, and after-hours messages. Flat $99/mo base plus $0.35 per call-minute.",
     ),
-
     # --- Digital playbooks ---
     CatalogEntry(
         sku_id="playbook_lead_qual",
@@ -244,7 +241,6 @@ CATALOG: list[CatalogEntry] = [
         payment_link_url=None,
         description="Faster response times, cleaner follow-up, and more closed deals without chasing people manually.",
     ),
-
     # --- Digital packs ---
     CatalogEntry(
         sku_id="pack_creator_quickstart",
@@ -282,7 +278,6 @@ CATALOG: list[CatalogEntry] = [
         payment_link_url=None,
         description="A premium authority asset pack that sharpens positioning and gives high-intent buyers stronger conversion language.",
     ),
-
     # --- Add-ons (created 2026-05-16) ---
     CatalogEntry(
         sku_id="addon_stripe_hardening",
@@ -332,7 +327,6 @@ CATALOG: list[CatalogEntry] = [
         payment_link_url="https://buy.stripe.com/5kQcN4agOg5s5tY3vm8so0r",
         description="End-to-end DNS hardening for your sending domains: SPF, DKIM, DMARC, and MX records configured for maximum inbox placement and anti-spoofing protection.",
     ),
-
     # --- Add-ons (created 2026-05-16, second batch — fulfillment in backend.products) ---
     CatalogEntry(
         sku_id="addon_automation_health_check",

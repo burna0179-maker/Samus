@@ -1,4 +1,5 @@
 """Tests for backend.prospecting.crawler."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock
@@ -165,6 +166,7 @@ def test_is_dead_or_junk_real_site_ok():
 # classify_website — granular reachability status
 # ---------------------------------------------------------------------------
 
+
 def test_classify_website_live():
     page = {
         "final_url": "https://www.acmeroofing.com/",
@@ -206,33 +208,42 @@ def test_classify_website_unreachable_other():
 
 
 def test_classify_website_http_error():
-    page = {"final_url": "https://x.com/missing", "status_code": 404,
-            "html": None, "fetch_error": None}
+    page = {
+        "final_url": "https://x.com/missing",
+        "status_code": 404,
+        "html": None,
+        "fetch_error": None,
+    }
     assert crawler.classify_website(page) == "http_error"
 
 
 def test_classify_website_server_error():
-    page = {"final_url": "https://x.com/", "status_code": 503,
-            "html": None, "fetch_error": None}
+    page = {"final_url": "https://x.com/", "status_code": 503, "html": None, "fetch_error": None}
     assert crawler.classify_website(page) == "server_error"
 
 
 def test_classify_website_empty():
-    page = {"final_url": "https://x.com/", "status_code": 200,
-            "html": "   ", "fetch_error": None}
+    page = {"final_url": "https://x.com/", "status_code": 200, "html": "   ", "fetch_error": None}
     assert crawler.classify_website(page) == "empty"
 
 
 def test_classify_website_social_only():
-    page = {"final_url": "https://www.facebook.com/some-biz", "status_code": 200,
-            "html": "<html>fb</html>", "fetch_error": None}
+    page = {
+        "final_url": "https://www.facebook.com/some-biz",
+        "status_code": 200,
+        "html": "<html>fb</html>",
+        "fetch_error": None,
+    }
     assert crawler.classify_website(page) == "social_only"
 
 
 def test_classify_website_parked():
-    page = {"final_url": "https://acme-park.com/", "status_code": 200,
-            "html": "<html>Buy this domain! This domain is parked.</html>",
-            "fetch_error": None}
+    page = {
+        "final_url": "https://acme-park.com/",
+        "status_code": 200,
+        "html": "<html>Buy this domain! This domain is parked.</html>",
+        "fetch_error": None,
+    }
     assert crawler.classify_website(page) == "parked"
 
 
@@ -243,22 +254,28 @@ def test_classify_website_non_dict_is_unreachable():
 def test_is_dead_or_junk_agrees_with_classify_website():
     """is_dead_or_junk is exactly `classify_website(page) != "live"`."""
     pages = [
-        {"final_url": "https://ok.com/", "status_code": 200,
-         "html": "<h1>real</h1>", "fetch_error": None},
-        {"final_url": "https://x.com/", "status_code": 404,
-         "html": None, "fetch_error": None},
-        {"final_url": "http://x.com/", "status_code": 0,
-         "html": None, "fetch_error": "getaddrinfo failed"},
+        {
+            "final_url": "https://ok.com/",
+            "status_code": 200,
+            "html": "<h1>real</h1>",
+            "fetch_error": None,
+        },
+        {"final_url": "https://x.com/", "status_code": 404, "html": None, "fetch_error": None},
+        {
+            "final_url": "http://x.com/",
+            "status_code": 0,
+            "html": None,
+            "fetch_error": "getaddrinfo failed",
+        },
     ]
     for page in pages:
-        assert crawler.is_dead_or_junk(page) == (
-            crawler.classify_website(page) != "live"
-        )
+        assert crawler.is_dead_or_junk(page) == (crawler.classify_website(page) != "live")
 
 
 # ---------------------------------------------------------------------------
 # 2026-05-21 hardening — browser UA, retry, access_blocked / gone classes
 # ---------------------------------------------------------------------------
+
 
 def _seq_client(monkeypatch, statuses):
     """Install a fake httpx.Client whose successive GETs yield `statuses`
@@ -302,26 +319,22 @@ def test_default_headers_send_a_browser_user_agent():
 
 
 def test_classify_website_access_blocked_403():
-    page = {"final_url": "https://x.com/", "status_code": 403,
-            "html": None, "fetch_error": None}
+    page = {"final_url": "https://x.com/", "status_code": 403, "html": None, "fetch_error": None}
     assert crawler.classify_website(page) == "access_blocked"
 
 
 def test_classify_website_access_blocked_429():
-    page = {"final_url": "https://x.com/", "status_code": 429,
-            "html": None, "fetch_error": None}
+    page = {"final_url": "https://x.com/", "status_code": 429, "html": None, "fetch_error": None}
     assert crawler.classify_website(page) == "access_blocked"
 
 
 def test_classify_website_gone_410():
-    page = {"final_url": "https://x.com/", "status_code": 410,
-            "html": None, "fetch_error": None}
+    page = {"final_url": "https://x.com/", "status_code": 410, "html": None, "fetch_error": None}
     assert crawler.classify_website(page) == "gone"
 
 
 def test_classify_website_404_still_http_error():
-    page = {"final_url": "https://x.com/", "status_code": 404,
-            "html": None, "fetch_error": None}
+    page = {"final_url": "https://x.com/", "status_code": 404, "html": None, "fetch_error": None}
     assert crawler.classify_website(page) == "http_error"
 
 

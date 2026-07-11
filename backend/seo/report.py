@@ -4,6 +4,7 @@ Renders the combined audit/optimize/content output as a single markdown
 file ready to deliver to a paying customer of the $149 SEO Audit & Fix
 service. ASCII only (no em-dashes) for Windows console / cp1252 safety.
 """
+
 from __future__ import annotations
 
 import os
@@ -28,10 +29,10 @@ _LOG = logging.getLogger("samus.seo.report")
 
 _SEVERITY_BADGE = {
     "critical": "[CRITICAL]",
-    "high":     "[HIGH]",
-    "medium":   "[MEDIUM]",
-    "low":      "[LOW]",
-    "info":     "[INFO]",
+    "high": "[HIGH]",
+    "medium": "[MEDIUM]",
+    "low": "[LOW]",
+    "info": "[INFO]",
 }
 
 # Ordered worst-first so the security section lists the most urgent
@@ -68,35 +69,36 @@ _SECURITY_GRADE_BLURB = {
 # Plain severity words for the client-facing section - no badges, no jargon.
 _SECURITY_SEVERITY_WORD = {
     "critical": "Urgent",
-    "high":     "Serious",
-    "medium":   "Worth fixing",
-    "low":      "Minor",
-    "info":     "For your information",
+    "high": "Serious",
+    "medium": "Worth fixing",
+    "low": "Minor",
+    "info": "For your information",
 }
 
 _CATEGORY_TITLE = {
     "technical": "Technical",
-    "content":   "Content",
-    "local":     "Local",
-    "mobile":    "Mobile",
-    "reviews":   "Reviews",
+    "content": "Content",
+    "local": "Local",
+    "mobile": "Mobile",
+    "reviews": "Reviews",
 }
 
 _DRAFT_FIELD_ORDER = ("title", "meta_description", "h1", "body_intro", "body_main", "cta")
 
 _DRAFT_FIELD_TITLE = {
-    "title":            "Title Tag",
+    "title": "Title Tag",
     "meta_description": "Meta Description",
-    "h1":               "H1 Heading",
-    "body_intro":       "Body Intro",
-    "body_main":        "Body Main",
-    "cta":              "Call to Action",
+    "h1": "H1 Heading",
+    "body_intro": "Body Intro",
+    "body_main": "Body Main",
+    "cta": "Call to Action",
 }
 
 
 # ---------------------------------------------------------------------------
 # Slug + path helpers
 # ---------------------------------------------------------------------------
+
 
 def customer_slug_from_url(url: str) -> str:
     """Derive a filesystem-safe slug from the URL hostname.
@@ -123,6 +125,7 @@ def _artifact_root() -> Path:
 # ---------------------------------------------------------------------------
 # Pure markdown rendering
 # ---------------------------------------------------------------------------
+
 
 def _render_cover(audit: AuditResult, customer_label: str | None) -> list[str]:
     label = customer_label or audit.url
@@ -151,16 +154,11 @@ def _summarize(audit: AuditResult, optimize: OptimizeResult) -> str:
         sev_counts[i.severity] = sev_counts.get(i.severity, 0) + 1
 
     parts: list[str] = []
-    parts.append(
-        f"This report covers {audit.url} and was scored {audit.seo_score} "
-        f"out of 100."
-    )
+    parts.append(f"This report covers {audit.url} and was scored {audit.seo_score} out of 100.")
     if not issues:
         parts.append("No SEO issues were detected on this page.")
     else:
-        sev_summary = ", ".join(
-            f"{n} {s}" for s, n in sev_counts.items() if n > 0
-        )
+        sev_summary = ", ".join(f"{n} {s}" for s, n in sev_counts.items() if n > 0)
         parts.append(f"We identified {len(issues)} issues ({sev_summary}).")
 
     top_issue_msgs = [i.message for i in issues if i.severity in ("critical", "high")][:2]
@@ -173,9 +171,7 @@ def _summarize(audit: AuditResult, optimize: OptimizeResult) -> str:
             f"changes and {len(optimize.recommendations)} prioritized recommendations."
         )
     else:
-        parts.append(
-            f"We prepared {len(optimize.recommendations)} prioritized recommendations."
-        )
+        parts.append(f"We prepared {len(optimize.recommendations)} prioritized recommendations.")
     return " ".join(parts)
 
 
@@ -189,7 +185,8 @@ def _render_executive_summary(audit: AuditResult, optimize: OptimizeResult) -> l
 
 
 def _filter_verified_issues(
-    issues: list[SeoIssue], url: str,
+    issues: list[SeoIssue],
+    url: str,
 ) -> tuple[list[SeoIssue], int]:
     """G6 fail-closed serialization filter (Codex chapter 04 / ADR-009).
 
@@ -254,9 +251,7 @@ def _render_recommendations(optimize: OptimizeResult) -> list[str]:
 
     for idx, rec in enumerate(recs):
         marker = "★ RECOMMENDED " if idx == 0 else ""
-        lines.append(
-            f"{idx + 1}. {marker}**[priority {rec.priority}] [{rec.area}]** {rec.action}"
-        )
+        lines.append(f"{idx + 1}. {marker}**[priority {rec.priority}] [{rec.area}]** {rec.action}")
         lines.append(f"   - Why: {rec.rationale}")
     lines.append("")
 
@@ -386,8 +381,10 @@ def _render_security_posture(audit: AuditResult) -> list[str]:
             if not bucket:
                 continue
             for finding in bucket:
-                headline = str(finding.get("client_headline", "")).strip() \
+                headline = (
+                    str(finding.get("client_headline", "")).strip()
                     or str(finding.get("title", "")).strip()
+                )
                 impact = str(finding.get("client_impact", "")).strip()
                 word = _SECURITY_SEVERITY_WORD.get(severity, severity.capitalize())
                 lines.append(f"### {headline}")
@@ -399,22 +396,20 @@ def _render_security_posture(audit: AuditResult) -> list[str]:
                     lines.append("")
     else:
         lines.append(
-            "Good news: we did not find anything on your site that needs "
-            "fixing right now."
+            "Good news: we did not find anything on your site that needs fixing right now."
         )
         lines.append("")
 
     if passing:
         lines.append("### Already in good shape")
         lines.append("")
-        lines.append(
-            "These checks came back clean - no action needed, just keep "
-            "them as they are:"
-        )
+        lines.append("These checks came back clean - no action needed, just keep them as they are:")
         lines.append("")
         for finding in passing:
-            headline = str(finding.get("client_headline", "")).strip() \
+            headline = (
+                str(finding.get("client_headline", "")).strip()
                 or str(finding.get("title", "")).strip()
+            )
             impact = str(finding.get("client_impact", "")).strip()
             if impact:
                 lines.append(f"- **{headline}.** {impact}")
@@ -451,7 +446,7 @@ def render_security_technical(audit: AuditResult) -> str:
         f"- **Security Grade:** {grade}",
         "",
         "This is the technical companion to the customer-facing SEO report's "
-        "\"Security & Trust Posture\" section. It is written for whoever "
+        '"Security & Trust Posture" section. It is written for whoever '
         "implements the fixes and keeps every detail - exact header names, "
         "raw evidence, attacker-impact risk, remediation steps, and finding "
         "ids. It is a passive review: only ordinary HTTP GET requests, one "
@@ -472,9 +467,7 @@ def render_security_technical(audit: AuditResult) -> str:
         by_severity.setdefault(sev, []).append(finding)
 
     counts = ", ".join(
-        f"{len(by_severity[s])} {s}"
-        for s in _SECURITY_SEVERITY_ORDER
-        if by_severity.get(s)
+        f"{len(by_severity[s])} {s}" for s in _SECURITY_SEVERITY_ORDER if by_severity.get(s)
     )
     if counts:
         lines.append("## Summary")
@@ -567,12 +560,15 @@ def render_seo_report_markdown(
     # evidence_sources list, and the markdown never references a
     # filtered finding.
     verified_issues, dropped_count = _filter_verified_issues(
-        audit.issues, audit.url,
+        audit.issues,
+        audit.url,
     )
     if dropped_count:
         _LOG.info(
             "G6 Gap Report serialization filter dropped %d/%d findings (url=%s)",
-            dropped_count, len(audit.issues), audit.url,
+            dropped_count,
+            len(audit.issues),
+            audit.url,
         )
     # Shallow copy with filtered issues. model_copy keeps the original
     # ``audit`` immutable from the caller's perspective.
@@ -592,19 +588,21 @@ def render_seo_report_markdown(
     # CodexUnavailable raises through; render refuses if the layer isn't
     # loaded (fail-closed).
     try:
-        _verdict = check_action(ProposedAction(
-            service="seo",
-            capability="audit_and_report",
-            action_kind="gap_report_render",
-            payload={
-                "customer_label": customer_label,
-                "stake_sentence": stake_sentence,
-                "evidence_sources": post_filter_sources,
-                "url": getattr(audit, "url", None),
-            },
-            proposed_by="seo.render_seo_report_markdown",
-            correlation_id=None,
-        ))
+        _verdict = check_action(
+            ProposedAction(
+                service="seo",
+                capability="audit_and_report",
+                action_kind="gap_report_render",
+                payload={
+                    "customer_label": customer_label,
+                    "stake_sentence": stake_sentence,
+                    "evidence_sources": post_filter_sources,
+                    "url": getattr(audit, "url", None),
+                },
+                proposed_by="seo.render_seo_report_markdown",
+                correlation_id=None,
+            )
+        )
     except CodexUnavailable:
         raise
     if not _verdict.allowed:
@@ -636,6 +634,7 @@ def render_seo_report_markdown(
 # Filesystem writer
 # ---------------------------------------------------------------------------
 
+
 def write_seo_report(
     audit: AuditResult,
     optimize: OptimizeResult,
@@ -653,13 +652,18 @@ def write_seo_report(
     Returns the path to ``seo_report.md``.
     """
     if customer_label is not None and customer_label.strip():
-        slug = customer_slug_from_url(customer_label) if "://" in customer_label \
+        slug = (
+            customer_slug_from_url(customer_label)
+            if "://" in customer_label
             else _slugify_label(customer_label)
+        )
     else:
         slug = customer_slug_from_url(audit.url)
 
     body = render_seo_report_markdown(
-        audit, optimize, content,
+        audit,
+        optimize,
+        content,
         customer_label=customer_label,
         stake_sentence=stake_sentence,
     )
@@ -672,7 +676,8 @@ def write_seo_report(
     technical = render_security_technical(audit)
     if technical:
         (target_dir / "security_audit_technical.md").write_text(
-            technical, encoding="utf-8",
+            technical,
+            encoding="utf-8",
         )
     return target
 

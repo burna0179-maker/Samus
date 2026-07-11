@@ -20,6 +20,7 @@ under test. The default deps classify consent CONSERVATIVELY (absent signal =>
 no consent => voicemail), so the cold dial list can only ever produce drafts —
 a live dial requires an explicit consent signal that the cold list never carries.
 """
+
 from __future__ import annotations
 
 import logging
@@ -59,6 +60,7 @@ def _route_voice(fences: dict[str, Any], *, live_dial_allowed: bool = True) -> s
 class ProductionDeps:
     """Injected bindings for the actuator. Defaults (``_default_production_deps``)
     wire the real, defensive implementations; tests pass fakes."""
+
     voice_candidates: Callable[[], list[Any]]
     classify_consent: Callable[[Any], bool]
     compute_fences: Callable[[Any], dict[str, Any]]
@@ -82,8 +84,9 @@ def run_email_channel(deps: ProductionDeps, cap: int = _DEFAULT_CAP_EMAIL) -> di
     return out
 
 
-def run_voice_channel(deps: ProductionDeps, cap: int = _DEFAULT_CAP_VOICE,
-                      *, live_dial_allowed: bool = True) -> dict[str, Any]:
+def run_voice_channel(
+    deps: ProductionDeps, cap: int = _DEFAULT_CAP_VOICE, *, live_dial_allowed: bool = True
+) -> dict[str, Any]:
     """Consent-routed voice pass (cold => voicemail draft; consented + fenced =>
     governed live dial). Never raises. ``dialed + drafted`` is bounded by ``cap``.
 
@@ -126,6 +129,7 @@ def run_voice_channel(deps: ProductionDeps, cap: int = _DEFAULT_CAP_VOICE,
             customer_name = ""
             try:
                 from backend.voice.dialer import _build_variable_values
+
                 variable_values = _build_variable_values(prospect)
                 customer_name = str(getattr(prospect, "company_name", "") or "")
             except Exception as exc:  # noqa: BLE001
@@ -160,13 +164,19 @@ def run_production(
     email = run_email_channel(deps, cap_email)
     voice = run_voice_channel(deps, cap_voice)
     summary: dict[str, Any] = {
-        "channel": "governed", "reason": getattr(decision, "reason", ""),
-        "voice": voice, "email": email,
+        "channel": "governed",
+        "reason": getattr(decision, "reason", ""),
+        "voice": voice,
+        "email": email,
         "initiated": voice["dialed"] + voice["drafted"] + email["sent"],
     }
     _LOG.info(
         "idle-drive produced: dialed=%d drafted=%d email_sent=%d (skipped=%d blocked=%d)",
-        voice["dialed"], voice["drafted"], email["sent"], voice["skipped"], voice["blocked"],
+        voice["dialed"],
+        voice["drafted"],
+        email["sent"],
+        voice["skipped"],
+        voice["blocked"],
     )
     return summary
 
@@ -175,6 +185,7 @@ def run_production(
 # Default (real) bindings. Every one is defensive: a fault degrades to the
 # safest outcome (no consent / fence closed / nothing produced), never a raise.
 # ---------------------------------------------------------------------------
+
 
 def _default_voice_candidates() -> list[Any]:
     """Today's cold call-list prospects, or []. These carry NO consent basis."""
@@ -220,30 +231,38 @@ def _default_classify_consent(prospect: Any) -> bool:
 def _default_compute_fences(prospect: Any) -> dict[str, Any]:
     """The 4 operational fences (consent is added by run_production). Every fence
     fails CLOSED on error."""
-    fences = {"within_call_hours": False, "cooldown_ok": False,
-              "under_daily_cap": False, "dnc_ok": False}
+    fences = {
+        "within_call_hours": False,
+        "cooldown_ok": False,
+        "under_daily_cap": False,
+        "dnc_ok": False,
+    }
     pid = str(getattr(prospect, "prospect_id", "") or "")
     phone = str(getattr(prospect, "phone", "") or "")
     state = getattr(prospect, "state", "") or ""
     try:
         from backend.common.us_timezones import is_within_call_hours
+
         fences["within_call_hours"] = bool(is_within_call_hours(state=state))
     except Exception:  # noqa: BLE001
         pass
     try:
         from backend.voice.dialer import _in_dial_cooldown
+
         in_cd, _ = _in_dial_cooldown(pid, phone, 7)
         fences["cooldown_ok"] = not in_cd
     except Exception:  # noqa: BLE001
         pass
     try:
         from backend.voice.dialer import _already_called_today
+
         # Per-prospect daily proxy for the cap: not yet called today.
         fences["under_daily_cap"] = not _already_called_today(pid, "")
     except Exception:  # noqa: BLE001
         pass
     try:
         from backend.voice.dialer import _is_suppressed
+
         fences["dnc_ok"] = not _is_suppressed(phone)
     except Exception:  # noqa: BLE001
         pass
@@ -259,6 +278,7 @@ def _default_draft_voicemail(prospect: Any) -> dict[str, Any]:
         text = str(getattr(prospect, "callsheet_voicemail", "") or "")
         if not text:
             from backend.prospecting.callsheet import _voicemail
+
             text = _voicemail(prospect)
         # Recycle pass (2026-07-03): a returning prospect's voicemail opens
         # as a follow-up — continuity compounds warmth; a cold re-open burns
@@ -325,11 +345,18 @@ def _default_email_batch(cap: int) -> dict[str, Any]:
         try:
             import json as _json
 
-            ledger = (storage.root() / "artifacts" / "outreach" /
-                      f"morning_batch_{business_today().isoformat()}.jsonl")
+            ledger = (
+                storage.root()
+                / "artifacts"
+                / "outreach"
+                / f"morning_batch_{business_today().isoformat()}.jsonl"
+            )
             if not ledger.is_file():
-                ledger = (storage.root() / "outreach" /
-                          f"morning_batch_{business_today().isoformat()}.jsonl")
+                ledger = (
+                    storage.root()
+                    / "outreach"
+                    / f"morning_batch_{business_today().isoformat()}.jsonl"
+                )
             if ledger.is_file():
                 for line in ledger.read_text(encoding="utf-8").splitlines():
                     try:
@@ -339,9 +366,14 @@ def _default_email_batch(cap: int) -> dict[str, Any]:
                     tally[status] = tally.get(status, 0) + 1
         except Exception as exc:  # noqa: BLE001 — tally is telemetry, never fatal
             _LOG.warning("email batch ledger tally failed: %s", exc)
-        return {"sent": int(tally.get("sent", 0)), "failed": int(tally.get("failed", 0)),
-                "ran": rc == 0, "rc": rc, "day_tally": tally,
-                "note": "counts are day-cumulative from the batch ledger"}
+        return {
+            "sent": int(tally.get("sent", 0)),
+            "failed": int(tally.get("failed", 0)),
+            "ran": rc == 0,
+            "rc": rc,
+            "day_tally": tally,
+            "note": "counts are day-cumulative from the batch ledger",
+        }
     except Exception as exc:  # noqa: BLE001
         _LOG.warning("idle-drive email batch failed: %s", exc)
         return {"sent": 0, "failed": 0, "error": str(exc)}

@@ -8,10 +8,10 @@ credential fields. It mirrors :mod:`backend.social.repurpose`: one budget-gated
 call, tolerant JSON parse, and **fail-soft** (any error leaves the deterministic
 defaults untouched). Never raises.
 """
+
 from __future__ import annotations
 
 import logging
-import os
 
 from backend.social.repurpose import _tolerant_json
 from backend.workflow.models import N8nWorkflow
@@ -37,7 +37,9 @@ def enrich_workflow(wf: N8nWorkflow, plan, intake_text: str, *, settings=None) -
     try:
         from backend.common.llm_client import anthropic_messages
 
-        names = ", ".join(n.name for n in wf.nodes if any(f in n.parameters for f in _CONTENT_FIELDS))
+        names = ", ".join(
+            n.name for n in wf.nodes if any(f in n.parameters for f in _CONTENT_FIELDS)
+        )
         if not names:
             return False
         prompt = (
@@ -49,7 +51,9 @@ def enrich_workflow(wf: N8nWorkflow, plan, intake_text: str, *, settings=None) -
             f"NODES: {names}\n\n"
             f"BUSINESS NEED:\n{intake_text.strip()[:1200]}\n"
         )
-        text, _usage = anthropic_messages(workcell=_WORKCELL, api_key="unused", prompt=prompt, max_tokens=_MAX_TOKENS)
+        text, _usage = anthropic_messages(
+            workcell=_WORKCELL, api_key="unused", prompt=prompt, max_tokens=_MAX_TOKENS
+        )
         parsed = _tolerant_json(text)
         if not isinstance(parsed, dict):
             return False
@@ -61,7 +65,12 @@ def enrich_workflow(wf: N8nWorkflow, plan, intake_text: str, *, settings=None) -
             if node is None or not isinstance(fields, dict):
                 continue
             for field, value in fields.items():
-                if field in _CONTENT_FIELDS and field in node.parameters and isinstance(value, str) and value.strip():
+                if (
+                    field in _CONTENT_FIELDS
+                    and field in node.parameters
+                    and isinstance(value, str)
+                    and value.strip()
+                ):
                     node.parameters[field] = value.strip()
                     changed = True
         return changed

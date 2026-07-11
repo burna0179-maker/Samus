@@ -5,6 +5,7 @@ no inter-agent key required. The signing path is exercised when a key
 IS present (we set ``SS_HMAC_KEY_SAMUS`` to a 64-char hex via
 monkeypatch on the tests that go end-to-end through the envelope).
 """
+
 from __future__ import annotations
 
 import json
@@ -82,6 +83,7 @@ def _broker_dev_disabled(monkeypatch):
 # Reserve — success path.
 # ---------------------------------------------------------------------------
 
+
 def test_reserve_returns_reservation_on_200(monkeypatch, _broker_enabled_with_key):
     """A 200 response with a valid grant body produces a Reservation."""
     from backend.common import broker_client as bc
@@ -135,6 +137,7 @@ def test_reserve_returns_reservation_on_200(monkeypatch, _broker_enabled_with_ke
 # Reserve — explicit deny (409).
 # ---------------------------------------------------------------------------
 
+
 def test_reserve_raises_broker_denied_on_409(monkeypatch, _broker_enabled_with_key):
     from backend.common import broker_client as bc
 
@@ -150,7 +153,10 @@ def test_reserve_raises_broker_denied_on_409(monkeypatch, _broker_enabled_with_k
 
     with pytest.raises(bc.BrokerDenied) as ei:
         bc.reserve(
-            kind="llm_tokens", cost=0.05, priority=5, workcell="prospecting",
+            kind="llm_tokens",
+            cost=0.05,
+            priority=5,
+            workcell="prospecting",
         )
     assert ei.value.reason == "ecosystem_unhealthy"
     assert ei.value.retry_after_sec == pytest.approx(12.5)
@@ -160,6 +166,7 @@ def test_reserve_raises_broker_denied_on_409(monkeypatch, _broker_enabled_with_k
 # ---------------------------------------------------------------------------
 # Reserve — network failure is fail-closed.
 # ---------------------------------------------------------------------------
+
 
 def test_reserve_treats_network_exception_as_denied(monkeypatch, _broker_enabled_with_key):
     from backend.common import broker_client as bc
@@ -171,7 +178,10 @@ def test_reserve_treats_network_exception_as_denied(monkeypatch, _broker_enabled
 
     with pytest.raises(bc.BrokerDenied) as ei:
         bc.reserve(
-            kind="llm_tokens", cost=0.05, priority=5, workcell="prospecting",
+            kind="llm_tokens",
+            cost=0.05,
+            priority=5,
+            workcell="prospecting",
         )
     assert ei.value.reason == "broker_unreachable"
 
@@ -186,7 +196,10 @@ def test_reserve_treats_timeout_as_denied(monkeypatch, _broker_enabled_with_key)
 
     with pytest.raises(bc.BrokerDenied) as ei:
         bc.reserve(
-            kind="llm_tokens", cost=0.05, priority=5, workcell="prospecting",
+            kind="llm_tokens",
+            cost=0.05,
+            priority=5,
+            workcell="prospecting",
         )
     assert ei.value.reason == "broker_unreachable"
 
@@ -194,6 +207,7 @@ def test_reserve_treats_timeout_as_denied(monkeypatch, _broker_enabled_with_key)
 # ---------------------------------------------------------------------------
 # Release — idempotent on failure.
 # ---------------------------------------------------------------------------
+
 
 def test_release_is_idempotent_on_network_failure(monkeypatch, _broker_enabled_with_key):
     from backend.common import broker_client as bc
@@ -204,8 +218,11 @@ def test_release_is_idempotent_on_network_failure(monkeypatch, _broker_enabled_w
     monkeypatch.setattr(bc, "_post_signed", _boom)
 
     r = bc.Reservation(
-        id="res-xyz", kind="llm_tokens", granted_cost=0.01,
-        expires_at=9999999999.0, priority=5,
+        id="res-xyz",
+        kind="llm_tokens",
+        granted_cost=0.01,
+        expires_at=9999999999.0,
+        priority=5,
     )
     # Must NOT raise — release is best-effort, broker auto-reclaims at TTL.
     bc.release(r, actual_cost=0.005, outcome="ok")
@@ -228,8 +245,11 @@ def test_release_outcome_error_on_caller_exception(monkeypatch, _broker_enabled_
     monkeypatch.setattr(bc, "_post_signed", _fake_post)
 
     r = bc.Reservation(
-        id="res-err", kind="llm_tokens", granted_cost=0.01,
-        expires_at=9999999999.0, priority=5,
+        id="res-err",
+        kind="llm_tokens",
+        granted_cost=0.01,
+        expires_at=9999999999.0,
+        priority=5,
     )
     bc.release(r, actual_cost=0.0, outcome="error")
 
@@ -244,19 +264,25 @@ def test_release_outcome_error_on_caller_exception(monkeypatch, _broker_enabled_
 # Disabled-broker dev path.
 # ---------------------------------------------------------------------------
 
+
 def test_when_disabled_reserve_returns_dummy_reservation_and_release_is_noop(
-    monkeypatch, _broker_dev_disabled,
+    monkeypatch,
+    _broker_dev_disabled,
 ):
     from backend.common import broker_client as bc
 
     posts: list = []
     monkeypatch.setattr(
-        bc, "_post_signed",
+        bc,
+        "_post_signed",
         lambda *a, **kw: posts.append((a, kw)) or pytest.fail("should not call HTTP"),
     )
 
     r = bc.reserve(
-        kind="llm_tokens", cost=0.05, priority=5, workcell="prospecting",
+        kind="llm_tokens",
+        cost=0.05,
+        priority=5,
+        workcell="prospecting",
     )
     assert r.id == bc._DISABLED_RESERVATION_ID  # noqa: SLF001
     assert r.granted_cost == pytest.approx(0.05)
@@ -269,6 +295,7 @@ def test_when_disabled_reserve_returns_dummy_reservation_and_release_is_noop(
 # ---------------------------------------------------------------------------
 # Priority mapping.
 # ---------------------------------------------------------------------------
+
 
 def test_priority_for_unknown_workcell_falls_back_to_default():
     from backend.common import broker_client as bc
@@ -303,8 +330,10 @@ def test_priority_settings_override_wins(monkeypatch, _reset_settings_cache):
 # Reserve malformed-body case (extra defensive coverage of fail-closed).
 # ---------------------------------------------------------------------------
 
+
 def test_reserve_treats_malformed_200_body_as_denied(
-    monkeypatch, _broker_enabled_with_key,
+    monkeypatch,
+    _broker_enabled_with_key,
 ):
     from backend.common import broker_client as bc
 
@@ -317,6 +346,9 @@ def test_reserve_treats_malformed_200_body_as_denied(
 
     with pytest.raises(bc.BrokerDenied) as ei:
         bc.reserve(
-            kind="llm_tokens", cost=0.05, priority=5, workcell="prospecting",
+            kind="llm_tokens",
+            cost=0.05,
+            priority=5,
+            workcell="prospecting",
         )
     assert ei.value.reason == "server_error"

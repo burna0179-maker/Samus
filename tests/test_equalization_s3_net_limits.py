@@ -5,6 +5,7 @@ httpx call, :func:`check_httpx_size` inspects the already-read ``.content`` and
 raises :class:`ResponseTooLarge` on an over-cap body WITHOUT consuming or
 replacing the response. Callers keep using ``resp.json()`` / ``resp.text``.
 """
+
 from __future__ import annotations
 
 import io
@@ -69,7 +70,9 @@ def test_check_httpx_size_over_limit_raises() -> None:
 def test_check_httpx_size_content_length_fast_reject() -> None:
     # Declared CL over the cap is rejected even if the actual body is small.
     resp = httpx.Response(
-        200, content=b"tiny", headers={"content-length": str(10**9)},
+        200,
+        content=b"tiny",
+        headers={"content-length": str(10**9)},
     )
     with pytest.raises(ResponseTooLarge):
         check_httpx_size(resp, max_bytes=1024)

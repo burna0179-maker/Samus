@@ -103,8 +103,14 @@ class PersonaSystem:
     FRAME_KEY = "_persona_frame"
     DEFAULT_HISTORY_SIZE = 32
 
-    def __init__(self, persona_memory=None, thresholds=None, enabled: Optional[bool] = None,
-                 audit_enabled=True, history_size=DEFAULT_HISTORY_SIZE):
+    def __init__(
+        self,
+        persona_memory=None,
+        thresholds=None,
+        enabled: Optional[bool] = None,
+        audit_enabled=True,
+        history_size=DEFAULT_HISTORY_SIZE,
+    ):
         self._memory = persona_memory
         self._thresholds = thresholds or ModeThresholds()
         # Default the enable from the feature flag (default OFF -> compute-only
@@ -122,8 +128,11 @@ class PersonaSystem:
     def transform(self, stimulus: Dict[str, Any]) -> Dict[str, Any]:
         enriched = copy.deepcopy(stimulus)
         if not self._enabled:
-            frame = self._neutral_frame(flags=["persona_system_disabled"], degraded=True,
-                                        decision_basis=["feature_flag_disabled"])
+            frame = self._neutral_frame(
+                flags=["persona_system_disabled"],
+                degraded=True,
+                decision_basis=["feature_flag_disabled"],
+            )
             enriched[self.FRAME_KEY] = frame.to_dict()
             with self._lock:
                 self._last_frame = frame
@@ -135,8 +144,11 @@ class PersonaSystem:
                 self._last_frame = frame
             return enriched
         except Exception as exc:
-            frame = self._neutral_frame(flags=["persona_degraded", f"error:{type(exc).__name__}"],
-                                        degraded=True, decision_basis=["transform_exception"])
+            frame = self._neutral_frame(
+                flags=["persona_degraded", f"error:{type(exc).__name__}"],
+                degraded=True,
+                decision_basis=["transform_exception"],
+            )
             enriched[self.FRAME_KEY] = frame.to_dict()
             with self._lock:
                 self._last_frame = frame
@@ -169,13 +181,22 @@ class PersonaSystem:
 
     # --- internals ---
     def _neutral_frame(self, *, flags=None, degraded=False, decision_basis=None) -> PersonaFrame:
-        return self._finalize_frame(PersonaFrame(
-            mode=OperatingMode.NORMAL, valence=0.0, confidence=0.5,
-            novelty=0.0, drift=0.0, emotion_event_count=0, reflection_count=0,
-            frame_ts=time.time(), flags=list(flags or ["persona_unavailable"]),
-            degraded=degraded, decision_basis=list(decision_basis or ["neutral_fallback"]),
-            safety_posture="conservative" if degraded else "balanced",
-        ))
+        return self._finalize_frame(
+            PersonaFrame(
+                mode=OperatingMode.NORMAL,
+                valence=0.0,
+                confidence=0.5,
+                novelty=0.0,
+                drift=0.0,
+                emotion_event_count=0,
+                reflection_count=0,
+                frame_ts=time.time(),
+                flags=list(flags or ["persona_unavailable"]),
+                degraded=degraded,
+                decision_basis=list(decision_basis or ["neutral_fallback"]),
+                safety_posture="conservative" if degraded else "balanced",
+            )
+        )
 
     def _derive_frame(self) -> PersonaFrame:
         if not self._memory:
@@ -188,27 +209,52 @@ class PersonaSystem:
         valence = self._clamp(float(emotion.get("valence", 0.0)), -1.0, 1.0)
         confidence = self._clamp(float(snap.get("baseline_confidence", 0.5)), 0.0, 1.0)
         novelty = self._clamp(float(emotion.get("novelty", 0.0)), 0.0, 1.0)
-        drift = self._clamp(float(emotion.get("drift", 1.0 - float(emotion.get("memory_confidence", 0.5)))), 0.0, 1.0)
+        drift = self._clamp(
+            float(emotion.get("drift", 1.0 - float(emotion.get("memory_confidence", 0.5)))),
+            0.0,
+            1.0,
+        )
         n_emotions = int(counters.get("emotion_events", 0))
         n_reflections = int(counters.get("reflection_events", 0))
-        mode, flags, basis = self._derive_mode(valence, confidence, drift, novelty, n_emotions + n_reflections)
-        return self._finalize_frame(PersonaFrame(
-            mode=mode, valence=valence, confidence=confidence, novelty=novelty, drift=drift,
-            emotion_event_count=n_emotions, reflection_count=n_reflections, frame_ts=time.time(),
-            flags=flags, decision_basis=basis, safety_posture=self._infer_safety_posture(mode),
-        ))
+        mode, flags, basis = self._derive_mode(
+            valence, confidence, drift, novelty, n_emotions + n_reflections
+        )
+        return self._finalize_frame(
+            PersonaFrame(
+                mode=mode,
+                valence=valence,
+                confidence=confidence,
+                novelty=novelty,
+                drift=drift,
+                emotion_event_count=n_emotions,
+                reflection_count=n_reflections,
+                frame_ts=time.time(),
+                flags=flags,
+                decision_basis=basis,
+                safety_posture=self._infer_safety_posture(mode),
+            )
+        )
 
-    def _derive_mode(self, valence, confidence, drift, novelty, n_history) -> Tuple[OperatingMode, List[str], List[str]]:
+    def _derive_mode(
+        self, valence, confidence, drift, novelty, n_history
+    ) -> Tuple[OperatingMode, List[str], List[str]]:
         t = self._thresholds
         flags, basis = [], []
         with self._lock:
             error_streak = self._consecutive_errors
             previous_mode = self._last_frame.mode if self._last_frame else None
-            within_hold = previous_mode is not None and (time.time() - self._last_mode_change_ts) < t.mode_min_hold_seconds
+            within_hold = (
+                previous_mode is not None
+                and (time.time() - self._last_mode_change_ts) < t.mode_min_hold_seconds
+            )
 
         # Emergency override
         if drift >= t.emergency_drift_recovery_ceiling:
-            return OperatingMode.RECOVERY, [f"extreme_drift:{drift:.2f}", "emergency_recovery"], ["drift_exceeds_emergency_ceiling"]
+            return (
+                OperatingMode.RECOVERY,
+                [f"extreme_drift:{drift:.2f}", "emergency_recovery"],
+                ["drift_exceeds_emergency_ceiling"],
+            )
 
         # Recovery
         rec_reasons = []
@@ -219,7 +265,11 @@ class PersonaSystem:
         if confidence <= t.recovery_confidence_floor:
             rec_reasons.append(f"low_confidence:{confidence:.2f}")
         if len(rec_reasons) >= 2 or error_streak >= t.recovery_consecutive_errors:
-            return OperatingMode.RECOVERY, rec_reasons + ["multi_signal_recovery"], ["recovery_triggered"]
+            return (
+                OperatingMode.RECOVERY,
+                rec_reasons + ["multi_signal_recovery"],
+                ["recovery_triggered"],
+            )
 
         # Hysteresis hold on recovery
         if previous_mode == OperatingMode.RECOVERY and within_hold:
@@ -238,50 +288,87 @@ class PersonaSystem:
         if novelty >= 0.85 and confidence < max(t.explore_confidence_floor, 0.75):
             caut_reasons.append(f"high_novelty_low_cert:{novelty:.2f}")
         if caut_reasons:
-            return OperatingMode.CAUTIOUS, caut_reasons + ["caution_signals"], ["cautious_signal_present"]
+            return (
+                OperatingMode.CAUTIOUS,
+                caut_reasons + ["caution_signals"],
+                ["cautious_signal_present"],
+            )
         if previous_mode == OperatingMode.CAUTIOUS and drift >= t.cautious_exit_drift_floor:
-            return OperatingMode.CAUTIOUS, [f"lingering_drift:{drift:.2f}", "mode_hold:cautious"], ["cautious_hysteresis"]
+            return (
+                OperatingMode.CAUTIOUS,
+                [f"lingering_drift:{drift:.2f}", "mode_hold:cautious"],
+                ["cautious_hysteresis"],
+            )
 
         # Explore
-        if (confidence >= t.explore_confidence_floor and drift <= t.explore_drift_ceiling
-                and valence >= t.explore_valence_floor and n_history >= t.explore_min_history and error_streak == 0):
-            return OperatingMode.EXPLORE, ["conditions_favorable"], ["high_confidence", "low_drift", "positive_valence", "sufficient_history"]
+        if (
+            confidence >= t.explore_confidence_floor
+            and drift <= t.explore_drift_ceiling
+            and valence >= t.explore_valence_floor
+            and n_history >= t.explore_min_history
+            and error_streak == 0
+        ):
+            return (
+                OperatingMode.EXPLORE,
+                ["conditions_favorable"],
+                ["high_confidence", "low_drift", "positive_valence", "sufficient_history"],
+            )
 
         return OperatingMode.NORMAL, ["mode_trigger:default"], ["default_baseline"]
 
     def _finalize_frame(self, frame: PersonaFrame) -> PersonaFrame:
         frame_id = self._build_frame_id(frame)
         finalized = PersonaFrame(
-            mode=frame.mode, valence=self._clamp(frame.valence, -1.0, 1.0),
+            mode=frame.mode,
+            valence=self._clamp(frame.valence, -1.0, 1.0),
             confidence=self._clamp(frame.confidence, 0.0, 1.0),
             novelty=self._clamp(frame.novelty, 0.0, 1.0),
             drift=self._clamp(frame.drift, 0.0, 1.0),
             emotion_event_count=max(0, int(frame.emotion_event_count)),
             reflection_count=max(0, int(frame.reflection_count)),
-            frame_ts=float(frame.frame_ts), flags=self._dedupe(frame.flags),
-            source=frame.source, schema_version=frame.schema_version,
-            degraded=bool(frame.degraded), decision_basis=self._dedupe(frame.decision_basis),
-            safety_posture=frame.safety_posture, frame_id=frame_id,
+            frame_ts=float(frame.frame_ts),
+            flags=self._dedupe(frame.flags),
+            source=frame.source,
+            schema_version=frame.schema_version,
+            degraded=bool(frame.degraded),
+            decision_basis=self._dedupe(frame.decision_basis),
+            safety_posture=frame.safety_posture,
+            frame_id=frame_id,
         )
         with self._lock:
             previous_mode = self._last_frame.mode if self._last_frame else None
             if previous_mode != finalized.mode:
                 self._last_mode_change_ts = finalized.frame_ts
-            self._mode_history.append({"ts": finalized.frame_ts, "frame_id": finalized.frame_id,
-                                       "mode": finalized.mode.value,
-                                       "previous_mode": previous_mode.value if previous_mode else None,
-                                       "degraded": finalized.degraded, "flags": finalized.flags[:8]})
+            self._mode_history.append(
+                {
+                    "ts": finalized.frame_ts,
+                    "frame_id": finalized.frame_id,
+                    "mode": finalized.mode.value,
+                    "previous_mode": previous_mode.value if previous_mode else None,
+                    "degraded": finalized.degraded,
+                    "flags": finalized.flags[:8],
+                }
+            )
         return finalized
 
     def _infer_safety_posture(self, mode: OperatingMode) -> str:
-        return {"recovery": "restrictive", "cautious": "guarded",
-                "explore": "expansive", "normal": "balanced"}.get(mode.value, "balanced")
+        return {
+            "recovery": "restrictive",
+            "cautious": "guarded",
+            "explore": "expansive",
+            "normal": "balanced",
+        }.get(mode.value, "balanced")
 
     def _build_frame_id(self, frame: PersonaFrame) -> str:
-        payload = {"mode": frame.mode.value, "valence": round(frame.valence, 6),
-                   "confidence": round(frame.confidence, 6), "drift": round(frame.drift, 6),
-                   "frame_ts": round(frame.frame_ts, 6), "flags": frame.flags,
-                   "decision_basis": frame.decision_basis}
+        payload = {
+            "mode": frame.mode.value,
+            "valence": round(frame.valence, 6),
+            "confidence": round(frame.confidence, 6),
+            "drift": round(frame.drift, 6),
+            "frame_ts": round(frame.frame_ts, 6),
+            "flags": frame.flags,
+            "decision_basis": frame.decision_basis,
+        }
         raw = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
         return hashlib.sha256(raw).hexdigest()[:16]
 

@@ -10,6 +10,7 @@ Fixtures were probed against the real gatekeeper_detector / BANNED_SELF_NARRATIO
 before being frozen here, so a green run means the audit agrees with the live
 detectors, not with a re-implementation of them.
 """
+
 from __future__ import annotations
 
 import json
@@ -107,27 +108,22 @@ def test_finding_leaked_to_gatekeeper_true() -> None:
             "User: This is Sarah speaking, how can I help you?",
         ]
     )
-    assert cba.detect_finding_leaked_to_gatekeeper(
-        tx, finding, was_gatekeeper=True
-    ) is True
+    assert cba.detect_finding_leaked_to_gatekeeper(tx, finding, was_gatekeeper=True) is True
 
 
 def test_finding_not_leaked_when_not_gatekeeper() -> None:
     finding = "Your Google listing shows the wrong hours"
     tx = f"AI: Hi, this is Morgan. {finding}."
     # Spoken, but NOT a gatekeeper interaction (owner) => not a leak.
-    assert cba.detect_finding_leaked_to_gatekeeper(
-        tx, finding, was_gatekeeper=False
-    ) is False
+    assert cba.detect_finding_leaked_to_gatekeeper(tx, finding, was_gatekeeper=False) is False
 
 
 def test_finding_leak_empty_finding_is_false() -> None:
-    assert cba.detect_finding_leaked_to_gatekeeper(
-        GATEKEEPER_TX, "", was_gatekeeper=True
-    ) is False
-    assert cba.detect_finding_leaked_to_gatekeeper(
-        GATEKEEPER_TX, "short", was_gatekeeper=True
-    ) is False
+    assert cba.detect_finding_leaked_to_gatekeeper(GATEKEEPER_TX, "", was_gatekeeper=True) is False
+    assert (
+        cba.detect_finding_leaked_to_gatekeeper(GATEKEEPER_TX, "short", was_gatekeeper=True)
+        is False
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -220,19 +216,27 @@ def _audit(**kw):
 
 def test_aggregate_batch_rates_and_counts() -> None:
     audits = [
-        _audit(outcome_bucket="engaged", reached_human=True, reached_owner=True,
-               caller_number_id="A"),
-        _audit(outcome_bucket="gatekeeper", reached_human=True, was_gatekeeper=True,
-               caller_number_id="B"),
-        _audit(outcome_bucket="live_hangup", time_to_hangup_s=10.0,
-               caller_number_id="A"),
-        _audit(outcome_bucket="voicemail", caller_number_id="B",
-               reasoning_leak_detected=True, reasoning_leak_phrases=["p"]),
+        _audit(
+            outcome_bucket="engaged", reached_human=True, reached_owner=True, caller_number_id="A"
+        ),
+        _audit(
+            outcome_bucket="gatekeeper",
+            reached_human=True,
+            was_gatekeeper=True,
+            caller_number_id="B",
+        ),
+        _audit(outcome_bucket="live_hangup", time_to_hangup_s=10.0, caller_number_id="A"),
+        _audit(
+            outcome_bucket="voicemail",
+            caller_number_id="B",
+            reasoning_leak_detected=True,
+            reasoning_leak_phrases=["p"],
+        ),
     ]
     m = cba.aggregate_batch(audits, batch_id="b1")
     assert m.total_calls == 4
-    assert m.engagement_rate == 0.25          # 1 engaged / 4
-    assert m.live_contact_rate == 0.5         # 2 reached_human / 4
+    assert m.engagement_rate == 0.25  # 1 engaged / 4
+    assert m.live_contact_rate == 0.5  # 2 reached_human / 4
     assert m.gatekeeper_count == 1
     assert m.reasoning_leak_count == 1
     assert m.reasoning_leak_phrases == {"p": 1}
@@ -251,9 +255,9 @@ def test_distribution_skew() -> None:
     from collections import Counter
 
     assert cba._distribution_skew(Counter()) == 0.0
-    assert cba._distribution_skew(Counter({"A": 5})) == 0.0            # single number
-    assert cba._distribution_skew(Counter({"A": 5, "B": 5})) == 0.0    # even
-    assert cba._distribution_skew(Counter({"A": 10, "B": 0})) == 1.0   # all on one
+    assert cba._distribution_skew(Counter({"A": 5})) == 0.0  # single number
+    assert cba._distribution_skew(Counter({"A": 5, "B": 5})) == 0.0  # even
+    assert cba._distribution_skew(Counter({"A": 10, "B": 0})) == 1.0  # all on one
 
 
 # ---------------------------------------------------------------------------
@@ -278,7 +282,7 @@ def test_trend_improved_and_regressed() -> None:
     tr = cba.compute_trend(cur, prior)
     assert tr.has_prior is True
     dirs = {d.metric: d.direction for d in tr.deltas}
-    assert dirs["engagement_rate"] == "improved"          # higher is better
+    assert dirs["engagement_rate"] == "improved"  # higher is better
     assert dirs["median_time_to_hangup_s"] == "regressed"  # longer is better
 
 
@@ -298,7 +302,7 @@ def test_remediation_hardguard_dominates() -> None:
     cur = _metrics(
         reasoning_leak_count=1,
         reasoning_leak_phrases={"i need to check my protocol": 1},
-        live_contact_rate=0.10,   # also weak, but must rank below the hard-guard
+        live_contact_rate=0.10,  # also weak, but must rank below the hard-guard
     )
     tr = cba.compute_trend(cur, None)
     rems = cba.next_remediations(cur, tr)
@@ -386,17 +390,31 @@ def test_analyze_batch_readonly_and_scoped(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(cba.storage, "root", lambda: tmp_path)
 
     calls = [
-        {"id": "c1", "endedReason": "assistant-ended-call", "transcript": ENGAGED_TX,
-         "phoneNumberId": "A", "cost": 0.1},
-        {"id": "c2", "endedReason": "voicemail", "transcript": GATEKEEPER_TX,
-         "phoneNumberId": "B", "cost": 0.05},
-        {"id": "c99", "endedReason": "customer-ended-call",
-         "transcript": "User: no.\nAI: bye", "phoneNumberId": "A", "cost": 0.02},
+        {
+            "id": "c1",
+            "endedReason": "assistant-ended-call",
+            "transcript": ENGAGED_TX,
+            "phoneNumberId": "A",
+            "cost": 0.1,
+        },
+        {
+            "id": "c2",
+            "endedReason": "voicemail",
+            "transcript": GATEKEEPER_TX,
+            "phoneNumberId": "B",
+            "cost": 0.05,
+        },
+        {
+            "id": "c99",
+            "endedReason": "customer-ended-call",
+            "transcript": "User: no.\nAI: bye",
+            "phoneNumberId": "A",
+            "cost": 0.02,
+        },
     ]
     fake = _FakeVapiClient(calls)
 
-    result = cba.analyze_batch(client=fake, since_ts=None, dial_run_id=None,
-                               persist=True)
+    result = cba.analyze_batch(client=fake, since_ts=None, dial_run_id=None, persist=True)
     assert fake.mutating_calls == 0
     assert result.metrics.total_calls == 3
     # gatekeeper call reclassified
@@ -413,8 +431,11 @@ def test_analyze_batch_scopes_to_dial_run_placed_ids(tmp_path, monkeypatch) -> N
     dial_run = {
         "run_id": "run-xyz",
         "attempts": [
-            {"outcome": "initiated", "call_id": "c1",
-             "callsheet_finding": "no working website found"},
+            {
+                "outcome": "initiated",
+                "call_id": "c1",
+                "callsheet_finding": "no working website found",
+            },
             {"outcome": "skipped", "call_id": "c2"},
         ],
     }
@@ -422,10 +443,13 @@ def test_analyze_batch_scopes_to_dial_run_placed_ids(tmp_path, monkeypatch) -> N
     art.write_text(json.dumps(dial_run), encoding="utf-8")
 
     calls = [
-        {"id": "c1", "endedReason": "assistant-ended-call", "transcript": ENGAGED_TX,
-         "phoneNumberId": "A"},
-        {"id": "c2", "endedReason": "voicemail", "transcript": GATEKEEPER_TX,
-         "phoneNumberId": "B"},
+        {
+            "id": "c1",
+            "endedReason": "assistant-ended-call",
+            "transcript": ENGAGED_TX,
+            "phoneNumberId": "A",
+        },
+        {"id": "c2", "endedReason": "voicemail", "transcript": GATEKEEPER_TX, "phoneNumberId": "B"},
     ]
     fake = _FakeVapiClient(calls)
     result = cba.analyze_batch(client=fake, dial_run_id=str(art), persist=False)
@@ -439,13 +463,22 @@ def test_analyze_batch_scopes_to_dial_run_placed_ids(tmp_path, monkeypatch) -> N
 # ---------------------------------------------------------------------------
 def test_render_report_smoke() -> None:
     audits = [
-        cba.analyze_call({"id": "c1", "endedReason": "assistant-ended-call",
-                          "transcript": ENGAGED_TX, "phoneNumberId": "A"}),
+        cba.analyze_call(
+            {
+                "id": "c1",
+                "endedReason": "assistant-ended-call",
+                "transcript": ENGAGED_TX,
+                "phoneNumberId": "A",
+            }
+        ),
     ]
     m = cba.aggregate_batch(audits, batch_id="b1")
     tr = cba.compute_trend(m, None)
     result = cba.BatchResult(
-        batch_id="b1", metrics=m, audits=audits, trend=tr,
+        batch_id="b1",
+        metrics=m,
+        audits=audits,
+        trend=tr,
         remediations=cba.next_remediations(m, tr),
         learning_notes=cba.surface_learning_notes(audits),
     )
@@ -461,10 +494,13 @@ def test_render_report_smoke() -> None:
 def test_autonomous_audit_persists_reports_and_dedups(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(cba.storage, "root", lambda: tmp_path)
     calls = [
-        {"id": "c1", "endedReason": "assistant-ended-call", "transcript": ENGAGED_TX,
-         "phoneNumberId": "A"},
-        {"id": "c2", "endedReason": "voicemail", "transcript": GATEKEEPER_TX,
-         "phoneNumberId": "B"},
+        {
+            "id": "c1",
+            "endedReason": "assistant-ended-call",
+            "transcript": ENGAGED_TX,
+            "phoneNumberId": "A",
+        },
+        {"id": "c2", "endedReason": "voicemail", "transcript": GATEKEEPER_TX, "phoneNumberId": "B"},
     ]
     r1 = cba.autonomous_audit(client=_FakeVapiClient(calls))
     assert r1 is not None and r1.metrics.total_calls == 2
@@ -478,8 +514,14 @@ def test_autonomous_audit_persists_reports_and_dedups(tmp_path, monkeypatch) -> 
 
 def test_autonomous_audit_alerts_on_leak(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(cba.storage, "root", lambda: tmp_path)
-    calls = [{"id": "c1", "endedReason": "assistant-ended-call",
-              "transcript": f"User: hi\nAI: {LEAK_PHRASE}", "phoneNumberId": "A"}]
+    calls = [
+        {
+            "id": "c1",
+            "endedReason": "assistant-ended-call",
+            "transcript": f"User: hi\nAI: {LEAK_PHRASE}",
+            "phoneNumberId": "A",
+        }
+    ]
     r = cba.autonomous_audit(client=_FakeVapiClient(calls))
     assert r.metrics.reasoning_leak_count == 1
     alerts = list((tmp_path / "voice" / "audit_alerts").glob("alert_*.json"))
@@ -495,11 +537,18 @@ def test_autonomous_audit_alerts_on_leak(tmp_path, monkeypatch) -> None:
 
 def test_autonomous_audit_no_alert_when_clean(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(cba.storage, "root", lambda: tmp_path)
-    calls = [{"id": "c1", "endedReason": "assistant-ended-call",
-              "transcript": ENGAGED_TX, "phoneNumberId": "A"}]
+    calls = [
+        {
+            "id": "c1",
+            "endedReason": "assistant-ended-call",
+            "transcript": ENGAGED_TX,
+            "phoneNumberId": "A",
+        }
+    ]
     cba.autonomous_audit(client=_FakeVapiClient(calls))
-    assert not (tmp_path / "voice" / "audit_alerts").exists() or \
-        not list((tmp_path / "voice" / "audit_alerts").glob("alert_*.json"))
+    assert not (tmp_path / "voice" / "audit_alerts").exists() or not list(
+        (tmp_path / "voice" / "audit_alerts").glob("alert_*.json")
+    )
 
 
 def test_autonomous_audit_never_raises(tmp_path, monkeypatch) -> None:

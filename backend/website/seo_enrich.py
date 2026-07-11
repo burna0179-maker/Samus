@@ -23,6 +23,7 @@ Posture is `off | audit | enforce` (settings ``website_seo_gate`` /
 ``website_security_gate``), the same shape as ``authz_mode`` — run *audit* to
 surface gaps without blocking, flip to *enforce* once trusted.
 """
+
 from __future__ import annotations
 
 import logging
@@ -47,6 +48,7 @@ _GRADE_ORDER = ("F", "D", "C", "B", "A")
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
+
 
 def _sanitize(text: str) -> str:
     return _DASH_RE.sub(" - ", " ".join((text or "").split()))
@@ -132,6 +134,7 @@ def _keywords(brief: WebsiteBrief, city: str) -> list[str]:
 # generate
 # ---------------------------------------------------------------------------
 
+
 def build_seo_package(brief: WebsiteBrief, *, public_url: str = "") -> dict[str, Any]:
     """Build the deterministic SEO package (JSON-LD + per-page meta) from a brief."""
     name = brief.business_name
@@ -162,13 +165,16 @@ def build_seo_package(brief: WebsiteBrief, *, public_url: str = "") -> dict[str,
     services = _service_list(brief)
     if services:
         lb["makesOffer"] = [
-            {"@type": "Offer", "itemOffered": {"@type": "Service", "name": s}}
-            for s in services
+            {"@type": "Offer", "itemOffered": {"@type": "Service", "name": s}} for s in services
         ]
 
     org = schema_builder.organization(
-        name=name, url=public_url, logo=brief.logo_url, description=desc,
-        telephone=brief.contact_phone, email=brief.contact_email,
+        name=name,
+        url=public_url,
+        logo=brief.logo_url,
+        description=desc,
+        telephone=brief.contact_phone,
+        email=brief.contact_email,
     )
 
     jsonld = [lb, org]
@@ -193,7 +199,9 @@ def build_seo_package(brief: WebsiteBrief, *, public_url: str = "") -> dict[str,
         "keywords": keywords,
         "robots_txt": "User-agent: *\nAllow: /\nSitemap: {}/sitemap.xml".format(
             public_url.rstrip("/")
-        ) if public_url else "User-agent: *\nAllow: /",
+        )
+        if public_url
+        else "User-agent: *\nAllow: /",
         "public_url": public_url,
     }
 
@@ -211,8 +219,10 @@ def _service_list(brief: WebsiteBrief) -> list[str]:
 def _page_title_desc(slug, name, primary, city, region, page, fallback_desc):
     loc = f"{city}, {region}".strip(", ")
     body = _sanitize(
-        page.content.get("subheadline") or page.content.get("intro")
-        or page.content.get("body") or fallback_desc
+        page.content.get("subheadline")
+        or page.content.get("intro")
+        or page.content.get("body")
+        or fallback_desc
     )
     if slug == "home":
         return f"{primary} in {loc} | {name}" if loc else f"{primary} | {name}", body
@@ -229,6 +239,7 @@ def _page_title_desc(slug, name, primary, city, region, page, fallback_desc):
 # gate 1 — deterministic pre-publish check on the generated package
 # ---------------------------------------------------------------------------
 
+
 def check_seo_package(package: dict[str, Any]) -> list[str]:
     """Return a list of SEO completeness violations (empty == passes)."""
     problems: list[str] = []
@@ -244,7 +255,9 @@ def check_seo_package(package: dict[str, Any]) -> list[str]:
         if not desc:
             problems.append(f"{slug}: missing meta description")
         elif not (_DESC_MIN <= len(desc) <= _DESC_MAX):
-            problems.append(f"{slug}: meta description {len(desc)} chars (want {_DESC_MIN}-{_DESC_MAX})")
+            problems.append(
+                f"{slug}: meta description {len(desc)} chars (want {_DESC_MIN}-{_DESC_MAX})"
+            )
         if _DASH_RE.search(title) or _DASH_RE.search(desc):
             problems.append(f"{slug}: banned dash in SEO copy")
 
@@ -265,6 +278,7 @@ def check_seo_package(package: dict[str, Any]) -> list[str]:
 # gate 2 — live audit against the published URL
 # ---------------------------------------------------------------------------
 
+
 def _grade_ok(grade: str, floor: str) -> bool:
     try:
         return _GRADE_ORDER.index(grade) >= _GRADE_ORDER.index(floor)
@@ -272,7 +286,9 @@ def _grade_ok(grade: str, floor: str) -> bool:
         return False
 
 
-def evaluate_live(public_url: str, *, keywords: list[str] | None = None, industry: str = "") -> dict[str, Any]:
+def evaluate_live(
+    public_url: str, *, keywords: list[str] | None = None, industry: str = ""
+) -> dict[str, Any]:
     """Run the live SEO + passive security audit. Returns the gate scalars.
 
     Never raises — a network/audit failure returns ``ok=False`` with a reason so
@@ -301,13 +317,17 @@ def evaluate_live(public_url: str, *, keywords: list[str] | None = None, industr
 
 
 def live_gate_violations(
-    live: dict[str, Any], *, seo_min_score: int, security_min_grade: str,
-    seo_gate: str, security_gate: str,
+    live: dict[str, Any],
+    *,
+    seo_min_score: int,
+    security_min_grade: str,
+    seo_gate: str,
+    security_gate: str,
 ) -> list[str]:
     """Translate a live-audit result into blocking violations for the given posture."""
     problems: list[str] = []
     if not live.get("ok"):
-        return [f"live audit unavailable ({live.get('reason','unknown')})"]
+        return [f"live audit unavailable ({live.get('reason', 'unknown')})"]
     if seo_gate == "enforce" and live.get("seo_score", 0) < seo_min_score:
         problems.append(f"seo_score {live.get('seo_score')}<{seo_min_score}")
     if security_gate == "enforce":

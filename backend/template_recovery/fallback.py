@@ -10,6 +10,7 @@ request returns the identical previously-rendered scaffold without re-running
 the builder. Builders are already pure, so the cache is a pure speed-up and
 never changes observable output.
 """
+
 from __future__ import annotations
 
 import json

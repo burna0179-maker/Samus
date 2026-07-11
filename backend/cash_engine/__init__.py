@@ -26,9 +26,16 @@ artifacts -> outreach -> dormancy -> re-engagement) is the next phase and
 hangs off a queue worker — every stage there re-validates through the same
 Codex layer at each handoff.
 """
+
 from __future__ import annotations
 
 __all__ = [
-    "models", "decay", "gate", "queue", "service",
-    "state", "stages", "worker",
+    "models",
+    "decay",
+    "gate",
+    "queue",
+    "service",
+    "state",
+    "stages",
+    "worker",
 ]

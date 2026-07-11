@@ -1,4 +1,5 @@
 """Scope planner: turn raw onboarding intake into a structured TaskPlan + scope artifact per SKU."""
+
 from __future__ import annotations
 
 import logging
@@ -15,6 +16,7 @@ _LOG = logging.getLogger("samus.services.scope_planner")
 # ---------------------------------------------------------------------------
 # Plan structures (mirror recovery/fixed_scope_template_pipeline.TaskPlan)
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class TaskPlan:
@@ -35,7 +37,7 @@ class ScopeArtifact:
     estimated_steps: int
     estimated_templates: int
     scope_gates_enforced: bool
-    out_of_scope_reason: Optional[str] = None     # set by validate_scope when gates trip
+    out_of_scope_reason: Optional[str] = None  # set by validate_scope when gates trip
 
 
 # ---------------------------------------------------------------------------
@@ -45,18 +47,30 @@ class ScopeArtifact:
 # Phrase → trigger/action/tool mapping. Conservative on purpose: a wrong inference
 # is worse than a missing one (operator catches missing during the manual build).
 _TRIGGER_PATTERNS = [
-    (re.compile(r"\b(form\s*submission|squarespace|typeform|jotform|webhook)\b", re.I), "form_submission"),
+    (
+        re.compile(r"\b(form\s*submission|squarespace|typeform|jotform|webhook)\b", re.I),
+        "form_submission",
+    ),
     (re.compile(r"\b(new\s*lead|inbound\s*lead|lead\s*comes?\s*in)\b", re.I), "new_lead"),
     (re.compile(r"\b(email\s*arrives?|email\s*received|inbox)\b", re.I), "email_received"),
-    (re.compile(r"\b(invoice\s*paid|stripe\s*payment|payment\s*received)\b", re.I), "payment_received"),
+    (
+        re.compile(r"\b(invoice\s*paid|stripe\s*payment|payment\s*received)\b", re.I),
+        "payment_received",
+    ),
     (re.compile(r"\b(calendar\s*event|meeting\s*booked|booking)\b", re.I), "booking_created"),
-    (re.compile(r"\b(schedule|cron|every\s*day|nightly|weekly|hourly)\b", re.I), "schedule_recurring"),
+    (
+        re.compile(r"\b(schedule|cron|every\s*day|nightly|weekly|hourly)\b", re.I),
+        "schedule_recurring",
+    ),
 ]
 
 _ACTION_PATTERNS = [
     (re.compile(r"\b(send|push|deliver).*?(slack|teams)\b", re.I), "post_to_slack"),
     (re.compile(r"\b(send|deliver|fire).*?email\b", re.I), "send_email"),
-    (re.compile(r"\b(create|add|push).*?(hubspot|salesforce|pipedrive|crm|contact)\b", re.I), "create_crm_record"),
+    (
+        re.compile(r"\b(create|add|push).*?(hubspot|salesforce|pipedrive|crm|contact)\b", re.I),
+        "create_crm_record",
+    ),
     (re.compile(r"\b(generate|create|send).*?invoice\b", re.I), "generate_invoice"),
     (re.compile(r"\b(append|write|log).*?(sheet|airtable|notion)\b", re.I), "append_to_sheet"),
     (re.compile(r"\b(text|sms|twilio)\b", re.I), "send_sms"),
@@ -65,7 +79,10 @@ _ACTION_PATTERNS = [
 ]
 
 _NOTIFICATION_PATTERNS = [
-    (re.compile(r"\b(notify|alert|tell|ping).*?(me|team|operator|owner)\b", re.I), "notify_operator"),
+    (
+        re.compile(r"\b(notify|alert|tell|ping).*?(me|team|operator|owner)\b", re.I),
+        "notify_operator",
+    ),
     (re.compile(r"\b(discord|webhook)\b", re.I), "discord_webhook"),
 ]
 
@@ -108,6 +125,7 @@ def _summarize_bottleneck(text: str, max_chars: int = 240) -> str:
 # Per-SKU scope generation
 # ---------------------------------------------------------------------------
 
+
 def _plan_from_intake(intake: dict[str, Any]) -> TaskPlan:
     """Parse free-text bottleneck + needs into a TaskPlan."""
     bottleneck = (intake.get("bottleneck") or "").strip()
@@ -126,11 +144,7 @@ def _plan_from_intake(intake: dict[str, Any]) -> TaskPlan:
 
 def _workflow_rescue_scope(intake: dict[str, Any], sku: ServiceSku) -> ScopeArtifact:
     plan = _plan_from_intake(intake)
-    steps_estimate = (
-        (1 if plan.triggers else 0)
-        + len(plan.actions)
-        + len(plan.notifications)
-    )
+    steps_estimate = (1 if plan.triggers else 0) + len(plan.actions) + len(plan.notifications)
     # Estimate one template per distinct node (matches recovery compile_workflow).
     templates_estimate = steps_estimate
     deliverables = [
@@ -294,6 +308,7 @@ def generate_scope(intake_payload: dict[str, Any], sku_id: str) -> ScopeArtifact
 # Markdown rendering (the customer-facing scope acknowledgment artifact)
 # ---------------------------------------------------------------------------
 
+
 def render_scope_markdown(artifact: ScopeArtifact, *, sku: ServiceSku) -> str:
     """Format the scope artifact as the customer-facing scope.md."""
     if sku.price_usd_cents is not None:
@@ -357,7 +372,7 @@ def render_scope_markdown(artifact: ScopeArtifact, *, sku: ServiceSku) -> str:
     lines.append("## Next step")
     lines.append("")
     lines.append(
-        "Reply to this email with **\"confirm\"** to start the SLA clock. Reply with "
+        'Reply to this email with **"confirm"** to start the SLA clock. Reply with '
         "any edits and we'll resend the scope before kicking off."
     )
     lines.append("")

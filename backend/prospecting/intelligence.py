@@ -9,6 +9,7 @@ Responsibilities:
 Feeds deal_scoring.score_deal (via the ``intel`` dict) and downstream
 callsheet generation.  All functions are pure; no I/O, no external deps.
 """
+
 from __future__ import annotations
 
 import re
@@ -23,19 +24,19 @@ __all__ = [
 
 # Platform detection patterns keyed on platform slug.
 _PLATFORM_PATTERNS: dict[str, re.Pattern[str]] = {
-    "wix":        re.compile(r"wix", re.IGNORECASE),
+    "wix": re.compile(r"wix", re.IGNORECASE),
     "squarespace": re.compile(r"squarespace", re.IGNORECASE),
-    "wordpress":  re.compile(r"wordpress|wp-content|wp-json", re.IGNORECASE),
-    "shopify":    re.compile(r"shopify|myshopify", re.IGNORECASE),
+    "wordpress": re.compile(r"wordpress|wp-content|wp-json", re.IGNORECASE),
+    "shopify": re.compile(r"shopify|myshopify", re.IGNORECASE),
 }
 
 # Axis declaration order — used for tie-breaking in map_products.
 _AXIS_ORDER = ("website", "seo", "ads", "automation", "reputation")
 
 _AXIS_TO_PRODUCT: dict[str, str] = {
-    "website":    "website_build",
-    "seo":        "seo_package",
-    "ads":        "ads_management",
+    "website": "website_build",
+    "seo": "seo_package",
+    "ads": "ads_management",
     "automation": "workflow_automation",
     "reputation": "reputation_management",
 }
@@ -94,14 +95,14 @@ def analyze_business(business_data: dict[str, Any]) -> dict[str, Any]:
     competitor_count: int = int(business_data.get("competitor_count", 0) or 0)
 
     return {
-        "has_website":      has_website,
-        "has_cta":          has_cta,
-        "has_booking":      has_booking,
-        "platform":         platform,
-        "tech_stack":       tech_stack,
-        "review_count":     review_count,
-        "rating":           rating,
-        "ads_detected":     ads_detected,
+        "has_website": has_website,
+        "has_cta": has_cta,
+        "has_booking": has_booking,
+        "platform": platform,
+        "tech_stack": tech_stack,
+        "review_count": review_count,
+        "rating": rating,
+        "ads_detected": ads_detected,
         "competitor_count": competitor_count,
     }
 
@@ -117,14 +118,14 @@ def score_opportunity(signals: dict[str, Any]) -> dict[str, int]:
     Returns:
         Dict with keys: website, seo, ads, automation, reputation (each 0-100).
     """
-    has_website:      bool  = bool(signals.get("has_website"))
-    has_cta:          bool  = bool(signals.get("has_cta"))
-    has_booking:      bool  = bool(signals.get("has_booking"))
-    platform:         str   = str(signals.get("platform", "unknown"))
-    review_count:     int   = int(signals.get("review_count", 0))
-    rating:           float = float(signals.get("rating", 0.0))
-    ads_detected:     bool  = bool(signals.get("ads_detected"))
-    competitor_count: int   = int(signals.get("competitor_count", 0))
+    has_website: bool = bool(signals.get("has_website"))
+    has_cta: bool = bool(signals.get("has_cta"))
+    has_booking: bool = bool(signals.get("has_booking"))
+    platform: str = str(signals.get("platform", "unknown"))
+    review_count: int = int(signals.get("review_count", 0))
+    rating: float = float(signals.get("rating", 0.0))
+    ads_detected: bool = bool(signals.get("ads_detected"))
+    competitor_count: int = int(signals.get("competitor_count", 0))
 
     # --- website axis ---
     if not has_website:
@@ -166,9 +167,9 @@ def score_opportunity(signals: dict[str, Any]) -> dict[str, int]:
         return max(0, min(100, v))
 
     return {
-        "website":    _clamp(website),
-        "seo":        _clamp(seo),
-        "ads":        _clamp(ads),
+        "website": _clamp(website),
+        "seo": _clamp(seo),
+        "ads": _clamp(ads),
         "automation": _clamp(automation),
         "reputation": _clamp(reputation),
     }
@@ -235,7 +236,7 @@ def determine_pitch_angle(
                 "visibility_gap" | "general_growth"
     """
     has_website = bool(signals.get("has_website"))
-    has_cta     = bool(signals.get("has_cta"))
+    has_cta = bool(signals.get("has_cta"))
     has_booking = bool(signals.get("has_booking"))
 
     # Applicability in priority order — mirrors the prior first-match conditions.

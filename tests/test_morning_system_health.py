@@ -1,11 +1,11 @@
 """Morning brief SYSTEM HEALTH section (HOTL T5) — diagnostics + weak workcells."""
+
 from __future__ import annotations
 
 import datetime as _dt
 import json
 import time
 
-import pytest
 
 from backend import morning
 
@@ -29,6 +29,7 @@ def test_system_health_omitted_when_clean(monkeypatch, tmp_path):
     _isolate(monkeypatch, tmp_path)
     # No diagnostics, no weak workcells -> section omitted.
     import backend.entropy.diagnostics as diag
+
     monkeypatch.setattr(diag, "_process_rss_mb", lambda: 100.0)
 
     class _Usage:
@@ -48,6 +49,7 @@ def test_system_health_shows_diagnostics(monkeypatch, tmp_path):
     )
     # Don't let the (detection-only) render file an operator task.
     import backend.crm.service as crm
+
     monkeypatch.setattr(crm, "create_operator_task", lambda req: None)
 
     lines = morning._render_system_health(TODAY)

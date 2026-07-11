@@ -133,7 +133,9 @@ class MetaCognitionEngine:
         self._situation = SituationIndex() if SituationIndex else None
         self._heuristics = HeuristicRegistry() if HeuristicRegistry else None
         self._persistence = ArchitecturePersistence() if ArchitecturePersistence else None
-        self._reinforcement = ReinforcementHeuristicEngine() if ReinforcementHeuristicEngine else None
+        self._reinforcement = (
+            ReinforcementHeuristicEngine() if ReinforcementHeuristicEngine else None
+        )
         # Stage-1 persona system (compute-only, flag-gated). Constructed without a
         # persona memory: the frame degrades to a neutral safety posture when its
         # own flag is off / no memory is attached — additive + inert.
@@ -171,7 +173,9 @@ class MetaCognitionEngine:
             return {"risk": "unknown", "type": "generic"}
         try:
             return self._situation.classify(
-                text=inp.user_text, channel=inp.channel, plan_token=inp.plan_token,
+                text=inp.user_text,
+                channel=inp.channel,
+                plan_token=inp.plan_token,
             )
         except Exception:
             return {"risk": "unknown", "type": "generic"}
@@ -199,7 +203,9 @@ class MetaCognitionEngine:
         return None
 
     def _pre_heuristic_bias(
-        self, inp, situation: Dict[str, Any],
+        self,
+        inp,
+        situation: Dict[str, Any],
         persona_frame: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Compose the advisory pre-bias string (recovery logic + persona fold).
@@ -258,7 +264,8 @@ class MetaCognitionEngine:
         try:
             if self._autotuner:
                 self._autotuner.adjust(
-                    latency=result.elapsed_ms, errors=result.errors,
+                    latency=result.elapsed_ms,
+                    errors=result.errors,
                     compliance_blocked=result.compliance_blocked,
                 )
             if self._upgrade_engine:
@@ -296,7 +303,8 @@ class MetaCognitionEngine:
                     "plan_token": getattr(result, "plan_token", ""),
                 }
                 self._persona.notify_cycle_outcome(
-                    success=success, introspection=introspection,
+                    success=success,
+                    introspection=introspection,
                 )
         except Exception:
             pass

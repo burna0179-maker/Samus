@@ -1,4 +1,5 @@
 """Pydantic models for the chat-enrichment variable system (Samus STANDARD)."""
+
 from __future__ import annotations
 
 import pytest
@@ -16,8 +17,15 @@ from backend.standard.chat.enrichment_models import SINGLE_SLOT_KINDS
 
 def test_kind_enum_has_nine_canonical_slots():
     assert {k.value for k in PromptPieceKind} == {
-        "character", "location", "relationship", "goals", "format",
-        "scenario", "extras", "emotions", "spice",
+        "character",
+        "location",
+        "relationship",
+        "goals",
+        "format",
+        "scenario",
+        "extras",
+        "emotions",
+        "spice",
     }
 
 

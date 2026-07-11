@@ -16,6 +16,7 @@ Default-ON. Off-switch ``SAMUS_PLANNER_LOOP_ENABLED=0``; cadence
 ``SAMUS_PLANNER_INTERVAL_SEC`` (default 1800 = 30 min, matching the control
 tick so a broken assumption is caught within half an hour).
 """
+
 from __future__ import annotations
 
 import asyncio

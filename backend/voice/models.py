@@ -11,6 +11,7 @@ The Morgan end-of-call structured payload (``recovery/vapi_sales_agent_config.md
 event the workcell strictly validates — everything else around it is treated
 as a passthrough dict for the audit ledger.
 """
+
 from __future__ import annotations
 
 from typing import Any, Literal
@@ -22,8 +23,10 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 # Vapi REST shapes (only the fields the workcell reads)
 # ---------------------------------------------------------------------------
 
+
 class VapiCallCustomer(BaseModel):
     """The ``customer`` block on a Vapi call object."""
+
     model_config = ConfigDict(extra="ignore")
 
     number: str | None = None
@@ -32,6 +35,7 @@ class VapiCallCustomer(BaseModel):
 
 class VapiCall(BaseModel):
     """Subset of a Vapi /call response. Phase-1 fields only."""
+
     model_config = ConfigDict(extra="ignore")
 
     id: str
@@ -64,6 +68,7 @@ class VapiCall(BaseModel):
 
 class VapiAssistant(BaseModel):
     """Subset of a Vapi /assistant response."""
+
     model_config = ConfigDict(extra="ignore")
 
     id: str
@@ -72,6 +77,7 @@ class VapiAssistant(BaseModel):
 
 class VapiPhoneNumber(BaseModel):
     """Subset of a Vapi /phone-number response (the inbound receptionist DID)."""
+
     model_config = ConfigDict(extra="ignore")
 
     id: str
@@ -112,6 +118,7 @@ class LeadSummary(BaseModel):
     contact the agent is handed is recorded verbatim so the webhook can
     validate it via :mod:`backend.prospecting.contact_validation`.
     """
+
     model_config = ConfigDict(extra="ignore")
 
     company: str | None = None
@@ -120,9 +127,7 @@ class LeadSummary(BaseModel):
     pain_points: list[str] = Field(default_factory=list)
     intent_score: int | None = None
     tier: Literal["low", "medium", "high", "priority"] | None = None
-    recommended_action: (
-        Literal["book_call", "follow_up", "disqualify", "gatekeeper"] | None
-    ) = None
+    recommended_action: Literal["book_call", "follow_up", "disqualify", "gatekeeper"] | None = None
     # The prospect — or their voicemail greeting — asked to be reached by text
     # rather than a call. The automated analogue of the operator's
     # "[prefers_text]" capture in scripts/Log-Call.ps1.
@@ -144,6 +149,7 @@ class LeadSummary(BaseModel):
 
 class VapiWebhookMessage(BaseModel):
     """The ``message`` block of a Vapi webhook payload."""
+
     model_config = ConfigDict(extra="ignore")
 
     type: str  # not Literal — Vapi adds new types regularly; unknown -> ignored
@@ -168,6 +174,7 @@ class VapiWebhookMessage(BaseModel):
 
 class VapiWebhookEvent(BaseModel):
     """Top-level wrapper. Vapi nests everything under ``message``."""
+
     model_config = ConfigDict(extra="ignore")
 
     message: VapiWebhookMessage
@@ -177,6 +184,7 @@ class VapiWebhookEvent(BaseModel):
 # AI Digital Receptionist (inbound) — config + structured shapes
 # ---------------------------------------------------------------------------
 
+
 class InboundSummary(BaseModel):
     """Structured end-of-call output from the inbound receptionist assistant.
 
@@ -185,24 +193,26 @@ class InboundSummary(BaseModel):
     fill only a subset. The receptionist assistant is configured to emit this
     JSON in ``structuredData`` at end-of-call.
     """
+
     model_config = ConfigDict(extra="ignore")
 
     caller_name: str | None = None
     reason_for_call: str | None = None
     appointment_requested: bool = False
-    appointment_details: str | None = None     # free-text the operator books from
+    appointment_details: str | None = None  # free-text the operator books from
     callback_requested: bool = False
     callback_number: str | None = None
-    message: str | None = None                 # message left for the business
-    urgent: bool = False                       # caller flagged something urgent
-    transferred: bool = False                  # call was handed to a human
+    message: str | None = None  # message left for the business
+    urgent: bool = False  # caller flagged something urgent
+    transferred: bool = False  # call was handed to a human
 
 
 class BusinessHoursWindow(BaseModel):
     """Open/close window for one weekday. Both empty -> closed that day."""
+
     model_config = ConfigDict(extra="ignore")
 
-    open: str = ""    # "HH:MM" 24-hour, business-local time
+    open: str = ""  # "HH:MM" 24-hour, business-local time
     close: str = ""
 
     @property
@@ -224,23 +234,24 @@ class ReceptionistConfig(BaseModel):
     for a future DynamoDB-backed store; this model is the stable contract
     both the file loader and any future loader produce.
     """
+
     model_config = ConfigDict(extra="ignore")
 
-    customer_slug: str                          # PK — matches customers/<slug>/
+    customer_slug: str  # PK — matches customers/<slug>/
     business_name: str = ""
-    timezone: str = "America/Los_Angeles"       # IANA tz name
+    timezone: str = "America/Los_Angeles"  # IANA tz name
     phone_numbers: list[str] = Field(default_factory=list)  # E.164 DIDs -> this client
-    greeting: str = ""                          # spoken greeting line
+    greeting: str = ""  # spoken greeting line
     business_hours: dict[str, BusinessHoursWindow] = Field(default_factory=dict)
     after_hours_behavior: ReceptionistAfterHours = "voicemail"
-    transfer_number: str = ""                   # E.164 for urgent transfers
-    voicemail_email: str = ""                   # voicemail / escalation alerts
-    summary_email: str = ""                     # periodic call summary recipient
+    transfer_number: str = ""  # E.164 for urgent transfers
+    voicemail_email: str = ""  # voicemail / escalation alerts
+    summary_email: str = ""  # periodic call summary recipient
     summary_cadence: ReceptionistSummaryCadence = "weekly"
     vapi_assistant_id: str = ""
     vapi_phone_number_id: str = ""
     escalation_keywords: list[str] = Field(default_factory=list)
-    booking_capture: bool = True                # capture appointment requests
+    booking_capture: bool = True  # capture appointment requests
     status: ReceptionistStatus = "active"
     # Stripe customer this client's metered call-minute usage bills to. Set
     # by the operator after creating the two-item subscription (Phase 7
@@ -270,6 +281,7 @@ class InboundCallRecord(BaseModel):
     The portal-facing shape: everything a future read-only client portal
     needs to render one call without touching CRM/DDB or re-querying Vapi.
     """
+
     model_config = ConfigDict(extra="ignore")
 
     call_id: str
@@ -282,20 +294,22 @@ class InboundCallRecord(BaseModel):
     answered: bool = False
     voicemail_left: bool = False
     ended_reason: str = ""
-    summary: str = ""                           # Vapi's end-of-call summary
+    summary: str = ""  # Vapi's end-of-call summary
     inbound_summary: InboundSummary = Field(default_factory=InboundSummary)
-    recording_path: str = ""                    # local path under calls/<id>/
+    recording_path: str = ""  # local path under calls/<id>/
     transcript_path: str = ""
     voicemail_path: str = ""
-    written_at: str = ""                        # iso timestamp at persist time
+    written_at: str = ""  # iso timestamp at persist time
 
 
 # ---------------------------------------------------------------------------
 # Internal request / response shapes (workcell HTTP surface)
 # ---------------------------------------------------------------------------
 
+
 class InitiateCallRequest(BaseModel):
     """``POST /voice/call`` body. Either ``customer_number`` or full ``customer``."""
+
     model_config = ConfigDict(extra="forbid")
 
     assistant_id: str = Field(min_length=1)
@@ -307,6 +321,7 @@ class InitiateCallRequest(BaseModel):
 
 class InitiateCallResult(BaseModel):
     """``POST /voice/call`` response."""
+
     model_config = ConfigDict(extra="forbid")
 
     call_id: str
@@ -316,6 +331,7 @@ class InitiateCallResult(BaseModel):
 
 class CallStatusResult(BaseModel):
     """``GET /voice/call/{id}`` response."""
+
     model_config = ConfigDict(extra="forbid")
 
     call: VapiCall | None = None
@@ -324,6 +340,7 @@ class CallStatusResult(BaseModel):
 
 class CallListResult(BaseModel):
     """``GET /voice/calls`` response."""
+
     model_config = ConfigDict(extra="forbid")
 
     calls: list[VapiCall] = Field(default_factory=list)
@@ -337,6 +354,7 @@ class WebhookResult(BaseModel):
     Phase-2 CRM Conversation + CallState persist path. origin had only the
     memory dispatch fields. Kept HEAD's stricter/fuller shape.
     """
+
     model_config = ConfigDict(extra="forbid")
 
     received: bool
@@ -356,8 +374,10 @@ class WebhookResult(BaseModel):
 # Morning dialer shapes
 # ---------------------------------------------------------------------------
 
+
 class DialerConfig(BaseModel):
     """Per-run dialer configuration. Operator-tunable; defaults are cautious."""
+
     model_config = ConfigDict(extra="forbid")
 
     # Maximum prospects to dial in a single run. Hard cap on blast radius —
@@ -392,6 +412,7 @@ class DialerConfig(BaseModel):
 
 class DialAttempt(BaseModel):
     """One row in the per-run audit. Captures the decision + the API outcome."""
+
     model_config = ConfigDict(extra="forbid")
 
     prospect_id: str
@@ -404,10 +425,15 @@ class DialAttempt(BaseModel):
     # (no/invalid phone), 'dry_run' (would have dialed), 'vapi_error' (Vapi
     # REST failure — vapi_error populated).
     outcome: Literal[
-        "initiated", "skipped_hours", "skipped_priority",
-        "skipped_phone", "skipped_suppressed", "skipped_already_called",
+        "initiated",
+        "skipped_hours",
+        "skipped_priority",
+        "skipped_phone",
+        "skipped_suppressed",
+        "skipped_already_called",
         "skipped_cooldown",
-        "dry_run", "vapi_error",
+        "dry_run",
+        "vapi_error",
     ]
     call_id: str | None = None
     vapi_error: str | None = None
@@ -418,6 +444,7 @@ class DialAttempt(BaseModel):
 
 class DialRunResult(BaseModel):
     """Aggregate of one dialer pass over a CSV. Persisted as JSONL row."""
+
     model_config = ConfigDict(extra="forbid")
 
     run_id: str  # e.g. "dial_run_2026-05-15T14:32:08Z"
@@ -433,6 +460,7 @@ class DialRunResult(BaseModel):
 
 class DialCallListRequest(BaseModel):
     """``POST /voice/dial_call_list`` body."""
+
     model_config = ConfigDict(extra="forbid")
 
     csv_path: str | None = None  # default: today's call_list_YYYY-MM-DD.csv
@@ -443,33 +471,36 @@ class DialCallListRequest(BaseModel):
 # Morning-briefing rollup shapes
 # ---------------------------------------------------------------------------
 
+
 class VoiceCallSummaryRow(BaseModel):
     """One end-of-call row surfaced in the briefing's voice block."""
+
     model_config = ConfigDict(extra="forbid")
 
     call_id: str
     received_at: str
     company: str = ""
-    tier: str = ""              # "" if Morgan didn't score
+    tier: str = ""  # "" if Morgan didn't score
     intent_score: int | None = None
     recommended_action: str = ""
 
 
 class VoiceCallSummary(BaseModel):
     """Rollup of voice_audit.jsonl over the last ``window_hours``."""
+
     model_config = ConfigDict(extra="forbid")
 
     window_hours: int
     total_calls: int
-    initiated_count: int           # action='initiate_call' in window
-    end_of_call_count: int         # action='webhook_end_of_call' in window
+    initiated_count: int  # action='initiate_call' in window
+    end_of_call_count: int  # action='webhook_end_of_call' in window
     # Dialer activity — separate from initiate_count because dial_attempt rows
     # include dry-runs + skips + errors, not just live Vapi calls placed.
     # The breakdown lets the briefing surface "I tried N, dialed M, skipped K".
     dial_attempt_count: int = 0
     dial_attempts_by_outcome: dict[str, int] = Field(default_factory=dict)
     by_recommended_action: dict[str, int]  # book_call / follow_up / disqualify / <empty>
-    by_tier: dict[str, int]                # priority / high / medium / low / <empty>
+    by_tier: dict[str, int]  # priority / high / medium / low / <empty>
     avg_intent_score: float | None
     booked_calls: list[VoiceCallSummaryRow]  # recommended_action='book_call'
     recent_high_intent: list[VoiceCallSummaryRow]  # tier in ('high', 'priority')
@@ -483,6 +514,7 @@ class VoiceCallSummary(BaseModel):
 # ---------------------------------------------------------------------------
 # Post-batch voice tuner shapes
 # ---------------------------------------------------------------------------
+
 
 class TuneChange(BaseModel):
     field: str

@@ -12,6 +12,7 @@ Every failure (no key / unreachable / non-2xx / declined) returns ``False`` —
 a failure is never a success, the item is retried next run. This NEVER applies
 or resolves anything: it asks Anita to enqueue the item for deliberation.
 """
+
 # canon-carve-out: outbound HTTP boundary — HMAC AgentEnvelope signed Samus->Anita; resolves nothing.
 from __future__ import annotations
 
@@ -47,8 +48,9 @@ def post_relief_to_anita(
     url = anita_url.rstrip("/") + _INTAKE_PATH
     # verify=False ONLY for self-signed loopback, mirroring broker_client.
     verify = not (url.startswith("https://127.0.0.1") or url.startswith("https://localhost"))
-    timeout = httpx.Timeout(connect=min(0.5, timeout_sec), read=timeout_sec,
-                            write=timeout_sec, pool=timeout_sec)
+    timeout = httpx.Timeout(
+        connect=min(0.5, timeout_sec), read=timeout_sec, write=timeout_sec, pool=timeout_sec
+    )
     try:
         with httpx.Client(timeout=timeout, verify=verify) as client:
             resp = client.post(

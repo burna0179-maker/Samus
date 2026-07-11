@@ -22,6 +22,7 @@ Operator-supplied content always wins: a field already present in
 ``page.content`` is never overwritten. Pure-Python + one optional LLM call; no
 Wix, no filesystem — fully unit-testable offline.
 """
+
 from __future__ import annotations
 
 import json
@@ -48,7 +49,11 @@ _BUDGET_WORKCELL = "website"
 
 # The fields the generator fills per page (operator-supplied keys are kept).
 STANDARD_FIELDS: tuple[str, ...] = (
-    "headline", "subheadline", "body", "cta", "meta_description",
+    "headline",
+    "subheadline",
+    "body",
+    "cta",
+    "meta_description",
 )
 
 # One contact-intent CTA label, used site-wide, so the taste audit's
@@ -82,6 +87,7 @@ def _sanitize(text: str) -> str:
 # Deterministic fallback copy (always available, always slop-free)
 # --------------------------------------------------------------------------
 
+
 def _clip(text: str, limit: int) -> str:
     text = " ".join(text.split())
     return text if len(text) <= limit else text[: limit - 1].rstrip() + "."
@@ -98,15 +104,24 @@ def _deterministic_page(brief: WebsiteBrief, page: WebsitePage) -> dict[str, str
     if slug == "home":
         head = name
         sub = _clip(what.capitalize() + ".", 120)
-        body = _clip(f"{name} delivers {what}. Built for the people you serve, with care and follow-through.", 280)
+        body = _clip(
+            f"{name} delivers {what}. Built for the people you serve, with care and follow-through.",
+            280,
+        )
     elif slug == "about":
         head = f"About {name}"
         sub = _clip(f"Who we are and why {name} exists.", 120)
-        body = _clip(f"{name} was built to deliver {what}. We keep it straightforward: do good work, communicate clearly, and stand behind the result.", 320)
+        body = _clip(
+            f"{name} was built to deliver {what}. We keep it straightforward: do good work, communicate clearly, and stand behind the result.",
+            320,
+        )
     elif slug in ("services", "service", "work", "offerings"):
         head = "What we do"
         sub = _clip(f"How {name} helps.", 120)
-        body = _clip(f"{name} provides {what}. Every engagement is scoped up front so you know exactly what you are getting.", 300)
+        body = _clip(
+            f"{name} provides {what}. Every engagement is scoped up front so you know exactly what you are getting.",
+            300,
+        )
     elif slug in ("contact", "contacts"):
         head = f"Reach {name}"
         sub = _clip("Tell us what you need and we will get back to you.", 120)
@@ -136,6 +151,7 @@ def _deterministic_page(brief: WebsiteBrief, page: WebsitePage) -> dict[str, str
 # --------------------------------------------------------------------------
 # LLM path
 # --------------------------------------------------------------------------
+
 
 def _system_prompt(profile: Any) -> str:
     dials = profile.dials
@@ -189,7 +205,9 @@ def _parse_llm_pages(text: str) -> dict[str, dict[str, str]]:
     out: dict[str, dict[str, str]] = {}
     for slug, fields in pages.items():
         if isinstance(fields, dict):
-            out[str(slug)] = {k: str(v) for k, v in fields.items() if isinstance(v, (str, int, float))}
+            out[str(slug)] = {
+                k: str(v) for k, v in fields.items() if isinstance(v, (str, int, float))
+            }
     if not out:
         raise ValueError("no usable page entries")
     return out
@@ -239,6 +257,7 @@ def _llm_generate(
 # Public entry
 # --------------------------------------------------------------------------
 
+
 def generate_site_content(
     brief: WebsiteBrief,
     *,
@@ -267,7 +286,12 @@ def generate_site_content(
     max_tokens = int(getattr(settings, "website_content_max_tokens", 1200))
 
     result, llm_used = _llm_generate(
-        brief, pages, profile, api_key=key, model=model, max_tokens=max_tokens,
+        brief,
+        pages,
+        profile,
+        api_key=key,
+        model=model,
+        max_tokens=max_tokens,
     )
     llm_pages = result or {}
 
@@ -322,7 +346,8 @@ def _all_copy(brief: WebsiteBrief) -> str:
 
 
 def _audit_and_repair(
-    original: WebsiteBrief, enriched: WebsiteBrief,
+    original: WebsiteBrief,
+    enriched: WebsiteBrief,
 ) -> tuple[Any, bool, WebsiteBrief]:
     """Audit the copy; sanitize then deterministically rebuild until it passes."""
     audit = audit_text(_all_copy(enriched), kind="website")
@@ -331,8 +356,9 @@ def _audit_and_repair(
 
     # Pass 1 — sanitize every generated string field, re-audit.
     repaired_pages = [
-        WebsitePage(slug=p.slug, title=p.title,
-                    content={k: _sanitize(v) for k, v in p.content.items()})
+        WebsitePage(
+            slug=p.slug, title=p.title, content={k: _sanitize(v) for k, v in p.content.items()}
+        )
         for p in enriched.pages
     ]
     enriched = enriched.model_copy(update={"pages": repaired_pages})

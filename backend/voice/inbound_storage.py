@@ -14,6 +14,7 @@ so a fetch failure is logged and the corresponding ``*_path`` left empty —
 the transcript + ``call.json`` still land. Nothing here raises; a storage
 failure must never fail the inbound webhook.
 """
+
 from __future__ import annotations
 
 import logging
@@ -44,8 +45,7 @@ def call_dir(slug: str, call_id: str) -> Path:
     cdir = (root / "customers" / slug / "calls" / call_id).resolve()
     if not cdir.is_relative_to(root):
         raise ValueError(
-            f"call artifact path escapes the artifacts root: "
-            f"slug={slug!r} call_id={call_id!r}"
+            f"call artifact path escapes the artifacts root: slug={slug!r} call_id={call_id!r}"
         )
     return cdir
 
@@ -105,7 +105,8 @@ def persist_inbound_call(
     record.written_at = iso_now()
     try:
         (cdir / "call.json").write_text(
-            record.model_dump_json(indent=2), encoding="utf-8",
+            record.model_dump_json(indent=2),
+            encoding="utf-8",
         )
     except OSError as exc:
         _LOG.warning("call.json write failed for %s: %s", record.call_id, exc)

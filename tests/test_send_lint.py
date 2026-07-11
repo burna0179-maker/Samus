@@ -4,6 +4,7 @@ The headline test is :func:`test_kelly_case_detected` — the exact subject /
 button combo from the 2026-06-30 17:14Z Kelly Zimmerman send. This file
 exists so that send never ships unflagged again.
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -30,6 +31,7 @@ def _buy_url(sku_id: str) -> str:
 def _settings(mode: str = "audit"):
     def _gs():
         return SimpleNamespace(outreach_send_lint_mode=mode)
+
     _gs.cache_clear = lambda: None
     return _gs
 
@@ -43,7 +45,8 @@ def _audit_mode(monkeypatch):
 def test_off_mode_skips_lint_returns_aligned(monkeypatch):
     monkeypatch.setattr(config_mod, "get_settings", _settings("off"))
     rep = send_lint.lint_send(
-        subject="anything", html_body="<a href='https://buy.stripe.com/x'>x</a>",
+        subject="anything",
+        html_body="<a href='https://buy.stripe.com/x'>x</a>",
     )
     assert rep.skipped is True
     assert rep.aligned is True
@@ -73,8 +76,7 @@ def test_aligned_send_passes():
     rep = send_lint.lint_send(
         subject="Your HustleForge SEO Audit — $149 checkout inside",
         html_body=(
-            f'<a href="{_buy_url("seo_audit")}'
-            '?client_reference_id=op_test">Get the audit</a>'
+            f'<a href="{_buy_url("seo_audit")}?client_reference_id=op_test">Get the audit</a>'
         ),
     )
     assert rep.aligned is True, f"Expected aligned, got warnings: {rep.warnings}"
@@ -120,9 +122,14 @@ def test_send_promotional_audit_mode_does_not_raise(monkeypatch):
     monkeypatch.setattr(config_mod, "get_settings", _settings("audit"))
     sent = []
     import backend.common.email_backend as eb
-    monkeypatch.setattr(eb, "send_email", lambda **kw: (sent.append(kw) or
-                        {"message_id": "x", "channel": "email",
-                         "to": kw["to"], "ts": "x"}))
+
+    monkeypatch.setattr(
+        eb,
+        "send_email",
+        lambda **kw: (
+            sent.append(kw) or {"message_id": "x", "channel": "email", "to": kw["to"], "ts": "x"}
+        ),
+    )
     resp = send_lint.send_promotional(
         to="kelly@example.com",
         subject="Kelly — your receptionist build, scoped",
@@ -138,6 +145,7 @@ def test_send_promotional_enforce_mode_raises(monkeypatch):
     monkeypatch.setattr(config_mod, "get_settings", _settings("enforce"))
     sent = []
     import backend.common.email_backend as eb
+
     monkeypatch.setattr(eb, "send_email", lambda **kw: sent.append(kw))
     with pytest.raises(send_lint.SendLintBlocked):
         send_lint.send_promotional(
@@ -153,9 +161,14 @@ def test_send_promotional_enforce_passes_aligned(monkeypatch):
     monkeypatch.setattr(config_mod, "get_settings", _settings("enforce"))
     sent = []
     import backend.common.email_backend as eb
-    monkeypatch.setattr(eb, "send_email", lambda **kw: (sent.append(kw) or
-                        {"message_id": "x", "channel": "email",
-                         "to": kw["to"], "ts": "x"}))
+
+    monkeypatch.setattr(
+        eb,
+        "send_email",
+        lambda **kw: (
+            sent.append(kw) or {"message_id": "x", "channel": "email", "to": kw["to"], "ts": "x"}
+        ),
+    )
     resp = send_lint.send_promotional(
         to="prospect@example.com",
         subject="Your HustleForge SEO Audit — $149",

@@ -1,4 +1,5 @@
 """Direct tests for backend.feedback.handlers (no FastAPI)."""
+
 from __future__ import annotations
 
 import json
@@ -17,6 +18,7 @@ def _install_fake_tables(monkeypatch) -> tuple[_FakeTable, _FakeTable]:
     suppression = _FakeTable()
     feedback_events = _FakeTable()
     import backend.feedback.handlers as handlers_mod
+
     monkeypatch.setattr(handlers_mod, "_suppression_table", lambda: suppression)
     monkeypatch.setattr(handlers_mod, "_feedback_events_table", lambda: feedback_events)
     return suppression, feedback_events

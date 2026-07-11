@@ -3,6 +3,7 @@
 Pure-Python; no external network or LLM calls. The full LLM-driven generation
 lands in a later phase — for now we ship deterministic, audit-friendly assets.
 """
+
 from __future__ import annotations
 
 import logging
@@ -105,8 +106,7 @@ def build_positioning(inputs: dict[str, Any]) -> dict[str, str]:
     industry = str(inputs.get("industry") or "operations").strip() or "operations"
     pain = str(inputs.get("pain") or "manual work and coordination drag").strip()
     outcome = str(
-        inputs.get("outcome")
-        or f"Faster {industry} throughput with audit-ready execution."
+        inputs.get("outcome") or f"Faster {industry} throughput with audit-ready execution."
     ).strip()
     return {
         "problem": pain,
@@ -119,7 +119,7 @@ def build_offer(positioning: dict[str, str], offer_name: str) -> dict[str, str]:
     """Return ``{headline, mechanism, outcome, price_anchor}``."""
     name = (offer_name or "the offer").strip() or "the offer"
     return {
-        "headline": f"{name}: eliminate {positioning.get('problem','')}",
+        "headline": f"{name}: eliminate {positioning.get('problem', '')}",
         "mechanism": positioning.get("mechanism", ""),
         "outcome": positioning.get("outcome", ""),
         "price_anchor": "$500-$5,000 depending on scope",
@@ -154,10 +154,7 @@ def build_sequence(offer: dict[str, str], brand_voice: str) -> list[dict[str, An
 
 def generate_scaffold(req: ScaffoldRequest) -> dict[str, Any]:
     """End-to-end asset generation. Returns the full payload dict."""
-    key = (
-        f"scaffold:{req.asset_type}:"
-        f"{req.client.strip().lower()}:{req.title.strip().lower()}"
-    )
+    key = f"scaffold:{req.asset_type}:{req.client.strip().lower()}:{req.title.strip().lower()}"
     cached = GLOBAL_IDEMPOTENCY_STORE.get(key)
     if cached is not None and isinstance(cached, dict):
         _LOG.info("generate_scaffold cache hit key=%s", key)
@@ -200,7 +197,10 @@ def generate_scaffold(req: ScaffoldRequest) -> dict[str, Any]:
             if not result.passed:
                 _LOG.info(
                     "scaffold taste audit flagged %s hard violation(s) on %s (grade %s, blocked=%s)",
-                    result.fail_count, key, result.grade, audit_dict["ship_blocked"],
+                    result.fail_count,
+                    key,
+                    result.grade,
+                    audit_dict["ship_blocked"],
                 )
         except Exception as exc:  # noqa: BLE001 — quality signal, never blocks producer
             _LOG.warning("scaffold taste audit failed: %s", exc)

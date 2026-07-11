@@ -1,15 +1,13 @@
 """Tests for backend.seo.blog_gen (GEO blog generation)."""
+
 from __future__ import annotations
 
 import pytest
 
 from backend.seo.blog_gen import (
     BlogPost,
-    BlogSection,
-    BlogFaqItem,
     generate_blog_post,
     _build_template_post,
-    _total_words,
     _parse_blog_text,
 )
 
@@ -22,8 +20,10 @@ from backend.seo.blog_gen import (
 def test_generate_blog_post_no_llm_returns_template(monkeypatch):
     from backend.common.llm_client import LlmCallError
     import backend.seo.blog_gen as blog_mod
+
     def _llm_unavailable(**kw):
         raise LlmCallError("unavailable")
+
     monkeypatch.setattr(blog_mod, "anthropic_messages", _llm_unavailable)
     post = generate_blog_post(
         topic="GEO for plumbers",
@@ -60,9 +60,22 @@ def test_template_post_sections_have_question_headings():
     for s in post.sections:
         # Headings must start with a question word
         assert s.heading[0].isupper()
-        assert any(s.heading.startswith(w) for w in (
-            "What", "How", "Why", "Which", "When", "Where", "Is", "Are", "Does", "Do", "Can"
-        )), f"Heading not question-formatted: {s.heading!r}"
+        assert any(
+            s.heading.startswith(w)
+            for w in (
+                "What",
+                "How",
+                "Why",
+                "Which",
+                "When",
+                "Where",
+                "Is",
+                "Are",
+                "Does",
+                "Do",
+                "Can",
+            )
+        ), f"Heading not question-formatted: {s.heading!r}"
 
 
 def test_template_post_faq_has_six_or_more_items():
@@ -162,7 +175,9 @@ def test_template_post_ascii_only():
         date_str="2026-06-11",
     )
     full_text = (
-        post.title + post.intro + post.cta
+        post.title
+        + post.intro
+        + post.cta
         + " ".join(s.heading + s.golden_answer + s.body for s in post.sections)
         + " ".join(f.question + f.answer for f in post.faq)
     )
@@ -177,9 +192,10 @@ def test_template_post_ascii_only():
 
 def _make_valid_llm_json(n_faq: int = 6) -> str:
     import json
+
     sections = [
         {
-            "heading": f"How does section {i+1} work?",
+            "heading": f"How does section {i + 1} work?",
             "golden_answer": (
                 "This is a forty to sixty word golden answer block that provides "
                 "a direct standalone response to the question posed in the heading "
@@ -191,8 +207,7 @@ def _make_valid_llm_json(n_faq: int = 6) -> str:
         for i in range(4)
     ]
     faq = [
-        {"q": f"What is question {i+1}?", "a": " ".join(["answer"] * 45)}
-        for i in range(n_faq)
+        {"q": f"What is question {i + 1}?", "a": " ".join(["answer"] * 45)} for i in range(n_faq)
     ]
     payload = {
         "title": "How to Optimize for AI Citation?",
@@ -217,6 +232,7 @@ def test_parse_blog_text_valid():
 
 def test_parse_blog_text_too_few_faq_raises():
     import pytest
+
     with pytest.raises(ValueError, match="faq must be list"):
         _parse_blog_text(_make_valid_llm_json(n_faq=3))
 
@@ -227,7 +243,6 @@ def test_parse_blog_text_empty_raises():
 
 
 def test_parse_blog_text_strips_code_fences():
-    import json
     inner = _make_valid_llm_json()
     fenced = f"```json\n{inner}\n```"
     post = _parse_blog_text(fenced)
@@ -244,7 +259,9 @@ def test_generate_blog_post_budget_exceeded_falls_back(monkeypatch):
     from backend.common.llm_budget import QuotaDecision
 
     def _raise(*a, **kw):
-        decision = QuotaDecision(allowed=False, quota=1000, used=1000, requested=100, reason="budget_exceeded")
+        decision = QuotaDecision(
+            allowed=False, quota=1000, used=1000, requested=100, reason="budget_exceeded"
+        )
         raise BudgetExceeded(decision)
 
     monkeypatch.setattr("backend.seo.blog_gen.anthropic_messages", _raise)
