@@ -65,7 +65,7 @@ jobs:
         # Only upload from the primary Python version — otherwise duplicate
         # reports from the matrix inflate coverage arithmetic.
         if: matrix.python-version == '3.11'
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v7
         with:
           files: coverage.xml
           flags: platform-library
