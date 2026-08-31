@@ -33,10 +33,10 @@ def test_rejects_garbage(bad):
 @pytest.mark.parametrize(
     "good",
     [
-        "kary@sapphiremarketinggroup.net",
-        "help@adept-solutions.net",
-        "info@alliantnetworking.com",
-        "joshua@snellingbkkg.com",
+        "dana@lumen-marketing-example.net",
+        "help@example-itservices.net",
+        "info@example-networking.com",
+        "casey@brightledger-example.com",
         "riverahvac1@yahoo.com",
         "john@gmail.com",  # valid FORMAT (owner-mismatch is separate)
         "owner@some-local-biz.co",

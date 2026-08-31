@@ -47,7 +47,7 @@ def _select_cold_send_email(prospect: Any) -> str:
 
     B-5 quality gate. The vetted address is ``owner_email`` (Apollo enrichment
     prefers a personal-looking mailbox), but it can degrade to a footer scrape
-    (``bugreport@moatable.com``) when no personal address was found. Cold-mailing
+    (``bugreport@vendorplatform-example.com``) when no personal address was found. Cold-mailing
     a role / system mailbox burns the SendGrid sender domain, so:
 
       1. use ``owner_email`` when it is cold-sendable;

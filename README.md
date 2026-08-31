@@ -1,13 +1,13 @@
 # Samus
 
-[![CI](https://github.com/burna0179-maker/Hustleforge/actions/workflows/ci.yml/badge.svg)](https://github.com/burna0179-maker/Hustleforge/actions/workflows/ci.yml)
-[![Tests](https://github.com/burna0179-maker/Hustleforge/actions/workflows/tests.yml/badge.svg)](https://github.com/burna0179-maker/Hustleforge/actions/workflows/tests.yml)
-[![Coverage](https://codecov.io/gh/burna0179-maker/Hustleforge/branch/main/graph/badge.svg)](https://codecov.io/gh/burna0179-maker/Hustleforge)
-[![Typecheck](https://github.com/burna0179-maker/Hustleforge/actions/workflows/typecheck.yml/badge.svg)](https://github.com/burna0179-maker/Hustleforge/actions/workflows/typecheck.yml)
-[![CodeQL](https://github.com/burna0179-maker/Hustleforge/actions/workflows/codeql.yml/badge.svg)](https://github.com/burna0179-maker/Hustleforge/actions/workflows/codeql.yml)
-[![Gitleaks](https://github.com/burna0179-maker/Hustleforge/actions/workflows/gitleaks.yml/badge.svg)](https://github.com/burna0179-maker/Hustleforge/actions/workflows/gitleaks.yml)
-[![Trivy](https://github.com/burna0179-maker/Hustleforge/actions/workflows/trivy.yml/badge.svg)](https://github.com/burna0179-maker/Hustleforge/actions/workflows/trivy.yml)
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/burna0179-maker/Hustleforge/badge)](https://securityscorecards.dev/viewer/?uri=github.com/burna0179-maker/Hustleforge)
+[![CI](https://github.com/burna0179-maker/Samus/actions/workflows/ci.yml/badge.svg)](https://github.com/burna0179-maker/Samus/actions/workflows/ci.yml)
+[![Tests](https://github.com/burna0179-maker/Samus/actions/workflows/tests.yml/badge.svg)](https://github.com/burna0179-maker/Samus/actions/workflows/tests.yml)
+[![Coverage](https://codecov.io/gh/burna0179-maker/Samus/branch/main/graph/badge.svg)](https://codecov.io/gh/burna0179-maker/Samus)
+[![Typecheck](https://github.com/burna0179-maker/Samus/actions/workflows/typecheck.yml/badge.svg)](https://github.com/burna0179-maker/Samus/actions/workflows/typecheck.yml)
+[![CodeQL](https://github.com/burna0179-maker/Samus/actions/workflows/codeql.yml/badge.svg)](https://github.com/burna0179-maker/Samus/actions/workflows/codeql.yml)
+[![Gitleaks](https://github.com/burna0179-maker/Samus/actions/workflows/gitleaks.yml/badge.svg)](https://github.com/burna0179-maker/Samus/actions/workflows/gitleaks.yml)
+[![Trivy](https://github.com/burna0179-maker/Samus/actions/workflows/trivy.yml/badge.svg)](https://github.com/burna0179-maker/Samus/actions/workflows/trivy.yml)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/burna0179-maker/Samus/badge)](https://securityscorecards.dev/viewer/?uri=github.com/burna0179-maker/Samus)
 
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)](https://www.python.org/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)

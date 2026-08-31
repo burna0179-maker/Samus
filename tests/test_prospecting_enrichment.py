@@ -48,10 +48,10 @@ def test_extract_owner_signals_none_html_returns_all_empty():
 
 
 def test_mailto_link_picked_up():
-    html = '<a href="mailto:john@navaccounts.com">Email John</a>'
+    html = '<a href="mailto:john@harborledger-example.com">Email John</a>'
     sig = extract_owner_signals(html)
-    assert sig["owner_email"] == "john@navaccounts.com"
-    assert "john@navaccounts.com" in sig["contact_emails"]
+    assert sig["owner_email"] == "john@harborledger-example.com"
+    assert "john@harborledger-example.com" in sig["contact_emails"]
 
 
 def test_personal_email_preferred_over_generic():
@@ -82,13 +82,13 @@ def test_junk_emails_filtered():
 
 
 def test_plain_text_emails_extracted():
-    html = "Reach us at hello@yctax.solutions or call (530) 402-8274"
+    html = "Reach us at hello@norcal-tax-example.com or call (530) 555-0148"
     sig = extract_owner_signals(html)
     # hello@ is generic so owner_email falls through to first found
     # (mailto: list empty, plain-text adds hello@). With no personal-looking
     # email, owner_email == "hello@..."
-    assert sig["owner_email"] == "hello@yctax.solutions"
-    assert "hello@yctax.solutions" in sig["contact_emails"]
+    assert sig["owner_email"] == "hello@norcal-tax-example.com"
+    assert "hello@norcal-tax-example.com" in sig["contact_emails"]
 
 
 def test_contact_emails_capped_at_five():
@@ -488,7 +488,7 @@ def test_real_about_page_not_treated_as_login_wall():
     html = """
     <div>About Sutter Buttes Real Estate</div>
     <div>Address: 123 Main St, Yuba City CA</div>
-    <div>Email: <a href="mailto:info@sbre.com">info@sbre.com</a></div>
+    <div>Email: <a href="mailto:info@example-realty.com">info@example-realty.com</a></div>
     """
     assert _is_facebook_login_wall(html) is False
 

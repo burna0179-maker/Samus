@@ -22,7 +22,7 @@ def test_schedule_and_due(isolated):
         prospect_id="p1",
         callback_date="2026-07-06",
         company="Kattuah DDS",
-        phone="(530) 741-9411",
+        phone="(530) 555-0117",
         reason="closed for vacation",
     )
     # Not due before the date.

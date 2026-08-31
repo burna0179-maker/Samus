@@ -6,8 +6,8 @@ captures them on a live call ("just email info@..."). Both are spoofable — a
 crawler picks up a garbled string, and a gatekeeper reads out a brush-off
 address to get the caller off the phone.
 
-A real example, 2026-05-21: a receptionist offered ``info@magnolia-.com`` for
-*Magnolia Modern Dentistry*. The domain label ``magnolia-`` ends in a hyphen,
+A real example, 2026-05-21: a receptionist offered ``info@juniper-.com`` for
+*Juniper Modern Dentistry*. The domain label ``juniper-`` ends in a hyphen,
 which no hostname label may (RFC 1035 §2.3.1), so that address can never
 receive mail — a textbook misdirection that a permissive extraction regex
 would nonetheless wave through.
@@ -16,7 +16,7 @@ This module is the deterministic, zero-token check for exactly that. It does
 two things — *identify* and *reason*:
 
   * :func:`is_valid_email_syntax` / :func:`email_syntax_error` — apply the
-    hostname rules so a structurally-impossible address (``info@magnolia-.com``,
+    hostname rules so a structurally-impossible address (``info@juniper-.com``,
     ``info@-x.com``, ``info@x..com``) is caught for what it is.
   * :func:`assess_email` — goes further: given what Samus already knows about
     the business (its website domain, its name, any on-file address), it
@@ -111,8 +111,8 @@ def email_syntax_error(email: str) -> str | None:
     """Return a plain-language reason ``email`` is malformed, or None if valid.
 
     The domain is checked against RFC 1035 §2.3.1 hostname rules — the check
-    that catches a misdirection address like ``info@magnolia-.com`` (the label
-    ``magnolia-`` ends with a hyphen, which no hostname label may).
+    that catches a misdirection address like ``info@juniper-.com`` (the label
+    ``juniper-`` ends with a hyphen, which no hostname label may).
     """
     raw = (email or "").strip()
     if not raw:
@@ -165,7 +165,7 @@ def is_valid_email_syntax(email: str) -> bool:
 # ---------------------------------------------------------------------------
 
 # Role / system / department local-parts that must never be COLD-emailed.
-# A footer scrape (``bugreport@moatable.com`` lifted onto the Erik Tejeda call
+# A footer scrape (``bugreport@vendorplatform-example.com`` lifted onto the Jordan Vega call
 # card, 2026-06-22) or a department alias (``info@``, ``sales@``) is not a
 # prospect's personal inbox — cold-mailing it draws spam complaints and burns
 # the SendGrid sender-domain reputation. The address may still be stored on the
@@ -252,7 +252,7 @@ def _known_domains(website_url: str, extra_domains: tuple[str, ...]) -> set[str]
 
 
 def _domain_stem(domain: str) -> str:
-    """The alphanumeric stem of a domain's first label — ``magnolia-`` -> ``magnolia``."""
+    """The alphanumeric stem of a domain's first label — ``juniper-`` -> ``juniper``."""
     first = (domain or "").lower().split(".", 1)[0]
     return re.sub(r"[^a-z0-9]", "", first)
 
@@ -268,7 +268,7 @@ def _resembles(domain: str, known: set[str], business_name: str) -> str:
 
     A prefix match either way — the offered stem is a prefix of a known stem,
     or vice versa — is the signature of a truncated / misheard / misdirected
-    domain (``magnolia-`` vs the real ``magnolia-modern``).
+    domain (``juniper-`` vs the real ``juniper-modern``).
     """
     stem = _domain_stem(domain)
     if len(stem) < _MIN_STEM:

@@ -272,7 +272,7 @@ def test_callsheet_finding_round_trips_through_csv(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def _fake_voice_settings(monkeypatch, *, rep="Morgan", callback="(530) 418-5105"):
+def _fake_voice_settings(monkeypatch, *, rep="Morgan", callback="(530) 555-0105"):
     class _S:
         samus_voice_rep_name = rep
         samus_voice_callback_number = callback
@@ -299,10 +299,10 @@ def test_placeholders_substituted_in_opener_and_voicemail(monkeypatch):
         assert "[PHONE]" not in vv[key], f"{key} still has [PHONE]"
     assert "Morgan" in vv["callsheet_opener"]
     assert "Morgan" in vv["callsheet_voicemail"]
-    assert "(530) 418-5105" in vv["callsheet_voicemail"]
+    assert "(530) 555-0105" in vv["callsheet_voicemail"]
     # Raw vars exposed for direct {{rep_name}} / {{callback_number}} use.
     assert vv["rep_name"] == "Morgan"
-    assert vv["callback_number"] == "(530) 418-5105"
+    assert vv["callback_number"] == "(530) 555-0105"
 
 
 def test_placeholder_substitution_case_insensitive(monkeypatch):
@@ -1072,7 +1072,7 @@ def _capture_adapter_call(monkeypatch, variable_values):
     class _S:
         vapi_api_key = "k"
         samus_voice_rep_name = "Morgan"
-        samus_voice_callback_number = "(530) 418-5105"
+        samus_voice_callback_number = "(530) 555-0105"
 
     import backend.voice.client as client_mod
 

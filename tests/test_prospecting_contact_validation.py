@@ -3,8 +3,8 @@
 ``backend.prospecting.contact_validation`` is the deterministic check that a
 contact email is structurally deliverable and actually tied to the business —
 the guard against a garbled scrape or a gatekeeper's brush-off address. The
-motivating real case (2026-05-21): a receptionist offered ``info@magnolia-.com``
-for *Magnolia Modern Dentistry* — a domain label may not end in a hyphen.
+motivating real case (2026-05-21): a receptionist offered ``info@juniper-.com``
+for *Juniper Modern Dentistry* — a domain label may not end in a hyphen.
 """
 
 from __future__ import annotations
@@ -21,8 +21,8 @@ from backend.prospecting.contact_validation import (
 
 def test_well_formed_addresses_are_valid():
     for ok in (
-        "info@magnolia-modern.com",  # interior hyphen is fine
-        "manager@dentistyubacity.com",
+        "info@juniper-modern.com",  # interior hyphen is fine
+        "manager@example-dental.com",
         "first.last@sub.domain.org",
         "a@b.co",
         "owner+tag@example.io",
@@ -32,30 +32,30 @@ def test_well_formed_addresses_are_valid():
 
 
 def test_trailing_hyphen_label_is_malformed():
-    """The Magnolia case — a label ending in '-' is not a valid hostname."""
-    err = email_syntax_error("info@magnolia-.com")
+    """The Juniper case — a label ending in '-' is not a valid hostname."""
+    err = email_syntax_error("info@juniper-.com")
     assert err is not None
     assert "hyphen" in err
-    assert is_valid_email_syntax("info@magnolia-.com") is False
+    assert is_valid_email_syntax("info@juniper-.com") is False
 
 
 def test_leading_hyphen_label_is_malformed():
-    assert is_valid_email_syntax("info@-magnolia.com") is False
-    assert "hyphen" in (email_syntax_error("info@-magnolia.com") or "")
+    assert is_valid_email_syntax("info@-juniper.com") is False
+    assert "hyphen" in (email_syntax_error("info@-juniper.com") or "")
 
 
 def test_other_malformed_addresses_are_rejected():
     for bad in (
         "",  # empty
-        "infomagnolia.com",  # no @
-        "info@@magnolia.com",  # two @
-        "@magnolia.com",  # empty local
+        "infojuniper.com",  # no @
+        "info@@juniper.com",  # two @
+        "@juniper.com",  # empty local
         "info@",  # empty domain
-        "info@magnolia",  # no TLD
-        "info@magnolia..com",  # doubled dot / empty label
+        "info@juniper",  # no TLD
+        "info@juniper..com",  # doubled dot / empty label
         "info@.com",  # empty leading label
-        "info@magnolia.c",  # TLD too short
-        ".info@magnolia.com",  # leading dot in local
+        "info@juniper.c",  # TLD too short
+        ".info@juniper.com",  # leading dot in local
     ):
         assert is_valid_email_syntax(bad) is False, bad
         assert email_syntax_error(bad) is not None, bad
@@ -64,32 +64,32 @@ def test_other_malformed_addresses_are_rejected():
 # --- assess_email: the malformed / misdirection verdict --------------------
 
 
-def test_assess_flags_the_magnolia_misdirection():
-    """info@magnolia-.com offered for Magnolia Modern Dentistry — malformed,
-    and recognisably a garble of the real magnolia-modern.com domain."""
+def test_assess_flags_the_juniper_misdirection():
+    """info@juniper-.com offered for Juniper Modern Dentistry — malformed,
+    and recognisably a garble of the real juniper-modern.com domain."""
     a = assess_email(
-        "info@magnolia-.com",
-        business_name="Magnolia Modern Dentistry",
-        website_url="https://www.dentistyubacity.com/",
-        extra_domains=("magnolia-modern.com",),
+        "info@juniper-.com",
+        business_name="Juniper Modern Dentistry",
+        website_url="https://www.example-dental.com/",
+        extra_domains=("juniper-modern.com",),
     )
     assert a.verdict == "malformed"
     assert a.valid_syntax is False
     assert a.is_trustworthy is False
     joined = " ".join(a.reasons).lower()
     assert "hyphen" in joined
-    assert "magnolia-modern.com" in joined  # spotted the resemblance
+    assert "juniper-modern.com" in joined  # spotted the resemblance
 
 
 def test_assess_resembles_business_name_without_an_on_file_domain():
     """Even with no on-file domain, a garbled domain is matched to the name."""
     a = assess_email(
-        "info@magnolia-.com",
-        business_name="Magnolia Modern Dentistry",
-        website_url="https://www.dentistyubacity.com/",
+        "info@juniper-.com",
+        business_name="Juniper Modern Dentistry",
+        website_url="https://www.example-dental.com/",
     )
     assert a.verdict == "malformed"
-    assert any("magnolia modern dentistry" in r.lower() for r in a.reasons)
+    assert any("juniper modern dentistry" in r.lower() for r in a.reasons)
 
 
 # --- assess_email: valid / suspect verdicts --------------------------------
@@ -97,9 +97,9 @@ def test_assess_resembles_business_name_without_an_on_file_domain():
 
 def test_assess_domain_matching_website_is_valid():
     a = assess_email(
-        "manager@dentistyubacity.com",
-        business_name="Magnolia Modern Dentistry",
-        website_url="https://www.dentistyubacity.com/",
+        "manager@example-dental.com",
+        business_name="Juniper Modern Dentistry",
+        website_url="https://www.example-dental.com/",
     )
     assert a.verdict == "valid"
     assert a.is_trustworthy is True
@@ -107,9 +107,9 @@ def test_assess_domain_matching_website_is_valid():
 
 def test_assess_on_file_domain_is_valid():
     a = assess_email(
-        "info@magnolia-modern.com",
-        business_name="Magnolia Modern Dentistry",
-        extra_domains=("magnolia-modern.com",),
+        "info@juniper-modern.com",
+        business_name="Juniper Modern Dentistry",
+        extra_domains=("juniper-modern.com",),
     )
     assert a.verdict == "valid"
 
@@ -117,8 +117,8 @@ def test_assess_on_file_domain_is_valid():
 def test_assess_unrelated_domain_is_suspect():
     a = assess_email(
         "info@randomcorp.com",
-        business_name="Magnolia Modern Dentistry",
-        website_url="https://dentistyubacity.com",
+        business_name="Juniper Modern Dentistry",
+        website_url="https://example-dental.com",
     )
     assert a.verdict == "suspect"
     assert a.valid_syntax is True  # syntactically fine...
@@ -128,9 +128,9 @@ def test_assess_unrelated_domain_is_suspect():
 
 def test_assess_consumer_mailbox_is_valid_but_noted():
     a = assess_email(
-        "magnoliadental@gmail.com",
-        business_name="Magnolia Modern Dentistry",
-        website_url="https://dentistyubacity.com",
+        "juniperdental@gmail.com",
+        business_name="Juniper Modern Dentistry",
+        website_url="https://example-dental.com",
     )
     assert a.verdict == "valid"
     assert "consumer" in " ".join(a.reasons).lower()
@@ -151,12 +151,12 @@ def test_enrichment_drops_malformed_scraped_email():
     from backend.prospecting.enrichment import _extract_emails
 
     html = (
-        '<a href="mailto:manager@dentistyubacity.com">Email us</a>'
-        "<p>Or reach the admin at info@magnolia-.com today.</p>"
+        '<a href="mailto:manager@example-dental.com">Email us</a>'
+        "<p>Or reach the admin at info@juniper-.com today.</p>"
     )
     emails = _extract_emails(html)
-    assert "manager@dentistyubacity.com" in emails
-    assert "info@magnolia-.com" not in emails
+    assert "manager@example-dental.com" in emails
+    assert "info@juniper-.com" not in emails
     assert all(is_valid_email_syntax(e) for e in emails)
 
 
@@ -181,9 +181,9 @@ def test_cli_flags_a_malformed_contact_nonzero_exit():
     code, out = _run_cli(
         [
             "--email",
-            "info@magnolia-.com",
+            "info@juniper-.com",
             "--company",
-            "Magnolia Modern Dentistry",
+            "Juniper Modern Dentistry",
         ]
     )
     assert code == 1  # non-zero so the caller can branch
@@ -196,9 +196,9 @@ def test_cli_passes_a_valid_matching_contact():
     code, out = _run_cli(
         [
             "--email",
-            "manager@dentistyubacity.com",
+            "manager@example-dental.com",
             "--website",
-            "https://www.dentistyubacity.com/",
+            "https://www.example-dental.com/",
         ]
     )
     assert code == 0
@@ -211,9 +211,9 @@ def test_cli_flags_a_suspect_offdomain_contact():
             "--email",
             "info@randomcorp.com",
             "--company",
-            "Magnolia Modern Dentistry",
+            "Juniper Modern Dentistry",
             "--website",
-            "https://dentistyubacity.com",
+            "https://example-dental.com",
         ]
     )
     assert code == 1

@@ -225,7 +225,7 @@ def test_high_volume_alone_drives_manual_ops_primary():
 
 
 def test_high_volume_leads_with_automation_over_security_f():
-    """The Magnolia case: a high-volume practice with a security-F site leads
+    """The Juniper case: a high-volume practice with a security-F site leads
     with the automation angle; the trust gap rides as the pivot."""
     intel = derive_callsheet_intel(
         _p(

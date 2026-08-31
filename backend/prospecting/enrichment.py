@@ -85,8 +85,8 @@ _BLOCKED_LOCAL_PREFIXES = (
     # Third-party-platform telltales: a footer-scraped address whose local
     # part is one of these is the host platform's own engineering/ops alias,
     # never a sales contact for the prospect. Cold-mailing them burns the
-    # SendGrid domain. (Real example 2026-06-22: bugreport@moatable.com on
-    # the Erik Tejeda call card.)
+    # SendGrid domain. (Real example 2026-06-22: bugreport@vendorplatform-example.com on
+    # the Jordan Vega call card.)
     "bugreport",
     "bug-report",
     "bugs",
@@ -122,7 +122,7 @@ _BLOCKED_DOMAINS = frozenset(
         "sentry.com",
         # Third-party platform/CMS vendors whose contact addresses turn up in
         # site footers and are never the prospect's own mailbox.
-        "moatable.com",
+        "vendorplatform-example.com",
         "bugsnag.com",
         "rollbar.com",
         "pagerduty.com",
@@ -202,7 +202,7 @@ def _extract_emails(html: str) -> list[str]:
 
     mailto: addresses first. ``_EMAIL_RE`` is a permissive *extraction* regex —
     it will happily match a structurally-impossible string like
-    ``magnolia-.com`` (a label may not end in a hyphen) — so every candidate is
+    ``juniper-.com`` (a label may not end in a hyphen) — so every candidate is
     passed through :func:`contact_validation.is_valid_email_syntax` before it is
     kept, and a malformed string is dropped rather than stored as a contact.
     """

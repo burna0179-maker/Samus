@@ -508,7 +508,7 @@ def _build_variable_values(p: ProspectRecord) -> dict[str, str]:
     """
     settings = get_settings()
     rep = (getattr(settings, "samus_voice_rep_name", "") or "Morgan").strip()
-    callback = (getattr(settings, "samus_voice_callback_number", "") or "(530) 418-5105").strip()
+    callback = (getattr(settings, "samus_voice_callback_number", "") or "(530) 555-0105").strip()
 
     def _fill(text: str | None) -> str:
         return _fill_callsheet_placeholders(text or "", rep_name=rep, callback=callback)

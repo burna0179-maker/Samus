@@ -7,15 +7,15 @@ import pytest
 
 _SAMPLE_PLACE = {
     "id": "ChIJ_test_1",
-    "displayName": {"text": "Nav Accounts"},
-    "formattedAddress": "100 Main St, Yuba City, CA 95993",
+    "displayName": {"text": "Harbor Ledger Accounting"},
+    "formattedAddress": "100 Main St, Riverton, CA 95900",
     "addressComponents": [
         {"types": ["locality"], "longText": "Yuba City", "shortText": "Yuba City"},
         {"types": ["administrative_area_level_1"], "longText": "California", "shortText": "CA"},
         {"types": ["postal_code"], "longText": "95993", "shortText": "95993"},
     ],
-    "nationalPhoneNumber": "(530) 777-3265",
-    "websiteUri": "https://navaccounts.com/",
+    "nationalPhoneNumber": "(530) 555-0126",
+    "websiteUri": "https://harborledger-example.com/",
     "types": ["accounting", "finance"],
     "rating": 4.8,
     "userRatingCount": 23,
@@ -104,9 +104,9 @@ def test_place_to_prospect_maps_fields():
     p = place_to_prospect(_SAMPLE_PLACE, zipcode="95993", industry="finance")
     assert p.prospect_id.startswith("pr_")
     assert p.account_id.startswith("acct_")
-    assert p.company_name == "Nav Accounts"
-    assert p.phone == "(530) 777-3265"
-    assert p.website_url == "https://navaccounts.com/"
+    assert p.company_name == "Harbor Ledger Accounting"
+    assert p.phone == "(530) 555-0126"
+    assert p.website_url == "https://harborledger-example.com/"
     assert p.city == "Yuba City"
     assert p.state == "CA"
     assert p.zipcode == "95993"

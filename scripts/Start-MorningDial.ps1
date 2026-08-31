@@ -114,7 +114,7 @@ if ($missing.Count -gt 0) {
 # `active`. The four previously-listed ids (a0d742b4, b93fbb87, 8554830e,
 # 4e944525, 33842c67) no longer exist in Vapi — keeping them routed 4/6 of every
 # batch to numbers that reject the call. Routine pool = the two TWILIO-OWNED
-# numbers (operator decision 2026-07-02): f775b297 = (530) 418-5105 (primary,
+# numbers (operator decision 2026-07-02): f775b297 = (530) 555-0105 (primary,
 # Morgan's number); 24b2b17a = (530) 792-9146 (imported 2026-07-02,
 # Morgan-bound). 21f79fb4 = (530) 220-1858 (marketing 2) is VAPI-NATIVE and
 # limited-use — kept OUT of the daily rotation; add it back explicitly via

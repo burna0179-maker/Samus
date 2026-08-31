@@ -965,7 +965,7 @@ class Settings(BaseModel):
     # opener/voicemail as Vapi variables. SAMUS_VOICE_REP_NAME /
     # SAMUS_VOICE_CALLBACK_NUMBER.
     samus_voice_rep_name: str = "Morgan"
-    samus_voice_callback_number: str = "(530) 418-5105"
+    samus_voice_callback_number: str = "(530) 555-0105"
     # Prior-call context injection (default OFF). When True, the dialer calls
     # backend.voice.prospect_profile.build_prospect_context(prospect_id) and
     # merges {prior_outcome, prior_notes, prior_contact_summary} into Vapi

@@ -10,8 +10,8 @@ Two layers under test:
     address in ``contact_emails``, and yields ``""`` (not-cold-sendable) when
     neither is usable.
 
-Motivating real case (2026-06-22): ``bugreport@moatable.com`` was scraped off a
-site footer and attached to the "Erik Tejeda" call card. Cold-mailing that
+Motivating real case (2026-06-22): ``bugreport@vendorplatform-example.com`` was scraped off a
+site footer and attached to the "Jordan Vega" call card. Cold-mailing that
 role mailbox burns the SendGrid sender-domain reputation.
 """
 
@@ -28,7 +28,7 @@ from backend.prospecting.contact_validation import is_cold_sendable_email
 
 def test_role_and_system_mailboxes_are_not_cold_sendable():
     for bad in (
-        "bugreport@moatable.com",  # the motivating footer scrape
+        "bugreport@vendorplatform-example.com",  # the motivating footer scrape
         "admin@acme.com",
         "support@acme.com",
         "noreply@acme.com",
@@ -53,7 +53,7 @@ def test_role_and_system_mailboxes_are_not_cold_sendable():
 
 
 def test_empty_and_malformed_addresses_are_not_cold_sendable():
-    for bad in ("", "   ", "not-an-email", "erik@magnolia-.com", "@acme.com"):
+    for bad in ("", "   ", "not-an-email", "erik@juniper-.com", "@acme.com"):
         assert is_cold_sendable_email(bad) is False, bad
 
 
@@ -61,7 +61,7 @@ def test_normal_personal_address_is_cold_sendable():
     for ok in (
         "erik.tejeda@acme.com",
         "etejeda@acme.com",
-        "jane@dentistyubacity.com",
+        "jane@example-dental.com",
         "owner+tag@example.io",
     ):
         assert is_cold_sendable_email(ok) is True, ok
@@ -86,21 +86,21 @@ def test_select_prefers_a_sendable_owner_email():
 
 
 def test_select_falls_back_when_owner_email_is_a_role_mailbox():
-    """bugreport@moatable.com sits in owner_email; the gate rejects it and
+    """bugreport@vendorplatform-example.com sits in owner_email; the gate rejects it and
     falls back to the sendable address in contact_emails."""
     p = _FakeProspect(
-        owner_email="bugreport@moatable.com",
-        contact_emails="bugreport@moatable.com; erik.tejeda@moatable.com",
+        owner_email="bugreport@vendorplatform-example.com",
+        contact_emails="bugreport@vendorplatform-example.com; jordan.vega@vendorplatform-example.com",
     )
-    assert _select_cold_send_email(p) == "erik.tejeda@moatable.com"
+    assert _select_cold_send_email(p) == "jordan.vega@vendorplatform-example.com"
 
 
 def test_select_returns_empty_when_nothing_is_sendable():
     """owner_email + every contact_emails entry is a role/system mailbox ->
     not cold-sendable (caller blocks the send)."""
     p = _FakeProspect(
-        owner_email="bugreport@moatable.com",
-        contact_emails="info@moatable.com; support@moatable.com",
+        owner_email="bugreport@vendorplatform-example.com",
+        contact_emails="info@vendorplatform-example.com; support@vendorplatform-example.com",
     )
     assert _select_cold_send_email(p) == ""
 

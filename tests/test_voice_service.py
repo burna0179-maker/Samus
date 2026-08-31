@@ -497,9 +497,9 @@ def test_webhook_validates_a_contact_offered_on_the_call(tmp_path, monkeypatch):
     event = VapiWebhookEvent.model_validate(
         _end_of_call_event(
             lead_summary={
-                "company": "Magnolia Modern Dentistry",
+                "company": "Juniper Modern Dentistry",
                 "recommended_action": "gatekeeper",
-                "contact_offered": "info@magnolia-.com",
+                "contact_offered": "info@juniper-.com",
             },
             metadata={"prospect_id": "pr_mag"},
         )
@@ -508,7 +508,7 @@ def test_webhook_validates_a_contact_offered_on_the_call(tmp_path, monkeypatch):
 
     crm_conv = next(c for c in captured if c["path"] == "/crm/conversations")
     assessment = crm_conv["payload"]["structured_data"]["contact_assessment"]
-    assert assessment["email"] == "info@magnolia-.com"
+    assert assessment["email"] == "info@juniper-.com"
     assert assessment["verdict"] == "malformed"
     assert assessment["valid_syntax"] is False
     assert assessment["reasons"]

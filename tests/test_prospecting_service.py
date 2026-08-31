@@ -30,9 +30,9 @@ def test_process_discovery_end_to_end(tmp_path, monkeypatch):
             ProspectRecord(
                 prospect_id="pr_test1",
                 account_id="acct_test1",
-                company_name="Nav Accounts",
-                phone="(530) 777-3265",
-                website_url="https://navaccounts.com/",
+                company_name="Harbor Ledger Accounting",
+                phone="(530) 555-0126",
+                website_url="https://harborledger-example.com/",
                 city="Yuba City",
                 state="CA",
                 zipcode="95993",

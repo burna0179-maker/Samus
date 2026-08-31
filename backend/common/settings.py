@@ -723,7 +723,7 @@ def bootstrap_settings() -> Settings:
         vapi_phone_number_id=_env("VAPI_PHONE_NUMBER_ID", "") or "",
         samus_voice_rep_name=_env("SAMUS_VOICE_REP_NAME", "Morgan") or "Morgan",
         samus_voice_callback_number=(
-            _env("SAMUS_VOICE_CALLBACK_NUMBER", "(530) 418-5105") or "(530) 418-5105"
+            _env("SAMUS_VOICE_CALLBACK_NUMBER", "(530) 555-0105") or "(530) 555-0105"
         ),
         # Prior-call context injection (default OFF). Arms the dialer's merge of
         # build_prospect_context() keys into Vapi variableValues.

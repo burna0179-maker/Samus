@@ -191,7 +191,7 @@ try {
         # Gatekeeper sub-prompt: a gatekeeper often deflects with "just email
         # <address>" instead of putting the call through - and that address is
         # sometimes a brush-off (a real 2026-05-21 call was handed the
-        # malformed "info@magnolia-.com"). Any offered contact is checked on the
+        # malformed "info@juniper-.com"). Any offered contact is checked on the
         # spot by backend.prospecting.contact_validation so a malformed or
         # off-domain address is caught before the operator wastes an email.
         $contactTag = ''

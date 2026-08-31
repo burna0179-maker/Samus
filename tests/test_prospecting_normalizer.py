@@ -21,6 +21,6 @@ def test_normalize_domain_handles_empty():
 def test_normalize_company():
     from backend.prospecting.normalizer import normalize_company
 
-    assert normalize_company("nav accounts") == "Nav Accounts"
+    assert normalize_company("nav accounts") == "Harbor Ledger Accounting"
     assert normalize_company("  acme roofing  ") == "Acme Roofing"
     assert normalize_company("") == ""
