@@ -9,6 +9,7 @@ finance webhook + upsell queue route correctly through the firestore backend.
 
 from __future__ import annotations
 
+import sys
 import uuid
 
 import pytest
@@ -297,8 +298,12 @@ def test_firestore_ledger_reclaim_refreshes_existing_claim():
 
 def test_firestore_ledger_default_client_errors_without_package(monkeypatch):
     # The lazy import path: with the package absent, construction fails loud
-    # rather than silently — the jsonl default is the documented fix.
+    # rather than silently — the jsonl default is the documented fix. The
+    # package may legitimately be installed (requirements.txt ships it for the
+    # Cloud Run posture), so absence is simulated: a None entry in sys.modules
+    # makes ``from google.cloud import firestore`` raise ImportError.
     monkeypatch.delenv("SAMUS_LEDGER_BACKEND", raising=False)
+    monkeypatch.setitem(sys.modules, "google.cloud.firestore", None)
     with pytest.raises(RuntimeError, match="google-cloud-firestore"):
         FirestoreLedger("c")
 

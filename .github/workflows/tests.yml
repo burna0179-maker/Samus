@@ -49,6 +49,12 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
 
+      - name: Provision ephemeral audit-ledger key
+        # The audit ledger refuses its dev fallback key outside development,
+        # and SAMUS_ENV=test counts as non-dev. A random per-run key keeps the
+        # HMAC chain real with no shared secret to manage.
+        run: echo "SAMUS_SHARED_HMAC_KEY=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+
       - name: Run pytest with coverage
         run: |
           pytest tests/test_common_*.py \
